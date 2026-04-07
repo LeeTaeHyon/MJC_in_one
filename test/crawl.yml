@@ -1,0 +1,31 @@
+name: MJC Crawler
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'   # 30분마다 실행
+  workflow_dispatch:          # 수동 실행 버튼
+    inputs:
+      mode:
+        description: 'crawl mode'
+        default: 'incremental'
+        type: choice
+        options: [incremental, full]
+
+jobs:
+  crawl:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests beautifulsoup4 firebase-admin
+
+      - name: Run crawler
+        env:
+          FIREBASE_KEY: ${{ secrets.FIREBASE_KEY }}
+          CRAWL_MODE: ${{ github.event.inputs.mode || 'incremental' }}
+        run: python crawler_mjc.py
