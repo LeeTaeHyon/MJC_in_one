@@ -42,3 +42,7 @@ Thumbs.db
 .env
 *.env
 serviceAccountKey.json
+google-services.json
+
+# FVM Version Cache
+.fvm/
