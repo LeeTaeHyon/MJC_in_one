@@ -1,8 +1,24 @@
-import requests
-import re
-from bs4 import BeautifulSoup
-from datetime import datetime
+import argparse
 import os
+import re
+import sys
+from datetime import datetime
+
+import requests
+from bs4 import BeautifulSoup
+
+# `python MJC_in_one/test/test_crawler_local.py` 처럼 상위 폴더에서 실행해도 crawler_mjc import 되도록
+_TEST_DIR = os.path.dirname(os.path.abspath(__file__))
+if _TEST_DIR not in sys.path:
+    sys.path.insert(0, _TEST_DIR)
+
+from google.api_core.exceptions import PermissionDenied
+
+from crawler_mjc import (  # noqa: E402
+    init_firebase,
+    min_post_date_hint,
+    save_to_firestore,
+)
 
 # crawler_mjc.py에서 필요한 설정과 함수만 가져오거나 복사합니다.
 # 여기서는 간단한 테스트를 위해 핵심 로직만 별도로 실행해봅니다.
@@ -123,12 +139,63 @@ def crawl_page(board: dict, page: int = 1) -> list[dict]:
             "title":     title,
             "url":       view_url,
             "date":      date_text,
+            "is_new":    False,
+            "created_at": datetime.now().isoformat(),
         })
 
     return results
 
+
+def _enrich_posts_for_firestore(posts: list[dict]) -> None:
+    """crawler_mjc.save_to_firestore 와 동일한 필드 형태로 맞춤."""
+    now = datetime.now().isoformat()
+    for p in posts:
+        p.setdefault("is_new", False)
+        p["created_at"] = now
+
+
+def sync_list_to_firestore() -> None:
+    """목록만 수집해 notices/{board_id}/posts 에 증분 저장 (본문 없음, 앱은 url로 상세 표시)."""
+    try:
+        print(f"[Firestore] {min_post_date_hint()}")
+        db = init_firebase()
+        for board in BOARDS:
+            print(f"\n[Firestore] [{board['name']}] 목록 동기화...")
+            posts = crawl_page(board, page=1)
+            _enrich_posts_for_firestore(posts)
+            save_to_firestore(db, board, posts)
+    except PermissionDenied as e:
+        msg = str(e)
+        if "firestore.googleapis.com" in msg or "SERVICE_DISABLED" in msg:
+            print(
+                "\n[Firestore] Cloud Firestore API가 프로젝트에서 꺼져 있거나 "
+                "데이터베이스가 아직 없습니다.\n"
+                "  1) Firebase 콘솔 → 빌드 → Firestore Database → 데이터베이스 만들기(또는 기존 DB 확인)\n"
+                "  2) Google Cloud 콘솔에서 Cloud Firestore API 사용 설정:\n"
+                "     https://console.developers.google.com/apis/library/firestore.googleapis.com\n"
+                "     (프로젝트를 서비스 계정 JSON과 동일하게 선택)\n"
+                "  API를 방금 켰다면 몇 분 후 다시 실행해 보세요.\n"
+            )
+        raise
+
+
 def main():
     import time
+
+    parser = argparse.ArgumentParser(
+        description="명지전문대 게시판 크롤러 (로컬 테스트 / Firestore 목록 동기화)",
+    )
+    parser.add_argument(
+        "--firebase",
+        action="store_true",
+        help="목록만 Firestore에 증분 저장 (serviceAccountKey.json 또는 FIREBASE_KEY 필요)",
+    )
+    args = parser.parse_args()
+
+    if args.firebase:
+        sync_list_to_firestore()
+        return
+
     print("\n" + "="*50)
     print("=== 명지전문대 공지사항 + 본문 크롤링 로컬 테스트 ===")
     print("="*50)
