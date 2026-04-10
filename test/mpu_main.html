@@ -1,0 +1,985 @@
+
+
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <title>명지전문대학</title>
+    <link rel="stylesheet" href="/main/main_style/css/style.css">
+    <script src="https://code.jquery.com/jquery-3.4.1.min.js"
+        integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo=" crossorigin="anonymous"></script>
+
+    <link rel="stylesheet" type="text/css" href="/dhtml/js/2019/slick/slick.css">
+    <link rel="stylesheet" type="text/css" href="/dhtml/js/2019/slick/slick-theme.css">
+    <script type="text/javascript" src="/dhtml/js/2019/slick/slick.min.js"></script>
+
+</head>
+<script type="text/javascript">
+    $(document).ready(function () {
+        $("#pro").val('1');
+    });
+
+        
+
+    function bizFind() {
+        $("#writeArea2").attr("src", "/biz/bizFindIDModal.aspx").css("height", "750px");
+    }
+
+    function logsubmit() {
+        if ($("input[name='rUserid']").val() == "") {
+            alert("아이디를 입력해주세요.");
+            $("input[name='rUserid']").focus();
+            return false;
+        } else if ($("input[name='rPW']").val() == "") {
+            alert("비밀번호를 입력해주세요.");
+            $("input[name='rPW']").focus();
+            return false;
+        }
+
+        //$("input[name='rUserid']").val(window.btoa($("input[name='rUserid']").val()));
+        //$("input[name='rPW']").val(window.btoa($("input[name='rPW']").val()));
+        logform1.submit();
+        $("input[name='rUserid']").val("");
+        $("input[name='rPW']").val("");
+    }
+
+    function proClick(click) {
+        $("#pro").val(click);
+
+        if (click == "1" || click == "3") {
+            // $(".forBiz").hide();
+            $(".forBiz").css({ 'visibility': 'hidden' });
+        } else {
+            // $(".forBiz").show();
+            $(".forBiz").css({ 'visibility': 'inherit' });
+        }
+    }
+
+    function enterkey() {
+        if (window.event.keyCode == 13) {
+            logsubmit();
+        }
+    }
+
+    function goTeacherGuide() {
+        alert("교수 계정 로그인 후 메뉴에서 확인하실 수 있습니다.");
+        window.open("https://drive.google.com/open?id=13rczLN-KS8ACNMjDHhqWmyGtILDvJ_vI");
+    }
+
+    function goAIinterview() {
+
+        event.preventDefault();
+
+
+        window.open('', "aiPostFrom");
+        aiForm.submit();
+    
+    }
+
+    function sevenDiagTest() {
+        event.preventDefault();
+
+        
+        alert('학생로그인 후 이용 가능합니다.');
+        location.href = "/main/login.aspx";
+        return false;
+        
+        window.open('', "sevenDiagForm");
+        sevenDiagForm.submit();
+    }
+
+    function sevenDiagResult() {
+        event.preventDefault();
+
+        
+        alert('학생로그인 후 이용 가능합니다.');
+        location.href = "/main/login.aspx";
+        return false;
+        
+
+        let sevenDiagForm = document.getElementById("sevenDiagForm");
+        sevenDiagForm.setAttribute("action", "https://www.guidance.co.kr/agMain/eTest/Result/MJU_Testisbe.asp");
+        window.open('', "sevenDiagForm");
+        sevenDiagForm.submit();
+    }
+
+</script>
+<style>
+    /*
+    .cc_main-menu-hover {
+        transform: translateX(-280px);
+    }
+*/
+    .tab_container .slick-active {
+        min-width: 1200px;
+    }
+
+    @media(max-width:1199px) {
+        .tab_container .slick-active {
+            min-width: 300px;
+        }
+    }
+</style>
+<body>
+
+    <form method="post" name="aiForm" id="aiForm" target="aiPostFrom" action="https://mjc.selfview.co.kr/index_first.html">
+        <input type="hidden" name="univ_name" id="univ_name" value="" /><!-- 이름 -->
+        <input type="hidden" name="univ_acc" id="univ_acc" value="" /><!-- 학번 -->
+        <input type="hidden" name="univ_email" id="univ_email" value="" /><!-- 이메일 -->
+        <input type="hidden" name="univ_study" id="univ_study" value="" /><!-- 학과 -->
+        
+    </form>
+
+
+    <form method="post" name="sevenDiagForm" id="sevenDiagForm" target="sevenDiagForm" action="https://www.guidance.co.kr/intgr/mainindex/uniOnTest.asp?certifynum2=A7938U">
+        <input type="hidden" name="membernum" id="membernum" value="" /><!-- 학번 -->
+        <input type="hidden" name="Usr_Name" id="Usr_Name" value="" /><!-- 이름 -->
+        <input type="hidden" name="Grade" id="Grade" value="" /><!-- 학년 -->
+    </form>
+
+
+
+    <form id="logform1" method="post" action="/main/loginPro.aspx">
+        <input type="hidden" id="pro" name="pro" value="1" />
+        <header class="cc_header">
+            <div class="cc_header-top">
+                <div class="cc_header-top-cont">
+                    <div class="cc_header-top-logo">
+                        <a href="#">
+                            <img src="/main/main_style/img/main_logo.png" alt="명지전문대학 SMART CARE 학생 역량 이력관리 시스템">
+                            <!--                            <span style="padding-bottom: 1.2rem !important;">SMART CARE<br>학생 역량 이력관리 시스템</span>-->
+                        </a>
+                    </div>
+                    <div class="cc_header-top-innet_menu">
+                        
+                        <a href="#">홈</a>
+                        <a href="#">서비스안내</a>
+                        <a href="javascript:window.open('https://www.mjc.ac.kr/mjcIndex.do')">대학홈페이지</a>
+                        <ol>
+                            
+                            <li><a href="/Main/Login.aspx">로그인</a></li>
+                            <li><a href="/Biz/BizForm.aspx">기업회원가입</a></li>
+                            
+                        </ol>
+                    </div>
+                    <div class="cc_header-top-menu_icon">
+                        <span class="icon_menu"></span>
+                    </div>
+                </div>
+
+
+            </div>
+            <nav class="cc_header-nav">
+                <ul>
+                    
+                    
+                    <li><a href="javascript:notLogin();">마이페이지</a></li>
+                    
+                    <li><a href="javascript:notLogin();">상담예약</a></li>
+                    <li><a href="javascript:notLogin();">마이역량로드맵</a></li>
+                    <li><a href="javascript:notLogin();">진로역량설계</a></li>
+                    <li><a href="javascript:notLogin();">핵심역량개발</a></li>
+                    <li><a href="javascript:notLogin();">취업역량강화</a></li>
+                    <li><a href="javascript:notLogin();">진단실시</a></li>
+                    
+                    <li><a href="javascript:notLogin();">취업정보</a></li>
+                    
+                </ul>
+            </nav>
+            <!-- 모바일 메뉴 (nav ul, inner_menu ol node 가져옴) -->
+            <menu class="cc_header-menu"></menu>
+        </header>
+        <main>
+
+            <section class="cc_main">
+                <div class="cc_main_text">
+                    <div class="cc_main_text_inner">
+                        <p>THE MYONGJI COLLEGE</p>
+                        <p>스마트케어(SMART CARE)시스템</p>
+                        <p>“더” 전문적인 인재로 커 나가는 곳</p>
+                    </div>
+                </div>
+                <div class="cc_main_bg1 mySwiper">
+                    <div class="swiper-slide swiper-slide1"></div>
+                    <div class="swiper-slide swiper-slide2"></div>
+                    <div class="swiper-slide swiper-slide3"></div>
+                    <div class="swiper-slide swiper-slide4"></div>
+                    <div class="swiper-slide swiper-slide5"></div>
+                </div>
+
+                <ul class="cc_main-menu">
+                    <li class="cc_main-menu-list_1">
+                        <div class="cc_main-menu-hover">
+                            <div class="cc_main-menu-hover-cont">
+                                <h3>진로역량설계</h3>
+                                <p>
+                                    대학생들의 첫걸음<i>!</i><br>
+                                    진로를 탐색해보고, 미래를 설계하세요.
+                                </p>
+                                <ol id="roadmapdiv1"><li><a href='javascript:notLogin();'>진로적성검사</a></li><li><a href='javascript:notLogin();'>진로준비도검사</a></li><li><a href='javascript:notLogin();'>직업선호도검사L형</a></li><li><a href='javascript:notLogin();'>목표직업탐색</a></li><li><a href='javascript:notLogin();'>목표가치선정</a></li><li><a href='#' onclick='sevenDiagTest()'>신규 진단검사7종 실시</a></li></ol>
+                            </div>
+                        </div>
+                        <div class="cc_main-menu-title">
+                            <i class="icon-icon_1"></i>
+                            <h4>진로역량설계</h4>
+                            <span class="icon_plus"></span>
+                        </div>
+                    </li>
+                    <li class="cc_main-menu-list_2">
+                        <div class="cc_main-menu-hover">
+                            <div class="cc_main-menu-hover-cont">
+                                <h3>핵심역량개발</h3>
+                                <p>
+                                    나의 목표를 현실로<i>!</i><br>
+                                    경쟁력을 갖춘 인재로 업그레이드
+                                </p>
+                                <ol id="roadmapdiv2"><li><a href='javascript:notLogin();'>핵심역량진단</a></li><li><a href='javascript:notLogin();'>핵심역량계획</a></li><li><a href='javascript:notLogin();'>역량마일리지</a></li><li><a href='javascript:notLogin();'>핵심역량프로그램</a></li><li><a href='javascript:notLogin();'>스마트케어인증제</a></li><li><a href='javascript:notLogin();'>직무역량로드맵</a></li><li><a href='javascript:notLogin();'>경력로드맵</a></li></ol>
+                            </div>
+                        </div>
+                        <div class="cc_main-menu-title">
+                            <i class="icon-icon_2"></i>
+                            <h4>핵심역량개발</h4>
+                            <span class="icon_plus"></span>
+                        </div>
+                    </li>
+                    <li class="cc_main-menu-list_3">
+                        <div class="cc_main-menu-hover">
+                            <div class="cc_main-menu-hover-cont">
+                                <h3>취업역량강화</h3>
+                                <p>
+                                    취업역량을 키우고,<br>
+                                    미래를 향한 준비를 시작하세요<i>!</i>
+                                </p>
+                                <ol id="roadmapdiv3"><li><a href='javascript:notLogin();'>목표기업탐색</a></li><li><a href='javascript:notLogin();'>채용정보</a></li><li><a href='javascript:notLogin();'>이력서작성</a></li><li><a href='javascript:notLogin();'>추천진행현황</a></li><li><a style="cursor: pointer;"  href='javascript:notLogin();'>AI 자기소개서/<br>모의면접</a></li></ol>
+                            </div>
+                        </div>
+                        <div class="cc_main-menu-title">
+                            <i class="icon-icon_3"></i>
+                            <h4>취업역량강화</h4>
+                            <span class="icon_plus"></span>
+                        </div>
+                    </li>
+                    <li class="cc_main-menu-list_4">
+                        <div class="cc_main-menu-hover">
+                            <div class="cc_main-menu-hover-cont">
+                                <h3>상담예약</h3>
+                                <p>
+                                    내 인생의 든든한 지원군이 필요할 때<i>!</i>
+                                    <br>
+                                    상담을 통해 해결을 찾아보세요.
+                                </p>
+                                <ol>
+                                    <li>
+                                        <a href="javascript:notLogin();">기초조사지</a>
+                                    </li>
+                                    <li>
+                                        <a href="javascript:notLogin();">교수님 상담</a>
+                                    </li>
+                                    <li>
+                                        <a href="javascript:notLogin();">취업(진로) 상담<br>
+                                            (잡카페)</a>
+                                    </li>
+                                    <li>
+                                        <a href="/Career/CounselCenter/CounselCenter.aspx">심리상담(상담센터)</a>
+                                    </li>
+                                    <li>
+                                        <a href="javascript:notLogin();">종합심리검사</a>
+                                    </li>
+                                </ol>
+                            </div>
+                        </div>
+                        <div class="cc_main-menu-title">
+                            <i class="icon-icon_4"></i>
+                            <h4>상담예약</h4>
+                            <span class="icon_plus"></span>
+                        </div>
+                    </li>
+                </ul>
+
+            </section>
+            <section class="cc_program">
+                <h2 class="text-center">핵심역량 프로그램</h2>
+                <h4 class="text-center">나의 역량개발을 위해 다양한 핵심역량 프로그램에 참여해보세요.</h4>
+                <div class="tabBox">
+                    <ul class="tabs">
+                        <li class="active" rel="tab1">전체</li>
+                        <li rel="tab2">학습</li>
+                        <li rel="tab3">심리상담</li>
+                        <li rel="tab4">진로</li>
+                        <li rel="tab5">취업</li>
+                        <li rel="tab6">창업</li>
+                    </ul>
+                    <style>
+                    
+                    </style>
+                    <div id="programZone" class="tab_container"><div id="tab1" class="tab_content"><div class="ex_slide2"><div><ul><ul><li class="ex_slide2_li all-list"><h3 class="text-center">핵심역량 프로그램</h3><ul><li><div><p>6</p><span>2026-03</span></div><p>듣말쓰 챌린지 : 기초문해력(심화)</p></li><li><div><p>6</p><span>2026-03</span></div><p>듣말쓰 챌린지 : 기초문해력(확산)</p></li><li><div><p>1</p><span>2026-03</span></div><p>2026학년 1학기 전자정보(E-learni...</p></li><li><div><p>3</p><span>2026-03</span></div><p>2026학년도 1학기 도서관 이용교육</p></li><li><div><p>1</p><span>2026-03</span></div><p>[혁신] 2026학년도 잡카페 취업중...</p></li></ul><a style='cursor:pointer' onclick='notLogin()'>전체보기</a></li><li class="ex_slide2_li"><div class="d-div"><img style='width:283px;height:176px' src='/upload/programplan/imgMAin/6243_005.jpg'/><span class="d-day">D-23</span></div><div class="p-15"><h5></h5><h6>듣말쓰 챌린지 : 기초문해력(심화)</h6><h6>분반명 : 1</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#의사소통능력</span><span>#자기개발능력</span><span>#문제해결능력</span></dd></dl><p class="cal">신청 : 2026.03.06(금) ~ 2026.05.04(월)</p><p class="cal cal-border-none">교육 : 2026.05.06(수) ~ 2026.05.06(수)</p></div><div class="d-div-hover"><span class="d-day-hover">D-23</span><div class="p-15"><h5></h5><h6>듣말쓰 챌린지 : 기초문해력(심화)</h6><h6>분반명 : 1</h6><div class="capa-hover"><span>#의사소통능력</span><span>#자기개발능력</span><span>#문제해결능력</span></div><p class="cal2">신청 : 2026.03.06(금) ~ 2026.05.04(월)</p><p class="cal2">교육 : 2026.05.06(수) ~ 2026.05.06(수)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> <li class="ex_slide2_li"><div class="d-div"><img style='width:283px;height:176px' src='/upload/programplan/imgMAin/6245_006.jpg'/><span class="d-day">D-31</span></div><div class="p-15"><h5></h5><h6>듣말쓰 챌린지 : 기초문해력(확산)</h6><h6>분반명 : 1</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#의사소통능력</span><span>#자기개발능력</span><span>#문제해결능력</span></dd></dl><p class="cal">신청 : 2026.03.06(금) ~ 2026.05.12(화)</p><p class="cal cal-border-none">교육 : 2026.05.13(수) ~ 2026.05.13(수)</p></div><div class="d-div-hover"><span class="d-day-hover">D-31</span><div class="p-15"><h5></h5><h6>듣말쓰 챌린지 : 기초문해력(확산)</h6><h6>분반명 : 1</h6><div class="capa-hover"><span>#의사소통능력</span><span>#자기개발능력</span><span>#문제해결능력</span></div><p class="cal2">신청 : 2026.03.06(금) ~ 2026.05.12(화)</p><p class="cal2">교육 : 2026.05.13(수) ~ 2026.05.13(수)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> <li class="ex_slide2_li"><div class="d-div"><img style='width:283px;height:176px' src='/upload/programplan/imgMAin/6331_2026-1학기 도서관 전자정보(E-Learning) 활성화 이벤트 웹포스터.jpg'/><span class="d-day">D-50</span></div><div class="p-15"><h5></h5><h6>2026학년 1학기 전자정보(E-learning) 활성화 우수 이용자 이벤트</h6><h6>분반명 : 1차수</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#미래기술융합능력</span><span>#자기개발능력</span><span>#변화대응능력</span></dd></dl><p class="cal">신청 : 2026.03.01(일) ~ 2026.05.31(일)</p><p class="cal cal-border-none">교육 : 2026.03.01(일) ~ 2026.05.31(일)</p></div><div class="d-div-hover"><span class="d-day-hover">D-50</span><div class="p-15"><h5></h5><h6>2026학년 1학기 전자정보(E-learning) 활성화 우수 이용자 이벤트</h6><h6>분반명 : 1차수</h6><div class="capa-hover"><span>#미래기술융합능력</span><span>#자기개발능력</span><span>#변화대응능력</span></div><p class="cal2">신청 : 2026.03.01(일) ~ 2026.05.31(일)</p><p class="cal2">교육 : 2026.03.01(일) ~ 2026.05.31(일)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> <li class="ex_slide2_li"><div class="d-div"><img style='width:283px;height:176px' src='/upload/programplan/imgMAin/6267_2026학년도 1학기 도서관 이용자교육 포스터(mpu용).jpg'/><span class="d-day">D-58</span></div><div class="p-15"><h5></h5><h6>2026학년도 1학기 도서관 이용교육</h6><h6>분반명 : 1차수</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#미래기술융합능력</span><span>#자기개발능력</span><span>#의사소통능력</span></dd></dl><p class="cal">신청 : 2026.03.03(화) ~ 2026.06.07(일)</p><p class="cal cal-border-none">교육 : 2026.03.03(화) ~ 2026.06.07(일)</p></div><div class="d-div-hover"><span class="d-day-hover">D-58</span><div class="p-15"><h5></h5><h6>2026학년도 1학기 도서관 이용교육</h6><h6>분반명 : 1차수</h6><div class="capa-hover"><span>#미래기술융합능력</span><span>#자기개발능력</span><span>#의사소통능력</span></div><p class="cal2">신청 : 2026.03.03(화) ~ 2026.06.07(일)</p><p class="cal2">교육 : 2026.03.03(화) ~ 2026.06.07(일)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> <li class="ex_slide2_li"><div class="d-div"><img style='width:283px;height:176px' src='/upload/programplan/imgMAin/6322^3_639100553060176451.png'/><span class="d-day">D+40</span></div><div class="p-15"><h5></h5><h6>2026-1학기 취업 온라인 콘텐츠 비교과 프로그램</h6><h6>분반명 : 1</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#자기개발능력</span><span>#의사소통능력</span><span>#문제해결능력</span></dd></dl><p class="cal">신청 : 2026.03.01(일) ~ 2026.03.01(일)</p><p class="cal cal-border-none">교육 : 2026.04.01(수) ~ 2026.04.01(수)</p></div><div class="d-div-hover"><span class="d-day-hover">D+40</span><div class="p-15"><h5></h5><h6>2026-1학기 취업 온라인 콘텐츠 비교과 프로그램</h6><h6>분반명 : 1</h6><div class="capa-hover"><span>#자기개발능력</span><span>#의사소통능력</span><span>#문제해결능력</span></div><p class="cal2">신청 : 2026.03.01(일) ~ 2026.03.01(일)</p><p class="cal2">교육 : 2026.04.01(수) ~ 2026.04.01(수)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> <li class="ex_slide2_li"><div class="d-div"><img src="/Main/main_style/img/default_banner.jpg" alt=""><span class="d-day">D+40</span></div><div class="p-15"><h5></h5><h6>[혁신] 2026학년도 직무·기업 타겟형 프로그램</h6><h6>분반명 : 1</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#자기개발능력</span><span>#의사소통능력</span><span>#문제해결능력</span></dd></dl><p class="cal">신청 : 2026.03.01(일) ~ 2026.03.01(일)</p><p class="cal cal-border-none">교육 : 2026.04.01(수) ~ 2026.04.01(수)</p></div><div class="d-div-hover"><span class="d-day-hover">D+40</span><div class="p-15"><h5></h5><h6>[혁신] 2026학년도 직무·기업 타겟형 프로그램</h6><h6>분반명 : 1</h6><div class="capa-hover"><span>#자기개발능력</span><span>#의사소통능력</span><span>#문제해결능력</span></div><p class="cal2">신청 : 2026.03.01(일) ~ 2026.03.01(일)</p><p class="cal2">교육 : 2026.04.01(수) ~ 2026.04.01(수)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> <li class="ex_slide2_li"><div class="d-div"><img style='width:283px;height:176px' src='/upload/programplan/imgMAin/6318^3_639100536148796913.png'/><span class="d-day">D+40</span></div><div class="p-15"><h5></h5><h6>[혁신] 2026학년도 잡카페 취업중심 상담·연계 위탁사업</h6><h6>분반명 : 1</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#자기개발능력</span><span>#의사소통능력</span><span>#문제해결능력</span></dd></dl><p class="cal">신청 : 2026.03.01(일) ~ 2026.03.01(일)</p><p class="cal cal-border-none">교육 : 2026.04.01(수) ~ 2026.04.01(수)</p></div><div class="d-div-hover"><span class="d-day-hover">D+40</span><div class="p-15"><h5></h5><h6>[혁신] 2026학년도 잡카페 취업중심 상담·연계 위탁사업</h6><h6>분반명 : 1</h6><div class="capa-hover"><span>#자기개발능력</span><span>#의사소통능력</span><span>#문제해결능력</span></div><p class="cal2">신청 : 2026.03.01(일) ~ 2026.03.01(일)</p><p class="cal2">교육 : 2026.04.01(수) ~ 2026.04.01(수)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> </ul></div><div><ul><li class="ex_slide2_li"><div class="d-div"><img style='width:283px;height:176px' src='/upload/programplan/imgMAin/6316_붙임1. 진단검사 홍보 그림 파일 1부 (1).jpg'/><span class="d-day">D+40</span></div><div class="p-15"><h5></h5><h6>2026-1학기 학생역량이력관리시스템(Smart Care System) 진단검사</h6><h6>분반명 : 1</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#자기개발능력</span><span>#의사소통능력</span><span>#창의적사고능력</span></dd></dl><p class="cal">신청 : 2026.03.01(일) ~ 2026.03.01(일)</p><p class="cal cal-border-none">교육 : 2026.04.01(수) ~ 2026.04.01(수)</p></div><div class="d-div-hover"><span class="d-day-hover">D+40</span><div class="p-15"><h5></h5><h6>2026-1학기 학생역량이력관리시스템(Smart Care System) 진단검사</h6><h6>분반명 : 1</h6><div class="capa-hover"><span>#자기개발능력</span><span>#의사소통능력</span><span>#창의적사고능력</span></div><p class="cal2">신청 : 2026.03.01(일) ~ 2026.03.01(일)</p><p class="cal2">교육 : 2026.04.01(수) ~ 2026.04.01(수)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> <li class="ex_slide2_li"><div class="d-div"><img style='width:283px;height:176px' src='/upload/programplan/imgMAin/6315_ChatGPT Image 2026년 3월 25일 오후 01_00_39.png'/><span class="d-day">D+40</span></div><div class="p-15"><h5></h5><h6>[혁신] 2026학년도 셀프뷰 가상면접 프로그램</h6><h6>분반명 : 1</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#자기개발능력</span><span>#창의적사고능력</span><span>#문제해결능력</span></dd></dl><p class="cal">신청 : 2026.03.01(일) ~ 2026.03.01(일)</p><p class="cal cal-border-none">교육 : 2026.04.01(수) ~ 2026.04.01(수)</p></div><div class="d-div-hover"><span class="d-day-hover">D+40</span><div class="p-15"><h5></h5><h6>[혁신] 2026학년도 셀프뷰 가상면접 프로그램</h6><h6>분반명 : 1</h6><div class="capa-hover"><span>#자기개발능력</span><span>#창의적사고능력</span><span>#문제해결능력</span></div><p class="cal2">신청 : 2026.03.01(일) ~ 2026.03.01(일)</p><p class="cal2">교육 : 2026.04.01(수) ~ 2026.04.01(수)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> <li class="ex_slide2_li"><div class="d-div"><img src="/Main/main_style/img/default_banner.jpg" alt=""><span class="d-day">D+27</span></div><div class="p-15"><h5></h5><h6>[진로탐색학점제] MBTI 성격유형검사(3월 17일)</h6><h6>분반명 : 1</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#대인관계능력</span><span>#자기개발능력</span><span>#문제해결능력</span></dd></dl><p class="cal">신청 : 2026.03.09(월) ~ 2026.03.13(금)</p><p class="cal cal-border-none">교육 : 2026.03.17(화) ~ 2026.03.17(화)</p></div><div class="d-div-hover"><span class="d-day-hover">D+27</span><div class="p-15"><h5></h5><h6>[진로탐색학점제] MBTI 성격유형검사(3월 17일)</h6><h6>분반명 : 1</h6><div class="capa-hover"><span>#대인관계능력</span><span>#자기개발능력</span><span>#문제해결능력</span></div><p class="cal2">신청 : 2026.03.09(월) ~ 2026.03.13(금)</p><p class="cal2">교육 : 2026.03.17(화) ~ 2026.03.17(화)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> <li class="ex_slide2_li"><div class="d-div"><img src="/Main/main_style/img/default_banner.jpg" alt=""><span class="d-day">D+27</span></div><div class="p-15"><h5></h5><h6>[진로탐색학점제] MBTI 성격유형검사(3월 18일)</h6><h6>분반명 : 2</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#대인관계능력</span><span>#자기개발능력</span><span>#문제해결능력</span></dd></dl><p class="cal">신청 : 2026.03.09(월) ~ 2026.03.13(금)</p><p class="cal cal-border-none">교육 : 2026.03.18(수) ~ 2026.03.18(수)</p></div><div class="d-div-hover"><span class="d-day-hover">D+27</span><div class="p-15"><h5></h5><h6>[진로탐색학점제] MBTI 성격유형검사(3월 18일)</h6><h6>분반명 : 2</h6><div class="capa-hover"><span>#대인관계능력</span><span>#자기개발능력</span><span>#문제해결능력</span></div><p class="cal2">신청 : 2026.03.09(월) ~ 2026.03.13(금)</p><p class="cal2">교육 : 2026.03.18(수) ~ 2026.03.18(수)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> <li class="ex_slide2_li"><div class="d-div"><img src="/Main/main_style/img/default_banner.jpg" alt=""><span class="d-day">D+27</span></div><div class="p-15"><h5></h5><h6>[진로탐색학점제] MBTI 성격유형검사(3월 20일)</h6><h6>분반명 : 1</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#대인관계능력</span><span>#자기개발능력</span><span>#문제해결능력</span></dd></dl><p class="cal">신청 : 2026.03.09(월) ~ 2026.03.13(금)</p><p class="cal cal-border-none">교육 : 2026.03.20(금) ~ 2026.03.20(금)</p></div><div class="d-div-hover"><span class="d-day-hover">D+27</span><div class="p-15"><h5></h5><h6>[진로탐색학점제] MBTI 성격유형검사(3월 20일)</h6><h6>분반명 : 1</h6><div class="capa-hover"><span>#대인관계능력</span><span>#자기개발능력</span><span>#문제해결능력</span></div><p class="cal2">신청 : 2026.03.09(월) ~ 2026.03.13(금)</p><p class="cal2">교육 : 2026.03.20(금) ~ 2026.03.20(금)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> <li class="ex_slide2_li"><div class="d-div"><img src="/Main/main_style/img/default_banner.jpg" alt=""><span class="d-day">D+27</span></div><div class="p-15"><h5></h5><h6>[진로탐색학점제] MBTI 성격유형검사(3월 19일)</h6><h6>분반명 : 1</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#대인관계능력</span><span>#자기개발능력</span><span>#문제해결능력</span></dd></dl><p class="cal">신청 : 2026.03.09(월) ~ 2026.03.13(금)</p><p class="cal cal-border-none">교육 : 2026.03.19(목) ~ 2026.03.19(목)</p></div><div class="d-div-hover"><span class="d-day-hover">D+27</span><div class="p-15"><h5></h5><h6>[진로탐색학점제] MBTI 성격유형검사(3월 19일)</h6><h6>분반명 : 1</h6><div class="capa-hover"><span>#대인관계능력</span><span>#자기개발능력</span><span>#문제해결능력</span></div><p class="cal2">신청 : 2026.03.09(월) ~ 2026.03.13(금)</p><p class="cal2">교육 : 2026.03.19(목) ~ 2026.03.19(목)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> <li class="ex_slide2_li"><div class="d-div"><img style='width:283px;height:176px' src='/upload/programplan/imgMAin/6247_007.jpg'/><span class="d-day">D+23</span></div><div class="p-15"><h5></h5><h6>듣말쓰 챌린지 : 글쓰기(기초)</h6><h6>분반명 : 1</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#의사소통능력</span><span>#자기개발능력</span><span>#문제해결능력</span></dd></dl><p class="cal">신청 : 2026.03.06(금) ~ 2026.03.18(수)</p><p class="cal cal-border-none">교육 : 2026.03.19(목) ~ 2026.03.19(목)</p></div><div class="d-div-hover"><span class="d-day-hover">D+23</span><div class="p-15"><h5></h5><h6>듣말쓰 챌린지 : 글쓰기(기초)</h6><h6>분반명 : 1</h6><div class="capa-hover"><span>#의사소통능력</span><span>#자기개발능력</span><span>#문제해결능력</span></div><p class="cal2">신청 : 2026.03.06(금) ~ 2026.03.18(수)</p><p class="cal2">교육 : 2026.03.19(목) ~ 2026.03.19(목)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> <li class="ex_slide2_li"><div class="d-div"><img src="/Main/main_style/img/default_banner.jpg" alt=""><span class="d-day">D+22</span></div><div class="p-15"><h5></h5><h6>[열린] MBTI 검사 및 해석상담</h6><h6>분반명 : 1</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#대인관계능력</span><span>#자기개발능력</span><span>#문제해결능력</span></dd></dl><p class="cal">신청 : 2026.03.14(토) ~ 2026.03.19(목)</p><p class="cal cal-border-none">교육 : 2026.03.23(월) ~ 2026.03.23(월)</p></div><div class="d-div-hover"><span class="d-day-hover">D+22</span><div class="p-15"><h5></h5><h6>[열린] MBTI 검사 및 해석상담</h6><h6>분반명 : 1</h6><div class="capa-hover"><span>#대인관계능력</span><span>#자기개발능력</span><span>#문제해결능력</span></div><p class="cal2">신청 : 2026.03.14(토) ~ 2026.03.19(목)</p><p class="cal2">교육 : 2026.03.23(월) ~ 2026.03.23(월)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> </ul></div><div><ul><li class="ex_slide2_li"><div class="d-div"><img src="/Main/main_style/img/default_banner.jpg" alt=""><span class="d-day">D+19</span></div><div class="p-15"><h5></h5><h6>[열린]TCI 기질 및 성격검사 및 해석상담 </h6><h6>분반명 : 1</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#대인관계능력</span><span>#자기개발능력</span><span>#문제해결능력</span></dd></dl><p class="cal">신청 : 2026.03.14(토) ~ 2026.03.22(일)</p><p class="cal cal-border-none">교육 : 2026.03.25(수) ~ 2026.03.25(수)</p></div><div class="d-div-hover"><span class="d-day-hover">D+19</span><div class="p-15"><h5></h5><h6>[열린]TCI 기질 및 성격검사 및 해석상담 </h6><h6>분반명 : 1</h6><div class="capa-hover"><span>#대인관계능력</span><span>#자기개발능력</span><span>#문제해결능력</span></div><p class="cal2">신청 : 2026.03.14(토) ~ 2026.03.22(일)</p><p class="cal2">교육 : 2026.03.25(수) ~ 2026.03.25(수)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> <li class="ex_slide2_li"><div class="d-div"><img src="/Main/main_style/img/default_banner.jpg" alt=""><span class="d-day">D+19</span></div><div class="p-15"><h5></h5><h6>[열린] CST 강점검사 및 해석상담 </h6><h6>분반명 : 1</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#대인관계능력</span><span>#자기개발능력</span><span>#문제해결능력</span></dd></dl><p class="cal">신청 : 2026.03.14(토) ~ 2026.03.22(일)</p><p class="cal cal-border-none">교육 : 2026.03.20(금) ~ 2026.03.20(금)</p></div><div class="d-div-hover"><span class="d-day-hover">D+19</span><div class="p-15"><h5></h5><h6>[열린] CST 강점검사 및 해석상담 </h6><h6>분반명 : 1</h6><div class="capa-hover"><span>#대인관계능력</span><span>#자기개발능력</span><span>#문제해결능력</span></div><p class="cal2">신청 : 2026.03.14(토) ~ 2026.03.22(일)</p><p class="cal2">교육 : 2026.03.20(금) ~ 2026.03.20(금)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> <li class="ex_slide2_li"><div class="d-div"><img style='width:283px;height:176px' src='/upload/programplan/imgMAin/6234_001.jpg'/><span class="d-day">D+18</span></div><div class="p-15"><h5></h5><h6>듣말쓰 챌린지 : 듣기·말하기(기초)</h6><h6>분반명 : 1</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#의사소통능력</span><span>#자기개발능력</span><span>#문제해결능력</span></dd></dl><p class="cal">신청 : 2025.03.07(금) ~ 2026.03.23(월)</p><p class="cal cal-border-none">교육 : 2026.03.24(화) ~ 2026.03.24(화)</p></div><div class="d-div-hover"><span class="d-day-hover">D+18</span><div class="p-15"><h5></h5><h6>듣말쓰 챌린지 : 듣기·말하기(기초)</h6><h6>분반명 : 1</h6><div class="capa-hover"><span>#의사소통능력</span><span>#자기개발능력</span><span>#문제해결능력</span></div><p class="cal2">신청 : 2025.03.07(금) ~ 2026.03.23(월)</p><p class="cal2">교육 : 2026.03.24(화) ~ 2026.03.24(화)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> <li class="ex_slide2_li"><div class="d-div"><img style='width:283px;height:176px' src='/upload/programplan/imgMAin/6249_008.jpg'/><span class="d-day">D+16</span></div><div class="p-15"><h5></h5><h6>듣말쓰 챌린지 : 글쓰기(심화)</h6><h6>분반명 : 1</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#의사소통능력</span><span>#자기개발능력</span><span>#문제해결능력</span></dd></dl><p class="cal">신청 : 2026.03.06(금) ~ 2026.03.25(수)</p><p class="cal cal-border-none">교육 : 2026.03.26(목) ~ 2026.03.26(목)</p></div><div class="d-div-hover"><span class="d-day-hover">D+16</span><div class="p-15"><h5></h5><h6>듣말쓰 챌린지 : 글쓰기(심화)</h6><h6>분반명 : 1</h6><div class="capa-hover"><span>#의사소통능력</span><span>#자기개발능력</span><span>#문제해결능력</span></div><p class="cal2">신청 : 2026.03.06(금) ~ 2026.03.25(수)</p><p class="cal2">교육 : 2026.03.26(목) ~ 2026.03.26(목)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> <li class="ex_slide2_li"><div class="d-div"><img style='width:283px;height:176px' src='/upload/programplan/imgMAin/6271_글로벌 어학아카데미 배너.jpg'/><span class="d-day">D+12</span></div><div class="p-15"><h5></h5><h6>2026학년도 1학기 글로벌 어학아카데미</h6><h6>분반명 : 글로벌 어학아카데미</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#진로개발능력</span><span>#자기개발능력</span><span>#문제해결능력</span></dd></dl><p class="cal">신청 : 2026.03.13(금) ~ 2026.03.29(일)</p><p class="cal cal-border-none">교육 : 2026.04.06(월) ~ 2026.05.28(목)</p></div><div class="d-div-hover"><span class="d-day-hover">D+12</span><div class="p-15"><h5></h5><h6>2026학년도 1학기 글로벌 어학아카데미</h6><h6>분반명 : 글로벌 어학아카데미</h6><div class="capa-hover"><span>#진로개발능력</span><span>#자기개발능력</span><span>#문제해결능력</span></div><p class="cal2">신청 : 2026.03.13(금) ~ 2026.03.29(일)</p><p class="cal2">교육 : 2026.04.06(월) ~ 2026.05.28(목)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> <li class="ex_slide2_li"><div class="d-div"><img style='width:283px;height:176px' src='/upload/programplan/imgMAin/6274_배너.jpg'/><span class="d-day">D+12</span></div><div class="p-15"><h5></h5><h6>2026학년도 1학기 글로벌 외국어회화</h6><h6>분반명 : 중국어</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#진로개발능력</span><span>#의사소통능력</span><span>#문제해결능력</span></dd></dl><p class="cal">신청 : 2026.03.13(금) ~ 2026.03.29(일)</p><p class="cal cal-border-none">교육 : 2026.04.06(월) ~ 2026.05.03(일)</p></div><div class="d-div-hover"><span class="d-day-hover">D+12</span><div class="p-15"><h5></h5><h6>2026학년도 1학기 글로벌 외국어회화</h6><h6>분반명 : 중국어</h6><div class="capa-hover"><span>#진로개발능력</span><span>#의사소통능력</span><span>#문제해결능력</span></div><p class="cal2">신청 : 2026.03.13(금) ~ 2026.03.29(일)</p><p class="cal2">교육 : 2026.04.06(월) ~ 2026.05.03(일)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> <li class="ex_slide2_li"><div class="d-div"><img style='width:283px;height:176px' src='/upload/programplan/imgMAin/6274_배너.jpg'/><span class="d-day">D+12</span></div><div class="p-15"><h5></h5><h6>2026학년도 1학기 글로벌 외국어회화</h6><h6>분반명 : 일본어</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#진로개발능력</span><span>#의사소통능력</span><span>#문제해결능력</span></dd></dl><p class="cal">신청 : 2026.03.13(금) ~ 2026.03.29(일)</p><p class="cal cal-border-none">교육 : 2026.04.06(월) ~ 2026.05.03(일)</p></div><div class="d-div-hover"><span class="d-day-hover">D+12</span><div class="p-15"><h5></h5><h6>2026학년도 1학기 글로벌 외국어회화</h6><h6>분반명 : 일본어</h6><div class="capa-hover"><span>#진로개발능력</span><span>#의사소통능력</span><span>#문제해결능력</span></div><p class="cal2">신청 : 2026.03.13(금) ~ 2026.03.29(일)</p><p class="cal2">교육 : 2026.04.06(월) ~ 2026.05.03(일)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> <li class="ex_slide2_li"><div class="d-div"><img style='width:283px;height:176px' src='/upload/programplan/imgMAin/6274_배너.jpg'/><span class="d-day">D+12</span></div><div class="p-15"><h5></h5><h6>2026학년도 1학기 글로벌 외국어회화</h6><h6>분반명 : 영어</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#진로개발능력</span><span>#의사소통능력</span><span>#문제해결능력</span></dd></dl><p class="cal">신청 : 2026.03.13(금) ~ 2026.03.29(일)</p><p class="cal cal-border-none">교육 : 2026.04.06(월) ~ 2026.05.03(일)</p></div><div class="d-div-hover"><span class="d-day-hover">D+12</span><div class="p-15"><h5></h5><h6>2026학년도 1학기 글로벌 외국어회화</h6><h6>분반명 : 영어</h6><div class="capa-hover"><span>#진로개발능력</span><span>#의사소통능력</span><span>#문제해결능력</span></div><p class="cal2">신청 : 2026.03.13(금) ~ 2026.03.29(일)</p><p class="cal2">교육 : 2026.04.06(월) ~ 2026.05.03(일)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> </ul></div><div><ul><li class="ex_slide2_li"><div class="d-div"><img src="/Main/main_style/img/default_banner.jpg" alt=""><span class="d-day">D+11</span></div><div class="p-15"><h5></h5><h6>[집단상담]마음토닥 힐링아트 e-book: 예술로 표현하는 나만의 아트북</h6><h6>분반명 : 1</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#의사소통능력</span><span>#변화대응능력</span><span>#문제해결능력</span></dd></dl><p class="cal">신청 : 2026.03.20(금) ~ 2026.03.29(일)</p><p class="cal cal-border-none">교육 : 2026.03.31(화) ~ 2026.04.07(화)</p></div><div class="d-div-hover"><span class="d-day-hover">D+11</span><div class="p-15"><h5></h5><h6>[집단상담]마음토닥 힐링아트 e-book: 예술로 표현하는 나만의 아트북</h6><h6>분반명 : 1</h6><div class="capa-hover"><span>#의사소통능력</span><span>#변화대응능력</span><span>#문제해결능력</span></div><p class="cal2">신청 : 2026.03.20(금) ~ 2026.03.29(일)</p><p class="cal2">교육 : 2026.03.31(화) ~ 2026.04.07(화)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> <li class="ex_slide2_li"><div class="d-div"><img style='width:283px;height:176px' src='/upload/programplan/imgMAin/6237_002.jpg'/><span class="d-day">D+10</span></div><div class="p-15"><h5></h5><h6>듣말쓰 챌린지 : 듣기·말하기(심화)</h6><h6>분반명 : 1</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#의사소통능력</span><span>#자기개발능력</span><span>#문제해결능력</span></dd></dl><p class="cal">신청 : 2026.03.07(토) ~ 2026.03.30(월)</p><p class="cal cal-border-none">교육 : 2026.03.31(화) ~ 2026.03.31(화)</p></div><div class="d-div-hover"><span class="d-day-hover">D+10</span><div class="p-15"><h5></h5><h6>듣말쓰 챌린지 : 듣기·말하기(심화)</h6><h6>분반명 : 1</h6><div class="capa-hover"><span>#의사소통능력</span><span>#자기개발능력</span><span>#문제해결능력</span></div><p class="cal2">신청 : 2026.03.07(토) ~ 2026.03.30(월)</p><p class="cal2">교육 : 2026.03.31(화) ~ 2026.03.31(화)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> <li class="ex_slide2_li"><div class="d-div"><img src="/Main/main_style/img/default_banner.jpg" alt=""><span class="d-day">D+10</span></div><div class="p-15"><h5></h5><h6>[집단상담]너를 보고 나를 본다: 에고그램을 활용한 의사소통 훈련</h6><h6>분반명 : 1</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#의사소통능력</span><span>#변화대응능력</span><span>#문제해결능력</span></dd></dl><p class="cal">신청 : 2026.03.20(금) ~ 2026.03.30(월)</p><p class="cal cal-border-none">교육 : 2026.04.01(수) ~ 2026.04.08(수)</p></div><div class="d-div-hover"><span class="d-day-hover">D+10</span><div class="p-15"><h5></h5><h6>[집단상담]너를 보고 나를 본다: 에고그램을 활용한 의사소통 훈련</h6><h6>분반명 : 1</h6><div class="capa-hover"><span>#의사소통능력</span><span>#변화대응능력</span><span>#문제해결능력</span></div><p class="cal2">신청 : 2026.03.20(금) ~ 2026.03.30(월)</p><p class="cal2">교육 : 2026.04.01(수) ~ 2026.04.08(수)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> <li class="ex_slide2_li"><div class="d-div"><img src="/Main/main_style/img/default_banner.jpg" alt=""><span class="d-day">D+9</span></div><div class="p-15"><h5></h5><h6>[집단상담] 괜찮아? 괜찮아!: 색을 활용한 감정소통 예술치료</h6><h6>분반명 : 1</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#의사소통능력</span><span>#변화대응능력</span><span>#문제해결능력</span></dd></dl><p class="cal">신청 : 2026.03.20(금) ~ 2026.03.31(화)</p><p class="cal cal-border-none">교육 : 2026.04.02(목) ~ 2026.04.09(목)</p></div><div class="d-div-hover"><span class="d-day-hover">D+9</span><div class="p-15"><h5></h5><h6>[집단상담] 괜찮아? 괜찮아!: 색을 활용한 감정소통 예술치료</h6><h6>분반명 : 1</h6><div class="capa-hover"><span>#의사소통능력</span><span>#변화대응능력</span><span>#문제해결능력</span></div><p class="cal2">신청 : 2026.03.20(금) ~ 2026.03.31(화)</p><p class="cal2">교육 : 2026.04.02(목) ~ 2026.04.09(목)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> <li class="ex_slide2_li"><div class="d-div"><img style='width:283px;height:176px' src='/upload/programplan/imgMAin/6251_009.jpg'/><span class="d-day">D+9</span></div><div class="p-15"><h5></h5><h6>듣말쓰 챌린지 : 글쓰기(확산)</h6><h6>분반명 : 1</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#의사소통능력</span><span>#자기개발능력</span><span>#문제해결능력</span></dd></dl><p class="cal">신청 : 2026.03.06(금) ~ 2026.04.01(수)</p><p class="cal cal-border-none">교육 : 2026.04.02(목) ~ 2026.04.02(목)</p></div><div class="d-div-hover"><span class="d-day-hover">D+9</span><div class="p-15"><h5></h5><h6>듣말쓰 챌린지 : 글쓰기(확산)</h6><h6>분반명 : 1</h6><div class="capa-hover"><span>#의사소통능력</span><span>#자기개발능력</span><span>#문제해결능력</span></div><p class="cal2">신청 : 2026.03.06(금) ~ 2026.04.01(수)</p><p class="cal2">교육 : 2026.04.02(목) ~ 2026.04.02(목)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> <li class="ex_slide2_li"><div class="d-div"><img src="/Main/main_style/img/default_banner.jpg" alt=""><span class="d-day">D+8</span></div><div class="p-15"><h5></h5><h6>[특강] 스펙보다 강력한 멘탈 수업</h6><h6>분반명 : 1</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#대인관계능력</span><span>#변화대응능력</span><span>#문제해결능력</span></dd></dl><p class="cal">신청 : 2026.03.27(금) ~ 2026.04.02(목)</p><p class="cal cal-border-none">교육 : 2026.04.06(월) ~ 2026.04.06(월)</p></div><div class="d-div-hover"><span class="d-day-hover">D+8</span><div class="p-15"><h5></h5><h6>[특강] 스펙보다 강력한 멘탈 수업</h6><h6>분반명 : 1</h6><div class="capa-hover"><span>#대인관계능력</span><span>#변화대응능력</span><span>#문제해결능력</span></div><p class="cal2">신청 : 2026.03.27(금) ~ 2026.04.02(목)</p><p class="cal2">교육 : 2026.04.06(월) ~ 2026.04.06(월)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> <li class="ex_slide2_li"><div class="d-div"><img style='width:283px;height:176px' src='/upload/programplan/imgMAin/6339_AI_Study_실시간특강배너.png'/><span class="d-day">D+4</span></div><div class="p-15"><h5></h5><h6>AI Study+(실시간특강)</h6><h6>분반명 : AI리터러시</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#미래기술융합능력</span><span>#변화대응능력</span><span>#창의적사고능력</span></dd></dl><p class="cal">신청 : 2026.03.30(월) ~ 2026.04.05(일)</p><p class="cal cal-border-none">교육 : 2026.04.06(월) ~ 2026.04.06(월)</p></div><div class="d-div-hover"><span class="d-day-hover">D+4</span><div class="p-15"><h5></h5><h6>AI Study+(실시간특강)</h6><h6>분반명 : AI리터러시</h6><div class="capa-hover"><span>#미래기술융합능력</span><span>#변화대응능력</span><span>#창의적사고능력</span></div><p class="cal2">신청 : 2026.03.30(월) ~ 2026.04.05(일)</p><p class="cal2">교육 : 2026.04.06(월) ~ 2026.04.06(월)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> <li class="ex_slide2_li"><div class="d-div"><img style='width:283px;height:176px' src='/upload/programplan/imgMAin/6239_003.jpg'/><span class="d-day">D+4</span></div><div class="p-15"><h5></h5><h6> 듣말쓰 챌린지 : 듣기·말하기(확산)</h6><h6>분반명 : 1</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#의사소통능력</span><span>#자기개발능력</span><span>#문제해결능력</span></dd></dl><p class="cal">신청 : 2026.03.06(금) ~ 2026.04.06(월)</p><p class="cal cal-border-none">교육 : 2026.04.07(화) ~ 2026.04.07(화)</p></div><div class="d-div-hover"><span class="d-day-hover">D+4</span><div class="p-15"><h5></h5><h6> 듣말쓰 챌린지 : 듣기·말하기(확산)</h6><h6>분반명 : 1</h6><div class="capa-hover"><span>#의사소통능력</span><span>#자기개발능력</span><span>#문제해결능력</span></div><p class="cal2">신청 : 2026.03.06(금) ~ 2026.04.06(월)</p><p class="cal2">교육 : 2026.04.07(화) ~ 2026.04.07(화)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> </ul></div><div><ul><li class="ex_slide2_li"><div class="d-div"><img src="/Main/main_style/img/default_banner.jpg" alt=""><span class="d-day">D+3</span></div><div class="p-15"><h5></h5><h6>[열린] 4월 CST 강점검사 및 해석상담 </h6><h6>분반명 : 1</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#대인관계능력</span><span>#자기개발능력</span><span>#문제해결능력</span></dd></dl><p class="cal">신청 : 2026.03.30(월) ~ 2026.04.07(화)</p><p class="cal cal-border-none">교육 : 2026.04.14(화) ~ 2026.04.14(화)</p></div><div class="d-div-hover"><span class="d-day-hover">D+3</span><div class="p-15"><h5></h5><h6>[열린] 4월 CST 강점검사 및 해석상담 </h6><h6>분반명 : 1</h6><div class="capa-hover"><span>#대인관계능력</span><span>#자기개발능력</span><span>#문제해결능력</span></div><p class="cal2">신청 : 2026.03.30(월) ~ 2026.04.07(화)</p><p class="cal2">교육 : 2026.04.14(화) ~ 2026.04.14(화)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> <li class="ex_slide2_li"><div class="d-div"><img src="/Main/main_style/img/default_banner.jpg" alt=""><span class="d-day">D+2</span></div><div class="p-15"><h5></h5><h6>[열린] 4월 MBTI 검사 및 해석상담</h6><h6>분반명 : 1</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#대인관계능력</span><span>#자기개발능력</span><span>#문제해결능력</span></dd></dl><p class="cal">신청 : 2026.03.30(월) ~ 2026.04.08(수)</p><p class="cal cal-border-none">교육 : 2026.04.15(수) ~ 2026.04.15(수)</p></div><div class="d-div-hover"><span class="d-day-hover">D+2</span><div class="p-15"><h5></h5><h6>[열린] 4월 MBTI 검사 및 해석상담</h6><h6>분반명 : 1</h6><div class="capa-hover"><span>#대인관계능력</span><span>#자기개발능력</span><span>#문제해결능력</span></div><p class="cal2">신청 : 2026.03.30(월) ~ 2026.04.08(수)</p><p class="cal2">교육 : 2026.04.15(수) ~ 2026.04.15(수)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> <li class="ex_slide2_li"><div class="d-div"><img style='width:283px;height:176px' src='/upload/programplan/imgMAin/6241_004.jpg'/><span class="d-day">D+1</span></div><div class="p-15"><h5></h5><h6>듣말쓰 챌린지 : 기초문해력(기초)</h6><h6>분반명 : 1</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#의사소통능력</span><span>#자기개발능력</span><span>#문제해결능력</span></dd></dl><p class="cal">신청 : 2026.03.06(금) ~ 2026.04.09(목)</p><p class="cal cal-border-none">교육 : 2026.04.29(수) ~ 2026.04.29(수)</p></div><div class="d-div-hover"><span class="d-day-hover">D+1</span><div class="p-15"><h5></h5><h6>듣말쓰 챌린지 : 기초문해력(기초)</h6><h6>분반명 : 1</h6><div class="capa-hover"><span>#의사소통능력</span><span>#자기개발능력</span><span>#문제해결능력</span></div><p class="cal2">신청 : 2026.03.06(금) ~ 2026.04.09(목)</p><p class="cal2">교육 : 2026.04.29(수) ~ 2026.04.29(수)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> <li class="ex_slide2_li"><div class="d-div"><img style='width:283px;height:176px' src='/upload/programplan/imgMAin/6366_러닝크루_실시간_배너.png'/><span class="d-day">D+0</span></div><div class="p-15"><h5></h5><h6>Learning C.R.E.W 실시간 특강</h6><h6>분반명 : 시간관리ㆍ학습전략(AI활용)</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#변화대응능력</span><span>#자기개발능력</span><span>#창의적사고능력</span></dd></dl><p class="cal">신청 : 2026.04.03(금) ~ 2026.04.09(목)</p><p class="cal cal-border-none">교육 : 2026.04.10(금) ~ 2026.04.10(금)</p></div><div class="d-div-hover"><span class="d-day-hover">D+0</span><div class="p-15"><h5></h5><h6>Learning C.R.E.W 실시간 특강</h6><h6>분반명 : 시간관리ㆍ학습전략(AI활용)</h6><div class="capa-hover"><span>#변화대응능력</span><span>#자기개발능력</span><span>#창의적사고능력</span></div><p class="cal2">신청 : 2026.04.03(금) ~ 2026.04.09(목)</p><p class="cal2">교육 : 2026.04.10(금) ~ 2026.04.10(금)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> <li class="ex_slide2_li"><div class="d-div"><img src="/Main/main_style/img/default_banner.jpg" alt=""><span class="d-day">D+0</span></div><div class="p-15"><h5></h5><h6>[열린] 4월 TCI 기질 및 성격검사 및 해석상담 </h6><h6>분반명 : 1</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#대인관계능력</span><span>#자기개발능력</span><span>#문제해결능력</span></dd></dl><p class="cal">신청 : 2026.03.31(화) ~ 2026.04.09(목)</p><p class="cal cal-border-none">교육 : 2026.04.16(목) ~ 2026.04.16(목)</p></div><div class="d-div-hover"><span class="d-day-hover">D+0</span><div class="p-15"><h5></h5><h6>[열린] 4월 TCI 기질 및 성격검사 및 해석상담 </h6><h6>분반명 : 1</h6><div class="capa-hover"><span>#대인관계능력</span><span>#자기개발능력</span><span>#문제해결능력</span></div><p class="cal2">신청 : 2026.03.31(화) ~ 2026.04.09(목)</p><p class="cal2">교육 : 2026.04.16(목) ~ 2026.04.16(목)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> </ul></div></div></div><div id="tab2" class="tab_content"><div class="ex_slide2"><div><ul><ul><li class="ex_slide2_li all-list"><h3 class="text-center">핵심역량 프로그램</h3><ul><li><div><p>6</p><span>2026-03</span></div><p>듣말쓰 챌린지 : 기초문해력(심화)</p></li><li><div><p>6</p><span>2026-03</span></div><p>듣말쓰 챌린지 : 기초문해력(확산)</p></li><li><div><p>1</p><span>2026-03</span></div><p>2026학년 1학기 전자정보(E-learni...</p></li><li><div><p>3</p><span>2026-03</span></div><p>2026학년도 1학기 도서관 이용교육</p></li><li><div><p>6</p><span>2026-03</span></div><p>듣말쓰 챌린지 : 글쓰기(기초)</p></li></ul><a style='cursor:pointer' onclick='notLogin()'>전체보기</a></li><li class="ex_slide2_li"><div class="d-div"><img style='width:283px;height:176px' src='/upload/programplan/imgMAin/6243_005.jpg'/><span class="d-day">D-23</span></div><div class="p-15"><h5></h5><h6>듣말쓰 챌린지 : 기초문해력(심화)</h6><h6>분반명 : 1</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#의사소통능력</span><span>#자기개발능력</span><span>#문제해결능력</span></dd></dl><p class="cal">신청 : 2026.03.06(금) ~ 2026.05.04(월)</p><p class="cal cal-border-none">교육 : 2026.05.06(수) ~ 2026.05.06(수)</p></div><div class="d-div-hover"><span class="d-day-hover">D-23</span><div class="p-15"><h5></h5><h6>듣말쓰 챌린지 : 기초문해력(심화)</h6><h6>분반명 : 1</h6><div class="capa-hover"><span>#의사소통능력</span><span>#자기개발능력</span><span>#문제해결능력</span></div><p class="cal2">신청 : 2026.03.06(금) ~ 2026.05.04(월)</p><p class="cal2">교육 : 2026.05.06(수) ~ 2026.05.06(수)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> <li class="ex_slide2_li"><div class="d-div"><img style='width:283px;height:176px' src='/upload/programplan/imgMAin/6245_006.jpg'/><span class="d-day">D-31</span></div><div class="p-15"><h5></h5><h6>듣말쓰 챌린지 : 기초문해력(확산)</h6><h6>분반명 : 1</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#의사소통능력</span><span>#자기개발능력</span><span>#문제해결능력</span></dd></dl><p class="cal">신청 : 2026.03.06(금) ~ 2026.05.12(화)</p><p class="cal cal-border-none">교육 : 2026.05.13(수) ~ 2026.05.13(수)</p></div><div class="d-div-hover"><span class="d-day-hover">D-31</span><div class="p-15"><h5></h5><h6>듣말쓰 챌린지 : 기초문해력(확산)</h6><h6>분반명 : 1</h6><div class="capa-hover"><span>#의사소통능력</span><span>#자기개발능력</span><span>#문제해결능력</span></div><p class="cal2">신청 : 2026.03.06(금) ~ 2026.05.12(화)</p><p class="cal2">교육 : 2026.05.13(수) ~ 2026.05.13(수)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> <li class="ex_slide2_li"><div class="d-div"><img style='width:283px;height:176px' src='/upload/programplan/imgMAin/6331_2026-1학기 도서관 전자정보(E-Learning) 활성화 이벤트 웹포스터.jpg'/><span class="d-day">D-50</span></div><div class="p-15"><h5></h5><h6>2026학년 1학기 전자정보(E-learning) 활성화 우수 이용자 이벤트</h6><h6>분반명 : 1차수</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#미래기술융합능력</span><span>#자기개발능력</span><span>#변화대응능력</span></dd></dl><p class="cal">신청 : 2026.03.01(일) ~ 2026.05.31(일)</p><p class="cal cal-border-none">교육 : 2026.03.01(일) ~ 2026.05.31(일)</p></div><div class="d-div-hover"><span class="d-day-hover">D-50</span><div class="p-15"><h5></h5><h6>2026학년 1학기 전자정보(E-learning) 활성화 우수 이용자 이벤트</h6><h6>분반명 : 1차수</h6><div class="capa-hover"><span>#미래기술융합능력</span><span>#자기개발능력</span><span>#변화대응능력</span></div><p class="cal2">신청 : 2026.03.01(일) ~ 2026.05.31(일)</p><p class="cal2">교육 : 2026.03.01(일) ~ 2026.05.31(일)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> <li class="ex_slide2_li"><div class="d-div"><img style='width:283px;height:176px' src='/upload/programplan/imgMAin/6267_2026학년도 1학기 도서관 이용자교육 포스터(mpu용).jpg'/><span class="d-day">D-58</span></div><div class="p-15"><h5></h5><h6>2026학년도 1학기 도서관 이용교육</h6><h6>분반명 : 1차수</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#미래기술융합능력</span><span>#자기개발능력</span><span>#의사소통능력</span></dd></dl><p class="cal">신청 : 2026.03.03(화) ~ 2026.06.07(일)</p><p class="cal cal-border-none">교육 : 2026.03.03(화) ~ 2026.06.07(일)</p></div><div class="d-div-hover"><span class="d-day-hover">D-58</span><div class="p-15"><h5></h5><h6>2026학년도 1학기 도서관 이용교육</h6><h6>분반명 : 1차수</h6><div class="capa-hover"><span>#미래기술융합능력</span><span>#자기개발능력</span><span>#의사소통능력</span></div><p class="cal2">신청 : 2026.03.03(화) ~ 2026.06.07(일)</p><p class="cal2">교육 : 2026.03.03(화) ~ 2026.06.07(일)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> <li class="ex_slide2_li"><div class="d-div"><img style='width:283px;height:176px' src='/upload/programplan/imgMAin/6247_007.jpg'/><span class="d-day">D+23</span></div><div class="p-15"><h5></h5><h6>듣말쓰 챌린지 : 글쓰기(기초)</h6><h6>분반명 : 1</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#의사소통능력</span><span>#자기개발능력</span><span>#문제해결능력</span></dd></dl><p class="cal">신청 : 2026.03.06(금) ~ 2026.03.18(수)</p><p class="cal cal-border-none">교육 : 2026.03.19(목) ~ 2026.03.19(목)</p></div><div class="d-div-hover"><span class="d-day-hover">D+23</span><div class="p-15"><h5></h5><h6>듣말쓰 챌린지 : 글쓰기(기초)</h6><h6>분반명 : 1</h6><div class="capa-hover"><span>#의사소통능력</span><span>#자기개발능력</span><span>#문제해결능력</span></div><p class="cal2">신청 : 2026.03.06(금) ~ 2026.03.18(수)</p><p class="cal2">교육 : 2026.03.19(목) ~ 2026.03.19(목)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> <li class="ex_slide2_li"><div class="d-div"><img style='width:283px;height:176px' src='/upload/programplan/imgMAin/6234_001.jpg'/><span class="d-day">D+18</span></div><div class="p-15"><h5></h5><h6>듣말쓰 챌린지 : 듣기·말하기(기초)</h6><h6>분반명 : 1</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#의사소통능력</span><span>#자기개발능력</span><span>#문제해결능력</span></dd></dl><p class="cal">신청 : 2025.03.07(금) ~ 2026.03.23(월)</p><p class="cal cal-border-none">교육 : 2026.03.24(화) ~ 2026.03.24(화)</p></div><div class="d-div-hover"><span class="d-day-hover">D+18</span><div class="p-15"><h5></h5><h6>듣말쓰 챌린지 : 듣기·말하기(기초)</h6><h6>분반명 : 1</h6><div class="capa-hover"><span>#의사소통능력</span><span>#자기개발능력</span><span>#문제해결능력</span></div><p class="cal2">신청 : 2025.03.07(금) ~ 2026.03.23(월)</p><p class="cal2">교육 : 2026.03.24(화) ~ 2026.03.24(화)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> <li class="ex_slide2_li"><div class="d-div"><img style='width:283px;height:176px' src='/upload/programplan/imgMAin/6249_008.jpg'/><span class="d-day">D+16</span></div><div class="p-15"><h5></h5><h6>듣말쓰 챌린지 : 글쓰기(심화)</h6><h6>분반명 : 1</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#의사소통능력</span><span>#자기개발능력</span><span>#문제해결능력</span></dd></dl><p class="cal">신청 : 2026.03.06(금) ~ 2026.03.25(수)</p><p class="cal cal-border-none">교육 : 2026.03.26(목) ~ 2026.03.26(목)</p></div><div class="d-div-hover"><span class="d-day-hover">D+16</span><div class="p-15"><h5></h5><h6>듣말쓰 챌린지 : 글쓰기(심화)</h6><h6>분반명 : 1</h6><div class="capa-hover"><span>#의사소통능력</span><span>#자기개발능력</span><span>#문제해결능력</span></div><p class="cal2">신청 : 2026.03.06(금) ~ 2026.03.25(수)</p><p class="cal2">교육 : 2026.03.26(목) ~ 2026.03.26(목)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> </ul></div><div><ul><li class="ex_slide2_li"><div class="d-div"><img style='width:283px;height:176px' src='/upload/programplan/imgMAin/6271_글로벌 어학아카데미 배너.jpg'/><span class="d-day">D+12</span></div><div class="p-15"><h5></h5><h6>2026학년도 1학기 글로벌 어학아카데미</h6><h6>분반명 : 글로벌 어학아카데미</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#진로개발능력</span><span>#자기개발능력</span><span>#문제해결능력</span></dd></dl><p class="cal">신청 : 2026.03.13(금) ~ 2026.03.29(일)</p><p class="cal cal-border-none">교육 : 2026.04.06(월) ~ 2026.05.28(목)</p></div><div class="d-div-hover"><span class="d-day-hover">D+12</span><div class="p-15"><h5></h5><h6>2026학년도 1학기 글로벌 어학아카데미</h6><h6>분반명 : 글로벌 어학아카데미</h6><div class="capa-hover"><span>#진로개발능력</span><span>#자기개발능력</span><span>#문제해결능력</span></div><p class="cal2">신청 : 2026.03.13(금) ~ 2026.03.29(일)</p><p class="cal2">교육 : 2026.04.06(월) ~ 2026.05.28(목)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> <li class="ex_slide2_li"><div class="d-div"><img style='width:283px;height:176px' src='/upload/programplan/imgMAin/6274_배너.jpg'/><span class="d-day">D+12</span></div><div class="p-15"><h5></h5><h6>2026학년도 1학기 글로벌 외국어회화</h6><h6>분반명 : 중국어</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#진로개발능력</span><span>#의사소통능력</span><span>#문제해결능력</span></dd></dl><p class="cal">신청 : 2026.03.13(금) ~ 2026.03.29(일)</p><p class="cal cal-border-none">교육 : 2026.04.06(월) ~ 2026.05.03(일)</p></div><div class="d-div-hover"><span class="d-day-hover">D+12</span><div class="p-15"><h5></h5><h6>2026학년도 1학기 글로벌 외국어회화</h6><h6>분반명 : 중국어</h6><div class="capa-hover"><span>#진로개발능력</span><span>#의사소통능력</span><span>#문제해결능력</span></div><p class="cal2">신청 : 2026.03.13(금) ~ 2026.03.29(일)</p><p class="cal2">교육 : 2026.04.06(월) ~ 2026.05.03(일)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> <li class="ex_slide2_li"><div class="d-div"><img style='width:283px;height:176px' src='/upload/programplan/imgMAin/6274_배너.jpg'/><span class="d-day">D+12</span></div><div class="p-15"><h5></h5><h6>2026학년도 1학기 글로벌 외국어회화</h6><h6>분반명 : 일본어</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#진로개발능력</span><span>#의사소통능력</span><span>#문제해결능력</span></dd></dl><p class="cal">신청 : 2026.03.13(금) ~ 2026.03.29(일)</p><p class="cal cal-border-none">교육 : 2026.04.06(월) ~ 2026.05.03(일)</p></div><div class="d-div-hover"><span class="d-day-hover">D+12</span><div class="p-15"><h5></h5><h6>2026학년도 1학기 글로벌 외국어회화</h6><h6>분반명 : 일본어</h6><div class="capa-hover"><span>#진로개발능력</span><span>#의사소통능력</span><span>#문제해결능력</span></div><p class="cal2">신청 : 2026.03.13(금) ~ 2026.03.29(일)</p><p class="cal2">교육 : 2026.04.06(월) ~ 2026.05.03(일)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> <li class="ex_slide2_li"><div class="d-div"><img style='width:283px;height:176px' src='/upload/programplan/imgMAin/6274_배너.jpg'/><span class="d-day">D+12</span></div><div class="p-15"><h5></h5><h6>2026학년도 1학기 글로벌 외국어회화</h6><h6>분반명 : 영어</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#진로개발능력</span><span>#의사소통능력</span><span>#문제해결능력</span></dd></dl><p class="cal">신청 : 2026.03.13(금) ~ 2026.03.29(일)</p><p class="cal cal-border-none">교육 : 2026.04.06(월) ~ 2026.05.03(일)</p></div><div class="d-div-hover"><span class="d-day-hover">D+12</span><div class="p-15"><h5></h5><h6>2026학년도 1학기 글로벌 외국어회화</h6><h6>분반명 : 영어</h6><div class="capa-hover"><span>#진로개발능력</span><span>#의사소통능력</span><span>#문제해결능력</span></div><p class="cal2">신청 : 2026.03.13(금) ~ 2026.03.29(일)</p><p class="cal2">교육 : 2026.04.06(월) ~ 2026.05.03(일)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> <li class="ex_slide2_li"><div class="d-div"><img style='width:283px;height:176px' src='/upload/programplan/imgMAin/6237_002.jpg'/><span class="d-day">D+10</span></div><div class="p-15"><h5></h5><h6>듣말쓰 챌린지 : 듣기·말하기(심화)</h6><h6>분반명 : 1</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#의사소통능력</span><span>#자기개발능력</span><span>#문제해결능력</span></dd></dl><p class="cal">신청 : 2026.03.07(토) ~ 2026.03.30(월)</p><p class="cal cal-border-none">교육 : 2026.03.31(화) ~ 2026.03.31(화)</p></div><div class="d-div-hover"><span class="d-day-hover">D+10</span><div class="p-15"><h5></h5><h6>듣말쓰 챌린지 : 듣기·말하기(심화)</h6><h6>분반명 : 1</h6><div class="capa-hover"><span>#의사소통능력</span><span>#자기개발능력</span><span>#문제해결능력</span></div><p class="cal2">신청 : 2026.03.07(토) ~ 2026.03.30(월)</p><p class="cal2">교육 : 2026.03.31(화) ~ 2026.03.31(화)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> <li class="ex_slide2_li"><div class="d-div"><img style='width:283px;height:176px' src='/upload/programplan/imgMAin/6251_009.jpg'/><span class="d-day">D+9</span></div><div class="p-15"><h5></h5><h6>듣말쓰 챌린지 : 글쓰기(확산)</h6><h6>분반명 : 1</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#의사소통능력</span><span>#자기개발능력</span><span>#문제해결능력</span></dd></dl><p class="cal">신청 : 2026.03.06(금) ~ 2026.04.01(수)</p><p class="cal cal-border-none">교육 : 2026.04.02(목) ~ 2026.04.02(목)</p></div><div class="d-div-hover"><span class="d-day-hover">D+9</span><div class="p-15"><h5></h5><h6>듣말쓰 챌린지 : 글쓰기(확산)</h6><h6>분반명 : 1</h6><div class="capa-hover"><span>#의사소통능력</span><span>#자기개발능력</span><span>#문제해결능력</span></div><p class="cal2">신청 : 2026.03.06(금) ~ 2026.04.01(수)</p><p class="cal2">교육 : 2026.04.02(목) ~ 2026.04.02(목)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> <li class="ex_slide2_li"><div class="d-div"><img style='width:283px;height:176px' src='/upload/programplan/imgMAin/6339_AI_Study_실시간특강배너.png'/><span class="d-day">D+4</span></div><div class="p-15"><h5></h5><h6>AI Study+(실시간특강)</h6><h6>분반명 : AI리터러시</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#미래기술융합능력</span><span>#변화대응능력</span><span>#창의적사고능력</span></dd></dl><p class="cal">신청 : 2026.03.30(월) ~ 2026.04.05(일)</p><p class="cal cal-border-none">교육 : 2026.04.06(월) ~ 2026.04.06(월)</p></div><div class="d-div-hover"><span class="d-day-hover">D+4</span><div class="p-15"><h5></h5><h6>AI Study+(실시간특강)</h6><h6>분반명 : AI리터러시</h6><div class="capa-hover"><span>#미래기술융합능력</span><span>#변화대응능력</span><span>#창의적사고능력</span></div><p class="cal2">신청 : 2026.03.30(월) ~ 2026.04.05(일)</p><p class="cal2">교육 : 2026.04.06(월) ~ 2026.04.06(월)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> <li class="ex_slide2_li"><div class="d-div"><img style='width:283px;height:176px' src='/upload/programplan/imgMAin/6239_003.jpg'/><span class="d-day">D+4</span></div><div class="p-15"><h5></h5><h6> 듣말쓰 챌린지 : 듣기·말하기(확산)</h6><h6>분반명 : 1</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#의사소통능력</span><span>#자기개발능력</span><span>#문제해결능력</span></dd></dl><p class="cal">신청 : 2026.03.06(금) ~ 2026.04.06(월)</p><p class="cal cal-border-none">교육 : 2026.04.07(화) ~ 2026.04.07(화)</p></div><div class="d-div-hover"><span class="d-day-hover">D+4</span><div class="p-15"><h5></h5><h6> 듣말쓰 챌린지 : 듣기·말하기(확산)</h6><h6>분반명 : 1</h6><div class="capa-hover"><span>#의사소통능력</span><span>#자기개발능력</span><span>#문제해결능력</span></div><p class="cal2">신청 : 2026.03.06(금) ~ 2026.04.06(월)</p><p class="cal2">교육 : 2026.04.07(화) ~ 2026.04.07(화)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> </ul></div><div><ul><li class="ex_slide2_li"><div class="d-div"><img style='width:283px;height:176px' src='/upload/programplan/imgMAin/6241_004.jpg'/><span class="d-day">D+1</span></div><div class="p-15"><h5></h5><h6>듣말쓰 챌린지 : 기초문해력(기초)</h6><h6>분반명 : 1</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#의사소통능력</span><span>#자기개발능력</span><span>#문제해결능력</span></dd></dl><p class="cal">신청 : 2026.03.06(금) ~ 2026.04.09(목)</p><p class="cal cal-border-none">교육 : 2026.04.29(수) ~ 2026.04.29(수)</p></div><div class="d-div-hover"><span class="d-day-hover">D+1</span><div class="p-15"><h5></h5><h6>듣말쓰 챌린지 : 기초문해력(기초)</h6><h6>분반명 : 1</h6><div class="capa-hover"><span>#의사소통능력</span><span>#자기개발능력</span><span>#문제해결능력</span></div><p class="cal2">신청 : 2026.03.06(금) ~ 2026.04.09(목)</p><p class="cal2">교육 : 2026.04.29(수) ~ 2026.04.29(수)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> <li class="ex_slide2_li"><div class="d-div"><img style='width:283px;height:176px' src='/upload/programplan/imgMAin/6366_러닝크루_실시간_배너.png'/><span class="d-day">D+0</span></div><div class="p-15"><h5></h5><h6>Learning C.R.E.W 실시간 특강</h6><h6>분반명 : 시간관리ㆍ학습전략(AI활용)</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#변화대응능력</span><span>#자기개발능력</span><span>#창의적사고능력</span></dd></dl><p class="cal">신청 : 2026.04.03(금) ~ 2026.04.09(목)</p><p class="cal cal-border-none">교육 : 2026.04.10(금) ~ 2026.04.10(금)</p></div><div class="d-div-hover"><span class="d-day-hover">D+0</span><div class="p-15"><h5></h5><h6>Learning C.R.E.W 실시간 특강</h6><h6>분반명 : 시간관리ㆍ학습전략(AI활용)</h6><div class="capa-hover"><span>#변화대응능력</span><span>#자기개발능력</span><span>#창의적사고능력</span></div><p class="cal2">신청 : 2026.04.03(금) ~ 2026.04.09(목)</p><p class="cal2">교육 : 2026.04.10(금) ~ 2026.04.10(금)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> </ul></div></div></div><div id="tab3" class="tab_content"><div class="ex_slide2"><div><ul><ul><li class="ex_slide2_li all-list"><h3 class="text-center">핵심역량 프로그램</h3><ul><li><div><p>9</p><span>2026-03</span></div><p>[진로탐색학점제] MBTI 성격유형검...</p></li><li><div><p>9</p><span>2026-03</span></div><p>[진로탐색학점제] MBTI 성격유형검...</p></li><li><div><p>9</p><span>2026-03</span></div><p>[진로탐색학점제] MBTI 성격유형검...</p></li><li><div><p>9</p><span>2026-03</span></div><p>[진로탐색학점제] MBTI 성격유형검...</p></li><li><div><p>14</p><span>2026-03</span></div><p>[열린] MBTI 검사 및 해석상담</p></li></ul><a style='cursor:pointer' onclick='notLogin()'>전체보기</a></li><li class="ex_slide2_li"><div class="d-div"><img src="/Main/main_style/img/default_banner.jpg" alt=""><span class="d-day">D+27</span></div><div class="p-15"><h5></h5><h6>[진로탐색학점제] MBTI 성격유형검사(3월 17일)</h6><h6>분반명 : 1</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#대인관계능력</span><span>#자기개발능력</span><span>#문제해결능력</span></dd></dl><p class="cal">신청 : 2026.03.09(월) ~ 2026.03.13(금)</p><p class="cal cal-border-none">교육 : 2026.03.17(화) ~ 2026.03.17(화)</p></div><div class="d-div-hover"><span class="d-day-hover">D+27</span><div class="p-15"><h5></h5><h6>[진로탐색학점제] MBTI 성격유형검사(3월 17일)</h6><h6>분반명 : 1</h6><div class="capa-hover"><span>#대인관계능력</span><span>#자기개발능력</span><span>#문제해결능력</span></div><p class="cal2">신청 : 2026.03.09(월) ~ 2026.03.13(금)</p><p class="cal2">교육 : 2026.03.17(화) ~ 2026.03.17(화)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> <li class="ex_slide2_li"><div class="d-div"><img src="/Main/main_style/img/default_banner.jpg" alt=""><span class="d-day">D+27</span></div><div class="p-15"><h5></h5><h6>[진로탐색학점제] MBTI 성격유형검사(3월 18일)</h6><h6>분반명 : 2</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#대인관계능력</span><span>#자기개발능력</span><span>#문제해결능력</span></dd></dl><p class="cal">신청 : 2026.03.09(월) ~ 2026.03.13(금)</p><p class="cal cal-border-none">교육 : 2026.03.18(수) ~ 2026.03.18(수)</p></div><div class="d-div-hover"><span class="d-day-hover">D+27</span><div class="p-15"><h5></h5><h6>[진로탐색학점제] MBTI 성격유형검사(3월 18일)</h6><h6>분반명 : 2</h6><div class="capa-hover"><span>#대인관계능력</span><span>#자기개발능력</span><span>#문제해결능력</span></div><p class="cal2">신청 : 2026.03.09(월) ~ 2026.03.13(금)</p><p class="cal2">교육 : 2026.03.18(수) ~ 2026.03.18(수)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> <li class="ex_slide2_li"><div class="d-div"><img src="/Main/main_style/img/default_banner.jpg" alt=""><span class="d-day">D+27</span></div><div class="p-15"><h5></h5><h6>[진로탐색학점제] MBTI 성격유형검사(3월 20일)</h6><h6>분반명 : 1</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#대인관계능력</span><span>#자기개발능력</span><span>#문제해결능력</span></dd></dl><p class="cal">신청 : 2026.03.09(월) ~ 2026.03.13(금)</p><p class="cal cal-border-none">교육 : 2026.03.20(금) ~ 2026.03.20(금)</p></div><div class="d-div-hover"><span class="d-day-hover">D+27</span><div class="p-15"><h5></h5><h6>[진로탐색학점제] MBTI 성격유형검사(3월 20일)</h6><h6>분반명 : 1</h6><div class="capa-hover"><span>#대인관계능력</span><span>#자기개발능력</span><span>#문제해결능력</span></div><p class="cal2">신청 : 2026.03.09(월) ~ 2026.03.13(금)</p><p class="cal2">교육 : 2026.03.20(금) ~ 2026.03.20(금)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> <li class="ex_slide2_li"><div class="d-div"><img src="/Main/main_style/img/default_banner.jpg" alt=""><span class="d-day">D+27</span></div><div class="p-15"><h5></h5><h6>[진로탐색학점제] MBTI 성격유형검사(3월 19일)</h6><h6>분반명 : 1</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#대인관계능력</span><span>#자기개발능력</span><span>#문제해결능력</span></dd></dl><p class="cal">신청 : 2026.03.09(월) ~ 2026.03.13(금)</p><p class="cal cal-border-none">교육 : 2026.03.19(목) ~ 2026.03.19(목)</p></div><div class="d-div-hover"><span class="d-day-hover">D+27</span><div class="p-15"><h5></h5><h6>[진로탐색학점제] MBTI 성격유형검사(3월 19일)</h6><h6>분반명 : 1</h6><div class="capa-hover"><span>#대인관계능력</span><span>#자기개발능력</span><span>#문제해결능력</span></div><p class="cal2">신청 : 2026.03.09(월) ~ 2026.03.13(금)</p><p class="cal2">교육 : 2026.03.19(목) ~ 2026.03.19(목)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> <li class="ex_slide2_li"><div class="d-div"><img src="/Main/main_style/img/default_banner.jpg" alt=""><span class="d-day">D+22</span></div><div class="p-15"><h5></h5><h6>[열린] MBTI 검사 및 해석상담</h6><h6>분반명 : 1</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#대인관계능력</span><span>#자기개발능력</span><span>#문제해결능력</span></dd></dl><p class="cal">신청 : 2026.03.14(토) ~ 2026.03.19(목)</p><p class="cal cal-border-none">교육 : 2026.03.23(월) ~ 2026.03.23(월)</p></div><div class="d-div-hover"><span class="d-day-hover">D+22</span><div class="p-15"><h5></h5><h6>[열린] MBTI 검사 및 해석상담</h6><h6>분반명 : 1</h6><div class="capa-hover"><span>#대인관계능력</span><span>#자기개발능력</span><span>#문제해결능력</span></div><p class="cal2">신청 : 2026.03.14(토) ~ 2026.03.19(목)</p><p class="cal2">교육 : 2026.03.23(월) ~ 2026.03.23(월)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> <li class="ex_slide2_li"><div class="d-div"><img src="/Main/main_style/img/default_banner.jpg" alt=""><span class="d-day">D+19</span></div><div class="p-15"><h5></h5><h6>[열린]TCI 기질 및 성격검사 및 해석상담 </h6><h6>분반명 : 1</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#대인관계능력</span><span>#자기개발능력</span><span>#문제해결능력</span></dd></dl><p class="cal">신청 : 2026.03.14(토) ~ 2026.03.22(일)</p><p class="cal cal-border-none">교육 : 2026.03.25(수) ~ 2026.03.25(수)</p></div><div class="d-div-hover"><span class="d-day-hover">D+19</span><div class="p-15"><h5></h5><h6>[열린]TCI 기질 및 성격검사 및 해석상담 </h6><h6>분반명 : 1</h6><div class="capa-hover"><span>#대인관계능력</span><span>#자기개발능력</span><span>#문제해결능력</span></div><p class="cal2">신청 : 2026.03.14(토) ~ 2026.03.22(일)</p><p class="cal2">교육 : 2026.03.25(수) ~ 2026.03.25(수)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> <li class="ex_slide2_li"><div class="d-div"><img src="/Main/main_style/img/default_banner.jpg" alt=""><span class="d-day">D+19</span></div><div class="p-15"><h5></h5><h6>[열린] CST 강점검사 및 해석상담 </h6><h6>분반명 : 1</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#대인관계능력</span><span>#자기개발능력</span><span>#문제해결능력</span></dd></dl><p class="cal">신청 : 2026.03.14(토) ~ 2026.03.22(일)</p><p class="cal cal-border-none">교육 : 2026.03.20(금) ~ 2026.03.20(금)</p></div><div class="d-div-hover"><span class="d-day-hover">D+19</span><div class="p-15"><h5></h5><h6>[열린] CST 강점검사 및 해석상담 </h6><h6>분반명 : 1</h6><div class="capa-hover"><span>#대인관계능력</span><span>#자기개발능력</span><span>#문제해결능력</span></div><p class="cal2">신청 : 2026.03.14(토) ~ 2026.03.22(일)</p><p class="cal2">교육 : 2026.03.20(금) ~ 2026.03.20(금)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> </ul></div><div><ul><li class="ex_slide2_li"><div class="d-div"><img src="/Main/main_style/img/default_banner.jpg" alt=""><span class="d-day">D+11</span></div><div class="p-15"><h5></h5><h6>[집단상담]마음토닥 힐링아트 e-book: 예술로 표현하는 나만의 아트북</h6><h6>분반명 : 1</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#의사소통능력</span><span>#변화대응능력</span><span>#문제해결능력</span></dd></dl><p class="cal">신청 : 2026.03.20(금) ~ 2026.03.29(일)</p><p class="cal cal-border-none">교육 : 2026.03.31(화) ~ 2026.04.07(화)</p></div><div class="d-div-hover"><span class="d-day-hover">D+11</span><div class="p-15"><h5></h5><h6>[집단상담]마음토닥 힐링아트 e-book: 예술로 표현하는 나만의 아트북</h6><h6>분반명 : 1</h6><div class="capa-hover"><span>#의사소통능력</span><span>#변화대응능력</span><span>#문제해결능력</span></div><p class="cal2">신청 : 2026.03.20(금) ~ 2026.03.29(일)</p><p class="cal2">교육 : 2026.03.31(화) ~ 2026.04.07(화)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> <li class="ex_slide2_li"><div class="d-div"><img src="/Main/main_style/img/default_banner.jpg" alt=""><span class="d-day">D+10</span></div><div class="p-15"><h5></h5><h6>[집단상담]너를 보고 나를 본다: 에고그램을 활용한 의사소통 훈련</h6><h6>분반명 : 1</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#의사소통능력</span><span>#변화대응능력</span><span>#문제해결능력</span></dd></dl><p class="cal">신청 : 2026.03.20(금) ~ 2026.03.30(월)</p><p class="cal cal-border-none">교육 : 2026.04.01(수) ~ 2026.04.08(수)</p></div><div class="d-div-hover"><span class="d-day-hover">D+10</span><div class="p-15"><h5></h5><h6>[집단상담]너를 보고 나를 본다: 에고그램을 활용한 의사소통 훈련</h6><h6>분반명 : 1</h6><div class="capa-hover"><span>#의사소통능력</span><span>#변화대응능력</span><span>#문제해결능력</span></div><p class="cal2">신청 : 2026.03.20(금) ~ 2026.03.30(월)</p><p class="cal2">교육 : 2026.04.01(수) ~ 2026.04.08(수)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> <li class="ex_slide2_li"><div class="d-div"><img src="/Main/main_style/img/default_banner.jpg" alt=""><span class="d-day">D+9</span></div><div class="p-15"><h5></h5><h6>[집단상담] 괜찮아? 괜찮아!: 색을 활용한 감정소통 예술치료</h6><h6>분반명 : 1</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#의사소통능력</span><span>#변화대응능력</span><span>#문제해결능력</span></dd></dl><p class="cal">신청 : 2026.03.20(금) ~ 2026.03.31(화)</p><p class="cal cal-border-none">교육 : 2026.04.02(목) ~ 2026.04.09(목)</p></div><div class="d-div-hover"><span class="d-day-hover">D+9</span><div class="p-15"><h5></h5><h6>[집단상담] 괜찮아? 괜찮아!: 색을 활용한 감정소통 예술치료</h6><h6>분반명 : 1</h6><div class="capa-hover"><span>#의사소통능력</span><span>#변화대응능력</span><span>#문제해결능력</span></div><p class="cal2">신청 : 2026.03.20(금) ~ 2026.03.31(화)</p><p class="cal2">교육 : 2026.04.02(목) ~ 2026.04.09(목)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> <li class="ex_slide2_li"><div class="d-div"><img src="/Main/main_style/img/default_banner.jpg" alt=""><span class="d-day">D+8</span></div><div class="p-15"><h5></h5><h6>[특강] 스펙보다 강력한 멘탈 수업</h6><h6>분반명 : 1</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#대인관계능력</span><span>#변화대응능력</span><span>#문제해결능력</span></dd></dl><p class="cal">신청 : 2026.03.27(금) ~ 2026.04.02(목)</p><p class="cal cal-border-none">교육 : 2026.04.06(월) ~ 2026.04.06(월)</p></div><div class="d-div-hover"><span class="d-day-hover">D+8</span><div class="p-15"><h5></h5><h6>[특강] 스펙보다 강력한 멘탈 수업</h6><h6>분반명 : 1</h6><div class="capa-hover"><span>#대인관계능력</span><span>#변화대응능력</span><span>#문제해결능력</span></div><p class="cal2">신청 : 2026.03.27(금) ~ 2026.04.02(목)</p><p class="cal2">교육 : 2026.04.06(월) ~ 2026.04.06(월)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> <li class="ex_slide2_li"><div class="d-div"><img src="/Main/main_style/img/default_banner.jpg" alt=""><span class="d-day">D+3</span></div><div class="p-15"><h5></h5><h6>[열린] 4월 CST 강점검사 및 해석상담 </h6><h6>분반명 : 1</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#대인관계능력</span><span>#자기개발능력</span><span>#문제해결능력</span></dd></dl><p class="cal">신청 : 2026.03.30(월) ~ 2026.04.07(화)</p><p class="cal cal-border-none">교육 : 2026.04.14(화) ~ 2026.04.14(화)</p></div><div class="d-div-hover"><span class="d-day-hover">D+3</span><div class="p-15"><h5></h5><h6>[열린] 4월 CST 강점검사 및 해석상담 </h6><h6>분반명 : 1</h6><div class="capa-hover"><span>#대인관계능력</span><span>#자기개발능력</span><span>#문제해결능력</span></div><p class="cal2">신청 : 2026.03.30(월) ~ 2026.04.07(화)</p><p class="cal2">교육 : 2026.04.14(화) ~ 2026.04.14(화)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> <li class="ex_slide2_li"><div class="d-div"><img src="/Main/main_style/img/default_banner.jpg" alt=""><span class="d-day">D+2</span></div><div class="p-15"><h5></h5><h6>[열린] 4월 MBTI 검사 및 해석상담</h6><h6>분반명 : 1</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#대인관계능력</span><span>#자기개발능력</span><span>#문제해결능력</span></dd></dl><p class="cal">신청 : 2026.03.30(월) ~ 2026.04.08(수)</p><p class="cal cal-border-none">교육 : 2026.04.15(수) ~ 2026.04.15(수)</p></div><div class="d-div-hover"><span class="d-day-hover">D+2</span><div class="p-15"><h5></h5><h6>[열린] 4월 MBTI 검사 및 해석상담</h6><h6>분반명 : 1</h6><div class="capa-hover"><span>#대인관계능력</span><span>#자기개발능력</span><span>#문제해결능력</span></div><p class="cal2">신청 : 2026.03.30(월) ~ 2026.04.08(수)</p><p class="cal2">교육 : 2026.04.15(수) ~ 2026.04.15(수)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> <li class="ex_slide2_li"><div class="d-div"><img src="/Main/main_style/img/default_banner.jpg" alt=""><span class="d-day">D+0</span></div><div class="p-15"><h5></h5><h6>[열린] 4월 TCI 기질 및 성격검사 및 해석상담 </h6><h6>분반명 : 1</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#대인관계능력</span><span>#자기개발능력</span><span>#문제해결능력</span></dd></dl><p class="cal">신청 : 2026.03.31(화) ~ 2026.04.09(목)</p><p class="cal cal-border-none">교육 : 2026.04.16(목) ~ 2026.04.16(목)</p></div><div class="d-div-hover"><span class="d-day-hover">D+0</span><div class="p-15"><h5></h5><h6>[열린] 4월 TCI 기질 및 성격검사 및 해석상담 </h6><h6>분반명 : 1</h6><div class="capa-hover"><span>#대인관계능력</span><span>#자기개발능력</span><span>#문제해결능력</span></div><p class="cal2">신청 : 2026.03.31(화) ~ 2026.04.09(목)</p><p class="cal2">교육 : 2026.04.16(목) ~ 2026.04.16(목)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> </ul></div></div></div><div id="tab4" class="tab_content"><img src='img/img_cst_result3.png' style='margin: 0 auto; display: block; width:100%'></div><div id="tab5" class="tab_content"><div class="ex_slide2"><div><ul><ul><li class="ex_slide2_li all-list"><h3 class="text-center">핵심역량 프로그램</h3><ul><li><div><p>1</p><span>2026-03</span></div><p>[혁신] 2026학년도 직무·기업 타겟...</p></li><li><div><p>1</p><span>2026-03</span></div><p>2026-1학기 학생역량이력관리시스...</p></li><li><div><p>1</p><span>2026-03</span></div><p>[혁신] 2026학년도 셀프뷰 가상면...</p></li><li><div><p>1</p><span>2026-03</span></div><p>2026-1학기 취업 온라인 콘텐츠 비...</p></li><li><div><p>1</p><span>2026-03</span></div><p>[혁신] 2026학년도 잡카페 취업중...</p></li></ul><a style='cursor:pointer' onclick='notLogin()'>전체보기</a></li><li class="ex_slide2_li"><div class="d-div"><img style='width:283px;height:176px' src='/upload/programplan/imgMAin/6322^3_639100553060176451.png'/><span class="d-day">D+40</span></div><div class="p-15"><h5></h5><h6>2026-1학기 취업 온라인 콘텐츠 비교과 프로그램</h6><h6>분반명 : 1</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#자기개발능력</span><span>#의사소통능력</span><span>#문제해결능력</span></dd></dl><p class="cal">신청 : 2026.03.01(일) ~ 2026.03.01(일)</p><p class="cal cal-border-none">교육 : 2026.04.01(수) ~ 2026.04.01(수)</p></div><div class="d-div-hover"><span class="d-day-hover">D+40</span><div class="p-15"><h5></h5><h6>2026-1학기 취업 온라인 콘텐츠 비교과 프로그램</h6><h6>분반명 : 1</h6><div class="capa-hover"><span>#자기개발능력</span><span>#의사소통능력</span><span>#문제해결능력</span></div><p class="cal2">신청 : 2026.03.01(일) ~ 2026.03.01(일)</p><p class="cal2">교육 : 2026.04.01(수) ~ 2026.04.01(수)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> <li class="ex_slide2_li"><div class="d-div"><img src="/Main/main_style/img/default_banner.jpg" alt=""><span class="d-day">D+40</span></div><div class="p-15"><h5></h5><h6>[혁신] 2026학년도 직무·기업 타겟형 프로그램</h6><h6>분반명 : 1</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#자기개발능력</span><span>#의사소통능력</span><span>#문제해결능력</span></dd></dl><p class="cal">신청 : 2026.03.01(일) ~ 2026.03.01(일)</p><p class="cal cal-border-none">교육 : 2026.04.01(수) ~ 2026.04.01(수)</p></div><div class="d-div-hover"><span class="d-day-hover">D+40</span><div class="p-15"><h5></h5><h6>[혁신] 2026학년도 직무·기업 타겟형 프로그램</h6><h6>분반명 : 1</h6><div class="capa-hover"><span>#자기개발능력</span><span>#의사소통능력</span><span>#문제해결능력</span></div><p class="cal2">신청 : 2026.03.01(일) ~ 2026.03.01(일)</p><p class="cal2">교육 : 2026.04.01(수) ~ 2026.04.01(수)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> <li class="ex_slide2_li"><div class="d-div"><img style='width:283px;height:176px' src='/upload/programplan/imgMAin/6318^3_639100536148796913.png'/><span class="d-day">D+40</span></div><div class="p-15"><h5></h5><h6>[혁신] 2026학년도 잡카페 취업중심 상담·연계 위탁사업</h6><h6>분반명 : 1</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#자기개발능력</span><span>#의사소통능력</span><span>#문제해결능력</span></dd></dl><p class="cal">신청 : 2026.03.01(일) ~ 2026.03.01(일)</p><p class="cal cal-border-none">교육 : 2026.04.01(수) ~ 2026.04.01(수)</p></div><div class="d-div-hover"><span class="d-day-hover">D+40</span><div class="p-15"><h5></h5><h6>[혁신] 2026학년도 잡카페 취업중심 상담·연계 위탁사업</h6><h6>분반명 : 1</h6><div class="capa-hover"><span>#자기개발능력</span><span>#의사소통능력</span><span>#문제해결능력</span></div><p class="cal2">신청 : 2026.03.01(일) ~ 2026.03.01(일)</p><p class="cal2">교육 : 2026.04.01(수) ~ 2026.04.01(수)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> <li class="ex_slide2_li"><div class="d-div"><img style='width:283px;height:176px' src='/upload/programplan/imgMAin/6316_붙임1. 진단검사 홍보 그림 파일 1부 (1).jpg'/><span class="d-day">D+40</span></div><div class="p-15"><h5></h5><h6>2026-1학기 학생역량이력관리시스템(Smart Care System) 진단검사</h6><h6>분반명 : 1</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#자기개발능력</span><span>#의사소통능력</span><span>#창의적사고능력</span></dd></dl><p class="cal">신청 : 2026.03.01(일) ~ 2026.03.01(일)</p><p class="cal cal-border-none">교육 : 2026.04.01(수) ~ 2026.04.01(수)</p></div><div class="d-div-hover"><span class="d-day-hover">D+40</span><div class="p-15"><h5></h5><h6>2026-1학기 학생역량이력관리시스템(Smart Care System) 진단검사</h6><h6>분반명 : 1</h6><div class="capa-hover"><span>#자기개발능력</span><span>#의사소통능력</span><span>#창의적사고능력</span></div><p class="cal2">신청 : 2026.03.01(일) ~ 2026.03.01(일)</p><p class="cal2">교육 : 2026.04.01(수) ~ 2026.04.01(수)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> <li class="ex_slide2_li"><div class="d-div"><img style='width:283px;height:176px' src='/upload/programplan/imgMAin/6315_ChatGPT Image 2026년 3월 25일 오후 01_00_39.png'/><span class="d-day">D+40</span></div><div class="p-15"><h5></h5><h6>[혁신] 2026학년도 셀프뷰 가상면접 프로그램</h6><h6>분반명 : 1</h6><dl><dt>핵심역량</dt><dd style='font-size:9pt;'><span>#자기개발능력</span><span>#창의적사고능력</span><span>#문제해결능력</span></dd></dl><p class="cal">신청 : 2026.03.01(일) ~ 2026.03.01(일)</p><p class="cal cal-border-none">교육 : 2026.04.01(수) ~ 2026.04.01(수)</p></div><div class="d-div-hover"><span class="d-day-hover">D+40</span><div class="p-15"><h5></h5><h6>[혁신] 2026학년도 셀프뷰 가상면접 프로그램</h6><h6>분반명 : 1</h6><div class="capa-hover"><span>#자기개발능력</span><span>#창의적사고능력</span><span>#문제해결능력</span></div><p class="cal2">신청 : 2026.03.01(일) ~ 2026.03.01(일)</p><p class="cal2">교육 : 2026.04.01(수) ~ 2026.04.01(수)</p></div><a style="cursor:pointer" onclick="notLogin()">자세히 보기</a></div></li> </ul></div></div></div><div id="tab6" class="tab_content"><img src='img/img_cst_result3.png' style='margin: 0 auto; display: block; width:100%'></div></div>
+                </div>
+            </section>
+
+            <section class="cc_notice0" style="background-size: cover !important;">
+                <section class="cc_notice">
+
+                    <div class="cc_notice-noti">
+                        <div class="cc_notice-noti-title">
+                            <ul>
+                                <li rel="a_1">공지사항</li>
+                            </ul>
+                            <a style="cursor: pointer" class="cc_notice-noti-title-more"></a>
+                        </div>
+                        <div class="cc_notice-noti-main_cont" rel="a_1">
+                            <a href="/Community/Notice/NoticeList.aspx?nnum=3279">
+                            <ul class="cc_notice-noti-main_cont-main">
+                                <li>
+                                    <span class="cc_notice-noti-main_cont-main-icon"></span>
+                                </li>
+                                <li>
+                                    <div>
+                                        <div class="">
+                                            <h6>2026학년도 1학기 MJC역량마일리지 장학제도 운영 프...</h6>
+                                        </div>
+                                        <small>2026.03.26</small>
+                                    </div>
+                                </li>
+                            </ul>
+                            </a>
+                                        <ul class="cc_notice-noti-main_cont-other">
+                                            
+                                            <li>
+                                                <a href="/Community/Notice/NoticeList.aspx?nnum=3278">
+                                                <h6>2026학년도 1학기 제1차 학습컨설팅 참여방법 안내</h6>
+                                                </a>
+                                            <small>2026.03.26</small>
+                                            </li>
+                                            
+                                            <li>
+                                                <a href="/Community/Notice/NoticeList.aspx?nnum=3277">
+                                                <h6>2026학년도 1학기 제1차 학습컨설팅 참여방법 안내</h6>
+                                                </a>
+                                            <small>2026.03.26</small>
+                                            </li>
+                                            
+                                            <li>
+                                                <a href="/Community/Notice/NoticeList.aspx?nnum=3276">
+                                                <h6>2025학년도 2학기 MJC역량마일리지 장학제도 운영 프...</h6>
+                                                </a>
+                                            <small>2025.09.22</small>
+                                            </li>
+                                            
+                                            <li>
+                                                <a href="/Community/Notice/NoticeList.aspx?nnum=3274">
+                                                <h6>2025학년도 1학기 MJC역량마일리지 장학제도 운영 프...</h6>
+                                                </a>
+                                            <small>2025.05.15</small>
+                                            </li>
+                                            
+                                            <li>
+                                                <a href="/Community/Notice/NoticeList.aspx?nnum=3269">
+                                                <h6>2024학년도 2학기 MJC역량마일리지 장학제도 운영 프...</h6>
+                                                </a>
+                                            <small>2024.12.13</small>
+                                            </li>
+                                            
+                                        </ul>
+                            
+                        </div>
+                    </div>
+                    <div class="cc_notice-noti">
+                        <div class="cc_notice-noti-title">
+                            <ul>
+                                <li rel="b_1">교내채용</li>
+                                <li rel="b_2">교외채용</li>
+                                <li rel="b_3">아르바이트</li>
+                            </ul>
+                            <a href="#" class="cc_notice-noti-title-more"></a>
+                        </div>
+                        <div class="cc_notice-noti-include" rel="b_1">
+                            <ul>
+                                
+                                <li>
+                                    <a style='cursor:pointer' onclick="notLogin()">
+                                    <div class="cc_notice-noti-include-left">
+                                        <h5>09</h5>
+                                        <small>2026.04</small>
+                                    </div>
+                                    <div class="cc_notice-noti-include-right">
+                                        <div class="notice_new">
+                                            <h6>더 트리니티 스파 일산에서 사람을 구합니다</h6>
+                                        </div>
+                                        <small>2027.04.09까지</small>
+                                    </div>
+                                    </a>
+                                </li>
+                                
+                                
+                                <li>
+                                    <a style='cursor:pointer' onclick="notLogin()">
+                                    <div class="cc_notice-noti-include-left">
+                                        <h5>09</h5>
+                                        <small>2026.04</small>
+                                    </div>
+                                    <div class="cc_notice-noti-include-right">
+                                        <div class="notice_new">
+                                            <h6>더 트리니티스파 용산에서 사람을 구합니다</h6>
+                                        </div>
+                                        <small>2027.04.09까지</small>
+                                    </div>
+                                    </a>
+                                </li>
+                                
+                                
+                                <li>
+                                    <a style='cursor:pointer' onclick="notLogin()">
+                                    <div class="cc_notice-noti-include-left">
+                                        <h5>09</h5>
+                                        <small>2026.04</small>
+                                    </div>
+                                    <div class="cc_notice-noti-include-right">
+                                        <div class="notice_new">
+                                            <h6>더 트리니티 스파 옥수점에서 사람을 구합니다</h6>
+                                        </div>
+                                        <small>2027.04.09까지</small>
+                                    </div>
+                                    </a>
+                                </li>
+                                
+                                
+                            </ul>
+                        </div>
+                        <div class="cc_notice-noti-include" rel="b_2">
+                            <ul>
+                                
+                                <li>
+                                    <a href="#" onclick="window.open('http://www.jobkorea.co.kr/Recruit/GI_Read/48956762?Oem_Code=C900&PageGbn=ST&api=1253', '_blank')">
+                                        <div class="cc_notice-noti-include-left">
+                                            <h5>10</h5>
+                                            <small>2026.04</small>
+                                        </div>
+                                        <div class="cc_notice-noti-include-right">
+                                            <div class="notice_new">
+                                                <h6>2026년도 한국정보통신기술협회(TTA) 직원 채용</h6>
+                                            </div>
+                                            <small>2026.04.20까지</small>
+                                        </div>
+                                    </a>
+                                </li>
+                                
+                                <li>
+                                    <a href="#" onclick="window.open('http://www.jobkorea.co.kr/Recruit/GI_Read/48956578?Oem_Code=C900&PageGbn=ST&api=1253', '_blank')">
+                                        <div class="cc_notice-noti-include-left">
+                                            <h5>10</h5>
+                                            <small>2026.04</small>
+                                        </div>
+                                        <div class="cc_notice-noti-include-right">
+                                            <div class="notice_new">
+                                                <h6>[수시채용] 2026년 4월 신입 TALENT 대규모 모집</h6>
+                                            </div>
+                                            <small>2026.04.19까지</small>
+                                        </div>
+                                    </a>
+                                </li>
+                                
+                                <li>
+                                    <a href="#" onclick="window.open('http://www.jobkorea.co.kr/Recruit/GI_Read/48955786?Oem_Code=C900&PageGbn=ST&api=1253', '_blank')">
+                                        <div class="cc_notice-noti-include-left">
+                                            <h5>10</h5>
+                                            <small>2026.04</small>
+                                        </div>
+                                        <div class="cc_notice-noti-include-right">
+                                            <div class="notice_new">
+                                                <h6>써모 피셔 사이언티픽 코리아 4월 2주차 신입/경력 채...</h6>
+                                            </div>
+                                            <small>2026.04.16까지</small>
+                                        </div>
+                                    </a>
+                                </li>
+                                
+                            </ul>
+                        </div>
+                        <div class="cc_notice-noti-include" rel="b_3">
+                            <ul>
+                                
+                                <li>
+                                    <a href="/Recruit/AlbaList.aspx?ABDX=E962E33ECA6565650CE403C972F6347F3D64FA38569B322D63BB89A32835ECDA">
+                                    <div class="cc_notice-noti-include-left">
+                                        <h5>27</h5>
+                                        <small>2022.10</small>
+                                    </div>
+                                    <div class="cc_notice-noti-include-right">
+                                        <div class="">
+                                            <h6>B2B 케이터링 운영 Staff 파트타이머 모집</h6>
+                                        </div>
+                                        <small>2022.12.31까지</small>
+                                    </div>
+                                    </a>
+                                </li>
+                                
+                                
+                                <li>
+                                    <a href="/Recruit/AlbaList.aspx?ABDX=032F72E3C438E6797D312D4BC1542EFC3BE4FB5818C86892149C21348079EA9F">
+                                    <div class="cc_notice-noti-include-left">
+                                        <h5>29</h5>
+                                        <small>2021.10</small>
+                                    </div>
+                                    <div class="cc_notice-noti-include-right">
+                                        <div class="">
+                                            <h6>아이를 사랑하는 분 모집합니다. </h6>
+                                        </div>
+                                        <small>2022.05.31까지</small>
+                                    </div>
+                                    </a>
+                                </li>
+                                
+                                
+                                <li>
+                                    <a href="/Recruit/AlbaList.aspx?ABDX=1A6A892BA2E7EE0FE4A7168165BB12C0F72872AE585B485976DEB06B76A35287">
+                                    <div class="cc_notice-noti-include-left">
+                                        <h5>09</h5>
+                                        <small>2019.09</small>
+                                    </div>
+                                    <div class="cc_notice-noti-include-right">
+                                        <div class="">
+                                            <h6>한강감정평가법인 직원 모집 공고</h6>
+                                        </div>
+                                        <small>2019.09.30까지</small>
+                                    </div>
+                                    </a>
+                                </li>
+                                
+                                
+                            </ul>
+                        </div>
+                    </div>
+                </section>
+                <section class="cc_info">
+                    <!--
+               <div>                    
+                    <h6>구인/취업상담</h6>
+                    <h5>02-300-3992</h5>
+                    <small>평일 09시~17시 / 주말 및 공휴일 휴무</small>
+                    <a href="javascript:notLogin();">상담신청 ></a>
+                </div>
+-->
+                    <ul>
+                        <li>
+                            <a href="http://www.newsnjob.com/news/articleList.html?sc_section_code=S1N1&view_type=sm" target="_blank">
+                                <img src="/main/main_style/img/info_icon_1.png" alt="겁나빠른 공채달력">
+                                <h5>취업뉴스</h5>
+                                <p>취업뉴스</p>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="http://www.newsnjob.com/news/articleList.html?sc_section_code=S1N2&view_type=sm" target="_blank">
+                                <img src="/main/main_style/img/info_icon_1.png" alt="겁나빠른 공채달력">
+                                <h5>창업뉴스</h5>
+                                <p>창업뉴스</p>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="javascript:notLogin();">
+                                <img src="/main/main_style/img/info_icon_1.png" alt="겁나빠른 공채달력">
+                                <h5>겁나빠른 공채달력</h5>
+                                <p>실시간 채용정보를 한눈에</p>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="javascript:notLogin();">
+                                <img src="/main/main_style/img/info_icon_2.png" alt="핵심역량 프로그램">
+                                <h5>핵심역량 프로그램</h5>
+                                <p>나의 역량개발을 위한</p>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="javascript:notLogin();">
+                                <img src="/main/main_style/img/info_icon_3.png" alt="역량진단">
+                                <h5>역량진단</h5>
+                                <p>나의 강점을 찾아보자</p>
+                            </a>
+                        </li>
+
+                    </ul>
+                </section>
+            </section>
+
+            <div>
+                <div id="bannerList" style="margin: 0;" class="ex_slider"></div>
+            </div>
+
+            <footer class="cc_footer">
+                <div class="cc_footer-cont">
+                    <a style="font-weight: bolder; color: yellow;" href="https://www.mjc.ac.kr/privacy.do?menuNo=1">개인정보처리방침</a>
+                    <a style="font-weight: bolder" href="https://www.mjc.ac.kr/privacy.do?menuNo=5&cont_idx=CT0000001580">개인정보 제3자 제공 현황</a>
+                    <a style="font-weight: bolder" href="https://www.mjc.ac.kr/privacy.do?menuNo=3">영상정보처리기기 운영방침</a>
+                    <p>
+                        (우) 03656 서울특별시 서대문구 가좌로 134(서울특별시 서대문구 홍은 2동 356-1) <span>TEL</span> (02)300-1000,1114 <span>FAX</span>(02)304-4832
+                    </p>
+                    <p><span>Copyright (c) 2020 MYONGJI College All Rights Reserved.</span></p>
+                </div>
+            </footer>
+        </main>
+        <style>
+            .ex_slide2 ul li.ex_slide2_li {
+                height: 394px;
+            }
+        </style>
+        <script>
+            // 윈도우 리사이즈시 이벤트 적용
+            $(document).ready(function () {
+                $(window).resize(function () {
+                    resizeEvent();
+                }).resize();
+            })
+
+            // 메인메뉴 반복 이벤트
+            var caruselEvent;
+            var caruselEventTimeOut;
+
+            function resizeEvent() {
+                var mobMenu = $('.cc_header-menu');
+                var main = $('main');
+                var offsetH = $('.cc_header-top').outerHeight();
+
+                clearInterval(caruselEvent);
+                clearInterval(caruselEventTimeOut);
+
+                if ($(window).width() <= 1180) {
+                    main.css({
+                        paddingTop: offsetH + "px"
+                    })
+                    $(mobMenu).css({
+                        height: "calc(100vh - " + offsetH + "px)"
+                    })
+                }
+                else {
+                    main.css({
+                        paddingTop: 0 + "px"
+                    })
+                    caruselEvent = setInterval(function () {
+                        intervalFunction();
+                    }, 3000);
+                }
+            }
+
+            // 모바일에 사용되는 메뉴 끌어오기
+            $('.cc_header-nav ul').clone().appendTo($('.cc_header-menu'));
+            $('.cc_header-top-innet_menu ol').clone().appendTo($('.cc_header-menu'));
+
+            // 모바일 메뉴보기
+            $('.icon_menu').click(function (e) {
+                $(this).toggleClass('active');
+                $('.cc_header-menu').toggleClass('active');
+                $('html').toggleClass('overflow');
+            })
+
+            // 메인메뉴 버튼 hover 이벤트
+            var liHoverCount = 0;
+
+            var mainMenuBtn = document.querySelectorAll('.cc_main-menu-title');
+            $(mainMenuBtn).each(function (e) {
+                $(this).on('mouseenter', function (k) {
+                    clickEvent(this);
+                    clearInterval(caruselEvent);
+                    clearInterval(caruselEventTimeOut);
+                })
+
+                $(this.parentElement).on('mouseleave', function (k) {
+                    clickEndEvent(this);
+                    clearInterval(caruselEvent);
+                    clearInterval(caruselEventTimeOut);
+
+                    if ($(window).width() > 1180) {
+                        liHoverCount = 0;
+                        caruselEventTimeOut = setTimeout(function () {
+                            caruselEvent = setInterval(function () {
+                                intervalFunction();
+                            }, 3000);
+                        }, 3000);
+                    }
+                })
+            })
+
+            function notLogin() {
+                alert('로그인이 필요합니다.');
+                location.href = "/main/login.aspx";
+            }
+
+            function clickEvent(t) {
+                $('.cc_main_bg').addClass('active');
+                $('.cc_main-menu-hover').removeClass('active');
+                $('.cc_main-menu-title').removeClass('active');
+                if (!$(t).hasClass('active')) {
+                    var list = t.parentElement.querySelector('.cc_main-menu-hover');
+                    $(list).toggleClass('active');
+                }
+                $(t).addClass('active');
+            }
+
+            function clickEndEvent(t) {
+                $('.cc_main_bg').removeClass('active');
+                $('.cc_main-menu-hover').removeClass('active');
+                $('.cc_main-menu-title').removeClass('active');
+            }
+
+            function intervalFunction() {
+                var nowLi = $('.cc_main-menu').children()[liHoverCount];
+                var nowBtn = $(nowLi).children()[1];
+
+                setTimeout(function () {
+                    $('.cc_main-menu').children().each(function () {
+                        if (this != nowLi) {
+                            clickEndEvent(this);
+                        }
+                    });
+                }, 0)
+
+                setTimeout(function () {
+                    clickEvent(nowBtn);
+                }, 0)
+
+                if (liHoverCount >= $('.cc_main-menu').children().length - 1) liHoverCount = 0;
+                else liHoverCount++;
+            }
+
+            // 탭버튼 이벤트
+            var tabBtn = document.querySelectorAll('.cc_notice-noti-title li[rel]');
+
+            $(tabBtn).each(function (e) {
+                $(this).click(function (k) {
+                    var allBtn = this.parentElement.querySelectorAll('li[rel]');
+                    $(allBtn).each(function (e) {
+                        $(this).removeClass('active');
+                    })
+                    $(this).addClass('active');
+
+                    var relData = $(this).attr('rel').indexOf(0);
+                    var tabContAll = this.parentElement.parentElement.parentElement.querySelectorAll('div[rel]');
+                    $(tabContAll).each(function (k) {
+                        $(this).removeClass('active');
+                    });
+                    var tabCont = document.querySelector('div[rel=' + $(this).attr('rel') + ']');
+                    $(tabCont).toggleClass('active');
+
+                    // 공지사항, 핵심역량 프로그램, 교내채용, 교외채용 더보기 버튼 href 설정
+                    var moreBtn = this.parentElement.parentElement.querySelector('.cc_notice-noti-title-more');
+                    $(moreBtn).removeAttr("href");
+                    $(moreBtn).removeAttr("onclick");
+                    //공지사항
+                    if ($(tabCont).attr('rel') == "a_1") {
+                        $(moreBtn).attr('href', '/Community/Notice/NoticeList.aspx');
+                    }
+                    //핵심역량 프로그램
+                    else if ($(tabCont).attr('rel') == "a_2") {
+                        $(moreBtn).attr('href', '/Career/CareerTask/ProgramList.aspx');
+                    }
+                    //교내채용
+                    else if ($(tabCont).attr('rel') == "b_1") {
+                        
+                             $(moreBtn).attr('onclick', 'notLogin();;');
+                        
+                         }
+                         //교외채용
+                         else if ($(tabCont).attr('rel') == "b_2") {
+                        
+                             $(moreBtn).attr('onclick', 'notLogin();');
+                        
+                         }
+                         //아르바이트
+                         else if ($(tabCont).attr('rel') == "b_3") {
+                        
+                             $(moreBtn).attr('href', '/Recruit/AlbaList.aspx');
+                        
+                         }
+                     })
+                 })
+
+            var firstBtn = document.querySelectorAll('.cc_notice-noti-title li:first-child');
+            $(firstBtn).each(function (e) {
+                $(this).click();
+            })
+
+            $(function () {
+                $(".btn-close").click(function () {
+                    $(".web-intro").hide();
+                });
+            });
+        </script>
+        <script type="text/javascript">
+            $(function () {
+                $('.ex_slide2').slick({
+                    slidesToShow: 1,
+                    slidesToScroll: 1,
+                    autoplay: false,
+                    dots: false,
+                    speed: 1 /* 이미지가 슬라이딩시 걸리는 시간 */,
+                    infinite: true,
+                    autoplaySpeed: 3000 /* 이미지가 다른 이미지로 넘어 갈때의 텀 */,
+                    arrows: true,
+                    fade: false
+
+                });
+
+
+
+                $(".tab_content").hide();
+                $(".tab_content:first").show();
+
+                $("ul.tabs li").click(function () {
+                    $("ul.tabs li").removeClass("active").css("color", "#333");
+                    $(this).addClass("active").css("color", "#fff");
+                    $(".tab_content").hide();
+                    var activeTab = $(this).attr("rel");
+                    $("#" + activeTab).show();
+                    return false;
+                });
+
+                $('.d-div-hover').css('opacity', '0');
+                $('.ex_slide2 ul li').hover(
+
+                    function () {
+                        $(this).children('.d-div-hover').css('opacity', '1');
+                    },
+                    function () {
+                        $(this).children('.d-div-hover').css('opacity', '0');
+                    }
+
+                );
+                $('.ex_slider').slick({
+                    slidesToShow: 5,
+                    slidesToScroll: 1,
+                    autoplay: true,
+                    speed: 1000 /* 이미지가 슬라이딩시 걸리는 시간 */,
+                    infinite: true,
+                    autoplaySpeed: 6000 /* 이미지가 다른 이미지로 넘어 갈때의 텀 */,
+                    arrows: false,
+                    fade: false
+
+                });
+                $('.mySwiper').slick({
+                    slidesToShow: 1,
+                    slidesToScroll: 1,
+                    autoplay: true,
+                    dots: false,
+                    speed: 1 /* 이미지가 슬라이딩시 걸리는 시간 */,
+                    infinite: true,
+                    autoplaySpeed: 3000 /* 이미지가 다른 이미지로 넘어 갈때의 텀 */,
+                    arrows: false,
+                    fade: false
+
+                });
+
+
+                $('.swiper-slide').on('mouseover', function () {
+                    slick.autoplay.stop();
+                });
+                $('.swiper-slide').on('mouseout', function () {
+                    slick.autoplay.start();
+                });
+
+
+            });
+
+        </script>
+        <style>
+   
+                 html, body {
+                     overflow-x: hidden;
+                 }
+
+                 .cc_main-menu {
+                     position: absolute;
+                     bottom: 0;
+                     left: 50%;
+                     transform: translateX(-50%);
+                     width: 1200px;
+                 }
+
+                 .cc_main_bg1 div {
+                     background-size: cover !important;
+                     height: 426px;
+                 }
+
+                 .cc_program {
+                     padding: 30px 0;
+                 }
+
+                 .swiper-slide1 {
+                     background: url("/main/main_style/img/01.jpg");
+                 }
+
+                 .swiper-slide2 {
+                     background: url("/main/main_style/img/02.jpg");
+                 }
+
+                 .swiper-slide3 {
+                     background: url("/main/main_style/img/03.jpg");
+                 }
+
+                 .swiper-slide4 {
+                     background: url("/main/main_style/img/04.jpg");
+                 }
+
+                 .swiper-slide5 {
+                     background: url("/main/main_style/img/05.jpg");
+                 }
+
+                 .swiper-slide {
+                     background-size: cover !important;
+                 }
+
+                 .cc_main_text {
+                     width: 1200px;
+                     position: relative;
+                     margin: 0 auto;
+                 }
+
+                 .cc_main_text_inner {
+                     position: absolute;
+                     top: 70px;
+                     left: 30px;
+                     z-index: 1;
+                 }
+
+                     .cc_main_text_inner p {
+                         color: #ffffffc7;
+                     }
+
+                         .cc_main_text_inner p:nth-child(1) {
+                             font-size: 16px;
+                             letter-spacing: 7px;
+                         }
+
+                         .cc_main_text_inner p:nth-child(2) {
+                             font-size: 52px;
+                             margin-top: 20px;
+                             margin-bottom: 40px;
+                             font-weight: bold;
+                         }
+
+                         .cc_main_text_inner p:nth-child(3) {
+                             font-size: 28px;
+                         }
+
+                 @media (max-width: 1180px) {
+                     .cc_main-menu {
+                         top: 0;
+                         bottom: auto;
+                         width: 100%;
+                     }
+                 }
+
+                 @media (max-width: 768px) {
+                     .cc_program {
+                         padding: 600px 0 0;
+                     }
+                 }
+
+                 </sty
+             le>
+
+    </form>
+</body>
+
+</html>

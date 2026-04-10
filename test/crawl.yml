@@ -2,7 +2,7 @@ name: MJC Crawler
 
 on:
   schedule:
-    - cron: '*/30 * * * *'   # 30분마다 실행
+    - cron: '0 */3 * * *'   # 3시간마다 실행
   workflow_dispatch:          # 수동 실행 버튼
     inputs:
       mode:
@@ -28,4 +28,7 @@ jobs:
         env:
           FIREBASE_KEY: ${{ secrets.FIREBASE_KEY }}
           CRAWL_MODE: ${{ github.event.inputs.mode || 'incremental' }}
-        run: python crawler_mjc.py
+        run: |
+          python crawler_mjc.py
+          python crawler_mpu.py
+          python crawler_ctl.py

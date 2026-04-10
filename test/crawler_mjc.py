@@ -3,7 +3,7 @@ import re
 from bs4 import BeautifulSoup
 from datetime import datetime
 import firebase_admin
-from firebase_admin import credentials, firestore
+from firebase_admin import credentials, firestore, messaging
 import os
 import json
 
@@ -23,6 +23,23 @@ def init_firebase():
 
     firebase_admin.initialize_app(cred)
     return firestore.client()
+
+# ── FCM 메시지 발송 (Data Payload) ──────────────────────────
+def send_fcm_notice(post: dict):
+    message = messaging.Message(
+        data={
+            "title": f"[{post.get('category', '공지')}] 새 글 등록",
+            "body": post.get("title", ""),
+            "url": post.get("url", ""),
+            "board": post.get("category", "")
+        },
+        topic="all_notices",
+    )
+    try:
+        response = messaging.send(message)
+        print(f"  [FCM 발송 성공] {post.get('title')}: {response}")
+    except Exception as e:
+        print(f"  [FCM 발송 실패]: {e}")
 
 # ── 크롤링 대상 설정 ─────────────────────────────────────────
 BOARDS = [
@@ -182,6 +199,11 @@ def save_to_firestore(db, board: dict, posts: list[dict]):
 
         post["is_new"] = True
         post_col.document(post["data_idx"]).set(post)
+        
+        # 기존 데이터가 존재하던 상태(latest_id 존재)에서 등록된 진짜 새 글일 때만 알람 발송 (초기화 폭탄 방지)
+        if latest_id:
+            send_fcm_notice(post)
+
         new_count += 1
 
     # 항상 실제 게시판 1페이지 맨 위 글로 갱신 (필터로 저장 안 해도 앵커는 따라감)

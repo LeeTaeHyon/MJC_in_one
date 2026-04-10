@@ -1,0 +1,1095 @@
+
+<!DOCTYPE html>
+<html>
+  <head>
+    
+
+
+
+
+
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta content="명지전문대학 교수학습센터" >
+<meta content="noindex, nofollow" >
+<meta name="format-detection" content="telephone=no"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=0"/>
+<!-- 설치된 IE중 최신버전 렌더링 설정 -->
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta content="ⓒCopyright 2023 MYONGJI College All Rights Reserved." >
+<link rel="icon"  href="/ctl/favicon.ico" > 
+<link rel="apple-touch-icon-precomposed" href="/ctl/favicon.ico" />
+<title>명지전문대학 교수학습센터</title>
+    
+<!-- bootstrap css -->
+<link rel="stylesheet" media="screen, projection" href="/ctl/css/bootstrap.css?v=20230130" />
+<link rel="stylesheet" media="screen, projection" href="/ctl/css/global.css?v=20230130" />
+<link rel="stylesheet" media="screen, projection" href="/ctl/css/osms/mjcctl/site_header_footer.css?v=20230130" />
+<link rel="stylesheet" media="screen, projection" href="/ctl/css/osms/mjcctl/site.css?v=20230130" />
+<link rel="stylesheet" media="screen, projection" href="/ctl/css/themes/cyan.css?v=20230130" />
+
+<!-- fontawesome css -->
+<link rel="stylesheet" type="text/css" href="/ctl/css/all.css">
+<link rel="stylesheet" type="text/css" href="/ctl/css/font-awesome.min.css">
+
+<script type="text/javascript" src="/ctl/js/compareDate.js?v=20230130"></script>
+<script type="text/javascript" src="/ctl/js/i18n/lang.js?v=20230130"></script>
+<script type="text/javascript" src="/ctl/js/i18n/ko.js?v=20230130"></script>
+
+<!-- bootstrap js -->
+<script type="text/javascript" src="/ctl/js/jquery-3.5.1.min.js?v=20230130"></script>
+<script type="text/javascript" src="/ctl/js/bootstrap.min.js?v=20230130"></script>
+
+    
+<link type="text/css" href="/ctl/css/jquery-ui-1.11.4/jquery-ui.min.css?v=20230130" rel="stylesheet"/>
+<script type="text/javascript" src="/ctl/js/lib/jquery-1.11.3.min.js?v=20230130"></script>
+<script type="text/javascript" src="/ctl/js/lib/ui/jquery-ui-1.11.4.min.js?v=20230130"></script>
+<script type="text/JavaScript" src="/ctl/js/jqueryBlockUI.js?v=20230130"></script>
+<script type="text/javascript" src="/ctl/js/pop_calendar_ko.js?v=20230130"></script>
+<script type="text/javascript" src="/ctl/js/common.js?v=20230130"></script>
+
+<script>
+$.widget("ui.dialog", $.ui.dialog,{
+  open: function (){
+    var $dialog = $(this.element[0]);
+    var maxZ = 0;
+    $('*').each(function (){
+      if( $(this).hasClass('ui-datepicker') ){
+      }
+      else{
+        var thisZ = $(this).css('zIndex');
+        thisZ = (thisZ === 'auto' ? (Number(maxZ) + 1) : thisZ);
+        if (thisZ > maxZ) maxZ = thisZ;
+      }
+    });
+
+//     $(".ui-widget-overlay").css("zIndex", (maxZ + 1));
+    $dialog.parent().parent().css("zIndex", (maxZ + 2));
+
+    return this._super();
+  }
+});
+
+// jquery ajax 에러 메세지
+function getAjaxErrorMessage(jqXHR, exception) {
+  var errMsg = "";
+  try {
+    if (jqXHR.status == 0) {
+      errMsg = 'Unable to connect.Please verify your network connection.';
+    } else if (jqXHR.status == 404) {
+      errMsg = 'Requested page not found. [404]';
+    } else if (jqXHR.status == 500) {
+      errMsg = 'Internal Server Error [500].';
+    } else if (exception == 'parsererror') {
+      errMsg = 'Requested JSON parse failed.';
+    } else if (exception == 'timeout') {
+      errMsg = 'Time out error.';
+    } else if (exception == 'abort') {
+      errMsg = 'Ajax request aborted.';
+    } else {
+      errMsg = 'Uncaught Error. ' + jqXHR.responseText;
+    }
+  } catch (e) {
+    errMsg = "Get message exception : " + e.message; 
+  }
+  return errMsg;
+}
+
+//상단 센터 알림메시지 잠시 보여줌
+function showAlertMessageBox(msg) {
+  var timer;
+  clearTimeout(timer);
+  $('#alert_message_box').text(msg);  
+  $('#alert_message_box').fadeIn('fast');
+  $('#alert_message_box').css("left", Math.max(0, (($(window).width() - $('#alert_message_box').outerWidth()) / 2)) + "px");
+  timer = setTimeout(function() {
+    $('#alert_message_box').fadeOut();
+  }, 1500);
+}
+</script>
+
+    <link rel="stylesheet" media="screen, projection" href="/ctl/css/subBanner-sideMenu.css?v=20230130" />
+    <link rel="stylesheet" media="screen, projection" href="/ctl/css/eLearning.css?v=20230130" />
+    <link rel="stylesheet" media="screen, projection" href="/ctl/css/info.css?v=20230130" />
+    <link rel="stylesheet" media="screen, projection" href="/ctl/css/popup.css?v=20230130" />
+
+    <script type="text/javascript">
+      $(document).ready(function(){
+      });
+      
+      $(function(){
+        listPage(1);
+        listPage1(1);
+        tabGo(1);
+        
+        $("#sch_btn").click(function(){
+          listPage1(1); 
+        });
+      });
+
+      function enterSch(){
+        if(window.event.keyCode == 13) {
+          listPage1(1);
+        }
+      }
+      
+      function listPage(start) {
+        $.ajax({
+          url: "/ctl/stu/program_list.acl",
+          type: "POST",
+          data: {  
+            MENU_SEQ     : '',
+            CATEGORY_SEQ : '',
+            PRG_SEQ      : '',
+            PRG_DV       : 'S',
+            start        : start,
+            display      : "10",
+            encoding     : "utf-8"
+          },
+          success: function(html){
+            $("#program_list_zone").html(html);
+          },
+          error : function(html) {
+              alert("error:"+html);
+            }
+        });
+      }
+      
+      function listPage1(start) {
+        $.ajax({
+          url: "/ctl/stu/program_notice_list.acl",
+          type: "POST",
+          data: {  
+            MENU_DV      : 'ST',
+            MENU_SEQ     : '',
+            SUB_MENU_SEQ : '',
+            SUB_MENU_SEQ2: $("#search_select option:selected").val() == undefined ? "" : $("#search_select option:selected").val(),
+            SCH_VAL      : $("#sch_val").val(),
+            start        : start,
+            display      : "10",
+            encoding     : "utf-8"
+          },
+          success: function(html){
+            $("#program_review_list_zone").html(html);
+          },
+          error : function(html) {
+            alert("error:"+html);
+          }
+        });  
+      }
+      
+      function tabGo(dv){
+        if(dv == 1) {
+          $("#program_list_zone").show();
+          $("#program_review_list_zone").hide();
+          $("#search_box").hide();
+        }else if(dv == 2) {
+          $("#program_list_zone").hide();
+          $("#program_review_list_zone").show();
+          $("#search_box").show();
+        }
+        
+        $("#tabList >.tab").removeClass("tab_on");
+        $("#tab"+dv).addClass("tab_on");
+      }
+      
+      function popReviewDetail(seq,target){
+        $.ajax({
+          url: "/ctl/stu/pop_prof_program_review_detail.acl",
+          type: "POST",
+          data: {
+            TARGET        : target,
+            OPEN_PRG_SEQ  : seq,
+            encoding      : "utf-8"
+          },
+          success: function(data){
+            $("#pop_info_form").remove();
+            $("#poplayer_info").html(data);
+            openPop('info', 'Y'); 
+          },
+          error : ajaxErrorMsg
+        }); 
+      }
+      
+      $(window).load(function(){
+        pagePathWidthOverflowCheck();
+      });
+      
+      $(window).resize(function() {     	    
+        pagePathWidthOverflowCheck();
+      });
+    </script>
+    <style type="text/css">
+    .eLearning-header-top img {max-width: 100%; height: auto;}
+    </style>
+  </head>
+  <body>
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script>
+  function pageGo(url){
+    document.location.href=url;
+  }
+
+  function winNewOpen(url){
+    window.open(url, "_blank");
+  }
+  
+  function alertLogin(){
+    alert('로그인 후 이용가능합니다.');
+  }
+  
+  function getHeaderMenu(dv){
+    var menu_dv = '0';
+    var menu_page_no = 'null';
+    var url = '/ctl/co/menu_list.acl';
+    
+    if(dv == 'about'){
+      menu_dv = '0';
+      menu_page_no = 'null';
+      url = '/ctl/co/menu_list.acl';
+    }
+    else if(dv == 'prof'){
+      menu_dv = '1';
+      menu_page_no = 'null';
+      url = '/ctl/co/menu_list.acl';
+    }
+    else if(dv == 'stu'){
+      menu_dv = '2';
+      menu_page_no = '0';
+      url = '/ctl/co/menu_list.acl';
+    }
+    else if(dv == 'eLearning'){
+      menu_dv = '3';
+      menu_page_no = 'null';
+      url = '/ctl/co/menu_list.acl';
+    }
+    else if(dv == 'video'){
+      url = '/ctl/co/menu_list2.acl';
+    }
+    
+    $.ajax({
+      url : url,
+      type: "POST",
+      data: {
+        MENU_DV  : menu_dv,
+        TARGET   : dv == 'prof' ? 'P' : dv == 'stu' ? 'S' : '',
+        encoding : "utf-8"
+      },
+      async: false,
+      success: function(data){
+        if(!data.isError) {
+          if(dv == 'video'){
+          }
+          else{
+            $.each(data.records, function(index, rd) {
+              if('1' == rd.MENU_DV){ //프로그램
+                var curr_2nd_menu_class = rd.MENU_SEQ == menu_page_no ? "currentSideMenu" : "";
+
+                if('0' == rd.SUB_CNT){
+                  $('#header_'+dv+'_ul').prepend('<ul class="col-sm-3"><li><a href=\"/ctl/'+dv+'/program_form.acl?MENU_SEQ='+rd.MENU_SEQ+'\">'+rd.MENU_NM+'</a></li></ul>');
+                  $('#m_header_'+dv+'_ul').prepend('<li class="'+curr_2nd_menu_class+'"><a href=\"/ctl/'+dv+'/program_form.acl?MENU_SEQ='+rd.MENU_SEQ+'\">'+rd.MENU_NM+'</a></li>');
+                }
+                else{
+                  $('#header_'+dv+'_ul').prepend('<ul class="col-sm-3"><li><a href=\"/ctl/'+dv+'/program_form.acl?MENU_SEQ='+rd.MENU_SEQ+'&SUB_MENU_SEQ='+rd.SUB_MENU_SEQ+'\">'+rd.MENU_NM+'</a></li></ul>');
+                  $('#m_header_'+dv+'_ul').prepend('<li id="m_2nd_menu_'+rd.MENU_SEQ+'" class="'+curr_2nd_menu_class+'"><a href=\"/ctl/'+dv+'/program_form.acl?MENU_SEQ='+rd.MENU_SEQ+'&SUB_MENU_SEQ='+rd.SUB_MENU_SEQ+'\">'+rd.MENU_NM+'<i class="fas fa-plus m_sideMenu_subMark"></i></a></li>');
+                  
+                  var curr_2nd_menu_class = rd.MENU_SEQ == menu_page_no ? "currentSideMenu" : "";
+                  var curr_2nd_menu_style = rd.MENU_SEQ == menu_page_no ? "display:block;" : "";
+                  
+                  $.ajax({
+                    url : '/ctl/co/sub_menu_list.acl',
+                    type: "POST",
+                    data: {
+                      MENU_SEQ : rd.MENU_SEQ,
+                      encoding : "utf-8"
+                    },
+                    async: false,
+                    success: function(data){
+                      if(!data.isError) {
+                        var subMenuNode =  "";
+                        $.each(data.records, function(index, rd) {
+                          var curr_3rd_menu_class = (rd.MENU_SEQ == menu_page_no) && (rd.SUB_MENU_SEQ == 0) ? "currentSideSubMenu" : "";
+                          subMenuNode += '<li class="sideMenu-sub-li '+curr_3rd_menu_class+'" style="'+curr_2nd_menu_style+'"><a href=\"/ctl/'+dv+'/program_form.acl?MENU_SEQ='+rd.MENU_SEQ+'&SUB_MENU_SEQ='+rd.SUB_MENU_SEQ+'\"><span class="">-&ensp;</span>'+rd.MENU_NM+'</a></li>';
+                        });
+                        
+                        $('#m_2nd_menu_'+rd.MENU_SEQ).after(subMenuNode);
+                      }
+                    },
+                    error : function(html) {
+                      alert("error:"+html);
+                    }
+                  });
+                }
+              }
+              else if('2' == rd.MENU_DV){ //상담(교수/학생)
+              
+              }
+              else if('4' == rd.MENU_DV){ //스타일 진단(교수/학생)
+              
+              }
+              else if('prof' == dv && '5' == rd.MENU_DV){ //역량 진단(교수)
+               
+
+                  $('#header_'+dv+'_ul').append('<ul class="col-sm-3"><li><a href="/ctl/'+dv+'/diag_form.acl">'+"교수역량 진단"+'</a></li></ul>');
+                  $('#m_header_'+dv+'_ul').append('<li><a href="/ctl/'+dv+'/competency_main.acl"><span class="menu-m-normal"></span>'+"교수역량 진단"+'</a></li>');
+//                 }
+              
+              }
+            });
+          }
+        }
+      },
+      error : function(html) {
+        alert("error:"+html);
+      }
+    });
+  }
+  
+  $(document).ready(function(){
+    //소개메뉴
+    getHeaderMenu('about');
+    //교수지원
+    getHeaderMenu('prof');
+    //학습지원
+    getHeaderMenu('stu');
+    //이러닝지원
+    
+    //TMS영상
+    
+    getHeaderMenu('video');
+    
+    
+    if($(window).width() < 1024){
+      $("#loginFormDiv").show();
+    }else{
+      if(true){
+        $("#loginFormDiv").show();
+      }
+    }
+    
+    //사이드 메뉴 열기
+    $('#m-menu').click(function(){
+      $('.header-nav-mobile-back').show();
+      $('body').css('overflow-y','hidden');
+      $('.m-navbar-default').animate({right:'0'}, 500);
+    });
+    // 사이드 메뉴 바깥쪽 누르거나 x버튼 누르면 사이드 메뉴 닫기
+    $(document).on('click',".header-m-close, .header-nav-mobile-back",function(){
+      $('.m-navbar-default').animate({right:'-276px'}, 500);
+      $('.header-nav-mobile-back').hide();
+      $('body').css('overflow-y','auto');
+    });
+    
+    $('#loginBtn2').click(function(){
+      loginForm();
+    });
+  
+    $('#usr_id').keyup(function(e){
+      if(e.keyCode == 13){
+        $('#usr_pwd').focus();
+      }
+    });
+    
+    $('#usr_pwd').keyup(function(e){
+      if(e.keyCode == 13){
+        loginForm();
+      }
+    });
+    
+    $('#header-nav>ul>li').mouseover(function(){
+      $(this).addClass('open');
+    });
+    $('#header-nav>ul>li').mouseleave(function(){
+      $(this).removeClass('open');
+    });
+  });
+  
+  jQuery.fn.center = function () {
+    this.css("position","absolute");
+//     this.css("top", Math.max(0, (($(window).height() - $(this).outerHeight()) / 2) - 30) + "px");
+    this.css("left", Math.max(0, (($(window).width() - $(this).outerWidth()) / 2) + $(window).scrollLeft()) + "px");
+    return this;
+  }
+  
+  function loginForm() {
+    var f = document.loginForm;
+    if($("#usr_id").val() == "") {
+      alert("아이디를 입력하세요.");
+      $("#usr_id").focus();
+      return false;
+    }
+
+    if($("#usr_pwd").val() == "") {
+      alert("비밀번호를 입력하세요.");
+      $("#usr_pwd").focus();
+      return false;
+    }
+
+    var input = document.createElement('input');
+    input.setAttribute('type', 'hidden');
+    input.setAttribute('name', 'FROM_URL');
+    input.setAttribute('value', '/ctl/stu/program_form.acl');
+    
+    f.appendChild(input);
+    f.target="";
+    f.submit();
+  }
+  
+  function goLoginForm(){ //모바일 로그인
+    var f = document.createElement('form');
+    f.setAttribute('method', 'post');
+    f.setAttribute('action', '/ctl/lo/login_form.acl');
+  
+    var input = document.createElement('input');
+    input.setAttribute('type', 'hidden');
+    input.setAttribute('name', 'FROM_URL');
+    input.setAttribute('value', '/ctl/stu/program_form.acl');
+    
+    f.appendChild(input);
+    document.body.appendChild(f);
+    f.target="";
+    f.submit();
+  }
+  
+  function openPop(name, click) {
+    var body = $("body").width();
+    $("body").css("overflow","hidden");
+    $("body").attr("b_width", body);
+    if(name == 'user'){
+      $("#modal_background_user").show();  
+      $("#modal_poplayer_user").show();
+    }else{
+      $("#modal_background").show();  
+      $("#modal_poplayer").show(); 
+    }
+    $("#poplayer_"+name).show();  
+    $("#poplayer_"+name).center();
+    var height = $("#poplayer_"+name).outerHeight()+60;
+    
+    if(height > $(window).height()){   
+      $("#modal_background").css("height", height);
+      $("#modal_background_user").css("height", height);
+    }else {
+      $("#modal_background").css("height", "100%");    
+      $("#modal_background_user").css("height", "100%");    
+    }
+    if(click == 'N'){
+      setPopModalClose(false, name);
+    }else{
+      setPopModalClose(true, name);
+    }
+    $("#modal_poplayer").scrollTop(0);
+    //오버플로 히든으로 인한 틀어짐 잡기 위해 패팅 넣어주기
+    var body2 = $("body").width() - $("body").attr("b_width");
+    $("body").css("padding-right", body2+"px");
+  }
+
+  function setPopModalClose(is, name){
+    if(is){
+      $("#modal_background").attr('onclick','closePopup("'+name+'"); return false;');
+    }else{
+      $("#modal_background").removeAttr('onclick');
+    }
+  }
+
+  function closePopup(name) {
+    $("body").css("overflow","auto");
+    $("body").css("padding-right", "0");
+    $("#modal_background").attr('onclick','closePopup(); return false;');
+    if(name == 'user'){
+      $(".poplayer,#modal_poplayer_user,#modal_background_user").hide();
+    }else{
+      if(name == 'notice'){
+//         listPage(1);
+      }
+      $(".poplayer,#modal_poplayer,#modal_background").hide(); 
+    }
+    
+    if(name == 'community'){
+      tabGo('3');
+    }
+  } 
+  
+  function firstMenuGo(dv){
+    var url = $('#header_'+dv+'_ul li a').attr('href');
+    if(url !== undefined){
+      pageGo(url);
+    }
+  }
+</script>
+<header>
+  <div id="header-top">
+    <div class="guide">
+      <div id="header-left" onclick="pageGo('/ctl/main/main_form.acl');">
+        <div class="cursor" id="header-logo"></div>
+        <span class="cursor"><span id="header-title" class="pc_hidden">명지전문대학</span> <span>교수학습센터</span></span>
+      </div>
+      <div id="header-right">
+        <div class="pc-right">
+          
+          <div id="loginFormDiv">
+            <form name="loginForm" id="loginForm" class="login_box" action="/ctl/lo/login.acl" method="post" onSubmit="return false;">
+              <span>LOGIN</span>
+              <input type="text" id="usr_id" name="usr_id" placeholder="아이디" style="margin-right: 10px;">
+              <input type="password" id="usr_pwd" name="usr_pwd" placeholder="비밀번호" style="margin-right: 15px;" autocomplete="off">
+              <span class="header-btn1 cursor" id="loginBtn2" onclick="">로그인</span>
+            </form>
+          </div>
+             
+         </div>
+        </div>
+        <div class="m-right">
+          <div style="font-size:20px; margin:20px;" id="m-menu"><i class="fas fa-bars"></i></div>
+          <nav class="navbar navbar-default m-navbar-default">
+            <div class="container-fluid">
+              <div class="navbar-header">
+              
+                <div class="header-btn1 m-menu-btn" onclick="goLoginForm();">로그인</div>
+              
+                <button type="button" id="m-menu-btn" class="navbar-toggle header-m-close">
+                  <span >&times;</span>
+                </button>
+              </div>
+              <div class="navbar-collapse">
+                <ul class="nav navbar-nav">
+                  <li class="dropdown  site_border_color" style="border-top: 2px solid;">
+                    <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">센터소개<span class="caret"><i class="fas fa-chevron-down"></i></span></a>
+                    <ul class="dropdown-menu" id="m_header_about_ul"></ul>
+                  </li>
+                  <li class="dropdown ">
+                    <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">교수지원<span class="caret"><i class="fas fa-chevron-down"></i></span></a>
+                    <ul class="dropdown-menu" id="m_header_prof_ul"></ul>
+                  </li>
+                  <li class="dropdown open initOpen">
+                    <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="true">학습지원<span class="caret"><i class="fas fa-chevron-up"></i></span></a>
+                    <ul class="dropdown-menu" id="m_header_stu_ul"></ul>
+                  </li>
+                  
+                  
+                  <li class="dropdown">
+                    <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false" onclick="pageGo('/ctl/video/video_main_form.acl');">TMS영상<!-- <span class="caret"><i class="fas fa-chevron-down"></i></span> --></a>
+<!--                     <ul class="dropdown-menu" id="m_header_video_ul"></ul> -->
+                  </li>
+                  
+                  
+                  <li class="dropdown ">
+                    <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">알림마당<span class="caret"><i class="fas fa-chevron-down"></i></span></a>
+                    <ul class="dropdown-menu">
+                      <li><a href="/ctl/info/main_notice_list_form.acl"><span class="menu-m-normal"></span>공지사항<i class="fas fa-plus m_sideMenu_subMark"></i></a></li>
+                      <li class="sideMenu-sub-li" style="display:block;"><a href="/ctl/info/main_notice_list_form.acl?SUB_MENU_SEQ=1">전체 공지</a></li>
+                      <li class="sideMenu-sub-li" style="display:block;"><a href="/ctl/info/main_notice_list_form.acl?SUB_MENU_SEQ=2">교수지원 공지</a></li>
+                      <li class="sideMenu-sub-li" style="display:block;"><a href="/ctl/info/main_notice_list_form.acl?SUB_MENU_SEQ=3">학습지원 공지</a></li>
+                      
+                      <li><a href="/ctl/info/main_faq_list_form.acl"><span class="menu-m-normal"></span>FAQ</a></li>
+                      <li><a href="/ctl/info/main_qna_list_form.acl"><span class="menu-m-normal"></span>질의응답</a></li>
+                      <li><a href="/ctl/info/main_data_list_form.acl"><span class="menu-m-normal"></span>자료실</a></li>
+                  
+                      <li><a href="/ctl/info/survey_list_form.acl"><span class="menu-m-normal"></span>전체설문</a></li>
+                
+                      <li><a href="/ctl/info/program_list_form.acl"><span class="menu-m-normal"></span>프로그램 신청</a></li>
+
+                    </ul>
+                  </li>
+                </ul>
+              </div>
+            </div>
+            
+          </nav>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="header-bottom">
+    <nav class="navbar navbar-default">
+      <div class="collapse navbar-collapse js-navbar-collapse " id="header-nav">
+        <ul class="nav navbar-nav">
+          <li class="dropdown mega-dropdown" onclick="firstMenuGo('about');">
+            <a href="" class="dropdown-toggle " data-toggle="dropdown">센터소개</a>
+            <ul class="dropdown-menu mega-dropdown-menu row">
+              <li class="dropdown-menu-info-left">
+                <div class="megamenu-title">
+                  <div class="megamenu-title-ko">센터소개</div>
+                  <div class="megamenu-title-en">Introduction</div>
+                </div>
+              </li>
+              <li class="dropdown-menu-info-right"  id="header_about_ul"></li>
+            </ul>
+          </li>
+          <li class="dropdown mega-dropdown" onclick="firstMenuGo('prof');">  <!-- "pageGo('/ctl/prof/prof_view_form.acl');" -->
+            <a href="#" class="dropdown-toggle prof-menu " data-toggle="dropdown">교수지원</a>
+            <ul class="dropdown-menu mega-dropdown-menu row">
+              <li class="dropdown-menu-info-left">
+                <div class="megamenu-title">
+                  <div class="megamenu-title-ko">교수지원</div>
+                  <div class="megamenu-title-en">Teaching Support</div>
+                </div>
+              </li>
+              <li class="dropdown-menu-info-right"  id="header_prof_ul"></li>
+            </ul>
+          </li>
+          <li class="dropdown mega-dropdown" onclick="firstMenuGo('stu');">
+            <a href="#" class="dropdown-toggle stu-menu currentHeaderMenu" data-toggle="dropdown">학습지원</a>
+            <ul class="dropdown-menu mega-dropdown-menu row">
+              <li class="dropdown-menu-info-left">
+                <div class="megamenu-title">
+                  <div class="megamenu-title-ko">학습지원</div>
+                  <div class="megamenu-title-en">Learning Support</div>
+                </div>
+              </li>
+              <li class="dropdown-menu-info-right" id="header_stu_ul"></li>
+            </ul>
+          </li>
+        
+        
+          <li class="dropdown mega-dropdown" onclick="pageGo('/ctl/video/video_main_form.acl');">
+            <a href="" class="dropdown-toggle " data-toggle="dropdown">TMS영상</a>
+          </li>
+        
+        
+          <li class="dropdown mega-dropdown cursor" onclick="pageGo('/ctl/info/main_notice_list_form.acl');">
+            <a class="dropdown-toggle " data-toggle="dropdown">알림마당</a>
+            <ul class="dropdown-menu mega-dropdown-menu row">
+              <li class="dropdown-menu-info-left">
+                <div class="megamenu-title">
+                  <div class="megamenu-title-ko">알림마당</div>
+                  <div class="megamenu-title-en">Information</div>
+                </div>
+              </li>
+              <li class="dropdown-menu-info-right">
+                <ul class="col-sm-3">
+                  <li><a href="/ctl/info/main_notice_list_form.acl">공지사항</a></li>
+                </ul>
+                <ul class="col-sm-3">
+                  <li><a href="/ctl/info/main_faq_list_form.acl">FAQ</a></li>
+                </ul>
+                <ul class="col-sm-3">
+                  <li><a href="/ctl/info/main_qna_list_form.acl">질의응답</a></li>
+                </ul>
+                <ul class="col-sm-3">
+                  <li><a href="/ctl/info/main_data_list_form.acl">자료실</a></li>
+                </ul>
+              
+                <ul class="col-sm-3">
+                  <li><a href="/ctl/info/survey_list_form.acl">전체설문</a></li>
+                </ul>
+                <ul class="col-sm-3">
+                  <li><a href="/ctl/info/program_list_form.acl">프로그램 신청</a></li>
+                </ul>
+
+
+
+              </li>
+            </ul>
+          </li>
+        </ul>
+      </div>
+    </nav>
+  </div>
+  <div class="header-nav-mobile-back" style="display: none;"></div>
+</header>
+
+    <div class="pageBody">
+      <div class="guide">
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<style>
+  .sideMenu-li>.slimScrollDiv{
+    display: none;
+  }
+ /* #stu_program_ul, #program_ul{
+    width: 100%;
+    position: relative;
+    padding: 0;
+    background: #F5F5F5;
+    color: #333;
+  }*/
+  .slimScrollDiv{
+    padding: 0 !important;
+  }
+  #prof_scroll_menu,
+  #stu_scroll_menu{
+    padding: 0;
+  }
+</style>
+<script>
+$(document).on("mouseover",".sideMenu-li, .sub-sideMenu-li",function() {
+  if(!$(this).hasClass('currentSideMenu')){
+    $(this).addClass('focusSideMenu');
+    if(0 < $(this).attr('sub-menu')){
+      $(this).find('li').show();
+    }
+  }
+});
+$(document).on("mouseleave",".sideMenu-li, .sub-sideMenu-li",function() {
+  if(!$(this).hasClass('currentSideMenu')){
+    $(this).removeClass('focusSideMenu');
+    if(0 < $(this).attr('sub-menu')){
+      $(this).find('li').hide();
+    }
+  }
+});
+
+function getSideMenu(dv){
+  var menu_dv = '0';
+  var menu_page_no = 'null';
+  var url = '/ctl/co/menu_list.acl';
+  
+  if(dv == 'about'){
+    menu_dv = '0';
+    menu_page_no = 'null';
+    url = '/ctl/co/menu_list.acl';
+  }
+  else if(dv == 'prof'){
+    menu_dv = '1';
+    menu_page_no = 'null';
+    url = '/ctl/co/menu_list.acl';
+  }
+  else if(dv == 'stu'){
+    menu_dv = '2';
+    menu_page_no = '0';
+    url = '/ctl/co/menu_list.acl';
+  }
+  else if(dv == 'eLearning'){
+    menu_dv = '3';
+    menu_page_no = 'null';
+    url = '/ctl/co/menu_list.acl';
+  }
+  else if(dv == 'video'){
+    url = '/ctl/co/menu_list2.acl';
+  }
+  
+  $.ajax({
+    url : url,
+    type: "POST",
+    data: {
+      MENU_DV  : menu_dv,
+      TARGET   : dv == 'prof' ? 'P' : dv == 'stu' ? 'S' : '',
+      encoding : "utf-8"
+    },
+    async: false,
+    success: function(data){
+      if(!data.isError) {
+        if(dv == 'video'){
+          $.each(data.records, function(index, rd) {
+            $('#header_'+dv+'_ul').append('<ul class="col-sm-3"><li><a href=\"/ctl/'+dv+'/video_form.acl?CATEGORY_SEQ='+rd.CATEGORY_SEQ+'\">'+rd.CATEGORY_NM+'</a></li></ul>');
+            $('#m_header_'+dv+'_ul').append('<li><a href=\"/ctl/'+dv+'/video_form.acl?CATEGORY_SEQ='+rd.CATEGORY_SEQ+'\"><span class="menu-m-normal"></span>'+rd.CATEGORY_NM+'</a></li>');
+          });
+        }
+        else{
+          $.each(data.records, function(index, rd) {
+            if('1' == rd.MENU_DV){ //프로그램
+              if('0' == rd.SUB_CNT){
+                if(rd.MENU_SEQ == menu_page_no){
+                  $('#'+dv+'_program_ul').prepend('<li sub-menu="0" class="sideMenu-li currentSideMenu" onclick="pageGo(\'/ctl/'+dv+'/program_form.acl?MENU_SEQ='+rd.MENU_SEQ+'\');"><div class="li-div">'+rd.MENU_NM+'</div></li>');
+                }
+                else{
+                  $('#'+dv+'_program_ul').prepend('<li sub-menu="0" class="sideMenu-li " onclick="pageGo(\'/ctl/'+dv+'/program_form.acl?MENU_SEQ='+rd.MENU_SEQ+'\');"><div class="li-div">'+rd.MENU_NM+'</div></li>');
+                }
+              }
+              else{
+                if(rd.MENU_SEQ == menu_page_no){
+                  $('#'+dv+'_program_ul').prepend('<li id="2nd_menu_'+rd.MENU_SEQ+'" sub-menu="'+rd.SUB_CNT+'" class="sideMenu-li currentSideMenu"><div class="li-div" onclick="pageGo(\'/ctl/'+dv+'/program_form.acl?MENU_SEQ='+rd.MENU_SEQ+'&SUB_MENU_SEQ='+rd.SUB_MENU_SEQ+'\');">'+rd.MENU_NM+'<i class="fas fa-chevron-up" style="position: absolute; right: 20px; top: 22px;"></i></div></li>');
+                }
+                else{
+                  $('#'+dv+'_program_ul').prepend('<li id="2nd_menu_'+rd.MENU_SEQ+'" sub-menu="'+rd.SUB_CNT+'" class="sideMenu-li "><div class="li-div" onclick="pageGo(\'/ctl/'+dv+'/program_form.acl?MENU_SEQ='+rd.MENU_SEQ+'&SUB_MENU_SEQ='+rd.SUB_MENU_SEQ+'\');">'+rd.MENU_NM+'<i class="fas fa-chevron-down" style="position: absolute; right: 20px; top: 22px;"></i></div></li>');
+                }
+                
+                $.ajax({
+                  url : '/ctl/co/sub_menu_list.acl',
+                  type: "POST",
+                  data: {
+                    MENU_SEQ : rd.MENU_SEQ,
+                    encoding : "utf-8"
+                  },
+                  async: false,
+                  success: function(data){
+                    if(!data.isError) {
+                      var subMenuNode =  "<ul>";
+                      $.each(data.records, function(index, rd) {
+                          var curr_3rd_menu_class = (rd.MENU_SEQ == menu_page_no) && (rd.SUB_MENU_SEQ == 0) ? "currentSideSubMenu" : "";
+                          var curr_3rd_menu_style = rd.MENU_SEQ == menu_page_no ? "display: list-item;" : "";
+                          
+                      	subMenuNode += '<li class="sideMenu-sub-li '+curr_3rd_menu_class+'" style="'+curr_3rd_menu_style+'">';
+                      	subMenuNode += '  <div onclick="pageGo(\'/ctl/'+dv+'/program_form.acl?MENU_SEQ='+rd.MENU_SEQ+'&SUB_MENU_SEQ='+rd.SUB_MENU_SEQ+'\');">- '+rd.MENU_NM+'</div>';
+                      	subMenuNode += '</li>';
+                      });
+                          subMenuNode += "</ul>";
+                      
+                      $('#2nd_menu_'+rd.MENU_SEQ).append(subMenuNode);
+                    }
+                  },
+                  error : function(html) {
+                    alert("error:"+html);
+                  }
+                });
+              }
+            }
+            else if('2' == rd.MENU_DV){ //상담(교수/학생)
+            
+            }
+            else if('4' == rd.MENU_DV){ //스타일 진단(교수/학생)
+            
+            }
+            else if('5' == rd.MENU_DV){ //역량 진단(교수)
+             
+              if(dv == 'prof') {
+                $('#'+dv+'_program_ul').append('<li class="sideMenu-li " onclick="pageGo(\'/ctl/prof/diag_form.acl\');"><div class="li-div">교수역량 진단</div></li>');
+              }
+            
+            }
+          });
+          
+          if(dv == 'prof'){
+            $('#'+dv+'_program_ul').append('<li class="sideMenu-li " onclick="pageGo(\'/ctl/prof/program_form.acl\');"><div class="li-div">교수지원 프로그램 전체보기</div></li>');
+          }
+          else if(dv == 'stu'){
+            $('#'+dv+'_program_ul').append('<li class="sideMenu-li " onclick="pageGo(\'/ctl/stu/program_form.acl\');"><div class="li-div">학습지원 프로그램 전체보기</div></li>');
+          }
+          else if(dv == 'eLearning'){
+            $('#'+dv+'_program_ul').append('<li class="sideMenu-li " onclick="pageGo(\'/ctl/eLearning/program_form.acl\');"><div class="li-div">이러닝지원 프로그램 전체보기</div></li>');
+          }
+        }
+      }
+      else{
+        if(dv == 'prof'){
+          $('#'+dv+'_program_ul').append('<li class="sideMenu-li " onclick="pageGo(\'/ctl/prof/program_form.acl\');"><div class="li-div">교수지원 프로그램 전체보기</div></li>');
+        }
+        else if(dv == 'stu'){
+          $('#'+dv+'_program_ul').append('<li class="sideMenu-li " onclick="pageGo(\'/ctl/stu/program_form.acl\');"><div class="li-div">학습지원 프로그램 전체보기</div></li>');
+        }
+        else if(dv == 'eLearning'){
+          $('#'+dv+'_program_ul').append('<li class="sideMenu-li " onclick="pageGo(\'/ctl/eLearning/program_form.acl\');"><div class="li-div">이러닝지원 프로그램 전체보기</div></li>');
+        }
+      }
+    },
+    error : function(html) {
+      alert("error:"+html);
+    }
+  });
+}
+
+$(function(){
+  //소개메뉴
+  getSideMenu('about');
+  //교수지원
+  getSideMenu('prof');
+  //학습지원
+  getSideMenu('stu');
+  //이러닝지원
+  
+  
+  $('.sideMenu > ul > li').each(function(){
+    if($(this).hasClass('currentSideMenu')){
+      $(this).find('.li-div').next().show();
+    }
+  });
+
+  if($('.sideMenu-ul').height() > '1000'){
+    if($('.sideMenu-ul').height() > $('.pageContent').height() )
+    $('.pageContent').css('height', $('.sideMenu-ul').height());
+  }
+  
+  $(window).resize(function() { 
+    if($(window).width() > 768){
+      if($('.sideMenu-ul').height() > '1000'){
+        if($('.sideMenu-ul').height() > $('.pageContent').height() )
+        $('.pageContent').css('height', $('.sideMenu-ul').height());
+      }
+    }else if($(window).width() > 480){
+      if( $('.pageContent').height<$('.pageContent').css('min-height'))
+      $('.pageContent').css('height', '850');
+    }else{    
+      if( $('.pageContent').height<$('.pageContent').css('min-height'))
+      $('.pageContent').css('height', '720');
+    }
+    }
+  );
+});
+</script>
+<!-- sideMenu start -->
+<aside class="sideMenu">
+  <ul class="sideMenu-ul">
+  <li class=sideMenu-header>학습지원</li>
+  
+    <ul id="stu_program_ul"></ul>
+  
+  </ul>   
+</aside>
+<!-- sideMenu end -->
+        
+        <!-- mobile bar start -->
+        <div class="m-path-bar">
+          <div class="m-page-path">
+            <img src="/ctl/images/home.png" onclick="pageGo('/ctl/main/main_form.acl');">
+            <i class="fas fa-chevron-right"></i>
+            <span>학습지원</span>
+            <i class="fas fa-chevron-right"></i>
+            <span>학습지원 프로그램</span>
+          </div>
+        </div>
+        <!-- mobile bar end -->
+      
+        <!-- page content start -->
+        <div class="pageContent">
+          <!-- page path start -->
+          <div class="page_header">
+            <span class="page_title">  
+              학습지원 프로그램
+            </span>
+            <div class="page_path_wrap">
+              <div class="page_path">
+                <img src="/ctl/images/home.png" onclick="pageGo('/ctl/main/main_form.acl');">
+                <i class="fas fa-chevron-right"></i>
+                <span>학습지원</span>
+                <i class="fas fa-chevron-right"></i>
+                <span>학습지원 프로그램</span>
+              </div>
+            </div>
+          </div>
+          <!-- page path end -->            
+
+          <div class="eLearning-wrap">
+          
+            
+            <div class="content">
+              <ul id="tabList" class="tabType">
+                <li id="tab1" class="tab cursor tab_on" onclick="tabGo('1');">접수신청</li>
+                <!-- 결과보고 정보 없어서 우선 비활성화  >> 공지사항으로 대체 -->
+                <li id="tab2" class="tab cursor" onclick="tabGo('2');">공지사항</li>
+              </ul>
+              
+              <div class="list_box">
+                <div id="search_box" style="display: flex; justify-content: space-between; gap: 10px; align-items: center; margin: 20px 0 10px;">
+                  <div>
+                    
+                  </div>
+                  <div class="search-box">
+                    <input onkeyup="enterSch()" type="search" id="sch_val" name="" placeholder="검색" value="">
+                    <div class="search-icon-box cursor" id="sch_btn">
+                      <i class="fa fa-search search-icon"></i>
+                    </div>
+                  </div>
+                </div>
+                <div id="program_list_zone"></div>
+                <div id="program_review_list_zone" style="display: none;"></div>
+              </div> 
+              
+              <div class="modal_poplayer" onclick="" id="modal_poplayer" style="z-index: 103; display: none;">
+                <div class="modal_background" onclick="closePopup(); return false;" id="modal_background" style="display: block; height: 100%;"></div> <!-- 팝업 배경 -->
+                <!-- 프로그램 리뷰 -->
+                <div id="poplayer_info" class="poplayer" style="max-width: 880px; position: relative;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- page content end -->
+      </div>
+    </div>
+    
+
+
+
+
+
+<script>
+  $(function(){
+    getFooter();
+    $('#selectFamiliySite').on('change',function(){
+      var url = $(this).val();
+      if(url != ''){
+        window.open(url,'_blank');
+        $('#selectFamiliySite').val("");
+      }
+    });
+  });
+  
+  function getFooter(){
+    $.ajax({
+      url: "/ctl/main/footer_form2.acl",
+      type: "POST",
+      data: { 
+        encoding : "utf-8"
+      },
+      async: false,
+      success: function(html){
+        $("#footer_form").html(html);
+      },
+      error : function(html) {
+      }
+    });
+  }
+</script>
+<style>
+  #selectFamiliySite{
+    width: 240px;
+    height: 40px;
+    position: absolute;
+    top: -1px;
+    right: 0;
+    font-size: 12px;
+    font-weight: bold;
+    letter-spacing: -0.075em;
+    color: #555555;
+    padding-left: 6px;
+  }
+  .footer-bottom2 .mobile{display: none;}
+  .copy_mobile{display: none;}
+  @media (max-width: 767px){
+    .privacy_info{padding-left: 15px !important;}
+  }
+  @media (max-width: 480px){
+    #selectFamiliySite{width: 160px;}
+  }
+  @media (max-width: 639px){
+    .footer-bottom2 .pc{display: none;}
+    .footer-bottom2 .mobile{
+      display: block; 
+      font-size: 12px;
+      line-height: 19px;
+      margin-bottom: 10px;
+      margin-top: 10px;
+    }
+    .univ_name{display: none;}
+    .copy_pc{display: none;}
+    .copy_mobile{display: block; line-height: 19px;}
+  }
+</style>
+<footer id="footer_form" style="height: 200px; text-align: center;"></footer>
+  </body>
+</html>

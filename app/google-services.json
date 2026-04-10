@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "512160526046",
+    "project_id": "mjcinone",
+    "storage_bucket": "mjcinone.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:512160526046:android:0bfd687eb5859b75b0dc4f",
+        "android_client_info": {
+          "package_name": "com.myeongji.mio.mioNotice"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDjtMLX0ISRfx9zlks6Yh0MYxybB-52oL0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

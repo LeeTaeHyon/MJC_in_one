@@ -3,6 +3,7 @@ import "package:mio_notice/screens/ctl_screen.dart";
 import "package:mio_notice/screens/library_screen.dart";
 import "package:mio_notice/screens/main_website_screen.dart";
 import "package:mio_notice/screens/mpu_screen.dart";
+import "package:mio_notice/screens/home_dashboard_screen.dart";
 
 /// 하단 탭으로 4개 대분류(메인홈페이지, MPU, CTL, 도서관)를 전환합니다.
 class MainNavigationScreen extends StatefulWidget {
@@ -15,7 +16,10 @@ class MainNavigationScreen extends StatefulWidget {
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   int _index = 0;
 
-  static final List<Widget> _pages = <Widget>[
+  late final List<Widget> _pages = <Widget>[
+    HomeDashboardScreen(onNavigate: (int targetIndex) {
+      if (mounted) setState(() => _index = targetIndex);
+    }),
     MainWebsiteScreen(),
     const MpuScreen(),
     const CtlScreen(),
@@ -35,9 +39,14 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         onTap: (value) => setState(() => _index = value),
         items: const [
           BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined),
-            activeIcon: Icon(Icons.home),
-            label: "메인홈페이지",
+            icon: Icon(Icons.dashboard_outlined),
+            activeIcon: Icon(Icons.dashboard),
+            label: "홈",
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.campaign_outlined),
+            activeIcon: Icon(Icons.campaign),
+            label: "공지",
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.school_outlined),
