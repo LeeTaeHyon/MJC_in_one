@@ -4,8 +4,9 @@ import "package:mio_notice/screens/library_screen.dart";
 import "package:mio_notice/screens/main_website_screen.dart";
 import "package:mio_notice/screens/mpu_screen.dart";
 import "package:mio_notice/screens/home_dashboard_screen.dart";
+import "package:mio_notice/theme/app_colors.dart";
 
-/// 하단 탭으로 4개 대분류(메인홈페이지, MPU, CTL, 도서관)를 전환합니다.
+/// 하단 탭으로 대분류 전환 (figma Root 하단 네비 레이아웃).
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
 
@@ -29,38 +30,38 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.scaffoldMuted,
       body: IndexedStack(
         index: _index,
         children: _pages,
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _index,
-        type: BottomNavigationBarType.fixed,
-        onTap: (value) => setState(() => _index = value),
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.dashboard_outlined),
-            activeIcon: Icon(Icons.dashboard),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _index,
+        onDestinationSelected: (value) => setState(() => _index = value),
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.home_outlined),
+            selectedIcon: Icon(Icons.home),
             label: "홈",
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.campaign_outlined),
-            activeIcon: Icon(Icons.campaign),
+          NavigationDestination(
+            icon: Icon(Icons.school_outlined),
+            selectedIcon: Icon(Icons.school),
             label: "공지",
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.school_outlined),
-            activeIcon: Icon(Icons.school),
+          NavigationDestination(
+            icon: Icon(Icons.emoji_events_outlined),
+            selectedIcon: Icon(Icons.emoji_events),
             label: "MPU",
           ),
-          BottomNavigationBarItem(
+          NavigationDestination(
             icon: Icon(Icons.menu_book_outlined),
-            activeIcon: Icon(Icons.menu_book),
+            selectedIcon: Icon(Icons.menu_book),
             label: "CTL",
           ),
-          BottomNavigationBarItem(
+          NavigationDestination(
             icon: Icon(Icons.local_library_outlined),
-            activeIcon: Icon(Icons.local_library),
+            selectedIcon: Icon(Icons.local_library),
             label: "도서관",
           ),
         ],

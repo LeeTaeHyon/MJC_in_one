@@ -2,6 +2,8 @@ import "package:cloud_firestore/cloud_firestore.dart";
 import "package:flutter/material.dart";
 import "package:url_launcher/url_launcher.dart";
 
+import "package:mio_notice/theme/app_colors.dart";
+
 /// MPU 대분류 화면: 핵심역량 프로그램 목록 조회
 class MpuScreen extends StatelessWidget {
   const MpuScreen({super.key});
@@ -19,7 +21,15 @@ class MpuScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("MPU 핵심역량 프로그램")),
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: AppColors.competency,
+        elevation: 0,
+        title: const Text(
+          "MPU 핵심역량 프로그램",
+          style: TextStyle(fontWeight: FontWeight.w600),
+        ),
+      ),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
             .collection("core_competencies")
@@ -29,7 +39,9 @@ class MpuScreen extends StatelessWidget {
             .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const Center(
+              child: CircularProgressIndicator(color: AppColors.competency),
+            );
           }
           if (snapshot.hasError) {
             return const Center(child: Text("데이터를 불러오는데 실패했습니다."));
@@ -40,7 +52,7 @@ class MpuScreen extends StatelessWidget {
           }
 
           return ListView.separated(
-            padding: const EdgeInsets.symmetric(vertical: 8),
+            padding: EdgeInsets.zero,
             itemCount: docs.length,
             separatorBuilder: (context, index) => const Divider(height: 1),
             itemBuilder: (context, index) {
@@ -53,15 +65,18 @@ class MpuScreen extends StatelessWidget {
                 onTap: () => _openMpuWebsite(context),
                 title: Text(
                   title,
-                  style: const TextStyle(fontWeight: FontWeight.w600),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 16,
+                  ),
                 ),
                 subtitle: tags.isNotEmpty
                     ? Padding(
-                        padding: const EdgeInsets.only(top: 4.0),
+                        padding: const EdgeInsets.only(top: 4),
                         child: Text(
                           tags.map((e) => "#$e").join(" "),
-                          style: TextStyle(
-                            color: Theme.of(context).colorScheme.primary,
+                          style: const TextStyle(
+                            color: AppColors.primary,
                             fontSize: 12,
                           ),
                         ),
@@ -70,7 +85,9 @@ class MpuScreen extends StatelessWidget {
                 trailing: dDay.isNotEmpty
                     ? Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: Theme.of(context).colorScheme.errorContainer,
                           borderRadius: BorderRadius.circular(12),
@@ -78,7 +95,9 @@ class MpuScreen extends StatelessWidget {
                         child: Text(
                           dDay,
                           style: TextStyle(
-                            color: Theme.of(context).colorScheme.onErrorContainer,
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onErrorContainer,
                             fontWeight: FontWeight.bold,
                             fontSize: 12,
                           ),

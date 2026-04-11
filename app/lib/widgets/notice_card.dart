@@ -1,5 +1,7 @@
 import "package:flutter/material.dart";
 import "package:mio_notice/models/notice_model.dart";
+import "package:mio_notice/theme/app_colors.dart";
+import "package:mio_notice/widgets/new_notice_badge.dart";
 import "package:url_launcher/url_launcher.dart";
 
 class NoticeCard extends StatelessWidget {
@@ -33,70 +35,52 @@ class NoticeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      child: InkWell(
-        onTap: () => _openUrl(context),
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Text(
-                      notice.title,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  if (notice.isNew) ...[
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.errorContainer,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        "NEW",
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: theme.colorScheme.onErrorContainer,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
+    return ListTile(
+      onTap: () => _openUrl(context),
+      title: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Text(
+              notice.title,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w400,
               ),
-              const SizedBox(height: 8),
-              Text(
-                notice.date,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-              if (notice.source.isNotEmpty) ...[
-                const SizedBox(height: 4),
-                Text(
-                  notice.source,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.primary,
-                  ),
-                ),
-              ],
-            ],
+            ),
           ),
-        ),
+          if (notice.isNew)
+            const Padding(
+              padding: EdgeInsets.only(left: 8, top: 2),
+              child: NewNoticeBadge(color: AppColors.primary),
+            ),
+        ],
+      ),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              notice.date,
+              style: const TextStyle(
+                fontSize: 13,
+                color: AppColors.mutedForeground,
+              ),
+            ),
+          ),
+          if (notice.source.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                notice.source,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AppColors.primary,
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }

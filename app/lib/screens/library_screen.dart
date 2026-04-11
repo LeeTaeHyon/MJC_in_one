@@ -1,5 +1,7 @@
-import 'package:flutter/material.dart';
-import 'package:webview_flutter/webview_flutter.dart';
+import "package:flutter/material.dart";
+import "package:webview_flutter/webview_flutter.dart";
+
+import "package:mio_notice/theme/app_colors.dart";
 
 class LibraryScreen extends StatefulWidget {
   const LibraryScreen({super.key});
@@ -24,14 +26,20 @@ class _LibraryScreenState extends State<LibraryScreen> {
           },
         ),
       )
-      ..loadRequest(Uri.parse('https://lib.mjc.ac.kr/'));
+      ..loadRequest(Uri.parse("https://lib.mjc.ac.kr/"));
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text("명지전문대학 도서관"),
+        backgroundColor: AppColors.library,
+        elevation: 0,
+        title: const Text(
+          "명지전문대학 도서관",
+          style: TextStyle(fontWeight: FontWeight.w600),
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -56,7 +64,20 @@ class _LibraryScreenState extends State<LibraryScreen> {
           WebViewWidget(controller: _controller),
           if (_isLoading)
             const Center(
-              child: CircularProgressIndicator(),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(color: AppColors.library),
+                  SizedBox(height: 16),
+                  Text(
+                    "도서관 페이지를 불러오는 중...",
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: AppColors.mutedForeground,
+                    ),
+                  ),
+                ],
+              ),
             ),
         ],
       ),

@@ -1,4 +1,6 @@
-import 'package:flutter/material.dart';
+import "package:flutter/material.dart";
+
+import "package:mio_notice/theme/app_colors.dart";
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -13,8 +15,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text("설정"),
+        backgroundColor: AppColors.primary,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: const Text(
+          "설정",
+          style: TextStyle(fontWeight: FontWeight.w600),
+        ),
       ),
       body: ListView(
         children: [
@@ -24,7 +36,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               "알림 설정",
               style: TextStyle(
                 fontWeight: FontWeight.bold,
-                color: Colors.indigo,
+                color: AppColors.primary,
               ),
             ),
           ),
@@ -47,32 +59,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
               // TODO: 키워드 설정 모달 띄우기
             },
           ),
-          const Divider(),
+          const Divider(height: 1),
           const Padding(
             padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
             child: Text(
               "화면 설정",
               style: TextStyle(
                 fontWeight: FontWeight.bold,
-                color: Colors.indigo,
+                color: AppColors.primary,
               ),
             ),
           ),
           ListTile(
             title: const Text("다크 모드"),
-            trailing: const Text("시스템 설정 사용"),
+            trailing: const Text(
+              "시스템 설정 사용",
+              style: TextStyle(
+                fontSize: 14,
+                color: AppColors.mutedForeground,
+              ),
+            ),
             onTap: () {
               // TODO: 다크모드 설정 기능
             },
           ),
-          const Divider(),
+          const Divider(height: 1),
           const Padding(
             padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
             child: Text(
               "앱 정보",
               style: TextStyle(
                 fontWeight: FontWeight.bold,
-                color: Colors.indigo,
+                color: AppColors.primary,
               ),
             ),
           ),

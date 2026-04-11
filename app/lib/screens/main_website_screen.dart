@@ -1,6 +1,7 @@
 import "package:flutter/material.dart";
 import "package:mio_notice/models/notice_model.dart";
 import "package:mio_notice/services/firestore_service.dart";
+import "package:mio_notice/theme/app_colors.dart";
 import "package:mio_notice/widgets/notice_card.dart";
 
 /// 메인홈페이지 소분류 탭 설정 (라벨 + Firestore category_id)
@@ -31,27 +32,70 @@ class MainWebsiteScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    const barColor = AppColors.primary;
+
     return DefaultTabController(
       length: kMainWebsiteTabs.length,
       child: Scaffold(
-        appBar: AppBar(
-          title: const Text("메인홈페이지"),
-          bottom: TabBar(
-            isScrollable: true,
-            tabs: kMainWebsiteTabs
-                .map((e) => Tab(text: e.label))
-                .toList(growable: false),
-          ),
-        ),
-        body: TabBarView(
-          children: kMainWebsiteTabs
-              .map(
-                (tab) => _NoticeTabBody(
-                  firestoreService: _firestoreService,
-                  categoryId: tab.categoryId,
+        backgroundColor: Colors.white,
+        body: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Material(
+              color: barColor,
+              elevation: 0,
+              child: SafeArea(
+                bottom: false,
+                child: SizedBox(
+                  height: kToolbarHeight,
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Text(
+                        "메인홈페이지",
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                            ) ??
+                            const TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w600,
+                            ),
+                      ),
+                    ),
+                  ),
                 ),
-              )
-              .toList(growable: false),
+              ),
+            ),
+            Material(
+              color: Colors.white,
+              child: TabBar(
+                isScrollable: false,
+                labelColor: barColor,
+                unselectedLabelColor: Colors.grey.shade600,
+                indicatorColor: barColor,
+                indicatorSize: TabBarIndicatorSize.tab,
+                dividerColor: Theme.of(context).dividerColor,
+                tabs: kMainWebsiteTabs
+                    .map((e) => Tab(text: e.label))
+                    .toList(growable: false),
+              ),
+            ),
+            Expanded(
+              child: TabBarView(
+                children: kMainWebsiteTabs
+                    .map(
+                      (tab) => _NoticeTabBody(
+                        firestoreService: _firestoreService,
+                        categoryId: tab.categoryId,
+                      ),
+                    )
+                    .toList(growable: false),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -73,7 +117,9 @@ class _NoticeTabBody extends StatelessWidget {
       stream: firestoreService.streamNotices(categoryId),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
+          return const Center(
+            child: CircularProgressIndicator(color: AppColors.primary),
+          );
         }
         if (snapshot.hasError) {
           return Center(
@@ -90,9 +136,9 @@ class _NoticeTabBody extends StatelessWidget {
         if (items.isEmpty) {
           return const Center(child: Text("등록된 공지가 없습니다."));
         }
-        return ListView.builder(
-          padding: const EdgeInsets.symmetric(vertical: 8),
+        return ListView.separated(
           itemCount: items.length,
+          separatorBuilder: (context, index) => const Divider(height: 1),
           itemBuilder: (context, index) {
             return NoticeCard(notice: items[index]);
           },

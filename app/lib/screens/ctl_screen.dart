@@ -2,28 +2,73 @@ import "package:cloud_firestore/cloud_firestore.dart";
 import "package:flutter/material.dart";
 import "package:url_launcher/url_launcher.dart";
 
+import "package:mio_notice/theme/app_colors.dart";
+
 /// CTL 대분류 화면: 프로그램 및 공지사항 탭
 class CtlScreen extends StatelessWidget {
   const CtlScreen({super.key});
+
+  static const Color _barColor = AppColors.teaching;
 
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
       length: 2,
       child: Scaffold(
-        appBar: AppBar(
-          title: const Text("CTL 교수학습센터"),
-          bottom: const TabBar(
-            tabs: [
-              Tab(text: "프로그램 목록"),
-              Tab(text: "공지사항"),
-            ],
-          ),
-        ),
-        body: const TabBarView(
+        backgroundColor: Colors.white,
+        body: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _CtlCollectionList(collectionPath: "programs"),
-            _CtlCollectionList(collectionPath: "notices"),
+            Material(
+              color: _barColor,
+              elevation: 0,
+              child: SafeArea(
+                bottom: false,
+                child: SizedBox(
+                  height: kToolbarHeight,
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Text(
+                        "CTL 교수학습센터",
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                            ) ??
+                            const TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w600,
+                            ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Material(
+              color: Colors.white,
+              child: TabBar(
+                labelColor: _barColor,
+                unselectedLabelColor: Colors.grey.shade600,
+                indicatorColor: _barColor,
+                indicatorSize: TabBarIndicatorSize.tab,
+                dividerColor: Theme.of(context).dividerColor,
+                tabs: const [
+                  Tab(text: "프로그램 목록"),
+                  Tab(text: "공지사항"),
+                ],
+              ),
+            ),
+            const Expanded(
+              child: TabBarView(
+                children: [
+                  _CtlCollectionList(collectionPath: "programs"),
+                  _CtlCollectionList(collectionPath: "notices"),
+                ],
+              ),
+            ),
           ],
         ),
       ),
@@ -65,7 +110,9 @@ class _CtlCollectionList extends StatelessWidget {
           .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
+          return const Center(
+            child: CircularProgressIndicator(color: AppColors.teaching),
+          );
         }
         if (snapshot.hasError) {
           return const Center(child: Text("데이터를 불러오는데 실패했습니다."));
@@ -76,7 +123,7 @@ class _CtlCollectionList extends StatelessWidget {
         }
 
         return ListView.separated(
-          padding: const EdgeInsets.symmetric(vertical: 8),
+          padding: EdgeInsets.zero,
           itemCount: docs.length,
           separatorBuilder: (context, index) => const Divider(height: 1),
           itemBuilder: (context, index) {
@@ -84,31 +131,33 @@ class _CtlCollectionList extends StatelessWidget {
             final title = data["title"]?.toString() ?? "제목 없음";
             final link = data["link"]?.toString() ?? "";
 
-            // Programs vs Notices 구분을 위해 분기 처리
             String subtitleText = "";
             if (collectionPath == "programs") {
-               final date = data["reg_date"]?.toString() ?? "";
-               final status = data["status"]?.toString() ?? "";
-               subtitleText = status.isNotEmpty ? "[$status] $date" : date;
+              final date = data["reg_date"]?.toString() ?? "";
+              final status = data["status"]?.toString() ?? "";
+              subtitleText = status.isNotEmpty ? "[$status] $date" : date;
             } else {
-               final date = data["date"]?.toString() ?? "";
-               final author = data["author"]?.toString() ?? "";
-               subtitleText = author.isNotEmpty ? "$author | $date" : date;
+              final date = data["date"]?.toString() ?? "";
+              final author = data["author"]?.toString() ?? "";
+              subtitleText = author.isNotEmpty ? "$author | $date" : date;
             }
 
             return ListTile(
               onTap: () => _openUrl(context, link),
               title: Text(
                 title,
-                style: const TextStyle(fontWeight: FontWeight.w600),
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 16,
+                ),
               ),
               subtitle: subtitleText.isNotEmpty
                   ? Padding(
-                      padding: const EdgeInsets.only(top: 4.0),
+                      padding: const EdgeInsets.only(top: 4),
                       child: Text(
                         subtitleText,
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        style: const TextStyle(
+                          color: AppColors.mutedForeground,
                           fontSize: 13,
                         ),
                       ),

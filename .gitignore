@@ -43,6 +43,7 @@ Thumbs.db
 *.env
 serviceAccountKey.json
 google-services.json
+**/firebase_options.dart
 
 # FVM Version Cache
 .fvm/flutter_sdk
@@ -89,3 +90,6 @@ app.*.symbols
 
 # Obfuscation related
 app.*.map.json
+
+# Figma
+figma_design/
