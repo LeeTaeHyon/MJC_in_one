@@ -1,6 +1,8 @@
 import "package:cloud_firestore/cloud_firestore.dart";
+import "package:flutter/foundation.dart"; // kIsWeb 사용
 import "package:flutter/material.dart";
 import "package:flutter_animate/flutter_animate.dart";
+import "package:mio_notice/screens/common_webview_screen.dart"; 
 import "package:mio_notice/screens/main_navigation_screen.dart";
 import "package:mio_notice/services/notice_manager.dart";
 import "package:mio_notice/theme/app_colors.dart";
@@ -185,7 +187,19 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
         color: Colors.white, borderRadius: BorderRadius.circular(16), elevation: 2,
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
-          onTap: () => launchUrl(Uri.parse("https://mpu.mjc.ac.kr"), webOnlyWindowName: "_blank"),
+          onTap: () async {
+            const url = "https://mpu.mjc.ac.kr/Main/default.aspx";
+            if (kIsWeb) {
+              await launchUrl(Uri.parse(url), webOnlyWindowName: "_blank");
+            } else {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const CommonWebViewScreen(url: url, title: "핵심역량 관리 (MPU)"),
+                ),
+              );
+            }
+          },
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -240,7 +254,19 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
         borderRadius: BorderRadius.circular(12),
         onTap: () {
           final url = data["url"] ?? data["link"] ?? "";
-          if (url.isNotEmpty) launchUrl(Uri.parse(url), webOnlyWindowName: "_blank");
+          final title = data["title"] ?? "공지사항";
+          if (url.isEmpty) return;
+
+          if (kIsWeb) {
+            launchUrl(Uri.parse(url), webOnlyWindowName: "_blank");
+          } else {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => CommonWebViewScreen(url: url, title: title),
+              ),
+            );
+          }
         },
           child: Padding(
             padding: const EdgeInsets.all(16),

@@ -1,50 +1,42 @@
-import "package:cloud_firestore/cloud_firestore.dart";
+import "package:flutter/foundation.dart"; 
 import "package:flutter/material.dart";
 import "package:flutter_animate/flutter_animate.dart";
+import "package:mio_notice/screens/common_webview_screen.dart";
 import "package:mio_notice/screens/main_navigation_screen.dart";
 import "package:mio_notice/services/notice_manager.dart";
 import "package:url_launcher/url_launcher.dart";
 
-/// MPU 핵심역량 관리 시스템의 프로그램 목록을 보여주는 화면입니다.
 class MpuScreen extends StatelessWidget {
   const MpuScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // MPU 테마 컬러 (퍼플)
-    const mpuThemeColor = Color(0xFF7986CB);
-
     return DefaultTabController(
       length: 2,
       child: Scaffold(
-        backgroundColor: const Color(0xFFF8F9FA),
+        backgroundColor: const Color(0xFFF0F2F5),
         body: Column(
           children: [
-            // 1. 헤더 (퍼플 그라데이션)
-            _buildHeader(context, mpuThemeColor),
-
-            // 2. 탭 바
+            _buildHeader(context),
             Container(
-              color: Theme.of(context).colorScheme.surface,
+              color: Colors.white,
               child: const TabBar(
-                indicatorColor: mpuThemeColor,
+                indicatorColor: Color(0xFF7986CB),
                 indicatorWeight: 3,
-                labelColor: mpuThemeColor,
+                labelColor: Color(0xFF7986CB),
                 unselectedLabelColor: Colors.grey,
-                labelStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                labelStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                 tabs: [
-                  Tab(text: "진행 중인 프로그램"),
-                  Tab(text: "완료된 프로그램"),
+                  Tab(text: "진행 중"),
+                  Tab(text: "마감 / 완료"),
                 ],
               ),
             ),
-
-            // 3. 리스트 영역
             const Expanded(
               child: TabBarView(
                 children: [
-                   _MpuListTab(showCompleted: false),
-                   _MpuListTab(showCompleted: true),
+                  _MpuListTab(showCompleted: false),
+                  _MpuListTab(showCompleted: true),
                 ],
               ),
             ),
@@ -54,14 +46,13 @@ class MpuScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildHeader(BuildContext context, Color color) {
+  Widget _buildHeader(BuildContext context) {
     return Container(
       width: double.infinity,
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         gradient: LinearGradient(
-          colors: [color, color.withAlpha(200)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+          colors: [Color(0xFF7986CB), Color(0xFF90A4AE)],
+          begin: Alignment.topLeft, end: Alignment.bottomRight,
         ),
       ),
       padding: const EdgeInsets.fromLTRB(20, 48, 20, 24),
@@ -72,22 +63,16 @@ class MpuScreen extends StatelessWidget {
             children: [
               IconButton(
                 onPressed: () => MainNavigationScreen.scaffoldKey.currentState?.openDrawer(),
-                icon: const Icon(Icons.menu, color: Colors.white, size: 28),
+                icon: const Icon(Icons.menu, color: Colors.white),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
               ),
               const SizedBox(width: 12),
-              const Text(
-                "핵심역량 관리 (MPU)",
-                style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
-              ),
+              const Text("역량관리 시스템 (MPU)", style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
             ],
           ),
           const SizedBox(height: 8),
-          const Text(
-            "미래 인재를 위한 맞춤형 역량 강화 코스",
-            style: TextStyle(color: Colors.white70, fontSize: 14),
-          ),
+          const Text("자신의 역량을 관리하고 프로그램을 신청하세요", style: TextStyle(color: Colors.white70, fontSize: 13)),
         ],
       ),
     );
@@ -97,7 +82,6 @@ class MpuScreen extends StatelessWidget {
 class _MpuListTab extends StatefulWidget {
   final bool showCompleted;
   const _MpuListTab({required this.showCompleted});
-
   @override
   State<_MpuListTab> createState() => _MpuListTabState();
 }
@@ -126,57 +110,45 @@ class _MpuListTabState extends State<_MpuListTab> {
       child: FutureBuilder<List<Map<String, dynamic>>>(
         future: _mpuFuture,
         builder: (context, snapshot) {
-          if (snapshot.hasError) return Center(child: Text("에러: ${snapshot.error}"));
           if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
           
-          // 1. 필터링 로직
-          final allData = snapshot.data ?? [];
-          final filteredItems = allData.where((data) {
-            final String dday = data["d_day"] ?? "";
-            final bool isOngoing = dday.contains("D-") || dday.contains("D-DAY");
-            return widget.showCompleted ? !isOngoing : isOngoing;
+          final allItems = snapshot.data ?? [];
+          
+          // D-Day를 기준으로 진행 중 / 완료 분리
+          // D-Day를 기준으로 진행 중 / 완료 분리
+          final filteredItems = allItems.where((item) {
+            final dDay = (item["d_day"] ?? "").toString();
+            final isCompleted = dDay.isEmpty || dDay.contains("마감") || dDay.contains("+") || dDay == "D-0";
+            return widget.showCompleted ? isCompleted : !isCompleted;
           }).toList();
 
-          // 2. 정렬 로직
+          // D-Day 정렬 로직
           filteredItems.sort((a, b) {
-            final String aDDay = a["d_day"] ?? "";
-            final String bDDay = b["d_day"] ?? "";
-
-            if (widget.showCompleted) {
-              int getDPlusValue(String dday) {
-                final match = RegExp(r"D\+(\d+)").firstMatch(dday);
-                if (match != null) return int.parse(match.group(1)!);
-                return 9999; 
+            int getDValue(String d) {
+              if (d.contains("마감")) return 9999;
+              final match = RegExp(r"D([-+])(\d+)").firstMatch(d);
+              if (match != null) {
+                int val = int.parse(match.group(2)!);
+                return match.group(1) == "-" ? -val : val;
               }
-              int aVal = getDPlusValue(aDDay);
-              int bVal = getDPlusValue(bDDay);
-              if (aVal != bVal) return aVal.compareTo(bVal);
-            } else {
-              int getDMinusValue(String dday) {
-                if (dday.contains("D-DAY")) return 0;
-                final match = RegExp(r"D-(\d+)").firstMatch(dday);
-                if (match != null) return int.parse(match.group(1)!);
-                return 9999;
-              }
-              int aVal = getDMinusValue(aDDay);
-              int bVal = getDMinusValue(bDDay);
-              if (aVal != bVal) return aVal.compareTo(bVal);
+              if (d == "D-0") return 0;
+              return 9999;
             }
             
-            final aTime = a["created_at"] ?? "";
-            final bTime = b["created_at"] ?? "";
-            return bTime.compareTo(aTime);
+            int valA = getDValue((a["d_day"] ?? "").toString());
+            int valB = getDValue((b["d_day"] ?? "").toString());
+            
+            if (widget.showCompleted) {
+              // 마감 탭: 최근 마감(D+1, D+2...) 순서
+              return valA.compareTo(valB);
+            } else {
+              // 진행 중 탭: 임박(D-1, D-2...) 순서 (큰 음수가 뒤로)
+              return valB.compareTo(valA);
+            }
           });
 
-          if (filteredItems.isEmpty) {
-            return ListView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              children: [
-                const SizedBox(height: 100),
-                Center(child: Text(widget.showCompleted ? "완료된 프로그램이 없습니다." : "현재 진행 중인 프로그램이 없습니다.")),
-              ],
-            );
-          }
+          if (filteredItems.isEmpty) return ListView(physics: const AlwaysScrollableScrollPhysics(), children: [const SizedBox(height: 100), Center(child: Text(widget.showCompleted ? "완료된 프로그램이 없습니다." : "진행 중인 프로그램이 없습니다."))]);
+
           return ListView.builder(
             padding: const EdgeInsets.all(16),
             itemCount: filteredItems.length,
@@ -185,8 +157,8 @@ class _MpuListTabState extends State<_MpuListTab> {
               final data = filteredItems[index];
               return _buildMpuCard(context, data)
                   .animate()
-                  .fadeIn(delay: (index * 50).ms, duration: 300.ms)
-                  .slideX(begin: -0.05, end: 0, delay: (index * 50).ms, duration: 300.ms, curve: Curves.easeOut);
+                  .fadeIn(delay: (index * 30).clamp(0, 300).ms, duration: 300.ms)
+                  .slideX(begin: -0.05, end: 0, delay: (index * 30).clamp(0, 300).ms, duration: 300.ms, curve: Curves.easeOut);
             },
           );
         },
@@ -197,9 +169,7 @@ class _MpuListTabState extends State<_MpuListTab> {
   Widget _buildMpuCard(BuildContext context, Map<String, dynamic> data) {
     final String title = data["title"] ?? "";
     final String branch = data["branch"] ?? "";
-    final String date = data["reg_date"] ?? "";
     final String dDay = data["d_day"] ?? "";
-    final List<dynamic> tags = data["tags"] ?? [];
     
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -207,22 +177,33 @@ class _MpuListTabState extends State<_MpuListTab> {
         color: widget.showCompleted ? Colors.grey.shade50 : Colors.white,
         borderRadius: BorderRadius.circular(16),
         elevation: widget.showCompleted ? 0 : 2,
-        shadowColor: Colors.black.withOpacity(0.08),
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
-          splashColor: const Color(0xFFE8EAF6),
-          highlightColor: const Color(0xFFE8EAF6).withOpacity(0.3),
           onTap: () async {
             const url = "https://mpu.mjc.ac.kr/Main/default.aspx";
-            await launchUrl(Uri.parse(url), webOnlyWindowName: "_blank");
+            if (kIsWeb) {
+              await launchUrl(Uri.parse(url), webOnlyWindowName: "_blank");
+            } else {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const CommonWebViewScreen(url: url, title: "핵심역량 관리 (MPU)")));
+            }
           },
           child: ClipRRect(
             borderRadius: BorderRadius.circular(16),
+            clipBehavior: Clip.antiAlias,
             child: Stack(
               children: [
                 Positioned(
-                  left: 0, top: 0, bottom: 0,
-                  child: Container(width: 5, color: widget.showCompleted ? Colors.grey : const Color(0xFF7986CB)),
+                  left: 0, top: 0, bottom: 0, 
+                  child: Container(
+                    width: 5, 
+                    decoration: BoxDecoration(
+                      color: widget.showCompleted ? Colors.grey : const Color(0xFF7986CB),
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(16),
+                        bottomLeft: Radius.circular(16),
+                      ),
+                    ),
+                  ),
                 ),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 18, 16, 18),
@@ -234,47 +215,14 @@ class _MpuListTabState extends State<_MpuListTab> {
                         children: [
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: widget.showCompleted ? Colors.grey.shade200 : const Color(0xFFE8EAF6), 
-                              borderRadius: BorderRadius.circular(6)
-                            ),
-                            child: Text(branch.isEmpty ? "핵심역량" : branch, 
-                               style: TextStyle(color: widget.showCompleted ? Colors.grey : const Color(0xFF7986CB), fontSize: 10, fontWeight: FontWeight.bold)),
+                            decoration: BoxDecoration(color: widget.showCompleted ? Colors.grey.shade200 : const Color(0xFFE8EAF6), borderRadius: BorderRadius.circular(6)),
+                            child: Text(branch.isEmpty ? "핵심역량" : branch, style: TextStyle(color: widget.showCompleted ? Colors.grey : const Color(0xFF7986CB), fontSize: 10, fontWeight: FontWeight.bold)),
                           ),
-                          if (dDay.isNotEmpty)
-                            Text(dDay, style: TextStyle(
-                              color: widget.showCompleted ? Colors.grey : const Color(0xFFFF4E6A), 
-                              fontSize: 12, 
-                              fontWeight: FontWeight.bold
-                            )),
+                          if (dDay.isNotEmpty) Text(dDay, style: TextStyle(color: widget.showCompleted ? Colors.grey : const Color(0xFFFF4E6A), fontSize: 12, fontWeight: FontWeight.bold)),
                         ],
                       ),
                       const SizedBox(height: 12),
-                      Text(
-                        title,
-                        style: TextStyle(
-                          fontSize: 17, 
-                          fontWeight: FontWeight.bold, 
-                          color: widget.showCompleted ? Colors.grey.shade600 : const Color(0xFF222222), 
-                          height: 1.3
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      if (tags.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: Wrap(
-                            spacing: 6,
-                            children: tags.map((t) => Text("#$t", style: const TextStyle(color: Colors.grey, fontSize: 11))).toList(),
-                          ),
-                        ),
-                      Row(
-                        children: [
-                          const Icon(Icons.assignment_ind_outlined, size: 14, color: Colors.grey),
-                          const SizedBox(width: 6),
-                          Text("신청: $date", style: const TextStyle(color: Colors.grey, fontSize: 12)),
-                        ],
-                      ),
+                      Text(title, style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: widget.showCompleted ? Colors.grey.shade600 : const Color(0xFF222222), height: 1.3)),
                     ],
                   ),
                 ),
