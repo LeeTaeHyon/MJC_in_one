@@ -85,12 +85,41 @@ def crawl_programs(page: int = 1) -> list[dict]:
         
         link = f"https://ctl.mjc.ac.kr/ctl/stu/program_view_form.acl?OPEN_PRG_SEQ={prog_id}"
         
+        # 상세페이지 방문해서 진행기간 가져오기
+        op_period = ""
+        try:
+            r_detail = requests.get(link, headers=headers, timeout=10)
+            r_detail.encoding = r_detail.apparent_encoding if r_detail.apparent_encoding else 'utf-8'
+            s_detail = BeautifulSoup(r_detail.text, "html.parser")
+            
+            # 1. 텍스트 전체에서 '진행기간', '교육기간', '일시' 키워드 근처 데이터 추출
+            all_text = s_detail.get_text(separator=" ", strip=True)
+            
+            # 정규식 설명: 키워드 뒤에 공백/콜론 무시하고 날짜+시간+물결표 조합을 최대한 긁어옴
+            pattern = r"(?:진행기간|운영기간|교육기간|교육일시|일시)\s*[:]?\s*([\d\.\s\~\:\(가-힣\)]+)"
+            matches = re.findall(pattern, all_text)
+            
+            for m in matches:
+                clean_val = m.strip()
+                # 너무 짧거나 reg_date와 똑같으면 무시
+                if len(clean_val) > 10 and clean_val != reg_date_str:
+                    # 다음 키워드가 섞여 들어오지 않게 앞부분만 슬라이싱 (보통 날짜 끝은 빈칸)
+                    # 만약 다른 레이블(신청기간 등)이 섞이면 거기서 자름
+                    for stop_word in ["신청기간", "대상", "모집", "장소"]:
+                        if stop_word in clean_val:
+                            clean_val = clean_val.split(stop_word)[0].strip()
+                    op_period = clean_val
+                    break
+        except Exception:
+            pass
+        
         results.append({
             "id": prog_id,
             "no": prog_no,
             "category": category,
             "title": title,
             "reg_date": reg_date_str,
+            "op_period": op_period,
             "reg_count": reg_count,
             "status": status,
             "link": link,

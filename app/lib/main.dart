@@ -1,3 +1,4 @@
+import "dart:convert";
 import "package:firebase_core/firebase_core.dart";
 import "package:flutter/material.dart";
 import "package:mio_notice/firebase_options.dart";
@@ -40,6 +41,26 @@ Future<void> _processAndShowNotification(RemoteMessage message) async {
 
   // 발송 허가된 상태라면 로컬 알람 솜
   if (shouldShow) {
+    // 1. 내역 저장을 위한 데이터 구성
+    final now = DateTime.now();
+    final historyItem = {
+      "title": title,
+      "body": body,
+      "received_at": "${now.year}.${now.month.toString().padLeft(2, '0')}.${now.day.toString().padLeft(2, '0')} ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}",
+      "data": message.data,
+    };
+
+    // 2. SharedPreferences에 알람 내역 추가 저장
+    final historyStrings = prefs.getStringList("notification_history") ?? [];
+    historyStrings.add(jsonEncode(historyItem));
+    
+    // 너무 많이 쌓이지 않게 최신 50개만 유지
+    if (historyStrings.length > 50) {
+      historyStrings.removeAt(0);
+    }
+    await prefs.setStringList("notification_history", historyStrings);
+
+    // 3. 실제 기기에 푸시 노티 표시
     final flnp = FlutterLocalNotificationsPlugin();
     const AndroidInitializationSettings initSettingsAndroid = AndroidInitializationSettings('@mipmap/ic_launcher');
     const InitializationSettings initSettings = InitializationSettings(android: initSettingsAndroid);

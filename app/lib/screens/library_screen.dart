@@ -1,4 +1,7 @@
 import "package:flutter/material.dart";
+
+/// 명지전문대학 도서관 모바일 웹사이트를 
+/// 앱 내의 웹뷰(WebView) 형태로 띄워주는 화면입니다.
 import "package:webview_flutter/webview_flutter.dart";
 
 import "package:mio_notice/theme/app_colors.dart";
