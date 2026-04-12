@@ -1,48 +1,261 @@
+import "dart:ui" show lerpDouble;
+
 import "package:flutter/foundation.dart"; // kIsWeb 사용
 import "package:flutter/material.dart";
 import "package:flutter_animate/flutter_animate.dart";
 import "package:mio_notice/screens/common_webview_screen.dart";
 import "package:mio_notice/screens/main_navigation_screen.dart";
 import "package:mio_notice/services/notice_manager.dart";
-import "package:mio_notice/theme/app_colors.dart";
+import "package:mio_notice/widgets/nested_scroll_refresh_indicator.dart";
 import "package:shared_preferences/shared_preferences.dart";
 import "package:url_launcher/url_launcher.dart";
 
+/// 메인 화면에 머무는 동안만 입장 스태거를 한 번 쓰고, 탭을 벗어나면 초기화.
+/// (CTL·MPU처럼 다시 들어올 때마다 애니메이션 재생, 같은 화면 안 서브탭 전환은 부담 없음.)
+class _MainWebsiteListEntrance {
+  static bool _playedOnce = false;
+  static bool _scheduleEntranceEnd = false;
+  static int _generation = 0;
+
+  static bool get shouldAnimateList => !_playedOnce;
+
+  static void resetForNextVisit() {
+    _generation++;
+    _playedOnce = false;
+    _scheduleEntranceEnd = false;
+  }
+
+  /// 첫 리스트 stagger 끝난 뒤에만 끔 (도중 리빌드로 애니메이션이 끊기지 않게).
+  static void scheduleEndEntranceAnimation() {
+    if (_playedOnce || _scheduleEntranceEnd) return;
+    _scheduleEntranceEnd = true;
+    final int g = _generation;
+    Future<void>.delayed(const Duration(milliseconds: 700), () {
+      if (g != _generation) return;
+      _playedOnce = true;
+    });
+  }
+}
+
 /// 명지전문대학 공식 홈페이지의 공지사항을 탭별로 보여주는 화면입니다.
-class MainWebsiteScreen extends StatelessWidget {
+class MainWebsiteScreen extends StatefulWidget {
   const MainWebsiteScreen({super.key});
 
   @override
+  State<MainWebsiteScreen> createState() => _MainWebsiteScreenState();
+}
+
+class _MainWebsiteScreenState extends State<MainWebsiteScreen> {
+  @override
+  void dispose() {
+    _MainWebsiteListEntrance.resetForNextVisit();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final double topPad = MediaQuery.paddingOf(context).top;
     return DefaultTabController(
       length: 3,
       child: Scaffold(
         backgroundColor: const Color(0xFFF8F9FA),
-        body: Column(
+        body: NestedScrollView(
+          headerSliverBuilder: (BuildContext context, bool innerBoxIsScrolled) {
+            return <Widget>[
+              SliverOverlapAbsorber(
+                handle:
+                    NestedScrollView.sliverOverlapAbsorberHandleFor(context),
+                sliver: SliverPersistentHeader(
+                  pinned: true,
+                  delegate: _MainWebsiteCollapsingHeaderDelegate(
+                    topPadding: topPad,
+                    tabBar: TabBar(
+                      controller: DefaultTabController.of(context),
+                      indicatorColor: const Color(0xFF003FB4),
+                      indicatorWeight: 3,
+                      labelColor: const Color(0xFF003FB4),
+                      unselectedLabelColor: Colors.grey,
+                      labelStyle: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                      ),
+                      tabs: const [
+                        Tab(text: "공지사항"),
+                        Tab(text: "학사공지"),
+                        Tab(text: "장학공지"),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ];
+          },
+          body: TabBarView(
+            children: <Widget>[
+              _NoticeListTab(boardId: "main_notice"),
+              _NoticeListTab(boardId: "main_academic"),
+              _NoticeListTab(boardId: "main_scholarship"),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 홈 히어로와 같이 스크롤에 따라 상단 영역이 접히고, 탭 바는 아래에 고정됩니다.
+class _MainWebsiteCollapsingHeaderDelegate
+    extends SliverPersistentHeaderDelegate {
+  _MainWebsiteCollapsingHeaderDelegate({
+    required this.topPadding,
+    required this.tabBar,
+  });
+
+  final double topPadding;
+  final TabBar tabBar;
+
+  static const double _heroBody = 200;
+  static const double _collapsedBar = 52;
+
+  double get _tabBarHeight => tabBar.preferredSize.height;
+
+  @override
+  double get maxExtent => topPadding + _heroBody + _tabBarHeight;
+
+  @override
+  double get minExtent => topPadding + _collapsedBar + _tabBarHeight;
+
+  static const LinearGradient _headerGradient = LinearGradient(
+    colors: [Color(0xFF003FB4), Color(0xFF0056D2)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    final double extent =
+        (maxExtent - shrinkOffset).clamp(minExtent, maxExtent);
+    final double range = maxExtent - minExtent;
+    final double t = range > 0 ? (shrinkOffset / range).clamp(0.0, 1.0) : 0.0;
+    final double u = Curves.easeInOut.transform(t);
+    final double heroH = extent - _tabBarHeight;
+
+    return SizedBox(
+      height: extent,
+      width: double.infinity,
+      child: ClipRect(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _buildHeader(context),
-            Container(
-              color: Colors.white,
-              child: const TabBar(
-                indicatorColor: Color(0xFF003FB4),
-                indicatorWeight: 3,
-                labelColor: Color(0xFF003FB4),
-                unselectedLabelColor: Colors.grey,
-                labelStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                tabs: [
-                  Tab(text: "공지사항"),
-                  Tab(text: "학사공지"),
-                  Tab(text: "장학공지"),
+            SizedBox(
+              height: heroH,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  const DecoratedBox(decoration: BoxDecoration(gradient: _headerGradient)),
+                  SafeArea(
+                    bottom: false,
+                    minimum: EdgeInsets.zero,
+                    child: LayoutBuilder(
+                      builder: (BuildContext context, BoxConstraints c) {
+                        final double ih = c.maxHeight;
+                        final double titleSize = lerpDouble(28, 19, u)!;
+                        final double titleLeft = lerpDouble(20, 50, u)!;
+                        final double bottomBlock =
+                            20 + 14 + 6 + 28; // 여백 + 부제 + 간격 + 큰 타이틀
+                        final double expandedTitleTop =
+                            (ih - bottomBlock).clamp(0.0, ih);
+                        final double collapsedTitleTop =
+                            (ih - titleSize * 1.15) / 2;
+                        final double titleTop =
+                            lerpDouble(expandedTitleTop, collapsedTitleTop, u)!;
+                        final double subtitleOpacity =
+                            (1.0 - u * 1.35).clamp(0.0, 1.0);
+
+                        return Stack(
+                          clipBehavior: Clip.hardEdge,
+                          children: [
+                            Positioned(
+                              left: 0,
+                              top: 0,
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  customBorder: const CircleBorder(),
+                                  onTap: () => MainNavigationScreen
+                                      .scaffoldKey.currentState
+                                      ?.openDrawer(),
+                                  splashColor:
+                                      Colors.white.withValues(alpha: 0.35),
+                                  highlightColor:
+                                      Colors.white.withValues(alpha: 0.14),
+                                  child: const Padding(
+                                    padding: EdgeInsets.all(10),
+                                    child: Icon(
+                                      Icons.menu_rounded,
+                                      color: Colors.white,
+                                      size: 26,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            Positioned(
+                              left: titleLeft,
+                              top: titleTop,
+                              right: 12,
+                              child: Text(
+                                "메인 홈페이지",
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: titleSize,
+                                  fontWeight: FontWeight.w800,
+                                  height: 1.1,
+                                ),
+                              ),
+                            ),
+                            if (subtitleOpacity > 0.02)
+                              Positioned(
+                                left: 20,
+                                top: titleTop + titleSize * 0.95 + 6,
+                                right: 16,
+                                child: IgnorePointer(
+                                  child: Opacity(
+                                    opacity: subtitleOpacity,
+                                    child: const Text(
+                                      "최신 공지사항을 확인하세요",
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 14,
+                                        height: 1.2,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
                 ],
               ),
             ),
-            const Expanded(
-              child: TabBarView(
-                children: [
-                   _NoticeListTab(boardId: "main_notice"),
-                   _NoticeListTab(boardId: "main_academic"),
-                   _NoticeListTab(boardId: "main_scholarship"),
-                ],
+            Material(
+              color: Colors.white,
+              elevation: overlapsContent || u > 0.02 ? 0.5 : 0,
+              shadowColor: Colors.black12,
+              child: SizedBox(
+                height: _tabBarHeight,
+                child: tabBar,
               ),
             ),
           ],
@@ -51,47 +264,9 @@ class MainWebsiteScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0xFF003FB4), Color(0xFF0056D2)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
-      padding: const EdgeInsets.fromLTRB(20, 48, 20, 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              IconButton(
-                onPressed: () => MainNavigationScreen.scaffoldKey.currentState?.openDrawer(),
-                icon: const Icon(Icons.menu, color: Colors.white, size: 28),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-              ),
-              const SizedBox(width: 12),
-              const Text(
-                "메인 홈페이지",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            "최신 공지사항을 확인하세요",
-            style: TextStyle(color: Colors.white70, fontSize: 14),
-          ),
-        ],
-      ),
-    );
+  @override
+  bool shouldRebuild(covariant _MainWebsiteCollapsingHeaderDelegate old) {
+    return topPadding != old.topPadding || tabBar != old.tabBar;
   }
 }
 
@@ -143,62 +318,140 @@ class _NoticeListTabState extends State<_NoticeListTab> {
 
   @override
   Widget build(BuildContext context) {
-    return RefreshIndicator(
+    return NestedScrollRefreshIndicator(
       onRefresh: _handleRefresh,
       color: const Color(0xFF003FB4),
+      backgroundColor: Colors.white,
       child: FutureBuilder<List<Map<String, dynamic>>>(
         future: _noticeFuture,
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-          final docs = snapshot.data ?? [];
-  
-          if (docs.isEmpty) {
-             return ListView( 
-               physics: const AlwaysScrollableScrollPhysics(),
-               children: const [
-                 SizedBox(height: 100),
-                 Center(child: Text("표시할 공지가 없습니다.")),
-               ],
-             );
-          }
-  
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: docs.length,
+          final Widget scrollable = CustomScrollView(
+            primary: true,
             physics: const AlwaysScrollableScrollPhysics(),
-            itemBuilder: (context, index) {
+            slivers: [
+              SliverOverlapInjector(
+                handle: NestedScrollView.sliverOverlapAbsorberHandleFor(
+                  context,
+                ),
+              ),
+              if (snapshot.connectionState == ConnectionState.waiting)
+                const SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              else ..._buildNoticeSlivers(context, snapshot.data ?? []),
+            ],
+          );
+
+          return scrollable;
+        },
+      ),
+    );
+  }
+
+  List<Widget> _buildNoticeSlivers(
+    BuildContext context,
+    List<Map<String, dynamic>> docs,
+  ) {
+    if (docs.isEmpty) {
+      return [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const SizedBox(height: 48),
+              Text(
+                "표시할 공지가 없습니다.",
+                style: TextStyle(color: Colors.grey.shade600),
+              ),
+            ],
+          ),
+        ),
+      ];
+    }
+
+    return [
+      SliverPadding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+        sliver: SliverList(
+          delegate: SliverChildBuilderDelegate(
+            (BuildContext context, int index) {
+              if (index == 0 && _MainWebsiteListEntrance.shouldAnimateList) {
+                _MainWebsiteListEntrance.scheduleEndEntranceAnimation();
+              }
               final data = docs[index];
               final String id = data["id"] ?? "";
               final bool isRead = _readNoticeIds.contains(id);
               final String url = data["url"] ?? "";
-              
-              return _ScaleFeedbackButton(
+
+              final Widget tile = _ScaleFeedbackButton(
                 onTap: () async {
-                  await _markAsRead(id); 
+                  await _markAsRead(id);
                   if (url.isEmpty) return;
                   if (kIsWeb) {
                     await launchUrl(Uri.parse(url), webOnlyWindowName: "_blank");
                   } else {
-                    Navigator.push(context, MaterialPageRoute(builder: (_) => CommonWebViewScreen(url: url, title: data["title"] ?? "공지사항")));
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (_) => CommonWebViewScreen(
+                          url: url,
+                          title: data["title"] ?? "공지사항",
+                        ),
+                      ),
+                    );
                   }
                 },
-                child: _buildNoticeListItem(context, data, id, isRead, () async {
-                   await _markAsRead(id);
-                   if (url.isEmpty) return;
-                   if (kIsWeb) {
-                     await launchUrl(Uri.parse(url), webOnlyWindowName: "_blank");
-                   } else {
-                     Navigator.push(context, MaterialPageRoute(builder: (_) => CommonWebViewScreen(url: url, title: data["title"] ?? "공지사항")));
-                   }
-                }),
-              ).animate()
-                .fadeIn(delay: (index * 30).clamp(0, 300).ms, duration: 300.ms)
-                .slideX(begin: -0.05, end: 0, delay: (index * 30).clamp(0, 300).ms, duration: 300.ms, curve: Curves.easeOut);
+                child: _buildNoticeListItem(
+                  context,
+                  data,
+                  id,
+                  isRead,
+                  () async {
+                    await _markAsRead(id);
+                    if (url.isEmpty) return;
+                    if (kIsWeb) {
+                      await launchUrl(
+                        Uri.parse(url),
+                        webOnlyWindowName: "_blank",
+                      );
+                    } else {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute<void>(
+                          builder: (_) => CommonWebViewScreen(
+                            url: url,
+                            title: data["title"] ?? "공지사항",
+                          ),
+                        ),
+                      );
+                    }
+                  },
+                ),
+              );
+              if (_MainWebsiteListEntrance.shouldAnimateList) {
+                return tile
+                    .animate()
+                    .fadeIn(
+                      delay: (index * 30).clamp(0, 300).ms,
+                      duration: 300.ms,
+                    )
+                    .slideX(
+                      begin: -0.05,
+                      end: 0,
+                      delay: (index * 30).clamp(0, 300).ms,
+                      duration: 300.ms,
+                      curve: Curves.easeOut,
+                    );
+              }
+              return tile;
             },
-          );
-        },
+            childCount: docs.length,
+          ),
+        ),
       ),
-    );
+    ];
   }
 
   Widget _buildNoticeListItem(BuildContext context, Map<String, dynamic> data, String id, bool isRead, VoidCallback onTap) {

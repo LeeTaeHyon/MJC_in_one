@@ -2,6 +2,8 @@ import "dart:convert";
 import "package:firebase_core/firebase_core.dart";
 import "package:flutter/material.dart";
 import "package:mio_notice/firebase_options.dart";
+import "package:mio_notice/notification_history_prefs.dart";
+import "package:mio_notice/notification_sources.dart";
 import "package:mio_notice/screens/main_navigation_screen.dart";
 import "package:mio_notice/theme/app_theme.dart";
 import "package:firebase_messaging/firebase_messaging.dart";
@@ -20,6 +22,13 @@ Future<void> _processAndShowNotification(RemoteMessage message) async {
   if (message.data.isEmpty) return;
 
   final prefs = await SharedPreferences.getInstance();
+  final enabledSources = prefs.getStringList(kNotificationSourcesPrefKey) ??
+      defaultNotificationSources();
+  final source = resolveNotificationSource(
+    Map<String, dynamic>.from(message.data),
+  );
+  if (!enabledSources.contains(source)) return;
+
   final allNoticesEnabled = prefs.getBool("allNoticesEnabled") ?? true;
   final keywordsList = prefs.getStringList("keywords") ?? [];
   
@@ -51,14 +60,14 @@ Future<void> _processAndShowNotification(RemoteMessage message) async {
     };
 
     // 2. SharedPreferences에 알람 내역 추가 저장
-    final historyStrings = prefs.getStringList("notification_history") ?? [];
+    final historyStrings = prefs.getStringList(kNotificationHistoryPrefKey) ?? [];
     historyStrings.add(jsonEncode(historyItem));
     
     // 너무 많이 쌓이지 않게 최신 50개만 유지
     if (historyStrings.length > 50) {
       historyStrings.removeAt(0);
     }
-    await prefs.setStringList("notification_history", historyStrings);
+    await prefs.setStringList(kNotificationHistoryPrefKey, historyStrings);
 
     // 3. 실제 기기에 푸시 노티 표시
     final flnp = FlutterLocalNotificationsPlugin();

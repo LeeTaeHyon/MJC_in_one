@@ -1,4 +1,5 @@
 import "package:flutter/material.dart";
+import "package:mio_notice/widgets/webview_navigation_overlay.dart";
 import "package:share_plus/share_plus.dart";
 import "package:url_launcher/url_launcher.dart";
 import "package:webview_flutter/webview_flutter.dart";
@@ -21,6 +22,18 @@ class CommonWebViewScreen extends StatefulWidget {
 class _CommonWebViewScreenState extends State<CommonWebViewScreen> {
   late final WebViewController _controller;
   bool _isLoading = true;
+  bool _canGoBack = false;
+  bool _canGoForward = false;
+
+  Future<void> _syncNavigationHistory() async {
+    final bool back = await _controller.canGoBack();
+    final bool forward = await _controller.canGoForward();
+    if (!mounted) return;
+    setState(() {
+      _canGoBack = back;
+      _canGoForward = forward;
+    });
+  }
 
   @override
   void initState() {
@@ -31,9 +44,11 @@ class _CommonWebViewScreenState extends State<CommonWebViewScreen> {
         NavigationDelegate(
           onPageStarted: (String url) {
             setState(() => _isLoading = true);
+            _syncNavigationHistory();
           },
           onPageFinished: (String url) {
             setState(() => _isLoading = false);
+            _syncNavigationHistory();
           },
           onWebResourceError: (WebResourceError error) {
             debugPrint("WebView Error: ${error.description}");
@@ -111,6 +126,18 @@ class _CommonWebViewScreenState extends State<CommonWebViewScreen> {
             const Center(
               child: CircularProgressIndicator(),
             ),
+          WebViewNavigationOverlay(
+            canGoBack: _canGoBack,
+            canGoForward: _canGoForward,
+            onGoBack: () async {
+              await _controller.goBack();
+              await _syncNavigationHistory();
+            },
+            onGoForward: () async {
+              await _controller.goForward();
+              await _syncNavigationHistory();
+            },
+          ),
         ],
       ),
     );

@@ -31,7 +31,8 @@ def send_fcm_notice(post: dict):
             "title": f"[{post.get('category', '공지')}] 새 글 등록",
             "body": post.get("title", ""),
             "url": post.get("url", ""),
-            "board": post.get("category", "")
+            "board": post.get("category", ""),
+            "source": "mjc",
         },
         topic="all_notices",
     )

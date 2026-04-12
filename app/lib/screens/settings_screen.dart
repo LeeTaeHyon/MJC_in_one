@@ -1,4 +1,6 @@
 import "package:flutter/material.dart";
+import "package:mio_notice/notification_sources.dart";
+import "package:mio_notice/screens/open_source_licenses_screen.dart";
 import "package:mio_notice/theme/app_colors.dart";
 import "package:shared_preferences/shared_preferences.dart";
 import "package:url_launcher/url_launcher.dart";
@@ -13,6 +15,7 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _allNoticesEnabled = true;
   List<String> _keywords = [];
+  List<String> _enabledSources = List<String>.from(kNotificationSourceIds);
 
   @override
   void initState() {
@@ -26,7 +29,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() {
       _allNoticesEnabled = prefs.getBool("allNoticesEnabled") ?? true;
       _keywords = prefs.getStringList("keywords") ?? [];
+      final stored = prefs.getStringList(kNotificationSourcesPrefKey);
+      if (stored == null || stored.isEmpty) {
+        _enabledSources = defaultNotificationSources();
+      } else {
+        _enabledSources = kNotificationSourceIds
+            .where((id) => stored.contains(id))
+            .toList();
+        if (_enabledSources.isEmpty) {
+          _enabledSources = defaultNotificationSources();
+        }
+      }
     });
+  }
+
+  /// 메인 탭의 [BottomAppBar] 높이와 맞춤. SnackBar가 라우트 아래로 남아도 네비를 가리지 않게 함.
+  EdgeInsets _snackBarMargin(BuildContext context) {
+    const double mainBottomNavHeight = 10;
+    final double safeBottom = MediaQuery.paddingOf(context).bottom;
+    return EdgeInsets.fromLTRB(16, 0, 16, safeBottom + mainBottomNavHeight + 12);
   }
 
   /// 전체 알림 스위치 저장
@@ -38,9 +59,40 @@ class _SettingsScreenState extends State<SettingsScreen> {
     });
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(value ? "전체 알림이 활성화되었습니다." : "키워드 알림 모드로 전환되었습니다.")),
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          margin: _snackBarMargin(context),
+          content: Text(value ? "전체 알림이 활성화되었습니다." : "키워드 알림 모드로 전환되었습니다."),
+        ),
       );
     }
+  }
+
+  Future<void> _setSourceEnabled(String sourceId, bool enabled) async {
+    if (!kNotificationSourceIds.contains(sourceId)) return;
+    final next = Set<String>.from(_enabledSources);
+    if (enabled) {
+      next.add(sourceId);
+    } else {
+      next.remove(sourceId);
+    }
+    if (next.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            margin: _snackBarMargin(context),
+            content: const Text("알림 출처는 최소 하나 선택해야 합니다."),
+          ),
+        );
+      }
+      return;
+    }
+    final ordered =
+        kNotificationSourceIds.where((id) => next.contains(id)).toList();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(kNotificationSourcesPrefKey, ordered);
+    setState(() => _enabledSources = ordered);
   }
 
   /// 키워드 관리 다이얼로그
@@ -124,7 +176,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     } else {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("메일 앱을 열 수 없습니다.")),
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            margin: _snackBarMargin(context),
+            content: const Text("메일 앱을 열 수 없습니다."),
+          ),
         );
       }
     }
@@ -156,17 +212,91 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
           SwitchListTile(
-            activeColor: AppColors.primary,
+            activeThumbColor: Colors.white,
+            activeTrackColor: AppColors.primary,
             title: const Text("전체 공지사항 새글 알림"),
-            subtitle: Text(_allNoticesEnabled ? "모든 새로운 공지 알림을 받습니다." : "키워드 알림 모드 작동 중"),
+            subtitle: Text(
+              _allNoticesEnabled
+                  ? "모든 새 공지 알림을 받습니다."
+                  : "키워드가 포함된 알림만 받습니다. 아래에서 키워드를 설정하세요.",
+            ),
             value: _allNoticesEnabled,
             onChanged: _toggleAllNotices,
           ),
-          ListTile(
-            title: const Text("맞춤 키워드 알림 관리"),
-            subtitle: Text(_keywords.isEmpty ? "등록된 키워드가 없습니다." : "현재 ${_keywords.length}개의 키워드 감시 중"),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-            onTap: _showKeywordDialog,
+          AnimatedCrossFade(
+            duration: const Duration(milliseconds: 240),
+            sizeCurve: Curves.easeInOut,
+            firstCurve: Curves.easeOut,
+            secondCurve: Curves.easeIn,
+            crossFadeState: _allNoticesEnabled
+                ? CrossFadeState.showFirst
+                : CrossFadeState.showSecond,
+            firstChild: const SizedBox(width: double.infinity),
+            secondChild: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Divider(height: 1),
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(16, 14, 16, 4),
+                  child: Text(
+                    "맞춤 키워드 알림",
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ),
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(16, 0, 16, 4),
+                  child: Text(
+                    "등록한 키워드가 알림 제목·본문에 포함될 때만 표시됩니다.",
+                    style: TextStyle(fontSize: 12, color: Colors.black54),
+                  ),
+                ),
+                ListTile(
+                  title: const Text("키워드 관리"),
+                  subtitle: Text(
+                    _keywords.isEmpty
+                        ? "키워드가 없으면 알림이 오지 않습니다."
+                        : "${_keywords.length}개 키워드 감시 중",
+                  ),
+                  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                  onTap: _showKeywordDialog,
+                ),
+              ],
+            ),
+          ),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 8, 16, 0),
+            child: Text(
+              "알림 받을 출처",
+              style: TextStyle(fontSize: 13, color: Colors.black54),
+            ),
+          ),
+          SwitchListTile(
+            activeThumbColor: Colors.white,
+            activeTrackColor: AppColors.primary,
+            title: const Text("메인 홈페이지 (mjc.ac.kr)"),
+            subtitle: const Text("공지·학사·장학 등 본교 게시판"),
+            value: _enabledSources.contains("mjc"),
+            onChanged: (v) => _setSourceEnabled("mjc", v),
+          ),
+          SwitchListTile(
+            activeThumbColor: Colors.white,
+            activeTrackColor: AppColors.primary,
+            title: const Text("CTL (ctl.mjc.ac.kr)"),
+            subtitle: const Text("CTL 프로그램·공지"),
+            value: _enabledSources.contains("ctl"),
+            onChanged: (v) => _setSourceEnabled("ctl", v),
+          ),
+          SwitchListTile(
+            activeThumbColor: Colors.white,
+            activeTrackColor: AppColors.primary,
+            title: const Text("MPU 핵심역량 (mpu.mjc.ac.kr)"),
+            subtitle: const Text("핵심역량 프로그램 안내"),
+            value: _enabledSources.contains("mpu"),
+            onChanged: (v) => _setSourceEnabled("mpu", v),
           ),
           const Divider(height: 1),
           const Padding(
@@ -191,10 +321,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ListTile(
             title: const Text("오픈소스 라이선스"),
             onTap: () {
-              showLicensePage(
-                context: context,
-                applicationName: "MJC In One",
-                applicationVersion: "1.0.0",
+              Navigator.of(context).push<void>(
+                MaterialPageRoute<void>(
+                  builder: (context) => const OpenSourceLicensesScreen(),
+                ),
               );
             },
           ),

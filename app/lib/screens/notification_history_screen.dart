@@ -1,7 +1,6 @@
-import "dart:convert";
 import "package:flutter/material.dart";
+import "package:mio_notice/notification_history_prefs.dart";
 import "package:mio_notice/theme/app_colors.dart";
-import "package:shared_preferences/shared_preferences.dart";
 
 /// 푸시 알람 수신 내역을 모아보는 화면입니다.
 class NotificationHistoryScreen extends StatefulWidget {
@@ -22,25 +21,26 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
   }
 
   Future<void> _loadHistory() async {
-    final prefs = await SharedPreferences.getInstance();
-    final historyStrings = prefs.getStringList("notification_history") ?? [];
-    
+    final list = await loadNotificationHistoryNewestFirst();
+    if (!mounted) return;
     setState(() {
-      _history = historyStrings
-          .map((s) => jsonDecode(s) as Map<String, dynamic>)
-          .toList()
-          .reversed // 최신 알림이 위로 오게 역순 정렬
-          .toList();
+      _history = list;
       _isLoading = false;
     });
   }
 
   Future<void> _clearHistory() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove("notification_history");
+    await clearNotificationHistory();
+    if (!mounted) return;
     setState(() {
       _history = [];
     });
+  }
+
+  Future<void> _removeOneAt(int newestFirstIndex) async {
+    await removeNotificationHistoryAtNewestFirstIndex(newestFirstIndex);
+    if (!mounted) return;
+    await _loadHistory();
   }
 
   @override
@@ -111,6 +111,11 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
                             style: const TextStyle(fontSize: 12, color: Colors.grey),
                           ),
                         ],
+                      ),
+                      trailing: IconButton(
+                        icon: Icon(Icons.close_rounded, color: Colors.grey.shade500),
+                        tooltip: "이 알림 삭제",
+                        onPressed: () => _removeOneAt(index),
                       ),
                     );
                   },

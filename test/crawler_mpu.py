@@ -29,7 +29,8 @@ def send_fcm_notice(prog: dict):
             "title": "[MPU 핵심역량] 새 프로그램 등록",
             "body": prog.get("title", ""),
             "url": prog.get("image_url", ""),
-            "board": "MPU 프로그램"
+            "board": "MPU 프로그램",
+            "source": "mpu",
         },
         topic="all_notices",
     )

@@ -1,43 +1,254 @@
-import "package:flutter/foundation.dart"; 
+import "dart:ui" show lerpDouble;
+
+import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
 import "package:flutter_animate/flutter_animate.dart";
 import "package:mio_notice/screens/common_webview_screen.dart";
 import "package:mio_notice/screens/main_navigation_screen.dart";
 import "package:mio_notice/services/notice_manager.dart";
+import "package:mio_notice/widgets/nested_scroll_refresh_indicator.dart";
 import "package:url_launcher/url_launcher.dart";
 
-class CtlScreen extends StatelessWidget {
+class _CtlListEntrance {
+  static bool _playedOnce = false;
+  static bool _scheduleEntranceEnd = false;
+  static int _generation = 0;
+
+  static bool get shouldAnimateList => !_playedOnce;
+
+  static void resetForNextVisit() {
+    _generation++;
+    _playedOnce = false;
+    _scheduleEntranceEnd = false;
+  }
+
+  static void scheduleEndEntranceAnimation() {
+    if (_playedOnce || _scheduleEntranceEnd) return;
+    _scheduleEntranceEnd = true;
+    final int g = _generation;
+    Future<void>.delayed(const Duration(milliseconds: 700), () {
+      if (g != _generation) return;
+      _playedOnce = true;
+    });
+  }
+}
+
+class CtlScreen extends StatefulWidget {
   const CtlScreen({super.key});
 
   @override
+  State<CtlScreen> createState() => _CtlScreenState();
+}
+
+class _CtlScreenState extends State<CtlScreen> {
+  @override
+  void dispose() {
+    _CtlListEntrance.resetForNextVisit();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final double topPad = MediaQuery.paddingOf(context).top;
     return DefaultTabController(
       length: 2,
       child: Scaffold(
         backgroundColor: const Color(0xFFF8F9FA),
-        body: Column(
+        body: NestedScrollView(
+          headerSliverBuilder: (BuildContext context, bool innerBoxIsScrolled) {
+            return <Widget>[
+              SliverOverlapAbsorber(
+                handle:
+                    NestedScrollView.sliverOverlapAbsorberHandleFor(context),
+                sliver: SliverPersistentHeader(
+                  pinned: true,
+                  delegate: _CtlCollapsingHeaderDelegate(
+                    topPadding: topPad,
+                    tabBar: TabBar(
+                      controller: DefaultTabController.of(context),
+                      indicatorColor: const Color(0xFF2962FF),
+                      indicatorWeight: 3,
+                      labelColor: const Color(0xFF2962FF),
+                      unselectedLabelColor: Colors.grey,
+                      labelStyle: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                      tabs: const [
+                        Tab(text: "학습 프로그램"),
+                        Tab(text: "센터 공지사항"),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ];
+          },
+          body: const TabBarView(
+            children: [
+              _CtlListTab(isProgram: true),
+              _CtlListTab(isProgram: false),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CtlCollapsingHeaderDelegate extends SliverPersistentHeaderDelegate {
+  _CtlCollapsingHeaderDelegate({
+    required this.topPadding,
+    required this.tabBar,
+  });
+
+  final double topPadding;
+  final TabBar tabBar;
+
+  static const double _heroBody = 200;
+  static const double _collapsedBar = 52;
+
+  double get _tabBarHeight => tabBar.preferredSize.height;
+
+  @override
+  double get maxExtent => topPadding + _heroBody + _tabBarHeight;
+
+  @override
+  double get minExtent => topPadding + _collapsedBar + _tabBarHeight;
+
+  static const LinearGradient _headerGradient = LinearGradient(
+    colors: [Color(0xFF2962FF), Color(0xFF448AFF)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    final double extent =
+        (maxExtent - shrinkOffset).clamp(minExtent, maxExtent);
+    final double range = maxExtent - minExtent;
+    final double t = range > 0 ? (shrinkOffset / range).clamp(0.0, 1.0) : 0.0;
+    final double u = Curves.easeInOut.transform(t);
+    final double heroH = extent - _tabBarHeight;
+
+    return SizedBox(
+      height: extent,
+      width: double.infinity,
+      child: ClipRect(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _buildHeader(context),
-            Container(
-              color: Colors.white,
-              child: const TabBar(
-                indicatorColor: Color(0xFF2962FF),
-                indicatorWeight: 3,
-                labelColor: Color(0xFF2962FF),
-                unselectedLabelColor: Colors.grey,
-                labelStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                tabs: [
-                  Tab(text: "학습 프로그램"),
-                  Tab(text: "센터 공지사항"),
+            SizedBox(
+              height: heroH,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  const DecoratedBox(
+                    decoration: BoxDecoration(gradient: _headerGradient),
+                  ),
+                  SafeArea(
+                    bottom: false,
+                    minimum: EdgeInsets.zero,
+                    child: LayoutBuilder(
+                      builder: (BuildContext context, BoxConstraints c) {
+                        final double ih = c.maxHeight;
+                        final double titleSize = lerpDouble(24, 17, u)!;
+                        final double titleLeft = lerpDouble(20, 50, u)!;
+                        final double bottomBlock =
+                            20 + 13 + 6 + 24;
+                        final double expandedTitleTop =
+                            (ih - bottomBlock).clamp(0.0, ih);
+                        final double collapsedTitleTop =
+                            (ih - titleSize * 1.15) / 2;
+                        final double titleTop =
+                            lerpDouble(expandedTitleTop, collapsedTitleTop, u)!;
+                        final double subtitleOpacity =
+                            (1.0 - u * 1.35).clamp(0.0, 1.0);
+
+                        return Stack(
+                          clipBehavior: Clip.hardEdge,
+                          children: [
+                            Positioned(
+                              left: 0,
+                              top: 0,
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  customBorder: const CircleBorder(),
+                                  onTap: () => MainNavigationScreen
+                                      .scaffoldKey.currentState
+                                      ?.openDrawer(),
+                                  splashColor:
+                                      Colors.white.withValues(alpha: 0.35),
+                                  highlightColor:
+                                      Colors.white.withValues(alpha: 0.14),
+                                  child: const Padding(
+                                    padding: EdgeInsets.all(10),
+                                    child: Icon(
+                                      Icons.menu_rounded,
+                                      color: Colors.white,
+                                      size: 26,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            Positioned(
+                              left: titleLeft,
+                              top: titleTop,
+                              right: 12,
+                              child: Text(
+                                "교수학습개발센터 (CTL)",
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: titleSize,
+                                  fontWeight: FontWeight.w800,
+                                  height: 1.1,
+                                ),
+                              ),
+                            ),
+                            if (subtitleOpacity > 0.02)
+                              Positioned(
+                                left: 20,
+                                top: titleTop + titleSize * 0.95 + 6,
+                                right: 16,
+                                child: IgnorePointer(
+                                  child: Opacity(
+                                    opacity: subtitleOpacity,
+                                    child: const Text(
+                                      "CTL의 다양한 학습 지원 프로그램을 만나보세요",
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 13,
+                                        height: 1.2,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
                 ],
               ),
             ),
-            const Expanded(
-              child: TabBarView(
-                children: [
-                  _CtlListTab(isProgram: true),
-                  _CtlListTab(isProgram: false),
-                ],
+            Material(
+              color: Colors.white,
+              elevation: overlapsContent || u > 0.02 ? 0.5 : 0,
+              shadowColor: Colors.black12,
+              child: SizedBox(
+                height: _tabBarHeight,
+                child: tabBar,
               ),
             ),
           ],
@@ -46,36 +257,9 @@ class CtlScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0xFF2962FF), Color(0xFF448AFF)],
-          begin: Alignment.topLeft, end: Alignment.bottomRight,
-        ),
-      ),
-      padding: const EdgeInsets.fromLTRB(20, 48, 20, 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              IconButton(
-                onPressed: () => MainNavigationScreen.scaffoldKey.currentState?.openDrawer(),
-                icon: const Icon(Icons.menu, color: Colors.white),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-              ),
-              const SizedBox(width: 12),
-              const Text("교수학습개발센터 (CTL)", style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-            ],
-          ),
-          const SizedBox(height: 8),
-          const Text("CTL의 다양한 학습 지원 프로그램을 만나보세요", style: TextStyle(color: Colors.white70, fontSize: 13)),
-        ],
-      ),
-    );
+  @override
+  bool shouldRebuild(covariant _CtlCollapsingHeaderDelegate old) {
+    return topPadding != old.topPadding || tabBar != old.tabBar;
   }
 }
 
@@ -104,31 +288,90 @@ class _CtlListTabState extends State<_CtlListTab> {
 
   @override
   Widget build(BuildContext context) {
-    return RefreshIndicator(
+    return NestedScrollRefreshIndicator(
       onRefresh: _handleRefresh,
       color: const Color(0xFF2962FF),
+      backgroundColor: Colors.white,
       child: FutureBuilder<List<Map<String, dynamic>>>(
         future: _ctlFuture,
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-          final items = snapshot.data ?? [];
-          if (items.isEmpty) return ListView(physics: const AlwaysScrollableScrollPhysics(), children: const [SizedBox(height: 100), Center(child: Text("등록된 항목이 없습니다."))]);
-
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: items.length,
+          return CustomScrollView(
+            primary: true,
             physics: const AlwaysScrollableScrollPhysics(),
-            itemBuilder: (context, index) {
-              final data = items[index];
-              return _buildCtlCard(context, data)
-                  .animate()
-                  .fadeIn(delay: (index * 30).clamp(0, 300).ms, duration: 300.ms)
-                  .slideX(begin: -0.05, end: 0, delay: (index * 30).clamp(0, 300).ms, duration: 300.ms, curve: Curves.easeOut);
-            },
+            slivers: [
+              SliverOverlapInjector(
+                handle: NestedScrollView.sliverOverlapAbsorberHandleFor(
+                  context,
+                ),
+              ),
+              if (snapshot.connectionState == ConnectionState.waiting)
+                const SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              else ..._buildCtlSlivers(context, snapshot.data ?? []),
+            ],
           );
         },
       ),
     );
+  }
+
+  List<Widget> _buildCtlSlivers(
+    BuildContext context,
+    List<Map<String, dynamic>> items,
+  ) {
+    if (items.isEmpty) {
+      return [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const SizedBox(height: 48),
+              Text(
+                "등록된 항목이 없습니다.",
+                style: TextStyle(color: Colors.grey.shade600),
+              ),
+            ],
+          ),
+        ),
+      ];
+    }
+
+    return [
+      SliverPadding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+        sliver: SliverList(
+          delegate: SliverChildBuilderDelegate(
+            (BuildContext context, int index) {
+              if (index == 0 && _CtlListEntrance.shouldAnimateList) {
+                _CtlListEntrance.scheduleEndEntranceAnimation();
+              }
+              final data = items[index];
+              final Widget card = _buildCtlCard(context, data);
+              if (_CtlListEntrance.shouldAnimateList) {
+                return card
+                    .animate()
+                    .fadeIn(
+                      delay: (index * 30).clamp(0, 300).ms,
+                      duration: 300.ms,
+                    )
+                    .slideX(
+                      begin: -0.05,
+                      end: 0,
+                      delay: (index * 30).clamp(0, 300).ms,
+                      duration: 300.ms,
+                      curve: Curves.easeOut,
+                    );
+              }
+              return card;
+            },
+            childCount: items.length,
+          ),
+        ),
+      ),
+    ];
   }
 
   Widget _buildCtlCard(BuildContext context, Map<String, dynamic> data) {

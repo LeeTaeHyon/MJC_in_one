@@ -1,0 +1,4 @@
+python send_fcm_test_mjc.py
+python send_fcm_test_mjc.py --keyword 장학
+python send_fcm_test_ctl.py --kind program --keyword 프로그램
+python send_fcm_test_mpu.py --keyword 역량

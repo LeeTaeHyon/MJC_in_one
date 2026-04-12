@@ -29,7 +29,8 @@ def send_fcm_notice(collection_name: str, rec: dict):
             "title": f"[{board_name}] 새 글 등록",
             "body": rec.get("title", ""),
             "url": rec.get("link", ""),
-            "board": board_name
+            "board": board_name,
+            "source": "ctl",
         },
         topic="all_notices",
     )
