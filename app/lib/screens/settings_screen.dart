@@ -2,6 +2,7 @@ import "package:flutter/material.dart";
 import "package:mio_notice/notification_sources.dart";
 import "package:mio_notice/screens/open_source_licenses_screen.dart";
 import "package:mio_notice/theme/app_colors.dart";
+import "package:mio_notice/widgets/scroll_to_top_scope.dart";
 import "package:shared_preferences/shared_preferences.dart";
 import "package:url_launcher/url_launcher.dart";
 
@@ -16,11 +17,64 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _allNoticesEnabled = true;
   List<String> _keywords = [];
   List<String> _enabledSources = List<String>.from(kNotificationSourceIds);
+  final ScrollController _scrollController = ScrollController();
+  ScrollToTopCoordinator? _scrollRouteCoordinator;
+  bool _registeredScrollRoute = false;
 
   @override
   void initState() {
     super.initState();
     _loadSettings();
+    _scrollController.addListener(_onSettingsScroll);
+  }
+
+  void _onSettingsScroll() {
+    if (!mounted) return;
+    final double viewportHeight = _scrollController.hasClients
+        ? _scrollController.position.viewportDimension
+        : MediaQuery.sizeOf(context).height;
+    _scrollRouteCoordinator?.reportRouteScroll(
+      _scrollController.offset,
+      viewportHeight,
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_registeredScrollRoute) return;
+    final ScrollToTopCoordinator? c = ScrollToTopScope.maybeOf(context);
+    if (c != null) {
+      _scrollRouteCoordinator = c;
+      c.pushRouteHandler(_scrollContentToTop);
+      _registeredScrollRoute = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_scrollController.hasClients) return;
+        c.reportRouteScroll(
+          _scrollController.offset,
+          _scrollController.position.viewportDimension,
+        );
+      });
+    }
+  }
+
+  void _scrollContentToTop() {
+    if (!_scrollController.hasClients) return;
+    _scrollController.animateTo(
+      0,
+      duration: const Duration(milliseconds: 320),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onSettingsScroll);
+    if (_registeredScrollRoute) {
+      _scrollRouteCoordinator?.popRouteHandler();
+    }
+    _scrollController.dispose();
+    super.dispose();
   }
 
   /// 설정값 로드
@@ -200,6 +254,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
       ),
       body: ListView(
+        controller: _scrollController,
         children: [
           const Padding(
             padding: EdgeInsets.fromLTRB(16, 24, 16, 8),

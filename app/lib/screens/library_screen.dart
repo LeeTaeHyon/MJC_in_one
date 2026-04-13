@@ -1,5 +1,6 @@
 import "package:flutter/material.dart";
 import "package:mio_notice/theme/app_colors.dart";
+import "package:mio_notice/widgets/scroll_to_top_scope.dart";
 import "package:mio_notice/widgets/webview_navigation_overlay.dart";
 import "package:share_plus/share_plus.dart";
 import "package:url_launcher/url_launcher.dart";
@@ -18,7 +19,10 @@ class LibraryScreen extends StatefulWidget {
 }
 
 class _LibraryScreenState extends State<LibraryScreen> {
+  static const String _scrollChannelName = "MjcLibraryScroll";
+
   late final WebViewController _controller;
+  ScrollToTopCoordinator? _scrollToTopCoordinator;
   bool _isLoading = true;
   bool _canGoBack = false;
   bool _canGoForward = false;
@@ -39,6 +43,21 @@ class _LibraryScreenState extends State<LibraryScreen> {
     super.initState();
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..addJavaScriptChannel(
+        _scrollChannelName,
+        onMessageReceived: (JavaScriptMessage message) {
+          final List<String> parts = message.message.split("|");
+          if (parts.length < 2 || !mounted) return;
+          final double? y = double.tryParse(parts[0]);
+          final double? vh = double.tryParse(parts[1]);
+          if (y == null || vh == null) return;
+          _scrollToTopCoordinator?.reportMainTabScroll(
+            MainNavTabIndex.library,
+            y,
+            vh,
+          );
+        },
+      )
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageStarted: (String url) {
@@ -54,6 +73,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
               _currentUrl = url;
             });
             _syncNavigationHistory();
+            _installLibraryScrollReporter();
           },
           onWebResourceError: (WebResourceError error) {
             debugPrint("WebView Error: ${error.description}");
@@ -61,6 +81,55 @@ class _LibraryScreenState extends State<LibraryScreen> {
         ),
       )
       ..loadRequest(Uri.parse(LibraryScreen._homeUrl));
+  }
+
+  Future<void> _installLibraryScrollReporter() async {
+    try {
+      await _controller.runJavaScript("""
+(function() {
+  function send() {
+    try {
+      $_scrollChannelName.postMessage(
+        String(window.scrollY || window.pageYOffset || 0)
+        + "|"
+        + String(window.innerHeight || document.documentElement.clientHeight || 0)
+      );
+    } catch (e) {}
+  }
+  if (!window.__mjcLibScroll) {
+    window.__mjcLibScroll = true;
+    window.addEventListener("scroll", send, {passive: true});
+  }
+  send();
+})();
+""");
+    } catch (e) {
+      debugPrint("library scroll hook: $e");
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final ScrollToTopCoordinator? c = ScrollToTopScope.maybeOf(context);
+    if (c != null) {
+      _scrollToTopCoordinator = c;
+      c.registerMainTab(MainNavTabIndex.library, _scrollWebToTop);
+    }
+  }
+
+  Future<void> _scrollWebToTop() async {
+    try {
+      await _controller.runJavaScript("window.scrollTo(0, 0);");
+    } catch (e) {
+      debugPrint("scrollToTop (library webview): $e");
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollToTopCoordinator?.unregisterMainTab(MainNavTabIndex.library);
+    super.dispose();
   }
 
   @override

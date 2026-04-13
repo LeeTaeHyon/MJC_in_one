@@ -6,6 +6,8 @@ import "package:mio_notice/screens/main_website_screen.dart";
 import "package:mio_notice/screens/mpu_screen.dart";
 import "package:mio_notice/screens/home_dashboard_screen.dart";
 import "package:mio_notice/widgets/app_menu_drawer.dart";
+import "package:mio_notice/widgets/scroll_to_top_fab.dart";
+import "package:mio_notice/widgets/scroll_to_top_scope.dart";
 import "package:mio_notice/theme/app_colors.dart";
 
 class MainNavigationScreen extends StatefulWidget {
@@ -125,6 +127,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
 
   @override
   Widget build(BuildContext context) {
+    ScrollToTopScope.of(context).setActiveMainTab(_index);
+
     final double screenWidth = MediaQuery.of(context).size.width;
     final double centerX = screenWidth / 2;
 
@@ -223,6 +227,12 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
             floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
             bottomNavigationBar: _buildBottomAppBar(),
           ),
+          if (!_isMenuOpen)
+            Positioned(
+              right: 14,
+              bottom: MediaQuery.paddingOf(context).bottom + 70 + 10,
+              child: const ScrollToTopFab(),
+            ),
           if (_index == 0)
             HomeSideMenuOverlay(
               menuOpen: _homeMenuOpen,

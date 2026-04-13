@@ -1,6 +1,7 @@
 import "package:flutter/material.dart";
 import "package:mio_notice/notification_history_prefs.dart";
 import "package:mio_notice/theme/app_colors.dart";
+import "package:mio_notice/widgets/scroll_to_top_scope.dart";
 
 /// 푸시 알람 수신 내역을 모아보는 화면입니다.
 class NotificationHistoryScreen extends StatefulWidget {
@@ -13,11 +14,64 @@ class NotificationHistoryScreen extends StatefulWidget {
 class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
   List<Map<String, dynamic>> _history = [];
   bool _isLoading = true;
+  final ScrollController _scrollController = ScrollController();
+  ScrollToTopCoordinator? _scrollRouteCoordinator;
+  bool _registeredScrollRoute = false;
 
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_onHistoryScroll);
     _loadHistory();
+  }
+
+  void _onHistoryScroll() {
+    if (!mounted) return;
+    final double viewportHeight = _scrollController.hasClients
+        ? _scrollController.position.viewportDimension
+        : MediaQuery.sizeOf(context).height;
+    _scrollRouteCoordinator?.reportRouteScroll(
+      _scrollController.offset,
+      viewportHeight,
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_registeredScrollRoute) return;
+    final ScrollToTopCoordinator? c = ScrollToTopScope.maybeOf(context);
+    if (c != null) {
+      _scrollRouteCoordinator = c;
+      c.pushRouteHandler(_scrollContentToTop);
+      _registeredScrollRoute = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_scrollController.hasClients) return;
+        c.reportRouteScroll(
+          _scrollController.offset,
+          _scrollController.position.viewportDimension,
+        );
+      });
+    }
+  }
+
+  void _scrollContentToTop() {
+    if (!_scrollController.hasClients) return;
+    _scrollController.animateTo(
+      0,
+      duration: const Duration(milliseconds: 320),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onHistoryScroll);
+    if (_registeredScrollRoute) {
+      _scrollRouteCoordinator?.popRouteHandler();
+    }
+    _scrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadHistory() async {
@@ -26,6 +80,13 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
     setState(() {
       _history = list;
       _isLoading = false;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollController.hasClients) return;
+      _scrollRouteCoordinator?.reportRouteScroll(
+        _scrollController.offset,
+        _scrollController.position.viewportDimension,
+      );
     });
   }
 
@@ -86,6 +147,7 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
           : _history.isEmpty
               ? _buildEmptyState()
               : ListView.separated(
+                  controller: _scrollController,
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   itemCount: _history.length,
                   separatorBuilder: (context, index) => const Divider(height: 1),

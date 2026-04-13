@@ -8,6 +8,8 @@ import "package:mio_notice/screens/common_webview_screen.dart";
 import "package:mio_notice/services/notice_manager.dart";
 import "package:mio_notice/theme/app_colors.dart";
 import "package:mio_notice/widgets/app_menu_drawer.dart";
+import "package:mio_notice/widgets/scroll_to_top_scope.dart";
+import "package:shared_preferences/shared_preferences.dart";
 import "package:url_launcher/url_launcher.dart";
 
 /// 홈 슬라이드 메뉴 패널 너비 (본문 제스처·전역 오버레이 공통).
@@ -158,7 +160,11 @@ class HomeDashboardScreen extends StatefulWidget {
 
 class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   late Future<List<Map<String, dynamic>>> _combinedNoticeFuture;
+  Set<String> _readDashboardNoticeKeys = {};
+  final ScrollController _scrollController = ScrollController();
+  ScrollToTopCoordinator? _scrollToTopCoordinator;
 
+  static const String _prefsReadDashboard = "read_notices_combined_dashboard";
   static const double _drawerEdgeDragFraction = 0.5;
   static const String _mpuWebBaseUrl = "https://mpu.mjc.ac.kr/Main/default.aspx";
   static const double _menuFabHit = 52;
@@ -173,8 +179,88 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   @override
   void initState() {
     super.initState();
-    _combinedNoticeFuture =
-        NoticeManager().getNotices(boardId: "combined_dashboard");
+    _combinedNoticeFuture = _prepareDashboardNotices();
+    _scrollController.addListener(_onHomeScrollOffset);
+  }
+
+  void _onHomeScrollOffset() {
+    if (!mounted) return;
+    final double viewportHeight = _scrollController.hasClients
+        ? _scrollController.position.viewportDimension
+        : MediaQuery.sizeOf(context).height;
+    _scrollToTopCoordinator?.reportMainTabScroll(
+      MainNavTabIndex.home,
+      _scrollController.offset,
+      viewportHeight,
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final ScrollToTopCoordinator? c = ScrollToTopScope.maybeOf(context);
+    if (c != null) {
+      _scrollToTopCoordinator = c;
+      c.registerMainTab(MainNavTabIndex.home, _scrollContentToTop);
+    }
+    if (_scrollController.hasClients) {
+      final double viewportHeight =
+          _scrollController.position.viewportDimension;
+      _scrollToTopCoordinator?.reportMainTabScroll(
+        MainNavTabIndex.home,
+        _scrollController.offset,
+        viewportHeight,
+      );
+    }
+  }
+
+  void _scrollContentToTop() {
+    if (!_scrollController.hasClients) return;
+    _scrollController.animateTo(
+      0,
+      duration: const Duration(milliseconds: 320),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onHomeScrollOffset);
+    _scrollToTopCoordinator?.unregisterMainTab(MainNavTabIndex.home);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  /// 통합 공지를 불러오기 전에 읽음 목록을 로드해, 첫 표시부터 숨길 항목을 반영합니다.
+  Future<List<Map<String, dynamic>>> _prepareDashboardNotices() async {
+    final prefs = await SharedPreferences.getInstance();
+    final keys =
+        (prefs.getStringList(_prefsReadDashboard) ?? []).toSet();
+    if (mounted) {
+      setState(() => _readDashboardNoticeKeys = keys);
+    }
+    return NoticeManager().getNotices(boardId: "combined_dashboard");
+  }
+
+  String _dashboardNoticeKey(Map<String, dynamic> data) {
+    final String id = (data["id"] ?? "").toString();
+    final String source = (data["source"] ?? "").toString();
+    final String type = (data["type"] ?? "").toString();
+    if (id.isNotEmpty) return "$source|$type|$id";
+    final String url =
+        (data["url"] ?? data["link"] ?? "").toString().trim();
+    final String title = (data["title"] ?? "").toString();
+    return "$source|$type|$url|$title";
+  }
+
+  Future<void> _markDashboardNoticeRead(String key) async {
+    if (_readDashboardNoticeKeys.contains(key)) return;
+    final prefs = await SharedPreferences.getInstance();
+    final Set<String> next = {..._readDashboardNoticeKeys, key};
+    if (mounted) {
+      setState(() => _readDashboardNoticeKeys = next);
+    }
+    await prefs.setStringList(_prefsReadDashboard, next.toList());
   }
 
   Future<void> _handleRefresh() async {
@@ -279,6 +365,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
               onRefresh: _handleRefresh,
               color: AppColors.primary,
               child: CustomScrollView(
+                controller: _scrollController,
                 physics: const AlwaysScrollableScrollPhysics(),
                 slivers: [
                   SliverPersistentHeader(
@@ -556,7 +643,13 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
-        final notices = snapshot.data ?? [];
+        final List<Map<String, dynamic>> all = snapshot.data ?? [];
+        final notices = all
+            .where(
+              (Map<String, dynamic> n) =>
+                  !_readDashboardNoticeKeys.contains(_dashboardNoticeKey(n)),
+            )
+            .toList();
         if (notices.isEmpty) {
           return const Center(child: Text("새로운 소식이 없습니다."));
         }
@@ -586,7 +679,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
       elevation: 1,
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
-        onTap: () {
+        onTap: () async {
           String openUrl =
               (data["url"] ?? data["link"] ?? "").toString().trim();
           if (openUrl.isEmpty && source == "MPU") {
@@ -595,9 +688,12 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           final title = data["title"] ?? "공지사항";
           if (openUrl.isEmpty) return;
 
+          await _markDashboardNoticeRead(_dashboardNoticeKey(data));
+
           if (kIsWeb) {
-            launchUrl(Uri.parse(openUrl), webOnlyWindowName: "_blank");
+            await launchUrl(Uri.parse(openUrl), webOnlyWindowName: "_blank");
           } else {
+            if (!mounted) return;
             Navigator.push<void>(
               context,
               MaterialPageRoute<void>(

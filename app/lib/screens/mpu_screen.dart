@@ -7,6 +7,7 @@ import "package:mio_notice/screens/common_webview_screen.dart";
 import "package:mio_notice/screens/main_navigation_screen.dart";
 import "package:mio_notice/services/notice_manager.dart";
 import "package:mio_notice/widgets/nested_scroll_refresh_indicator.dart";
+import "package:mio_notice/widgets/scroll_to_top_scope.dart";
 import "package:url_launcher/url_launcher.dart";
 
 class _MpuListEntrance {
@@ -41,8 +42,60 @@ class MpuScreen extends StatefulWidget {
 }
 
 class _MpuScreenState extends State<MpuScreen> {
+  final ScrollController _outerScrollController = ScrollController();
+  ScrollToTopCoordinator? _scrollToTopCoordinator;
+
+  @override
+  void initState() {
+    super.initState();
+    _outerScrollController.addListener(_onOuterScroll);
+  }
+
+  void _onOuterScroll() {
+    if (!mounted) return;
+    final double viewportHeight = _outerScrollController.hasClients
+        ? _outerScrollController.position.viewportDimension
+        : MediaQuery.sizeOf(context).height;
+    _scrollToTopCoordinator?.reportMainTabScroll(
+      MainNavTabIndex.mpu,
+      _outerScrollController.offset,
+      viewportHeight,
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final ScrollToTopCoordinator? c = ScrollToTopScope.maybeOf(context);
+    if (c != null) {
+      _scrollToTopCoordinator = c;
+      c.registerMainTab(MainNavTabIndex.mpu, _scrollContentToTop);
+    }
+    if (_outerScrollController.hasClients) {
+      final double viewportHeight =
+          _outerScrollController.position.viewportDimension;
+      _scrollToTopCoordinator?.reportMainTabScroll(
+        MainNavTabIndex.mpu,
+        _outerScrollController.offset,
+        viewportHeight,
+      );
+    }
+  }
+
+  void _scrollContentToTop() {
+    if (!_outerScrollController.hasClients) return;
+    _outerScrollController.animateTo(
+      0,
+      duration: const Duration(milliseconds: 320),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
   @override
   void dispose() {
+    _outerScrollController.removeListener(_onOuterScroll);
+    _scrollToTopCoordinator?.unregisterMainTab(MainNavTabIndex.mpu);
+    _outerScrollController.dispose();
     _MpuListEntrance.resetForNextVisit();
     super.dispose();
   }
@@ -55,6 +108,7 @@ class _MpuScreenState extends State<MpuScreen> {
       child: Scaffold(
         backgroundColor: const Color(0xFFF0F2F5),
         body: NestedScrollView(
+          controller: _outerScrollController,
           headerSliverBuilder: (BuildContext context, bool innerBoxIsScrolled) {
             return <Widget>[
               SliverOverlapAbsorber(

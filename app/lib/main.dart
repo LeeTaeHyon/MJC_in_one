@@ -6,6 +6,8 @@ import "package:mio_notice/notification_history_prefs.dart";
 import "package:mio_notice/notification_sources.dart";
 import "package:mio_notice/screens/main_navigation_screen.dart";
 import "package:mio_notice/theme/app_theme.dart";
+import "package:mio_notice/widgets/scroll_to_top_fab.dart";
+import "package:mio_notice/widgets/scroll_to_top_scope.dart";
 import "package:firebase_messaging/firebase_messaging.dart";
 import "package:flutter_local_notifications/flutter_local_notifications.dart";
 import "package:shared_preferences/shared_preferences.dart";
@@ -123,15 +125,47 @@ Future<void> main() async {
   runApp(const MioNoticeApp());
 }
 
-class MioNoticeApp extends StatelessWidget {
+class MioNoticeApp extends StatefulWidget {
   const MioNoticeApp({super.key});
 
   @override
+  State<MioNoticeApp> createState() => _MioNoticeAppState();
+}
+
+class _MioNoticeAppState extends State<MioNoticeApp> {
+  final ScrollToTopCoordinator _scrollToTopCoordinator = ScrollToTopCoordinator();
+  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+
+  @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: "명지전문대학 공지",
-      theme: buildMjcTheme(),
-      home: const MainNavigationScreen(),
+    return ScrollToTopScope(
+      coordinator: _scrollToTopCoordinator,
+      child: MaterialApp(
+        navigatorKey: _navigatorKey,
+        title: "명지전문대학 공지",
+        theme: buildMjcTheme(),
+        builder: (BuildContext context, Widget? child) {
+          final Widget body = child ?? const SizedBox.shrink();
+          final bool pushedRoute = _navigatorKey.currentState?.canPop() ?? false;
+          if (!pushedRoute) {
+            return body;
+          }
+          final double safeBottom = MediaQuery.paddingOf(context).bottom;
+          return Stack(
+            fit: StackFit.expand,
+            clipBehavior: Clip.none,
+            children: [
+              body,
+              Positioned(
+                right: 14,
+                bottom: safeBottom + 16,
+                child: const ScrollToTopFab(),
+              ),
+            ],
+          );
+        },
+        home: const MainNavigationScreen(),
+      ),
     );
   }
 }

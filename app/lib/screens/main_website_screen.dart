@@ -7,6 +7,7 @@ import "package:mio_notice/screens/common_webview_screen.dart";
 import "package:mio_notice/screens/main_navigation_screen.dart";
 import "package:mio_notice/services/notice_manager.dart";
 import "package:mio_notice/widgets/nested_scroll_refresh_indicator.dart";
+import "package:mio_notice/widgets/scroll_to_top_scope.dart";
 import "package:shared_preferences/shared_preferences.dart";
 import "package:url_launcher/url_launcher.dart";
 
@@ -46,8 +47,60 @@ class MainWebsiteScreen extends StatefulWidget {
 }
 
 class _MainWebsiteScreenState extends State<MainWebsiteScreen> {
+  final ScrollController _outerScrollController = ScrollController();
+  ScrollToTopCoordinator? _scrollToTopCoordinator;
+
+  @override
+  void initState() {
+    super.initState();
+    _outerScrollController.addListener(_onOuterScroll);
+  }
+
+  void _onOuterScroll() {
+    if (!mounted) return;
+    final double viewportHeight = _outerScrollController.hasClients
+        ? _outerScrollController.position.viewportDimension
+        : MediaQuery.sizeOf(context).height;
+    _scrollToTopCoordinator?.reportMainTabScroll(
+      MainNavTabIndex.mainSite,
+      _outerScrollController.offset,
+      viewportHeight,
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final ScrollToTopCoordinator? c = ScrollToTopScope.maybeOf(context);
+    if (c != null) {
+      _scrollToTopCoordinator = c;
+      c.registerMainTab(MainNavTabIndex.mainSite, _scrollContentToTop);
+    }
+    if (_outerScrollController.hasClients) {
+      final double viewportHeight =
+          _outerScrollController.position.viewportDimension;
+      _scrollToTopCoordinator?.reportMainTabScroll(
+        MainNavTabIndex.mainSite,
+        _outerScrollController.offset,
+        viewportHeight,
+      );
+    }
+  }
+
+  void _scrollContentToTop() {
+    if (!_outerScrollController.hasClients) return;
+    _outerScrollController.animateTo(
+      0,
+      duration: const Duration(milliseconds: 320),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
   @override
   void dispose() {
+    _outerScrollController.removeListener(_onOuterScroll);
+    _scrollToTopCoordinator?.unregisterMainTab(MainNavTabIndex.mainSite);
+    _outerScrollController.dispose();
     _MainWebsiteListEntrance.resetForNextVisit();
     super.dispose();
   }
@@ -60,6 +113,7 @@ class _MainWebsiteScreenState extends State<MainWebsiteScreen> {
       child: Scaffold(
         backgroundColor: const Color(0xFFF8F9FA),
         body: NestedScrollView(
+          controller: _outerScrollController,
           headerSliverBuilder: (BuildContext context, bool innerBoxIsScrolled) {
             return <Widget>[
               SliverOverlapAbsorber(

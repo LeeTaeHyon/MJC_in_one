@@ -1,6 +1,7 @@
 import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
 import "package:mio_notice/theme/app_colors.dart";
+import "package:mio_notice/widgets/scroll_to_top_scope.dart";
 
 /// 동일 라이선스 전문은 [LicenseRegistry]에서 여러 번 올 수 있어 본문 기준으로 묶습니다.
 class _MergedLicense {
@@ -54,12 +55,65 @@ class OpenSourceLicensesScreen extends StatefulWidget {
 
 class _OpenSourceLicensesScreenState extends State<OpenSourceLicensesScreen> {
   late final Future<List<_MergedLicense>> _licensesFuture;
+  final ScrollController _scrollController = ScrollController();
+  ScrollToTopCoordinator? _scrollRouteCoordinator;
+  bool _registeredScrollRoute = false;
 
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_onLicenseListScroll);
     _licensesFuture =
         LicenseRegistry.licenses.toList().then(_mergeDuplicateLicenseBodies);
+  }
+
+  void _onLicenseListScroll() {
+    if (!mounted) return;
+    final double viewportHeight = _scrollController.hasClients
+        ? _scrollController.position.viewportDimension
+        : MediaQuery.sizeOf(context).height;
+    _scrollRouteCoordinator?.reportRouteScroll(
+      _scrollController.offset,
+      viewportHeight,
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_registeredScrollRoute) return;
+    final ScrollToTopCoordinator? c = ScrollToTopScope.maybeOf(context);
+    if (c != null) {
+      _scrollRouteCoordinator = c;
+      c.pushRouteHandler(_scrollContentToTop);
+      _registeredScrollRoute = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_scrollController.hasClients) return;
+        c.reportRouteScroll(
+          _scrollController.offset,
+          _scrollController.position.viewportDimension,
+        );
+      });
+    }
+  }
+
+  void _scrollContentToTop() {
+    if (!_scrollController.hasClients) return;
+    _scrollController.animateTo(
+      0,
+      duration: const Duration(milliseconds: 320),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onLicenseListScroll);
+    if (_registeredScrollRoute) {
+      _scrollRouteCoordinator?.popRouteHandler();
+    }
+    _scrollController.dispose();
+    super.dispose();
   }
 
   @override
@@ -93,8 +147,16 @@ class _OpenSourceLicensesScreenState extends State<OpenSourceLicensesScreen> {
             return const Center(child: CircularProgressIndicator());
           }
           final merged = snapshot.data!;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!context.mounted || !_scrollController.hasClients) return;
+            _scrollRouteCoordinator?.reportRouteScroll(
+              _scrollController.offset,
+              _scrollController.position.viewportDimension,
+            );
+          });
 
           return ListView(
+            controller: _scrollController,
             padding: const EdgeInsets.only(bottom: 24),
             children: [
               Padding(

@@ -1,4 +1,5 @@
 import "package:flutter/material.dart";
+import "package:mio_notice/widgets/scroll_to_top_scope.dart";
 import "package:mio_notice/widgets/webview_navigation_overlay.dart";
 import "package:share_plus/share_plus.dart";
 import "package:url_launcher/url_launcher.dart";
@@ -20,7 +21,11 @@ class CommonWebViewScreen extends StatefulWidget {
 }
 
 class _CommonWebViewScreenState extends State<CommonWebViewScreen> {
+  static const String _scrollChannelName = "MjcCommonScroll";
+
   late final WebViewController _controller;
+  ScrollToTopCoordinator? _scrollRouteCoordinator;
+  bool _registeredScrollRoute = false;
   bool _isLoading = true;
   bool _canGoBack = false;
   bool _canGoForward = false;
@@ -40,6 +45,17 @@ class _CommonWebViewScreenState extends State<CommonWebViewScreen> {
     super.initState();
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..addJavaScriptChannel(
+        _scrollChannelName,
+        onMessageReceived: (JavaScriptMessage message) {
+          final List<String> parts = message.message.split("|");
+          if (parts.length < 2 || !mounted) return;
+          final double? y = double.tryParse(parts[0]);
+          final double? vh = double.tryParse(parts[1]);
+          if (y == null || vh == null) return;
+          _scrollRouteCoordinator?.reportRouteScroll(y, vh);
+        },
+      )
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageStarted: (String url) {
@@ -49,6 +65,7 @@ class _CommonWebViewScreenState extends State<CommonWebViewScreen> {
           onPageFinished: (String url) {
             setState(() => _isLoading = false);
             _syncNavigationHistory();
+            _installWebViewScrollReporter();
           },
           onWebResourceError: (WebResourceError error) {
             debugPrint("WebView Error: ${error.description}");
@@ -56,6 +73,59 @@ class _CommonWebViewScreenState extends State<CommonWebViewScreen> {
         ),
       )
       ..loadRequest(Uri.parse(widget.url));
+  }
+
+  Future<void> _installWebViewScrollReporter() async {
+    try {
+      await _controller.runJavaScript("""
+(function() {
+  function send() {
+    try {
+      $_scrollChannelName.postMessage(
+        String(window.scrollY || window.pageYOffset || 0)
+        + "|"
+        + String(window.innerHeight || document.documentElement.clientHeight || 0)
+      );
+    } catch (e) {}
+  }
+  if (!window.__mjcCommonScroll) {
+    window.__mjcCommonScroll = true;
+    window.addEventListener("scroll", send, {passive: true});
+  }
+  send();
+})();
+""");
+    } catch (e) {
+      debugPrint("common webview scroll hook: $e");
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_registeredScrollRoute) return;
+    final ScrollToTopCoordinator? c = ScrollToTopScope.maybeOf(context);
+    if (c != null) {
+      _scrollRouteCoordinator = c;
+      c.pushRouteHandler(_scrollWebToTop);
+      _registeredScrollRoute = true;
+    }
+  }
+
+  Future<void> _scrollWebToTop() async {
+    try {
+      await _controller.runJavaScript("window.scrollTo(0, 0);");
+    } catch (e) {
+      debugPrint("scrollToTop (webview): $e");
+    }
+  }
+
+  @override
+  void dispose() {
+    if (_registeredScrollRoute) {
+      _scrollRouteCoordinator?.popRouteHandler();
+    }
+    super.dispose();
   }
 
   @override
