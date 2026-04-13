@@ -27,12 +27,9 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
 
   void _onHistoryScroll() {
     if (!mounted) return;
-    final double viewportHeight = _scrollController.hasClients
-        ? _scrollController.position.viewportDimension
-        : MediaQuery.sizeOf(context).height;
     _scrollRouteCoordinator?.reportRouteScroll(
       _scrollController.offset,
-      viewportHeight,
+      ScrollFabMetrics.viewportHeightInScrollListener(_scrollController),
     );
   }
 
@@ -49,7 +46,7 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
         if (!mounted || !_scrollController.hasClients) return;
         c.reportRouteScroll(
           _scrollController.offset,
-          _scrollController.position.viewportDimension,
+          ScrollFabMetrics.viewportHeightForThreshold(_scrollController, context),
         );
       });
     }
@@ -85,7 +82,7 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
       if (!mounted || !_scrollController.hasClients) return;
       _scrollRouteCoordinator?.reportRouteScroll(
         _scrollController.offset,
-        _scrollController.position.viewportDimension,
+        ScrollFabMetrics.viewportHeightForThreshold(_scrollController, context),
       );
     });
   }

@@ -49,23 +49,16 @@ class MainWebsiteScreen extends StatefulWidget {
 class _MainWebsiteScreenState extends State<MainWebsiteScreen> {
   final ScrollController _outerScrollController = ScrollController();
   ScrollToTopCoordinator? _scrollToTopCoordinator;
+  late final NestedScrollFabScrollReporter _nestedFabReporter =
+      NestedScrollFabScrollReporter(
+    tabIndex: MainNavTabIndex.mainSite,
+    outerController: _outerScrollController,
+  );
 
   @override
   void initState() {
     super.initState();
-    _outerScrollController.addListener(_onOuterScroll);
-  }
-
-  void _onOuterScroll() {
-    if (!mounted) return;
-    final double viewportHeight = _outerScrollController.hasClients
-        ? _outerScrollController.position.viewportDimension
-        : MediaQuery.sizeOf(context).height;
-    _scrollToTopCoordinator?.reportMainTabScroll(
-      MainNavTabIndex.mainSite,
-      _outerScrollController.offset,
-      viewportHeight,
-    );
+    _outerScrollController.addListener(_nestedFabReporter.reportOuterScroll);
   }
 
   @override
@@ -74,16 +67,14 @@ class _MainWebsiteScreenState extends State<MainWebsiteScreen> {
     final ScrollToTopCoordinator? c = ScrollToTopScope.maybeOf(context);
     if (c != null) {
       _scrollToTopCoordinator = c;
+      _nestedFabReporter.attachCoordinator(c);
       c.registerMainTab(MainNavTabIndex.mainSite, _scrollContentToTop);
     }
     if (_outerScrollController.hasClients) {
-      final double viewportHeight =
-          _outerScrollController.position.viewportDimension;
-      _scrollToTopCoordinator?.reportMainTabScroll(
-        MainNavTabIndex.mainSite,
-        _outerScrollController.offset,
-        viewportHeight,
-      );
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _nestedFabReporter.reportOuterScroll();
+      });
     }
   }
 
@@ -98,7 +89,7 @@ class _MainWebsiteScreenState extends State<MainWebsiteScreen> {
 
   @override
   void dispose() {
-    _outerScrollController.removeListener(_onOuterScroll);
+    _outerScrollController.removeListener(_nestedFabReporter.reportOuterScroll);
     _scrollToTopCoordinator?.unregisterMainTab(MainNavTabIndex.mainSite);
     _outerScrollController.dispose();
     _MainWebsiteListEntrance.resetForNextVisit();
@@ -144,12 +135,18 @@ class _MainWebsiteScreenState extends State<MainWebsiteScreen> {
               ),
             ];
           },
-          body: TabBarView(
-            children: <Widget>[
-              _NoticeListTab(boardId: "main_notice"),
-              _NoticeListTab(boardId: "main_academic"),
-              _NoticeListTab(boardId: "main_scholarship"),
-            ],
+          body: NotificationListener<ScrollNotification>(
+            onNotification: _nestedFabReporter.handleInnerScrollNotification,
+            child: NestedScrollFabTabBinding(
+              reporter: _nestedFabReporter,
+              child: TabBarView(
+                children: <Widget>[
+                  _NoticeListTab(boardId: "main_notice"),
+                  _NoticeListTab(boardId: "main_academic"),
+                  _NoticeListTab(boardId: "main_scholarship"),
+                ],
+              ),
+            ),
           ),
         ),
       ),

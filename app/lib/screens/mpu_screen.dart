@@ -44,23 +44,16 @@ class MpuScreen extends StatefulWidget {
 class _MpuScreenState extends State<MpuScreen> {
   final ScrollController _outerScrollController = ScrollController();
   ScrollToTopCoordinator? _scrollToTopCoordinator;
+  late final NestedScrollFabScrollReporter _nestedFabReporter =
+      NestedScrollFabScrollReporter(
+    tabIndex: MainNavTabIndex.mpu,
+    outerController: _outerScrollController,
+  );
 
   @override
   void initState() {
     super.initState();
-    _outerScrollController.addListener(_onOuterScroll);
-  }
-
-  void _onOuterScroll() {
-    if (!mounted) return;
-    final double viewportHeight = _outerScrollController.hasClients
-        ? _outerScrollController.position.viewportDimension
-        : MediaQuery.sizeOf(context).height;
-    _scrollToTopCoordinator?.reportMainTabScroll(
-      MainNavTabIndex.mpu,
-      _outerScrollController.offset,
-      viewportHeight,
-    );
+    _outerScrollController.addListener(_nestedFabReporter.reportOuterScroll);
   }
 
   @override
@@ -69,16 +62,14 @@ class _MpuScreenState extends State<MpuScreen> {
     final ScrollToTopCoordinator? c = ScrollToTopScope.maybeOf(context);
     if (c != null) {
       _scrollToTopCoordinator = c;
+      _nestedFabReporter.attachCoordinator(c);
       c.registerMainTab(MainNavTabIndex.mpu, _scrollContentToTop);
     }
     if (_outerScrollController.hasClients) {
-      final double viewportHeight =
-          _outerScrollController.position.viewportDimension;
-      _scrollToTopCoordinator?.reportMainTabScroll(
-        MainNavTabIndex.mpu,
-        _outerScrollController.offset,
-        viewportHeight,
-      );
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _nestedFabReporter.reportOuterScroll();
+      });
     }
   }
 
@@ -93,7 +84,7 @@ class _MpuScreenState extends State<MpuScreen> {
 
   @override
   void dispose() {
-    _outerScrollController.removeListener(_onOuterScroll);
+    _outerScrollController.removeListener(_nestedFabReporter.reportOuterScroll);
     _scrollToTopCoordinator?.unregisterMainTab(MainNavTabIndex.mpu);
     _outerScrollController.dispose();
     _MpuListEntrance.resetForNextVisit();
@@ -138,11 +129,17 @@ class _MpuScreenState extends State<MpuScreen> {
               ),
             ];
           },
-          body: const TabBarView(
-            children: [
-              _MpuListTab(showCompleted: false),
-              _MpuListTab(showCompleted: true),
-            ],
+          body: NotificationListener<ScrollNotification>(
+            onNotification: _nestedFabReporter.handleInnerScrollNotification,
+            child: NestedScrollFabTabBinding(
+              reporter: _nestedFabReporter,
+              child: const TabBarView(
+                children: [
+                  _MpuListTab(showCompleted: false),
+                  _MpuListTab(showCompleted: true),
+                ],
+              ),
+            ),
           ),
         ),
       ),
@@ -255,7 +252,7 @@ class _MpuCollapsingHeaderDelegate extends SliverPersistentHeaderDelegate {
                               top: titleTop,
                               right: 12,
                               child: Text(
-                                "역량관리 시스템 (MPU)",
+                                "핵심 역량 이력관리 시스템 (MPU)",
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(

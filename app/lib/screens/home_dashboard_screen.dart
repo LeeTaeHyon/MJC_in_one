@@ -185,9 +185,8 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
 
   void _onHomeScrollOffset() {
     if (!mounted) return;
-    final double viewportHeight = _scrollController.hasClients
-        ? _scrollController.position.viewportDimension
-        : MediaQuery.sizeOf(context).height;
+    final double viewportHeight =
+        ScrollFabMetrics.viewportHeightInScrollListener(_scrollController);
     _scrollToTopCoordinator?.reportMainTabScroll(
       MainNavTabIndex.home,
       _scrollController.offset,
@@ -204,12 +203,10 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
       c.registerMainTab(MainNavTabIndex.home, _scrollContentToTop);
     }
     if (_scrollController.hasClients) {
-      final double viewportHeight =
-          _scrollController.position.viewportDimension;
       _scrollToTopCoordinator?.reportMainTabScroll(
         MainNavTabIndex.home,
         _scrollController.offset,
-        viewportHeight,
+        ScrollFabMetrics.viewportHeightForThreshold(_scrollController, context),
       );
     }
   }

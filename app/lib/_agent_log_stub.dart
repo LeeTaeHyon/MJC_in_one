@@ -1,0 +1,1 @@
+void agentAppendNdjson(String line) {}

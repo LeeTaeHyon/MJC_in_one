@@ -1,3 +1,4 @@
+import "package:flutter/foundation.dart" show kIsWeb;
 import "package:flutter/material.dart";
 import "package:mio_notice/theme/app_colors.dart";
 import "package:mio_notice/widgets/scroll_to_top_scope.dart";
@@ -38,26 +39,38 @@ class _LibraryScreenState extends State<LibraryScreen> {
     });
   }
 
+  void _onLibraryScrollChannelMessage(JavaScriptMessage message) {
+    try {
+      if (!mounted) return;
+      final List<String> parts = message.message.split("|");
+      if (parts.length < 2) return;
+      final double? y = double.tryParse(parts[0]);
+      final double? vh = double.tryParse(parts[1]);
+      if (y == null || vh == null) return;
+      _scrollToTopCoordinator?.reportMainTabScroll(
+        MainNavTabIndex.library,
+        y,
+        vh,
+      );
+    } catch (e, st) {
+      debugPrint("library scroll channel: $e\n$st");
+    }
+  }
+
   @override
   void initState() {
     super.initState();
-    _controller = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..addJavaScriptChannel(
+    final WebViewController controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted);
+
+    if (!kIsWeb) {
+      controller.addJavaScriptChannel(
         _scrollChannelName,
-        onMessageReceived: (JavaScriptMessage message) {
-          final List<String> parts = message.message.split("|");
-          if (parts.length < 2 || !mounted) return;
-          final double? y = double.tryParse(parts[0]);
-          final double? vh = double.tryParse(parts[1]);
-          if (y == null || vh == null) return;
-          _scrollToTopCoordinator?.reportMainTabScroll(
-            MainNavTabIndex.library,
-            y,
-            vh,
-          );
-        },
-      )
+        onMessageReceived: _onLibraryScrollChannelMessage,
+      );
+    }
+
+    controller
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageStarted: (String url) {
@@ -73,7 +86,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
               _currentUrl = url;
             });
             _syncNavigationHistory();
-            _installLibraryScrollReporter();
+            if (!kIsWeb) {
+              _installLibraryScrollReporter();
+            }
           },
           onWebResourceError: (WebResourceError error) {
             debugPrint("WebView Error: ${error.description}");
@@ -81,6 +96,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
         ),
       )
       ..loadRequest(Uri.parse(LibraryScreen._homeUrl));
+
+    _controller = controller;
   }
 
   Future<void> _installLibraryScrollReporter() async {

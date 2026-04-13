@@ -30,12 +30,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   void _onSettingsScroll() {
     if (!mounted) return;
-    final double viewportHeight = _scrollController.hasClients
-        ? _scrollController.position.viewportDimension
-        : MediaQuery.sizeOf(context).height;
     _scrollRouteCoordinator?.reportRouteScroll(
       _scrollController.offset,
-      viewportHeight,
+      ScrollFabMetrics.viewportHeightInScrollListener(_scrollController),
     );
   }
 
@@ -52,7 +49,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         if (!mounted || !_scrollController.hasClients) return;
         c.reportRouteScroll(
           _scrollController.offset,
-          _scrollController.position.viewportDimension,
+          ScrollFabMetrics.viewportHeightForThreshold(_scrollController, context),
         );
       });
     }

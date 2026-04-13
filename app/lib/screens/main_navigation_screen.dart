@@ -44,6 +44,15 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
       parent: _animationController,
       curve: Curves.easeOutBack, // 열릴 때 살짝 튕기는 효과
     );
+    _syncScrollCoordinatorTab();
+  }
+
+  /// [build] 안에서 호출하면 맨 위로 FAB가 빌드 중 재빌드되어 예외가 나므로, 프레임 끝에서만 동기화합니다.
+  void _syncScrollCoordinatorTab() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ScrollToTopScope.maybeOf(context)?.setActiveMainTab(_index);
+    });
   }
 
   @override
@@ -83,8 +92,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
   }
 
   void _onMenuItemClick(int index) {
+    final bool tabChanged = index != _index;
     setState(() {
-      if (index != _index) {
+      if (tabChanged) {
         if (_index == 0 && index != 0) {
           _homeMenuOpen.value = 0.0;
         }
@@ -97,6 +107,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
       }
       if (_isMenuOpen) _toggleMenu();
     });
+    if (tabChanged) {
+      _syncScrollCoordinatorTab();
+    }
   }
 
   /// 시스템 뒤로가기: 드로어·FAB 메뉴 닫기 → 이전 탭 → 앱 종료 순.
@@ -120,6 +133,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
       setState(() {
         _index = _tabHistory.removeLast();
       });
+      _syncScrollCoordinatorTab();
       return;
     }
     SystemNavigator.pop();
@@ -127,8 +141,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
 
   @override
   Widget build(BuildContext context) {
-    ScrollToTopScope.of(context).setActiveMainTab(_index);
-
     final double screenWidth = MediaQuery.of(context).size.width;
     final double centerX = screenWidth / 2;
 

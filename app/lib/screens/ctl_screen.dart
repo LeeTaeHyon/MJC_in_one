@@ -44,23 +44,16 @@ class CtlScreen extends StatefulWidget {
 class _CtlScreenState extends State<CtlScreen> {
   final ScrollController _outerScrollController = ScrollController();
   ScrollToTopCoordinator? _scrollToTopCoordinator;
+  late final NestedScrollFabScrollReporter _nestedFabReporter =
+      NestedScrollFabScrollReporter(
+    tabIndex: MainNavTabIndex.ctl,
+    outerController: _outerScrollController,
+  );
 
   @override
   void initState() {
     super.initState();
-    _outerScrollController.addListener(_onOuterScroll);
-  }
-
-  void _onOuterScroll() {
-    if (!mounted) return;
-    final double viewportHeight = _outerScrollController.hasClients
-        ? _outerScrollController.position.viewportDimension
-        : MediaQuery.sizeOf(context).height;
-    _scrollToTopCoordinator?.reportMainTabScroll(
-      MainNavTabIndex.ctl,
-      _outerScrollController.offset,
-      viewportHeight,
-    );
+    _outerScrollController.addListener(_nestedFabReporter.reportOuterScroll);
   }
 
   @override
@@ -69,16 +62,14 @@ class _CtlScreenState extends State<CtlScreen> {
     final ScrollToTopCoordinator? c = ScrollToTopScope.maybeOf(context);
     if (c != null) {
       _scrollToTopCoordinator = c;
+      _nestedFabReporter.attachCoordinator(c);
       c.registerMainTab(MainNavTabIndex.ctl, _scrollContentToTop);
     }
     if (_outerScrollController.hasClients) {
-      final double viewportHeight =
-          _outerScrollController.position.viewportDimension;
-      _scrollToTopCoordinator?.reportMainTabScroll(
-        MainNavTabIndex.ctl,
-        _outerScrollController.offset,
-        viewportHeight,
-      );
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _nestedFabReporter.reportOuterScroll();
+      });
     }
   }
 
@@ -93,7 +84,7 @@ class _CtlScreenState extends State<CtlScreen> {
 
   @override
   void dispose() {
-    _outerScrollController.removeListener(_onOuterScroll);
+    _outerScrollController.removeListener(_nestedFabReporter.reportOuterScroll);
     _scrollToTopCoordinator?.unregisterMainTab(MainNavTabIndex.ctl);
     _outerScrollController.dispose();
     _CtlListEntrance.resetForNextVisit();
@@ -138,11 +129,17 @@ class _CtlScreenState extends State<CtlScreen> {
               ),
             ];
           },
-          body: const TabBarView(
-            children: [
-              _CtlListTab(isProgram: true),
-              _CtlListTab(isProgram: false),
-            ],
+          body: NotificationListener<ScrollNotification>(
+            onNotification: _nestedFabReporter.handleInnerScrollNotification,
+            child: NestedScrollFabTabBinding(
+              reporter: _nestedFabReporter,
+              child: const TabBarView(
+                children: [
+                  _CtlListTab(isProgram: true),
+                  _CtlListTab(isProgram: false),
+                ],
+              ),
+            ),
           ),
         ),
       ),
@@ -256,7 +253,7 @@ class _CtlCollapsingHeaderDelegate extends SliverPersistentHeaderDelegate {
                               top: titleTop,
                               right: 12,
                               child: Text(
-                                "교수학습개발센터 (CTL)",
+                                "교수학습센터 (CTL)",
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(

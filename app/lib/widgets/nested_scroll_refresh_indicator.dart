@@ -1,4 +1,6 @@
 import "package:flutter/material.dart";
+import "package:flutter/scheduler.dart";
+import "package:mio_notice/agent_debug_log.dart";
 
 /// [NestedScrollView] 본문([TabBarView] 등)에서 [RefreshIndicator]가
 /// 고정 헤더 뒤에 가려지지 않도록, 겹침 높이([SliverOverlapAbsorberHandle.layoutExtent])만큼
@@ -27,6 +29,19 @@ class NestedScrollRefreshIndicator extends StatelessWidget {
     return ListenableBuilder(
       listenable: handle,
       builder: (context, _) {
+        // #region agent log
+        if (SchedulerBinding.instance.schedulerPhase != SchedulerPhase.idle) {
+          agentDebugNdjson(
+            hypothesisId: "H4",
+            location: "nested_scroll_refresh_indicator.dart:ListenableBuilder",
+            message: "overlap handle builder during non-idle phase",
+            data: <String, dynamic>{
+              "layoutExtent": handle.layoutExtent,
+              "phase": SchedulerBinding.instance.schedulerPhase.name,
+            },
+          );
+        }
+        // #endregion
         final extent = handle.layoutExtent;
         final top = MediaQuery.paddingOf(context).top;
         const double collapsedBar = 52;

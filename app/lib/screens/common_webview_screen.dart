@@ -1,3 +1,4 @@
+import "package:flutter/foundation.dart" show kIsWeb;
 import "package:flutter/material.dart";
 import "package:mio_notice/widgets/scroll_to_top_scope.dart";
 import "package:mio_notice/widgets/webview_navigation_overlay.dart";
@@ -40,22 +41,34 @@ class _CommonWebViewScreenState extends State<CommonWebViewScreen> {
     });
   }
 
+  void _onCommonScrollChannelMessage(JavaScriptMessage message) {
+    try {
+      if (!mounted) return;
+      final List<String> parts = message.message.split("|");
+      if (parts.length < 2) return;
+      final double? y = double.tryParse(parts[0]);
+      final double? vh = double.tryParse(parts[1]);
+      if (y == null || vh == null) return;
+      _scrollRouteCoordinator?.reportRouteScroll(y, vh);
+    } catch (e, st) {
+      debugPrint("common webview scroll channel: $e\n$st");
+    }
+  }
+
   @override
   void initState() {
     super.initState();
-    _controller = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..addJavaScriptChannel(
+    final WebViewController controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted);
+
+    if (!kIsWeb) {
+      controller.addJavaScriptChannel(
         _scrollChannelName,
-        onMessageReceived: (JavaScriptMessage message) {
-          final List<String> parts = message.message.split("|");
-          if (parts.length < 2 || !mounted) return;
-          final double? y = double.tryParse(parts[0]);
-          final double? vh = double.tryParse(parts[1]);
-          if (y == null || vh == null) return;
-          _scrollRouteCoordinator?.reportRouteScroll(y, vh);
-        },
-      )
+        onMessageReceived: _onCommonScrollChannelMessage,
+      );
+    }
+
+    controller
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageStarted: (String url) {
@@ -65,7 +78,9 @@ class _CommonWebViewScreenState extends State<CommonWebViewScreen> {
           onPageFinished: (String url) {
             setState(() => _isLoading = false);
             _syncNavigationHistory();
-            _installWebViewScrollReporter();
+            if (!kIsWeb) {
+              _installWebViewScrollReporter();
+            }
           },
           onWebResourceError: (WebResourceError error) {
             debugPrint("WebView Error: ${error.description}");
@@ -73,6 +88,8 @@ class _CommonWebViewScreenState extends State<CommonWebViewScreen> {
         ),
       )
       ..loadRequest(Uri.parse(widget.url));
+
+    _controller = controller;
   }
 
   Future<void> _installWebViewScrollReporter() async {

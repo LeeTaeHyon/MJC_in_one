@@ -69,12 +69,9 @@ class _OpenSourceLicensesScreenState extends State<OpenSourceLicensesScreen> {
 
   void _onLicenseListScroll() {
     if (!mounted) return;
-    final double viewportHeight = _scrollController.hasClients
-        ? _scrollController.position.viewportDimension
-        : MediaQuery.sizeOf(context).height;
     _scrollRouteCoordinator?.reportRouteScroll(
       _scrollController.offset,
-      viewportHeight,
+      ScrollFabMetrics.viewportHeightInScrollListener(_scrollController),
     );
   }
 
@@ -91,7 +88,7 @@ class _OpenSourceLicensesScreenState extends State<OpenSourceLicensesScreen> {
         if (!mounted || !_scrollController.hasClients) return;
         c.reportRouteScroll(
           _scrollController.offset,
-          _scrollController.position.viewportDimension,
+          ScrollFabMetrics.viewportHeightForThreshold(_scrollController, context),
         );
       });
     }
@@ -151,7 +148,10 @@ class _OpenSourceLicensesScreenState extends State<OpenSourceLicensesScreen> {
             if (!context.mounted || !_scrollController.hasClients) return;
             _scrollRouteCoordinator?.reportRouteScroll(
               _scrollController.offset,
-              _scrollController.position.viewportDimension,
+              ScrollFabMetrics.viewportHeightForThreshold(
+                _scrollController,
+                context,
+              ),
             );
           });
 
