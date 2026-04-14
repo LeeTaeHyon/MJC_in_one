@@ -2,6 +2,7 @@ import "package:flutter/material.dart";
 import "package:mio_notice/notification_sources.dart";
 import "package:mio_notice/screens/open_source_licenses_screen.dart";
 import "package:mio_notice/theme/app_colors.dart";
+import "package:mio_notice/utils/snack_bar_utils.dart";
 import "package:mio_notice/widgets/scroll_to_top_scope.dart";
 import "package:shared_preferences/shared_preferences.dart";
 import "package:url_launcher/url_launcher.dart";
@@ -109,11 +110,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _allNoticesEnabled = value;
     });
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+      final message = value ? "전체 알림이 활성화되었습니다." : "키워드 알림 모드로 전환되었습니다.";
+      SnackBarUtils.showUnique(
+        context,
+        key: "settings_all_notices_${value ? "on" : "off"}",
+        snackBar: SnackBar(
           behavior: SnackBarBehavior.floating,
           margin: _snackBarMargin(context),
-          content: Text(value ? "전체 알림이 활성화되었습니다." : "키워드 알림 모드로 전환되었습니다."),
+          content: Text(message),
         ),
       );
     }
@@ -129,8 +133,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
     if (next.isEmpty) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+        SnackBarUtils.showUnique(
+          context,
+          key: "settings_sources_min_one",
+          snackBar: SnackBar(
             behavior: SnackBarBehavior.floating,
             margin: _snackBarMargin(context),
             content: const Text("알림 출처는 최소 하나 선택해야 합니다."),
@@ -226,8 +232,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       await launchUrl(emailLaunchUri);
     } else {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+        SnackBarUtils.showUnique(
+          context,
+          key: "settings_mail_app_unavailable",
+          snackBar: SnackBar(
             behavior: SnackBarBehavior.floating,
             margin: _snackBarMargin(context),
             content: const Text("메일 앱을 열 수 없습니다."),

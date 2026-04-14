@@ -1,6 +1,7 @@
 import "package:flutter/material.dart";
 import "package:mio_notice/models/notice_model.dart";
 import "package:mio_notice/theme/app_colors.dart";
+import "package:mio_notice/utils/snack_bar_utils.dart";
 import "package:mio_notice/widgets/new_notice_badge.dart";
 import "package:shared_preferences/shared_preferences.dart";
 import "package:url_launcher/url_launcher.dart";
@@ -75,8 +76,10 @@ class _NoticeCardState extends State<NoticeCard> {
     final uri = Uri.tryParse(widget.notice.url);
     if (uri == null || !uri.hasScheme) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("유효하지 않은 링크입니다.")),
+        SnackBarUtils.showUnique(
+          context,
+          key: "notice_invalid_link",
+          snackBar: const SnackBar(content: Text("유효하지 않은 링크입니다.")),
         );
       }
       return;
@@ -86,8 +89,10 @@ class _NoticeCardState extends State<NoticeCard> {
       mode: LaunchMode.externalApplication,
     );
     if (!launched && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("링크를 열 수 없습니다.")),
+      SnackBarUtils.showUnique(
+        context,
+        key: "notice_cannot_open_link",
+        snackBar: const SnackBar(content: Text("링크를 열 수 없습니다.")),
       );
     }
   }
