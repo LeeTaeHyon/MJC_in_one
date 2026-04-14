@@ -225,7 +225,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _contactDeveloper() async {
     final Uri emailLaunchUri = Uri(
       scheme: "mailto",
-      path: "dlxogudd@gmail.com",
+      path: "dlxogus0619@mjc.ac.kr",
       queryParameters: {"subject": "[MJC In One] 앱 관련 문의"},
     );
     if (await canLaunchUrl(emailLaunchUri)) {
@@ -238,7 +238,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
           snackBar: SnackBar(
             behavior: SnackBarBehavior.floating,
             margin: _snackBarMargin(context),
-            content: const Text("메일 앱을 열 수 없습니다."),
+            content: RichText(text: TextSpan(style: TextStyle(color: Colors.white), 
+            children: [TextSpan(text: "메일 앱을 열 수 없어요. ", style: TextStyle(fontWeight: FontWeight.w700)),
+            TextSpan(text: "메일 앱 설치/계정 설정 후 다시 시도해 주세요.", style: TextStyle(fontWeight: FontWeight.w400)),]
+      )),
           ),
         );
       }
