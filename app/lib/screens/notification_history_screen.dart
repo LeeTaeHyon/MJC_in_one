@@ -1,7 +1,10 @@
 import "package:flutter/material.dart";
+import "package:flutter/foundation.dart" show kIsWeb;
 import "package:mio_notice/notification_history_prefs.dart";
+import "package:mio_notice/screens/common_webview_screen.dart";
 import "package:mio_notice/theme/app_colors.dart";
 import "package:mio_notice/widgets/scroll_to_top_scope.dart";
+import "package:url_launcher/url_launcher.dart";
 
 /// 푸시 알람 수신 내역을 모아보는 화면입니다.
 class NotificationHistoryScreen extends StatefulWidget {
@@ -17,6 +20,49 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
   final ScrollController _scrollController = ScrollController();
   ScrollToTopCoordinator? _scrollRouteCoordinator;
   bool _registeredScrollRoute = false;
+
+  String _extractNotificationOpenUrl(Map<String, dynamic> item) {
+    final dynamic dataAny = item["data"];
+    if (dataAny is Map) {
+      final dynamic urlAny = dataAny["url"] ?? dataAny["link"];
+      if (urlAny != null) {
+        final String url = urlAny.toString().trim();
+        if (url.isNotEmpty) return url;
+      }
+    }
+    final dynamic direct = item["url"] ?? item["link"];
+    if (direct != null) {
+      final String url = direct.toString().trim();
+      if (url.isNotEmpty) return url;
+    }
+    return "";
+  }
+
+  Future<void> _openNoticeFromHistoryItem(Map<String, dynamic> item) async {
+    final String openUrl = _extractNotificationOpenUrl(item);
+    if (openUrl.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("이 알림에는 이동할 공지 링크가 없습니다.")),
+      );
+      return;
+    }
+
+    await markNotificationHistoryItemRead(item);
+    final String title = (item["title"] ?? "공지사항").toString();
+
+    if (kIsWeb) {
+      await launchUrl(Uri.parse(openUrl), webOnlyWindowName: "_blank");
+      return;
+    }
+    if (!mounted) return;
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => CommonWebViewScreen(url: openUrl, title: title),
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -176,6 +222,7 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
                         tooltip: "이 알림 삭제",
                         onPressed: () => _removeOneAt(index),
                       ),
+                      onTap: () => _openNoticeFromHistoryItem(item),
                     );
                   },
                 ),

@@ -1,11 +1,13 @@
 import "dart:ui" show lerpDouble;
 
 import "package:flutter/foundation.dart";
+import "package:mio_notice/agent_debug_log.dart";
 import "package:flutter/material.dart";
 import "package:flutter_animate/flutter_animate.dart";
 import "package:mio_notice/screens/common_webview_screen.dart";
 import "package:mio_notice/screens/main_navigation_screen.dart";
 import "package:mio_notice/services/notice_manager.dart";
+import "package:mio_notice/perf_flags.dart";
 import "package:mio_notice/widgets/nested_scroll_refresh_indicator.dart";
 import "package:mio_notice/widgets/scroll_to_top_scope.dart";
 import "package:url_launcher/url_launcher.dart";
@@ -13,22 +15,14 @@ import "package:url_launcher/url_launcher.dart";
 class _MpuListEntrance {
   static bool _playedOnce = false;
   static bool _scheduleEntranceEnd = false;
-  static int _generation = 0;
 
-  static bool get shouldAnimateList => !_playedOnce;
-
-  static void resetForNextVisit() {
-    _generation++;
-    _playedOnce = false;
-    _scheduleEntranceEnd = false;
-  }
+  static bool get shouldAnimateList => !kPerfLowRasterMode && !_playedOnce;
+  static const int maxAnimatedItems = 8;
 
   static void scheduleEndEntranceAnimation() {
     if (_playedOnce || _scheduleEntranceEnd) return;
     _scheduleEntranceEnd = true;
-    final int g = _generation;
     Future<void>.delayed(const Duration(milliseconds: 700), () {
-      if (g != _generation) return;
       _playedOnce = true;
     });
   }
@@ -87,7 +81,7 @@ class _MpuScreenState extends State<MpuScreen> {
     _outerScrollController.removeListener(_nestedFabReporter.reportOuterScroll);
     _scrollToTopCoordinator?.unregisterMainTab(MainNavTabIndex.mpu);
     _outerScrollController.dispose();
-    _MpuListEntrance.resetForNextVisit();
+    // 성능상 재진입 때마다 전체 리스트 entrance 애니메이션을 다시 돌리면 jank가 커져서 유지합니다.
     super.dispose();
   }
 
@@ -152,6 +146,10 @@ class _MpuCollapsingHeaderDelegate extends SliverPersistentHeaderDelegate {
     required this.topPadding,
     required this.tabBar,
   });
+  // #region agent log (H7A)
+  static int _h7Count = 0;
+  static int _h7WinStart = 0;
+  // #endregion
 
   final double topPadding;
   final TabBar tabBar;
@@ -179,12 +177,36 @@ class _MpuCollapsingHeaderDelegate extends SliverPersistentHeaderDelegate {
     double shrinkOffset,
     bool overlapsContent,
   ) {
+    // #region agent log (H7A)
+    final int _h7Now = DateTime.now().millisecondsSinceEpoch;
+    if (_h7WinStart == 0) _h7WinStart = _h7Now;
+    _h7Count++;
+    if (_h7Now - _h7WinStart >= 2000) {
+      agentDebugNdjson(
+        hypothesisId: "H7A",
+        location: "mpu_screen.dart:_MpuCollapsingHeaderDelegate:build",
+        message: "header build frequency",
+        data: <String, dynamic>{"buildsIn2sec": _h7Count, "windowMs": _h7Now - _h7WinStart},
+      );
+      _h7Count = 0;
+      _h7WinStart = _h7Now;
+    }
+    // #endregion
     final double extent =
         (maxExtent - shrinkOffset).clamp(minExtent, maxExtent);
     final double range = maxExtent - minExtent;
     final double t = range > 0 ? (shrinkOffset / range).clamp(0.0, 1.0) : 0.0;
     final double u = Curves.easeInOut.transform(t);
     final double heroH = extent - _tabBarHeight;
+    // LayoutBuilder removed: ih = heroH - topPadding
+    final double ih = heroH - topPadding;
+    final double titleSize = lerpDouble(24, 17, u)!;
+    final double titleLeft = lerpDouble(20, 50, u)!;
+    const double bottomBlock = 20 + 13 + 6 + 24;
+    final double expandedTitleTop = (ih - bottomBlock).clamp(0.0, ih);
+    final double collapsedTitleTop = (ih - titleSize * 1.15) / 2;
+    final double titleTop = lerpDouble(expandedTitleTop, collapsedTitleTop, u)!;
+    final double subtitleOpacity = (1.0 - u * 1.35).clamp(0.0, 1.0);
 
     return SizedBox(
       height: extent,
@@ -204,89 +226,70 @@ class _MpuCollapsingHeaderDelegate extends SliverPersistentHeaderDelegate {
                   SafeArea(
                     bottom: false,
                     minimum: EdgeInsets.zero,
-                    child: LayoutBuilder(
-                      builder: (BuildContext context, BoxConstraints c) {
-                        final double ih = c.maxHeight;
-                        final double titleSize = lerpDouble(24, 17, u)!;
-                        final double titleLeft = lerpDouble(20, 50, u)!;
-                        final double bottomBlock = 20 + 13 + 6 + 24;
-                        final double expandedTitleTop =
-                            (ih - bottomBlock).clamp(0.0, ih);
-                        final double collapsedTitleTop =
-                            (ih - titleSize * 1.15) / 2;
-                        final double titleTop =
-                            lerpDouble(expandedTitleTop, collapsedTitleTop, u)!;
-                        final double subtitleOpacity =
-                            (1.0 - u * 1.35).clamp(0.0, 1.0);
-
-                        return Stack(
-                          clipBehavior: Clip.hardEdge,
-                          children: [
-                            Positioned(
-                              left: 0,
-                              top: 0,
-                              child: Material(
-                                color: Colors.transparent,
-                                child: InkWell(
-                                  customBorder: const CircleBorder(),
-                                  onTap: () => MainNavigationScreen
-                                      .scaffoldKey.currentState
-                                      ?.openDrawer(),
-                                  splashColor:
-                                      Colors.white.withValues(alpha: 0.35),
-                                  highlightColor:
-                                      Colors.white.withValues(alpha: 0.14),
-                                  child: const Padding(
-                                    padding: EdgeInsets.all(10),
-                                    child: Icon(
-                                      Icons.menu_rounded,
-                                      color: Colors.white,
-                                      size: 26,
-                                    ),
-                                  ),
+                    child: Stack(
+                      clipBehavior: Clip.hardEdge,
+                      children: [
+                        Positioned(
+                          left: 0,
+                          top: 0,
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              customBorder: const CircleBorder(),
+                              onTap: () => MainNavigationScreen
+                                  .scaffoldKey.currentState
+                                  ?.openDrawer(),
+                              splashColor:
+                                  Colors.white.withValues(alpha: 0.35),
+                              highlightColor:
+                                  Colors.white.withValues(alpha: 0.14),
+                              child: const Padding(
+                                padding: EdgeInsets.all(10),
+                                child: Icon(
+                                  Icons.menu_rounded,
+                                  color: Colors.white,
+                                  size: 26,
                                 ),
                               ),
                             ),
-                            Positioned(
-                              left: titleLeft,
-                              top: titleTop,
-                              right: 12,
+                          ),
+                        ),
+                        Positioned(
+                          left: titleLeft,
+                          top: titleTop,
+                          right: 12,
+                          child: Text(
+                            "핵심 역량 이력관리 시스템 (MPU)",
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: titleSize,
+                              fontWeight: FontWeight.w800,
+                              height: 1.1,
+                            ),
+                          ),
+                        ),
+                        if (subtitleOpacity > 0.02)
+                          Positioned(
+                            left: 20,
+                            top: titleTop + titleSize * 0.95 + 6,
+                            right: 16,
+                            child: IgnorePointer(
                               child: Text(
-                                "핵심 역량 이력관리 시스템 (MPU)",
-                                maxLines: 1,
+                                "자신의 역량을 관리하고 프로그램을 신청하세요",
+                                maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: titleSize,
-                                  fontWeight: FontWeight.w800,
-                                  height: 1.1,
+                                  color: Colors.white
+                                      .withValues(alpha: 0.7 * subtitleOpacity),
+                                  fontSize: 13,
+                                  height: 1.2,
                                 ),
                               ),
                             ),
-                            if (subtitleOpacity > 0.02)
-                              Positioned(
-                                left: 20,
-                                top: titleTop + titleSize * 0.95 + 6,
-                                right: 16,
-                                child: IgnorePointer(
-                                  child: Opacity(
-                                    opacity: subtitleOpacity,
-                                    child: const Text(
-                                      "자신의 역량을 관리하고 프로그램을 신청하세요",
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        color: Colors.white70,
-                                        fontSize: 13,
-                                        height: 1.2,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                          ],
-                        );
-                      },
+                          ),
+                      ],
                     ),
                   ),
                 ],
@@ -294,7 +297,7 @@ class _MpuCollapsingHeaderDelegate extends SliverPersistentHeaderDelegate {
             ),
             Material(
               color: Colors.white,
-              elevation: overlapsContent || u > 0.02 ? 0.5 : 0,
+              elevation: overlapsContent ? 0.5 : 0,
               shadowColor: Colors.black12,
               child: SizedBox(
                 height: _tabBarHeight,
@@ -322,6 +325,8 @@ class _MpuListTab extends StatefulWidget {
 
 class _MpuListTabState extends State<_MpuListTab> {
   late Future<List<Map<String, dynamic>>> _mpuFuture;
+  bool get _lowRaster =>
+      kPerfLowRasterMode || defaultTargetPlatform == TargetPlatform.android;
 
   @override
   void initState() {
@@ -431,20 +436,17 @@ class _MpuListTabState extends State<_MpuListTab> {
                 _MpuListEntrance.scheduleEndEntranceAnimation();
               }
               final Map<String, dynamic> data = filteredItems[index];
-              final Widget card = _buildMpuCard(context, data);
-              if (_MpuListEntrance.shouldAnimateList) {
+              final Widget card = RepaintBoundary(
+                child: _buildMpuCard(context, data),
+              );
+              final bool animate = _MpuListEntrance.shouldAnimateList &&
+                  index < _MpuListEntrance.maxAnimatedItems;
+              if (animate) {
                 return card
                     .animate()
                     .fadeIn(
-                      delay: (index * 30).clamp(0, 300).ms,
-                      duration: 300.ms,
-                    )
-                    .slideX(
-                      begin: -0.05,
-                      end: 0,
-                      delay: (index * 30).clamp(0, 300).ms,
-                      duration: 300.ms,
-                      curve: Curves.easeOut,
+                      delay: (index * 24).clamp(0, 240).ms,
+                      duration: 240.ms,
                     );
               }
               return card;
@@ -466,7 +468,9 @@ class _MpuListTabState extends State<_MpuListTab> {
       child: Material(
         color: widget.showCompleted ? Colors.grey.shade50 : Colors.white,
         borderRadius: BorderRadius.circular(16),
-        elevation: widget.showCompleted ? 0 : 2,
+        elevation: (widget.showCompleted || _lowRaster) ? 0 : 2,
+        shadowColor: _lowRaster ? Colors.transparent : Colors.black12,
+        clipBehavior: _lowRaster ? Clip.hardEdge : Clip.none,
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
           onTap: () async {
@@ -477,48 +481,157 @@ class _MpuListTabState extends State<_MpuListTab> {
               Navigator.push(context, MaterialPageRoute(builder: (_) => const CommonWebViewScreen(url: url, title: "핵심역량 관리 (MPU)")));
             }
           },
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            clipBehavior: Clip.antiAlias,
-            child: Stack(
-              children: [
-                Positioned(
-                  left: 0, top: 0, bottom: 0, 
-                  child: Container(
-                    width: 5, 
-                    decoration: BoxDecoration(
-                      color: widget.showCompleted ? Colors.grey : const Color(0xFF7986CB),
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(16),
-                        bottomLeft: Radius.circular(16),
+          child: (_lowRaster)
+              ? Stack(
+                  children: [
+                    Positioned(
+                      left: 0,
+                      top: 0,
+                      bottom: 0,
+                      child: Container(
+                        width: 5,
+                        decoration: BoxDecoration(
+                          color: widget.showCompleted
+                              ? Colors.grey
+                              : const Color(0xFF7986CB),
+                          borderRadius: const BorderRadius.only(
+                            topLeft: Radius.circular(16),
+                            bottomLeft: Radius.circular(16),
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 18, 16, 18),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 18, 16, 18),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(color: widget.showCompleted ? Colors.grey.shade200 : const Color(0xFFE8EAF6), borderRadius: BorderRadius.circular(6)),
-                            child: Text(branch.isEmpty ? "핵심역량" : branch, style: TextStyle(color: widget.showCompleted ? Colors.grey : const Color(0xFF7986CB), fontSize: 10, fontWeight: FontWeight.bold)),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                    color: widget.showCompleted
+                                        ? Colors.grey.shade200
+                                        : const Color(0xFFE8EAF6),
+                                    borderRadius: BorderRadius.circular(6)),
+                                child: Text(
+                                  branch.isEmpty ? "핵심역량" : branch,
+                                  style: TextStyle(
+                                      color: widget.showCompleted
+                                          ? Colors.grey
+                                          : const Color(0xFF7986CB),
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                              if (dDay.isNotEmpty)
+                                Text(
+                                  dDay,
+                                  style: TextStyle(
+                                      color: widget.showCompleted
+                                          ? Colors.grey
+                                          : const Color(0xFFFF4E6A),
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold),
+                                ),
+                            ],
                           ),
-                          if (dDay.isNotEmpty) Text(dDay, style: TextStyle(color: widget.showCompleted ? Colors.grey : const Color(0xFFFF4E6A), fontSize: 12, fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 12),
+                          Text(
+                            title,
+                            style: TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.bold,
+                                color: widget.showCompleted
+                                    ? Colors.grey.shade600
+                                    : const Color(0xFF222222),
+                                height: 1.3),
+                          ),
                         ],
                       ),
-                      const SizedBox(height: 12),
-                      Text(title, style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: widget.showCompleted ? Colors.grey.shade600 : const Color(0xFF222222), height: 1.3)),
+                    ),
+                  ],
+                )
+              : ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  clipBehavior: Clip.hardEdge,
+                  child: Stack(
+                    children: [
+                      Positioned(
+                        left: 0,
+                        top: 0,
+                        bottom: 0,
+                        child: Container(
+                          width: 5,
+                          decoration: BoxDecoration(
+                            color: widget.showCompleted
+                                ? Colors.grey
+                                : const Color(0xFF7986CB),
+                            borderRadius: const BorderRadius.only(
+                              topLeft: Radius.circular(16),
+                              bottomLeft: Radius.circular(16),
+                            ),
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 18, 16, 18),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                      color: widget.showCompleted
+                                          ? Colors.grey.shade200
+                                          : const Color(0xFFE8EAF6),
+                                      borderRadius: BorderRadius.circular(6)),
+                                  child: Text(
+                                    branch.isEmpty ? "핵심역량" : branch,
+                                    style: TextStyle(
+                                        color: widget.showCompleted
+                                            ? Colors.grey
+                                            : const Color(0xFF7986CB),
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                                if (dDay.isNotEmpty)
+                                  Text(
+                                    dDay,
+                                    style: TextStyle(
+                                        color: widget.showCompleted
+                                            ? Colors.grey
+                                            : const Color(0xFFFF4E6A),
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold),
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              title,
+                              style: TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.bold,
+                                  color: widget.showCompleted
+                                      ? Colors.grey.shade600
+                                      : const Color(0xFF222222),
+                                  height: 1.3),
+                            ),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                 ),
-              ],
-            ),
-          ),
         ),
       ),
     );

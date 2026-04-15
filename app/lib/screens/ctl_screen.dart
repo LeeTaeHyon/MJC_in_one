@@ -1,11 +1,13 @@
 import "dart:ui" show lerpDouble;
 
 import "package:flutter/foundation.dart";
+import "package:mio_notice/agent_debug_log.dart";
 import "package:flutter/material.dart";
 import "package:flutter_animate/flutter_animate.dart";
 import "package:mio_notice/screens/common_webview_screen.dart";
 import "package:mio_notice/screens/main_navigation_screen.dart";
 import "package:mio_notice/services/notice_manager.dart";
+import "package:mio_notice/perf_flags.dart";
 import "package:mio_notice/widgets/nested_scroll_refresh_indicator.dart";
 import "package:mio_notice/widgets/scroll_to_top_scope.dart";
 import "package:url_launcher/url_launcher.dart";
@@ -13,22 +15,14 @@ import "package:url_launcher/url_launcher.dart";
 class _CtlListEntrance {
   static bool _playedOnce = false;
   static bool _scheduleEntranceEnd = false;
-  static int _generation = 0;
 
-  static bool get shouldAnimateList => !_playedOnce;
-
-  static void resetForNextVisit() {
-    _generation++;
-    _playedOnce = false;
-    _scheduleEntranceEnd = false;
-  }
+  static bool get shouldAnimateList => !kPerfLowRasterMode && !_playedOnce;
+  static const int maxAnimatedItems = 8;
 
   static void scheduleEndEntranceAnimation() {
     if (_playedOnce || _scheduleEntranceEnd) return;
     _scheduleEntranceEnd = true;
-    final int g = _generation;
     Future<void>.delayed(const Duration(milliseconds: 700), () {
-      if (g != _generation) return;
       _playedOnce = true;
     });
   }
@@ -87,7 +81,7 @@ class _CtlScreenState extends State<CtlScreen> {
     _outerScrollController.removeListener(_nestedFabReporter.reportOuterScroll);
     _scrollToTopCoordinator?.unregisterMainTab(MainNavTabIndex.ctl);
     _outerScrollController.dispose();
-    _CtlListEntrance.resetForNextVisit();
+    // 성능상 재진입 때마다 전체 리스트 entrance 애니메이션을 다시 돌리면 jank가 커져서 유지합니다.
     super.dispose();
   }
 
@@ -152,6 +146,10 @@ class _CtlCollapsingHeaderDelegate extends SliverPersistentHeaderDelegate {
     required this.topPadding,
     required this.tabBar,
   });
+  // #region agent log (H7A)
+  static int _h7Count = 0;
+  static int _h7WinStart = 0;
+  // #endregion
 
   final double topPadding;
   final TabBar tabBar;
@@ -179,12 +177,36 @@ class _CtlCollapsingHeaderDelegate extends SliverPersistentHeaderDelegate {
     double shrinkOffset,
     bool overlapsContent,
   ) {
+    // #region agent log (H7A)
+    final int _h7Now = DateTime.now().millisecondsSinceEpoch;
+    if (_h7WinStart == 0) _h7WinStart = _h7Now;
+    _h7Count++;
+    if (_h7Now - _h7WinStart >= 2000) {
+      agentDebugNdjson(
+        hypothesisId: "H7A",
+        location: "ctl_screen.dart:_CtlCollapsingHeaderDelegate:build",
+        message: "header build frequency",
+        data: <String, dynamic>{"buildsIn2sec": _h7Count, "windowMs": _h7Now - _h7WinStart},
+      );
+      _h7Count = 0;
+      _h7WinStart = _h7Now;
+    }
+    // #endregion
     final double extent =
         (maxExtent - shrinkOffset).clamp(minExtent, maxExtent);
     final double range = maxExtent - minExtent;
     final double t = range > 0 ? (shrinkOffset / range).clamp(0.0, 1.0) : 0.0;
     final double u = Curves.easeInOut.transform(t);
     final double heroH = extent - _tabBarHeight;
+    // LayoutBuilder removed: ih = heroH - topPadding (SafeArea subtracts status bar)
+    final double ih = heroH - topPadding;
+    final double titleSize = lerpDouble(24, 17, u)!;
+    final double titleLeft = lerpDouble(20, 50, u)!;
+    const double bottomBlock = 20 + 13 + 6 + 24;
+    final double expandedTitleTop = (ih - bottomBlock).clamp(0.0, ih);
+    final double collapsedTitleTop = (ih - titleSize * 1.15) / 2;
+    final double titleTop = lerpDouble(expandedTitleTop, collapsedTitleTop, u)!;
+    final double subtitleOpacity = (1.0 - u * 1.35).clamp(0.0, 1.0);
 
     return SizedBox(
       height: extent,
@@ -204,90 +226,70 @@ class _CtlCollapsingHeaderDelegate extends SliverPersistentHeaderDelegate {
                   SafeArea(
                     bottom: false,
                     minimum: EdgeInsets.zero,
-                    child: LayoutBuilder(
-                      builder: (BuildContext context, BoxConstraints c) {
-                        final double ih = c.maxHeight;
-                        final double titleSize = lerpDouble(24, 17, u)!;
-                        final double titleLeft = lerpDouble(20, 50, u)!;
-                        final double bottomBlock =
-                            20 + 13 + 6 + 24;
-                        final double expandedTitleTop =
-                            (ih - bottomBlock).clamp(0.0, ih);
-                        final double collapsedTitleTop =
-                            (ih - titleSize * 1.15) / 2;
-                        final double titleTop =
-                            lerpDouble(expandedTitleTop, collapsedTitleTop, u)!;
-                        final double subtitleOpacity =
-                            (1.0 - u * 1.35).clamp(0.0, 1.0);
-
-                        return Stack(
-                          clipBehavior: Clip.hardEdge,
-                          children: [
-                            Positioned(
-                              left: 0,
-                              top: 0,
-                              child: Material(
-                                color: Colors.transparent,
-                                child: InkWell(
-                                  customBorder: const CircleBorder(),
-                                  onTap: () => MainNavigationScreen
-                                      .scaffoldKey.currentState
-                                      ?.openDrawer(),
-                                  splashColor:
-                                      Colors.white.withValues(alpha: 0.35),
-                                  highlightColor:
-                                      Colors.white.withValues(alpha: 0.14),
-                                  child: const Padding(
-                                    padding: EdgeInsets.all(10),
-                                    child: Icon(
-                                      Icons.menu_rounded,
-                                      color: Colors.white,
-                                      size: 26,
-                                    ),
-                                  ),
+                    child: Stack(
+                      clipBehavior: Clip.hardEdge,
+                      children: [
+                        Positioned(
+                          left: 0,
+                          top: 0,
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              customBorder: const CircleBorder(),
+                              onTap: () => MainNavigationScreen
+                                  .scaffoldKey.currentState
+                                  ?.openDrawer(),
+                              splashColor:
+                                  Colors.white.withValues(alpha: 0.35),
+                              highlightColor:
+                                  Colors.white.withValues(alpha: 0.14),
+                              child: const Padding(
+                                padding: EdgeInsets.all(10),
+                                child: Icon(
+                                  Icons.menu_rounded,
+                                  color: Colors.white,
+                                  size: 26,
                                 ),
                               ),
                             ),
-                            Positioned(
-                              left: titleLeft,
-                              top: titleTop,
-                              right: 12,
+                          ),
+                        ),
+                        Positioned(
+                          left: titleLeft,
+                          top: titleTop,
+                          right: 12,
+                          child: Text(
+                            "교수학습센터 (CTL)",
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: titleSize,
+                              fontWeight: FontWeight.w800,
+                              height: 1.1,
+                            ),
+                          ),
+                        ),
+                        if (subtitleOpacity > 0.02)
+                          Positioned(
+                            left: 20,
+                            top: titleTop + titleSize * 0.95 + 6,
+                            right: 16,
+                            child: IgnorePointer(
                               child: Text(
-                                "교수학습센터 (CTL)",
-                                maxLines: 1,
+                                "CTL의 다양한 학습 지원 프로그램을 만나보세요",
+                                maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: titleSize,
-                                  fontWeight: FontWeight.w800,
-                                  height: 1.1,
+                                  color: Colors.white
+                                      .withValues(alpha: 0.7 * subtitleOpacity),
+                                  fontSize: 13,
+                                  height: 1.2,
                                 ),
                               ),
                             ),
-                            if (subtitleOpacity > 0.02)
-                              Positioned(
-                                left: 20,
-                                top: titleTop + titleSize * 0.95 + 6,
-                                right: 16,
-                                child: IgnorePointer(
-                                  child: Opacity(
-                                    opacity: subtitleOpacity,
-                                    child: const Text(
-                                      "CTL의 다양한 학습 지원 프로그램을 만나보세요",
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        color: Colors.white70,
-                                        fontSize: 13,
-                                        height: 1.2,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                          ],
-                        );
-                      },
+                          ),
+                      ],
                     ),
                   ),
                 ],
@@ -295,7 +297,7 @@ class _CtlCollapsingHeaderDelegate extends SliverPersistentHeaderDelegate {
             ),
             Material(
               color: Colors.white,
-              elevation: overlapsContent || u > 0.02 ? 0.5 : 0,
+              elevation: overlapsContent ? 0.5 : 0,
               shadowColor: Colors.black12,
               child: SizedBox(
                 height: _tabBarHeight,
@@ -323,6 +325,8 @@ class _CtlListTab extends StatefulWidget {
 
 class _CtlListTabState extends State<_CtlListTab> {
   late Future<List<Map<String, dynamic>>> _ctlFuture;
+  bool get _lowRaster =>
+      kPerfLowRasterMode || defaultTargetPlatform == TargetPlatform.android;
 
   @override
   void initState() {
@@ -400,20 +404,17 @@ class _CtlListTabState extends State<_CtlListTab> {
                 _CtlListEntrance.scheduleEndEntranceAnimation();
               }
               final data = items[index];
-              final Widget card = _buildCtlCard(context, data);
-              if (_CtlListEntrance.shouldAnimateList) {
+              final Widget card = RepaintBoundary(
+                child: _buildCtlCard(context, data),
+              );
+              final bool animate = _CtlListEntrance.shouldAnimateList &&
+                  index < _CtlListEntrance.maxAnimatedItems;
+              if (animate) {
                 return card
                     .animate()
                     .fadeIn(
-                      delay: (index * 30).clamp(0, 300).ms,
-                      duration: 300.ms,
-                    )
-                    .slideX(
-                      begin: -0.05,
-                      end: 0,
-                      delay: (index * 30).clamp(0, 300).ms,
-                      duration: 300.ms,
-                      curve: Curves.easeOut,
+                      delay: (index * 24).clamp(0, 240).ms,
+                      duration: 240.ms,
                     );
               }
               return card;
@@ -437,7 +438,9 @@ class _CtlListTabState extends State<_CtlListTab> {
       child: Material(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        elevation: 2,
+        elevation: _lowRaster ? 0 : 2,
+        shadowColor: _lowRaster ? Colors.transparent : Colors.black12,
+        clipBehavior: _lowRaster ? Clip.hardEdge : Clip.none,
         child: InkWell(
           borderRadius: BorderRadius.circular(12),
           onTap: () async {
@@ -448,57 +451,231 @@ class _CtlListTabState extends State<_CtlListTab> {
               Navigator.push(context, MaterialPageRoute(builder: (_) => CommonWebViewScreen(url: url, title: title)));
             }
           },
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            clipBehavior: Clip.antiAlias,
-            child: Stack(
-              children: [
-                Positioned(
-                  left: 0, top: 0, bottom: 0, 
-                  child: Container(
-                    width: 4, 
-                    decoration: const BoxDecoration(
-                      color: Color(0xFF2962FF),
-                      borderRadius: BorderRadius.only(
-                        topLeft: Radius.circular(12),
-                        bottomLeft: Radius.circular(12),
+          child: (_lowRaster)
+              ? Stack(
+                  children: [
+                    Positioned(
+                      left: 0,
+                      top: 0,
+                      bottom: 0,
+                      child: Container(
+                        width: 4,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF2962FF),
+                          borderRadius: BorderRadius.only(
+                            topLeft: Radius.circular(12),
+                            bottomLeft: Radius.circular(12),
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 16, 48, 16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 16, 48, 16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          if (widget.isProgram)
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                              margin: const EdgeInsets.only(right: 8),
-                              decoration: BoxDecoration(color: const Color(0xFFE8EAF6), borderRadius: BorderRadius.circular(4)),
-                              child: Text(status, style: const TextStyle(color: Color(0xFF2962FF), fontSize: 10, fontWeight: FontWeight.bold)),
+                          Row(
+                            children: [
+                              if (widget.isProgram)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 3),
+                                  margin: const EdgeInsets.only(right: 8),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFE8EAF6),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    status,
+                                    style: const TextStyle(
+                                      color: Color(0xFF2962FF),
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              const Text(
+                                "CTL",
+                                style: TextStyle(
+                                  color: Colors.grey,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            title,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF222222),
+                              height: 1.4,
                             ),
-                          const Text("CTL", style: TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.bold)),
+                          ),
+                          const SizedBox(height: 10),
+                          if (widget.isProgram && opPeriod.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.timer_outlined,
+                                      size: 14, color: Color(0xFF2962FF)),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      "진행: $opPeriod",
+                                      style: const TextStyle(
+                                        color: Color(0xFF2962FF),
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  )
+                                ],
+                              ),
+                            ),
+                          Row(
+                            children: [
+                              const Icon(Icons.calendar_today_outlined,
+                                  size: 14, color: Colors.grey),
+                              const SizedBox(width: 6),
+                              Text(
+                                "신청: $date",
+                                style: const TextStyle(
+                                    color: Colors.grey, fontSize: 13),
+                              )
+                            ],
+                          ),
                         ],
                       ),
-                      const SizedBox(height: 10),
-                      Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF222222), height: 1.4)),
-                      const SizedBox(height: 10),
-                      if (widget.isProgram && opPeriod.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: Row(children: [const Icon(Icons.timer_outlined, size: 14, color: Color(0xFF2962FF)), const SizedBox(width: 6), Expanded(child: Text("진행: $opPeriod", style: const TextStyle(color: Color(0xFF2962FF), fontSize: 13, fontWeight: FontWeight.w500)))]),
+                    ),
+                    const Positioned(
+                      right: 12,
+                      top: 0,
+                      bottom: 0,
+                      child: Icon(Icons.chevron_right,
+                          color: Colors.grey, size: 24),
+                    ),
+                  ],
+                )
+              : ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  clipBehavior: Clip.hardEdge,
+                  child: Stack(
+                    children: [
+                      Positioned(
+                        left: 0,
+                        top: 0,
+                        bottom: 0,
+                        child: Container(
+                          width: 4,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFF2962FF),
+                            borderRadius: BorderRadius.only(
+                              topLeft: Radius.circular(12),
+                              bottomLeft: Radius.circular(12),
+                            ),
+                          ),
                         ),
-                      Row(children: [const Icon(Icons.calendar_today_outlined, size: 14, color: Colors.grey), const SizedBox(width: 6), Text("신청: $date", style: const TextStyle(color: Colors.grey, fontSize: 13))]),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 16, 48, 16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                if (widget.isProgram)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 3),
+                                    margin: const EdgeInsets.only(right: 8),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFE8EAF6),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      status,
+                                      style: const TextStyle(
+                                        color: Color(0xFF2962FF),
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                const Text(
+                                  "CTL",
+                                  style: TextStyle(
+                                    color: Colors.grey,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              title,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF222222),
+                                height: 1.4,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            if (widget.isProgram && opPeriod.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.timer_outlined,
+                                        size: 14, color: Color(0xFF2962FF)),
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                      child: Text(
+                                        "진행: $opPeriod",
+                                        style: const TextStyle(
+                                          color: Color(0xFF2962FF),
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    )
+                                  ],
+                                ),
+                              ),
+                            Row(
+                              children: [
+                                const Icon(Icons.calendar_today_outlined,
+                                    size: 14, color: Colors.grey),
+                                const SizedBox(width: 6),
+                                Text(
+                                  "신청: $date",
+                                  style: const TextStyle(
+                                      color: Colors.grey, fontSize: 13),
+                                )
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Positioned(
+                        right: 12,
+                        top: 0,
+                        bottom: 0,
+                        child: Icon(Icons.chevron_right,
+                            color: Colors.grey, size: 24),
+                      ),
                     ],
                   ),
                 ),
-                const Positioned(right: 12, top: 0, bottom: 0, child: Icon(Icons.chevron_right, color: Colors.grey, size: 24)),
-              ],
-            ),
-          ),
         ),
       ),
     );

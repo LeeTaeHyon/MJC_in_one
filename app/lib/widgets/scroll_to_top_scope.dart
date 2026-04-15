@@ -182,6 +182,8 @@ abstract final class MainNavTabIndex {
 class ScrollToTopCoordinator {
   /// 스크롤이 **뷰포트 높이의 이 비율만큼** 이상 내려갔을 때만 맨 위로 버튼을 보입니다. (예: 0.18 → 약 18%)
   static const double fabRevealScrollViewportFraction = 0.3;
+  // 히스테리시스: 보일 때/숨길 때 임계값을 분리해서 토글 떨림(연속 setState)을 줄입니다.
+  static const double fabHideHysteresisViewportFraction = 0.22;
 
   int _activeMainTab = 0;
   final Map<int, VoidCallback> _mainTabHandlers = <int, VoidCallback>{};
@@ -193,17 +195,25 @@ class ScrollToTopCoordinator {
 
   bool _fabVisibilityFlushScheduled = false;
   bool? _fabVisibilityPending;
+  int _logSeq = 0;
 
   static double _scrollRevealThreshold(double viewportHeight) {
     final double h = viewportHeight > 0 ? viewportHeight : 400;
     return h * fabRevealScrollViewportFraction;
   }
 
+  static double _scrollHideThreshold(double viewportHeight) {
+    final double h = viewportHeight > 0 ? viewportHeight : 400;
+    return h * fabHideHysteresisViewportFraction;
+  }
+
   /// 빌드 중([build] / [didChangeDependencies])에는 [ValueNotifier]를 건드리면
   /// `setState() or markNeedsBuild() called during build`가 날 수 있어 프레임 이후에 반영합니다.
   void _setFabVisible(bool visible) {
     // #region agent log
-    if (SchedulerBinding.instance.schedulerPhase != SchedulerPhase.idle) {
+    _logSeq += 1;
+    if (_logSeq % 50 == 0 &&
+        SchedulerBinding.instance.schedulerPhase != SchedulerPhase.idle) {
       agentDebugNdjson(
         hypothesisId: "H3",
         location: "scroll_to_top_scope.dart:_setFabVisible",
@@ -245,7 +255,11 @@ class ScrollToTopCoordinator {
       _setFabVisible(false);
       return;
     }
-    _setFabVisible(y > _scrollRevealThreshold(vh));
+    final bool cur = fabVisibleNotifier.value;
+    final bool next = cur
+        ? (y > _scrollHideThreshold(vh))
+        : (y > _scrollRevealThreshold(vh));
+    _setFabVisible(next);
   }
 
   /// [pixels]: 스크롤 오프셋(또는 웹뷰 `scrollY`). [viewportHeight]: 같은 축의 뷰포트 높이(스크롤뷰 뷰포트 또는 `innerHeight` 등).
@@ -255,7 +269,9 @@ class ScrollToTopCoordinator {
     double viewportHeight,
   ) {
     // #region agent log
-    if (SchedulerBinding.instance.schedulerPhase != SchedulerPhase.idle) {
+    _logSeq += 1;
+    if (_logSeq % 50 == 0 &&
+        SchedulerBinding.instance.schedulerPhase != SchedulerPhase.idle) {
       agentDebugNdjson(
         hypothesisId: "H1",
         location: "scroll_to_top_scope.dart:reportMainTabScroll",
@@ -272,7 +288,21 @@ class ScrollToTopCoordinator {
     _lastMainScrollPixels[tabIndex] = pixels;
     _lastMainViewportHeight[tabIndex] = viewportHeight;
     if (tabIndex != _activeMainTab) return;
-    _setFabVisible(pixels > _scrollRevealThreshold(viewportHeight));
+    // 스크롤 리스너/노티는 transient/persistent 중에도 불려, 즉시 ValueNotifier를 건드리면
+    // 빌드 예약이 겹치면서 build jank로 커질 수 있어 idle 프레임에서만 반영합니다.
+    void decideAndSet() {
+      final bool cur = fabVisibleNotifier.value;
+      final bool next = cur
+          ? (pixels > _scrollHideThreshold(viewportHeight))
+          : (pixels > _scrollRevealThreshold(viewportHeight));
+      _setFabVisible(next);
+    }
+
+    if (SchedulerBinding.instance.schedulerPhase == SchedulerPhase.idle) {
+      decideAndSet();
+    } else {
+      WidgetsBinding.instance.addPostFrameCallback((_) => decideAndSet());
+    }
   }
 
   /// 푸시된 라우트(설정·내역 등) 본문 스크롤.

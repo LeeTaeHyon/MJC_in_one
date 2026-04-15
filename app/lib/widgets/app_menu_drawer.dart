@@ -1,8 +1,11 @@
 import "package:flutter/material.dart";
+import "package:flutter/foundation.dart" show kIsWeb;
 import "package:mio_notice/notification_history_prefs.dart";
+import "package:mio_notice/screens/common_webview_screen.dart";
 import "package:mio_notice/screens/notification_history_screen.dart";
 import "package:mio_notice/screens/settings_screen.dart";
 import "package:mio_notice/theme/app_colors.dart";
+import "package:url_launcher/url_launcher.dart";
 /// 드로어 본문(헤더 + 알림 미리보기 + 메뉴). [Drawer]·홈 슬라이드 패널 공통.
 class AppMenuDrawerContent extends StatefulWidget {
   /// 메뉴/닫기 직전에 호출(스캐폴드 드로어면 pop, 홈 오버레이면 닫기 애니메이션).
@@ -29,6 +32,7 @@ class _AppMenuDrawerContentState extends State<AppMenuDrawerContent> {
   List<Map<String, dynamic>> _previewNotices = [];
   bool _loadingNotices = true;
   int _totalNotificationCount = 0;
+  Set<String> _readKeys = {};
 
   @override
   void initState() {
@@ -39,10 +43,12 @@ class _AppMenuDrawerContentState extends State<AppMenuDrawerContent> {
   Future<void> _loadNotificationPreview() async {
     final full = await loadNotificationHistoryNewestFirst();
     final list = full.take(3).toList();
+    final read = await loadNotificationReadKeys();
     if (mounted) {
       setState(() {
         _previewNotices = list;
         _totalNotificationCount = full.length;
+        _readKeys = read;
         _loadingNotices = false;
       });
     }
@@ -52,6 +58,63 @@ class _AppMenuDrawerContentState extends State<AppMenuDrawerContent> {
     await removeNotificationHistoryAtNewestFirstIndex(newestFirstIndex);
     if (!mounted) return;
     await _loadNotificationPreview();
+  }
+
+  String _extractNotificationOpenUrl(Map<String, dynamic> item) {
+    final dynamic dataAny = item["data"];
+    if (dataAny is Map) {
+      final dynamic urlAny = dataAny["url"] ?? dataAny["link"];
+      if (urlAny != null) {
+        final String url = urlAny.toString().trim();
+        if (url.isNotEmpty) return url;
+      }
+    }
+    final dynamic direct = item["url"] ?? item["link"];
+    if (direct != null) {
+      final String url = direct.toString().trim();
+      if (url.isNotEmpty) return url;
+    }
+    return "";
+  }
+
+  void _openNoticeFromPreviewItem(BuildContext context, Map<String, dynamic> item) {
+    final BuildContext navCtx = widget.dialogContext ?? context;
+
+    final String openUrl = _extractNotificationOpenUrl(item);
+    if (openUrl.isEmpty) {
+      final BuildContext snackHost = navCtx.mounted ? navCtx : context;
+      ScaffoldMessenger.of(snackHost).showSnackBar(
+        const SnackBar(content: Text("이 알림에는 이동할 공지 링크가 없습니다.")),
+      );
+      return;
+    }
+
+    final String title = (item["title"] ?? "공지사항").toString();
+
+    Future<void> go() async {
+      if (!navCtx.mounted) return;
+      if (kIsWeb) {
+        await markNotificationHistoryItemRead(item);
+        await launchUrl(Uri.parse(openUrl), webOnlyWindowName: "_blank");
+        if (mounted) await _loadNotificationPreview();
+        return;
+      }
+      await markNotificationHistoryItemRead(item);
+      Navigator.push<void>(
+        navCtx,
+        MaterialPageRoute<void>(
+          builder: (_) => CommonWebViewScreen(url: openUrl, title: title),
+        ),
+      );
+      if (mounted) await _loadNotificationPreview();
+    }
+
+    widget.closeMenu();
+    if (widget.closeBeforeSystemDialogs) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => go());
+    } else {
+      go();
+    }
   }
 
   void _openAllNotifications(BuildContext context) {
@@ -151,26 +214,6 @@ class _AppMenuDrawerContentState extends State<AppMenuDrawerContent> {
     }
   }
 
-  void _openHistoryFromPreview(BuildContext context) {
-    final BuildContext navCtx = widget.dialogContext ?? context;
-    void push() {
-      if (!navCtx.mounted) return;
-      Navigator.push<void>(
-        navCtx,
-        MaterialPageRoute<void>(
-          builder: (context) => const NotificationHistoryScreen(),
-        ),
-      );
-    }
-
-    widget.closeMenu();
-    if (widget.closeBeforeSystemDialogs) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => push());
-    } else {
-      push();
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -190,8 +233,9 @@ class _AppMenuDrawerContentState extends State<AppMenuDrawerContent> {
                     loading: _loadingNotices,
                     items: _previewNotices,
                     badgeCount: _totalNotificationCount,
+                    readKeys: _readKeys,
                     onViewAll: () => _openAllNotifications(context),
-                    onPreviewTap: () => _openHistoryFromPreview(context),
+                    onItemTap: (m) => _openNoticeFromPreviewItem(context, m),
                     onDismissAt: _dismissNotificationAt,
                   ),
                   const SizedBox(height: 8),
@@ -315,16 +359,18 @@ class _AlertsBlock extends StatelessWidget {
     required this.loading,
     required this.items,
     required this.badgeCount,
+    required this.readKeys,
     required this.onViewAll,
-    required this.onPreviewTap,
+    required this.onItemTap,
     required this.onDismissAt,
   });
 
   final bool loading;
   final List<Map<String, dynamic>> items;
   final int badgeCount;
+  final Set<String> readKeys;
   final VoidCallback onViewAll;
-  final VoidCallback onPreviewTap;
+  final void Function(Map<String, dynamic> item) onItemTap;
   final Future<void> Function(int newestFirstIndex) onDismissAt;
 
   @override
@@ -388,8 +434,8 @@ class _AlertsBlock extends StatelessWidget {
                   title: "${m["title"] ?? "알림"}",
                   subtitle: "${m["body"] ?? ""}",
                   timeLabel: relativeTimeLabel(m["received_at"]?.toString()),
-                  showUnreadDot: i < 2,
-                  onTap: onPreviewTap,
+                  showUnreadDot: !readKeys.contains(notificationHistoryItemKey(m)),
+                  onTap: () => onItemTap(m),
                   onDismiss: () => onDismissAt(i),
                 ),
               );

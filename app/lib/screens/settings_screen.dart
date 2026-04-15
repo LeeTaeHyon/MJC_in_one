@@ -78,6 +78,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   /// 설정값 로드
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
     setState(() {
       _allNoticesEnabled = prefs.getBool("allNoticesEnabled") ?? true;
       _keywords = prefs.getStringList("keywords") ?? [];
@@ -106,6 +107,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _toggleAllNotices(bool value) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool("allNoticesEnabled", value);
+    if (!mounted) return;
     setState(() {
       _allNoticesEnabled = value;
     });
@@ -149,6 +151,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         kNotificationSourceIds.where((id) => next.contains(id)).toList();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setStringList(kNotificationSourcesPrefKey, ordered);
+    if (!mounted) return;
     setState(() => _enabledSources = ordered);
   }
 
@@ -164,48 +167,66 @@ class _SettingsScreenState extends State<SettingsScreen> {
               title: const Text("맞춤 키워드 관리"),
               content: SizedBox(
                 width: double.maxFinite,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text("등록한 키워드가 포함된 공지만 알림이 옵니다.", style: TextStyle(fontSize: 12, color: Colors.grey)),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: controller,
-                      decoration: InputDecoration(
-                        hintText: "예: 장학, 기숙사, 성적",
-                        suffixIcon: IconButton(
-                          icon: const Icon(Icons.add),
-                          onPressed: () async {
-                            final text = controller.text.trim();
-                            if (text.isNotEmpty && !_keywords.contains(text)) {
-                              final prefs = await SharedPreferences.getInstance();
-                              _keywords.add(text);
-                              await prefs.setStringList("keywords", _keywords);
-                              controller.clear();
-                              setDialogState(() {}); // 다이얼로그 UI 갱신
-                              setState(() {}); // 배경 설정창 UI 갱신
-                            }
-                          },
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.sizeOf(context).height * 0.6,
+                  ),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text(
+                          "등록한 키워드가 포함된 공지만 알림이 옵니다.",
+                          style: TextStyle(fontSize: 12, color: Colors.grey),
                         ),
-                      ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: controller,
+                          decoration: InputDecoration(
+                            hintText: "예: 장학, 기숙사, 성적",
+                            suffixIcon: IconButton(
+                              icon: const Icon(Icons.add),
+                              onPressed: () async {
+                                final text = controller.text.trim();
+                                if (text.isEmpty || _keywords.contains(text)) return;
+
+                                final prefs = await SharedPreferences.getInstance();
+                                _keywords = [..._keywords, text];
+                                await prefs.setStringList("keywords", _keywords);
+                                if (!mounted) return;
+
+                                controller.clear();
+                                setDialogState(() {}); // 다이얼로그 UI 갱신
+                                setState(() {}); // 배경 설정창 UI 갱신
+                              },
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: _keywords.map((kw) {
+                              return Chip(
+                                label: Text(kw),
+                                onDeleted: () async {
+                                  final prefs = await SharedPreferences.getInstance();
+                                  _keywords = _keywords.where((k) => k != kw).toList();
+                                  await prefs.setStringList("keywords", _keywords);
+                                  if (!mounted) return;
+
+                                  setDialogState(() {});
+                                  setState(() {});
+                                },
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 16),
-                    Wrap(
-                      spacing: 8,
-                      children: _keywords.map((kw) {
-                        return Chip(
-                          label: Text(kw),
-                          onDeleted: () async {
-                            final prefs = await SharedPreferences.getInstance();
-                            _keywords.remove(kw);
-                            await prefs.setStringList("keywords", _keywords);
-                            setDialogState(() {});
-                            setState(() {});
-                          },
-                        );
-                      }).toList(),
-                    ),
-                  ],
+                  ),
                 ),
               ),
               actions: [
@@ -218,7 +239,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           },
         );
       },
-    );
+    ).whenComplete(controller.dispose);
   }
 
   /// 개발자 이메일 문의

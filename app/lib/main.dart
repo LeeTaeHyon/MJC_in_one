@@ -1,6 +1,8 @@
 import "dart:convert";
 import "package:firebase_core/firebase_core.dart";
 import "package:flutter/material.dart";
+import "package:flutter/scheduler.dart" as sched;
+import "package:mio_notice/agent_debug_log.dart";
 import "package:mio_notice/firebase_options.dart";
 import "package:mio_notice/notification_history_prefs.dart";
 import "package:mio_notice/notification_sources.dart";
@@ -8,6 +10,7 @@ import "package:mio_notice/screens/main_navigation_screen.dart";
 import "package:mio_notice/theme/app_theme.dart";
 import "package:mio_notice/widgets/scroll_to_top_fab.dart";
 import "package:mio_notice/widgets/scroll_to_top_scope.dart";
+import "package:mio_notice/perf_debug_context.dart";
 import "package:firebase_messaging/firebase_messaging.dart";
 import "package:flutter_local_notifications/flutter_local_notifications.dart";
 import "package:shared_preferences/shared_preferences.dart";
@@ -97,6 +100,61 @@ Future<void> _processAndShowNotification(RemoteMessage message) async {
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // #region agent log
+  int _h0WindowStartMs = DateTime.now().millisecondsSinceEpoch;
+  int _h0Count = 0;
+  int _h0CountBuild = 0;
+  int _h0CountRaster = 0;
+  int _h0MaxBuildUs = 0;
+  int _h0MaxRasterUs = 0;
+  int _h0CountGt50ms = 0;
+  sched.SchedulerBinding.instance.addTimingsCallback(
+    (List<sched.FrameTiming> timings) {
+      for (final t in timings) {
+        final int buildUs = t.buildDuration.inMicroseconds;
+        final int rasterUs = t.rasterDuration.inMicroseconds;
+        if (buildUs <= 16000 && rasterUs <= 16000) continue;
+
+        _h0Count += 1;
+        if (buildUs > 16000) _h0CountBuild += 1;
+        if (rasterUs > 16000) _h0CountRaster += 1;
+        if (buildUs > _h0MaxBuildUs) _h0MaxBuildUs = buildUs;
+        if (rasterUs > _h0MaxRasterUs) _h0MaxRasterUs = rasterUs;
+        if (buildUs > 50000 || rasterUs > 50000) _h0CountGt50ms += 1;
+      }
+
+      final int nowMs = DateTime.now().millisecondsSinceEpoch;
+      final int windowMs = nowMs - _h0WindowStartMs;
+      if (windowMs < 2000) return;
+
+      agentDebugNdjson(
+        hypothesisId: "H0S",
+        location: "main.dart:main:addTimingsCallback",
+        message: "jank summary window",
+        data: <String, dynamic>{
+          "windowMs": windowMs,
+          "count": _h0Count,
+          "countBuild": _h0CountBuild,
+          "countRaster": _h0CountRaster,
+          "countGt50ms": _h0CountGt50ms,
+          "maxBuildUs": _h0MaxBuildUs,
+          "maxRasterUs": _h0MaxRasterUs,
+          "activeMainTabIndex": PerfDebugContext.activeMainTabIndex,
+          "screen": PerfDebugContext.screen,
+        },
+      );
+
+      _h0WindowStartMs = nowMs;
+      _h0Count = 0;
+      _h0CountBuild = 0;
+      _h0CountRaster = 0;
+      _h0MaxBuildUs = 0;
+      _h0MaxRasterUs = 0;
+      _h0CountGt50ms = 0;
+  },
+  );
+  // #endregion
 
   // 웹(Chrome)에서 Firebase 설정이 안되어 있어서 흰 화면이 뜨는 것을 막기 위해 try-catch 처리
   try {

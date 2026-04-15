@@ -181,6 +181,13 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     super.initState();
     _combinedNoticeFuture = _prepareDashboardNotices();
     _scrollController.addListener(_onHomeScrollOffset);
+    // #region agent log
+    // 첫 진입 시 히어로 이미지 디코드/업로드 비용이 스크롤/전환 jank로 튀는 걸 줄이기 위해 프리캐시.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      precacheImage(const NetworkImage(_HomeHeroHeaderDelegate._heroImageUrl), context);
+    });
+    // #endregion
   }
 
   void _onHomeScrollOffset() {
@@ -794,16 +801,27 @@ class _HomeHeroHeaderDelegate extends SliverPersistentHeaderDelegate {
           children: [
             const ColoredBox(color: AppColors.primary),
             Positioned.fill(
-              child: Opacity(
-                opacity: 0.35 * (1.0 - u),
-                child: Image.network(
-                  _heroImageUrl,
-                  fit: BoxFit.cover,
-                  width: double.infinity,
-                  height: double.infinity,
-                  alignment: Alignment.center,
-                  errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-                ),
+              child: Builder(
+                builder: (BuildContext context) {
+                  final double dpr = MediaQuery.devicePixelRatioOf(context);
+                  final Size size = MediaQuery.sizeOf(context);
+                  // 이미지 원본이 큰 편이라, 화면 크기에 맞춰 디코드해 raster 튐을 줄입니다.
+                  final int cw = (size.width * dpr).round().clamp(1, 4096);
+                  final int ch = (extent * dpr).round().clamp(1, 4096);
+                  return Image.network(
+                _heroImageUrl,
+                fit: BoxFit.cover,
+                width: double.infinity,
+                height: double.infinity,
+                alignment: Alignment.center,
+                cacheWidth: cw,
+                cacheHeight: ch,
+                // Opacity(saveLayer) 대신 colorFilter로 블렌딩해서 raster 비용을 줄입니다.
+                color: Colors.black.withValues(alpha: (0.35 * (1.0 - u)).clamp(0.0, 1.0)),
+                colorBlendMode: BlendMode.srcOver,
+                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                  );
+                },
               ),
             ),
             SafeArea(

@@ -2,6 +2,8 @@ import "package:flutter/foundation.dart" show kIsWeb;
 import "package:flutter/material.dart";
 import "package:mio_notice/widgets/scroll_to_top_scope.dart";
 import "package:mio_notice/widgets/webview_navigation_overlay.dart";
+import "package:mio_notice/agent_debug_log.dart";
+import "package:mio_notice/perf_debug_context.dart";
 import "package:share_plus/share_plus.dart";
 import "package:url_launcher/url_launcher.dart";
 import "package:webview_flutter/webview_flutter.dart";
@@ -31,6 +33,9 @@ class _CommonWebViewScreenState extends State<CommonWebViewScreen> {
   bool _canGoBack = false;
   bool _canGoForward = false;
 
+  int _scrollMsgCount = 0;
+  int _scrollMsgWindowStartMs = DateTime.now().millisecondsSinceEpoch;
+
   Future<void> _syncNavigationHistory() async {
     final bool back = await _controller.canGoBack();
     final bool forward = await _controller.canGoForward();
@@ -44,6 +49,23 @@ class _CommonWebViewScreenState extends State<CommonWebViewScreen> {
   void _onCommonScrollChannelMessage(JavaScriptMessage message) {
     try {
       if (!mounted) return;
+      // #region agent log
+      _scrollMsgCount += 1;
+      final int nowMs = DateTime.now().millisecondsSinceEpoch;
+      final int windowMs = nowMs - _scrollMsgWindowStartMs;
+      if (_scrollMsgCount % 50 == 0 && windowMs > 0) {
+        agentDebugNdjson(
+          hypothesisId: "H2",
+          location: "common_webview_screen.dart:_onCommonScrollChannelMessage",
+          message: "webview scroll channel rate",
+          data: <String, dynamic>{
+            "count": _scrollMsgCount,
+            "windowMs": windowMs,
+            "approxMsgsPerSec": (_scrollMsgCount * 1000.0) / windowMs,
+          },
+        );
+      }
+      // #endregion
       final List<String> parts = message.message.split("|");
       if (parts.length < 2) return;
       final double? y = double.tryParse(parts[0]);
@@ -58,6 +80,9 @@ class _CommonWebViewScreenState extends State<CommonWebViewScreen> {
   @override
   void initState() {
     super.initState();
+    // #region agent log
+    PerfDebugContext.screen = "CommonWebView";
+    // #endregion
     final WebViewController controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted);
 
@@ -72,10 +97,12 @@ class _CommonWebViewScreenState extends State<CommonWebViewScreen> {
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageStarted: (String url) {
+            if (!mounted) return;
             setState(() => _isLoading = true);
             _syncNavigationHistory();
           },
           onPageFinished: (String url) {
+            if (!mounted) return;
             setState(() => _isLoading = false);
             _syncNavigationHistory();
             if (!kIsWeb) {

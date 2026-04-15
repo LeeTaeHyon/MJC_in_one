@@ -9,6 +9,7 @@ import "package:mio_notice/widgets/app_menu_drawer.dart";
 import "package:mio_notice/widgets/scroll_to_top_fab.dart";
 import "package:mio_notice/widgets/scroll_to_top_scope.dart";
 import "package:mio_notice/theme/app_colors.dart";
+import "package:mio_notice/perf_debug_context.dart";
 
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
@@ -28,6 +29,10 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
   late AnimationController _animationController;
   late Animation<double> _expandAnimation;
   late AnimationController _homeMenuOpen;
+  // Screens are created once and reused across tab switches (state preserved).
+  late final List<Widget> _screens;
+  // Tracks which tabs have been visited so screens are built lazily on first visit.
+  final Set<int> _visitedTabs = {0};
 
   @override
   void initState() {
@@ -44,6 +49,13 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
       parent: _animationController,
       curve: Curves.easeOutBack, // 열릴 때 살짝 튕기는 효과
     );
+    _screens = [
+      HomeDashboardScreen(onNavigate: _onMenuItemClick, menuOpen: _homeMenuOpen),
+      const LibraryScreen(),
+      const MainWebsiteScreen(),
+      const CtlScreen(),
+      const MpuScreen(),
+    ];
     _syncScrollCoordinatorTab();
   }
 
@@ -51,6 +63,10 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
   void _syncScrollCoordinatorTab() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      // #region agent log
+      PerfDebugContext.activeMainTabIndex = _index;
+      PerfDebugContext.screen = "MainNavigation(tab=$_index)";
+      // #endregion
       ScrollToTopScope.maybeOf(context)?.setActiveMainTab(_index);
     });
   }
@@ -71,29 +87,10 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
     });
   }
 
-  Widget _pageForIndex(int index) {
-    switch (index) {
-      case 0:
-        return HomeDashboardScreen(
-          onNavigate: _onMenuItemClick,
-          menuOpen: _homeMenuOpen,
-        );
-      case 1:
-        return const LibraryScreen();
-      case 2:
-        return const MainWebsiteScreen();
-      case 3:
-        return const CtlScreen();
-      case 4:
-        return const MpuScreen();
-      default:
-        return const SizedBox.shrink();
-    }
-  }
-
   void _onMenuItemClick(int index) {
     final bool tabChanged = index != _index;
     setState(() {
+      _visitedTabs.add(index); // Ensure the target screen is built before showing
       if (tabChanged) {
         if (_index == 0 && index != 0) {
           _homeMenuOpen.value = 0.0;
@@ -158,38 +155,23 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
             drawerEnableOpenDragGesture: false,
             body: Stack(
               children: [
-                // 1. 메인 콘텐츠 영역 (애니메이션 전환)
+                // 1. 메인 콘텐츠 영역 – lazy-built, state-preserving per-tab.
+                // Screens are built on first visit then kept alive via Offstage.
                 Positioned.fill(
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 400),
-                    switchInCurve: Curves.easeOutQuart,
-                    switchOutCurve: Curves.easeInQuart,
-                    layoutBuilder:
-                        (Widget? currentChild, List<Widget> previousChildren) {
-                      return Stack(
-                        alignment: Alignment.topCenter,
-                        children: <Widget>[
-                          ...previousChildren,
-                          if (currentChild != null) currentChild,
-                        ],
-                      );
-                    },
-                    transitionBuilder: (child, animation) {
-                      return FadeTransition(
-                        opacity: animation,
-                        child: SlideTransition(
-                          position: Tween<Offset>(
-                            begin: const Offset(0, 0.05),
-                            end: Offset.zero,
-                          ).animate(animation),
-                          child: child,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: List.generate(_screens.length, (i) {
+                      final bool active = i == _index;
+                      return Offstage(
+                        offstage: !active,
+                        child: TickerMode(
+                          enabled: active,
+                          child: _visitedTabs.contains(i)
+                              ? _screens[i]
+                              : const SizedBox.shrink(),
                         ),
                       );
-                    },
-                    child: SizedBox(
-                      key: ValueKey<int>(_index),
-                      child: _pageForIndex(_index),
-                    ),
+                    }),
                   ),
                 ),
 
@@ -355,10 +337,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
           highlightColor: Colors.white.withValues(alpha: 0.22),
           child: Center(
             child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 300),
-              transitionBuilder: (child, animation) => RotationTransition(
-                  turns: animation,
-                  child: ScaleTransition(scale: animation, child: child)),
+              duration: const Duration(milliseconds: 220),
+              transitionBuilder: (child, animation) =>
+                  ScaleTransition(scale: animation, child: child),
               child: _isMenuOpen
                   ? const Icon(Icons.close,
                       key: ValueKey('close_icon'),
@@ -367,6 +348,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
                   : Image.asset("assets/images/notice_megaphone.png",
                       key: const ValueKey('megaphone_icon'),
                       color: Colors.white,
+                      filterQuality: FilterQuality.medium,
                       width: 28,
                       height: 28),
             ),
