@@ -1,6 +1,5 @@
 import "package:cloud_firestore/cloud_firestore.dart";
 import "package:flutter/foundation.dart";
-import "package:mio_notice/agent_debug_log.dart";
 
 /// 모든 공지사항 데이터를 통합 관리하고 캐싱하는 매니저 (싱글톤)
 class NoticeManager {
@@ -22,17 +21,6 @@ class NoticeManager {
 
     final inflight = _inFlight[boardId];
     if (inflight != null) {
-      // #region agent log
-      agentDebugNdjson(
-        hypothesisId: "H5",
-        location: "notice_manager.dart:getNotices",
-        message: "join inflight request",
-        data: <String, dynamic>{
-          "boardId": boardId,
-          "forceRefresh": forceRefresh,
-        },
-      );
-      // #endregion
       return await inflight;
     }
 
@@ -40,16 +28,6 @@ class NoticeManager {
     debugPrint("Firebase에서 데이터를 새로 읽어옵니다: $boardId");
 
     try {
-      // #region agent log
-      final int t0 = DateTime.now().millisecondsSinceEpoch;
-      agentDebugNdjson(
-        hypothesisId: "H5",
-        location: "notice_manager.dart:getNotices",
-        message: "fetch start",
-        data: <String, dynamic>{"boardId": boardId, "forceRefresh": forceRefresh},
-      );
-      // #endregion
-
       Future<List<Map<String, dynamic>>> doFetch() async {
         List<Map<String, dynamic>> results = [];
 
@@ -116,31 +94,9 @@ class NoticeManager {
       final Future<List<Map<String, dynamic>>> future = doFetch();
       _inFlight[boardId] = future;
       final List<Map<String, dynamic>> results = await future;
-
-      // #region agent log
-      final int dt = DateTime.now().millisecondsSinceEpoch - t0;
-      agentDebugNdjson(
-        hypothesisId: "H5",
-        location: "notice_manager.dart:getNotices",
-        message: "fetch done",
-        data: <String, dynamic>{
-          "boardId": boardId,
-          "ms": dt,
-          "count": results.length,
-        },
-      );
-      // #endregion
       return results;
     } catch (e) {
       debugPrint("데이터 로딩 중 에러 발생 ($boardId): $e");
-      // #region agent log
-      agentDebugNdjson(
-        hypothesisId: "H5",
-        location: "notice_manager.dart:getNotices",
-        message: "fetch error",
-        data: <String, dynamic>{"boardId": boardId, "error": e.toString()},
-      );
-      // #endregion
       return _cache[boardId] ?? [];
     } finally {
       _isLoading[boardId] = false;

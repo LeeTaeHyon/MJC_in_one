@@ -9,7 +9,6 @@ import "package:mio_notice/widgets/app_menu_drawer.dart";
 import "package:mio_notice/widgets/scroll_to_top_fab.dart";
 import "package:mio_notice/widgets/scroll_to_top_scope.dart";
 import "package:mio_notice/theme/app_colors.dart";
-import "package:mio_notice/perf_debug_context.dart";
 
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
@@ -63,10 +62,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
   void _syncScrollCoordinatorTab() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      // #region agent log
-      PerfDebugContext.activeMainTabIndex = _index;
-      PerfDebugContext.screen = "MainNavigation(tab=$_index)";
-      // #endregion
       ScrollToTopScope.maybeOf(context)?.setActiveMainTab(_index);
     });
   }

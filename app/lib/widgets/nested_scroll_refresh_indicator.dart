@@ -22,32 +22,17 @@ class NestedScrollRefreshIndicator extends StatelessWidget {
   final double displacement;
   @override
   Widget build(BuildContext context) {
-    final handle = NestedScrollView.sliverOverlapAbsorberHandleFor(context);
-    // Pass child as ListenableBuilder.child so it is NOT rebuilt when the
-    // overlap handle fires (which happens on every scroll frame). Only the
-    // RefreshIndicator wrapper is rebuilt; the heavy CustomScrollView subtree
-    // is reused as-is.
-    return ListenableBuilder(
-      listenable: handle,
+    final top = MediaQuery.paddingOf(context).top;
+    const double collapsedBar = 52;
+    const double tabBarH = 48;
+    return RefreshIndicator(
+      onRefresh: onRefresh,
+      color: color,
+      backgroundColor: backgroundColor,
+      strokeWidth: strokeWidth ?? RefreshProgressIndicator.defaultStrokeWidth,
+      edgeOffset: top + collapsedBar + tabBarH,
+      displacement: displacement,
       child: child,
-      builder: (context, theChild) {
-        final extent = handle.layoutExtent;
-        final top = MediaQuery.paddingOf(context).top;
-        const double collapsedBar = 52;
-        const double tabBarH = 48;
-        final fallback = top + collapsedBar + tabBarH;
-        final edgeOffset =
-            (extent != null && extent > 0) ? extent : fallback;
-        return RefreshIndicator(
-          onRefresh: onRefresh,
-          color: color,
-          backgroundColor: backgroundColor,
-          strokeWidth: strokeWidth ?? RefreshProgressIndicator.defaultStrokeWidth,
-          edgeOffset: edgeOffset,
-          displacement: displacement,
-          child: theChild!,
-        );
-      },
     );
   }
 }

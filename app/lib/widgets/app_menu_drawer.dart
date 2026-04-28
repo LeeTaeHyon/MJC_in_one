@@ -2,6 +2,7 @@ import "package:flutter/material.dart";
 import "package:flutter/foundation.dart" show kIsWeb;
 import "package:mio_notice/notification_history_prefs.dart";
 import "package:mio_notice/screens/common_webview_screen.dart";
+import "package:mio_notice/screens/login_screen.dart";
 import "package:mio_notice/screens/notification_history_screen.dart";
 import "package:mio_notice/screens/settings_screen.dart";
 import "package:mio_notice/theme/app_colors.dart";
@@ -157,6 +158,26 @@ class _AppMenuDrawerContentState extends State<AppMenuDrawerContent> {
     }
   }
 
+  void _openLogin(BuildContext context) {
+    final BuildContext navCtx = widget.dialogContext ?? context;
+    void push() {
+      if (!navCtx.mounted) return;
+      Navigator.push<void>(
+        navCtx,
+        MaterialPageRoute<void>(
+          builder: (context) => const LoginScreen(),
+        ),
+      );
+    }
+
+    widget.closeMenu();
+    if (widget.closeBeforeSystemDialogs) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => push());
+    } else {
+      push();
+    }
+  }
+
   BuildContext _dialogHost(BuildContext stateContext) {
     final BuildContext? anchor = widget.dialogContext;
     if (widget.closeBeforeSystemDialogs && anchor != null) return anchor;
@@ -221,6 +242,7 @@ class _AppMenuDrawerContentState extends State<AppMenuDrawerContent> {
       children: [
         _DrawerHeader(
           onClose: widget.closeMenu,
+          onLogin: () => _openLogin(context),
         ),
         Expanded(
           child: Stack(
@@ -288,9 +310,10 @@ class _AppMenuDrawerContentState extends State<AppMenuDrawerContent> {
 }
 
 class _DrawerHeader extends StatelessWidget {
-  const _DrawerHeader({required this.onClose});
+  const _DrawerHeader({required this.onClose, required this.onLogin});
 
   final VoidCallback onClose;
+  final VoidCallback onLogin;
 
   @override
   Widget build(BuildContext context) {
@@ -300,49 +323,82 @@ class _DrawerHeader extends StatelessWidget {
         bottom: false,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 12, 8, 20),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "MJC in one",
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -0.5,
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "MJC in one",
+                          style: Theme.of(context)
+                              .textTheme
+                              .headlineSmall
+                              ?.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -0.5,
+                              ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          "명지전문대학 통합 플랫폼",
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.92),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w400,
+                            height: 1.25,
                           ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 6),
-                    Text(
-                      "명지전문대학 통합 플랫폼",
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.92),
-                        fontSize: 13,
-                        fontWeight: FontWeight.w400,
-                        height: 1.25,
+                  ),
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      customBorder: const CircleBorder(),
+                      onTap: onClose,
+                      splashColor: Colors.white.withValues(alpha: 0.35),
+                      highlightColor: Colors.white.withValues(alpha: 0.14),
+                      hoverColor: Colors.white.withValues(alpha: 0.10),
+                      child: const Padding(
+                        padding: EdgeInsets.all(8),
+                        child: Icon(
+                          Icons.close_rounded,
+                          color: Colors.white,
+                          size: 26,
+                        ),
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-              Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  customBorder: const CircleBorder(),
-                  onTap: onClose,
-                  splashColor: Colors.white.withValues(alpha: 0.35),
-                  highlightColor: Colors.white.withValues(alpha: 0.14),
-                  hoverColor: Colors.white.withValues(alpha: 0.10),
-                  child: const Padding(
-                    padding: EdgeInsets.all(8),
-                    child: Icon(
-                      Icons.close_rounded,
-                      color: Colors.white,
-                      size: 26,
+              const SizedBox(height: 16),
+              SizedBox(
+                height: 48,
+                child: FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Colors.white.withValues(alpha: 0.14),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
                     ),
+                  ),
+                  onPressed: onLogin,
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.login_rounded, size: 20),
+                      SizedBox(width: 10),
+                      Text(
+                        "로그인",
+                        style: TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                    ],
                   ),
                 ),
               ),

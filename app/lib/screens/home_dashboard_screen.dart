@@ -181,13 +181,11 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     super.initState();
     _combinedNoticeFuture = _prepareDashboardNotices();
     _scrollController.addListener(_onHomeScrollOffset);
-    // #region agent log
     // 첫 진입 시 히어로 이미지 디코드/업로드 비용이 스크롤/전환 jank로 튀는 걸 줄이기 위해 프리캐시.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       precacheImage(const NetworkImage(_HomeHeroHeaderDelegate._heroImageUrl), context);
     });
-    // #endregion
   }
 
   void _onHomeScrollOffset() {
@@ -506,6 +504,13 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   }
 
   Widget _buildDeadlineSection(BuildContext context) {
+    int? parseDDay(dynamic v) {
+      final String s = (v ?? "").toString().trim();
+      final RegExpMatch? m = RegExp(r"^D-(\d+)$", caseSensitive: false).firstMatch(s);
+      if (m == null) return null;
+      return int.tryParse(m.group(1)!);
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -513,108 +518,172 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
           child: Row(
             children: [
-              Icon(Icons.alarm, color: Colors.redAccent, size: 20),
-              SizedBox(width: 8),
               Text(
-                "신청 마감 임박",
+                "MPU 신청 마감",
                 style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
               ),
             ],
           ),
         ),
-        SizedBox(
-          height: 160,
-          child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-            stream: FirebaseFirestore.instance
-                .collection("core_competencies")
-                .doc("all")
-                .collection("programs")
-                .snapshots(),
-            builder: (context, snapshot) {
-              if (!snapshot.hasData) return const SizedBox();
-              final items = snapshot.data!.docs
-                  .where(
-                    (doc) =>
-                        (doc.data()["d_day"] ?? "").toString().contains("D-"),
-                  )
-                  .toList();
-              if (items.isEmpty) {
-                return const Center(child: Text("진행 중인 프로그램이 없습니다."));
-              }
-              return ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                scrollDirection: Axis.horizontal,
-                itemCount: items.length,
-                itemBuilder: (context, index) =>
-                    _buildDeadlineCard(items[index].data()),
+        StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+          stream: FirebaseFirestore.instance
+              .collection("core_competencies")
+              .doc("all")
+              .collection("programs")
+              .snapshots(),
+          builder: (context, snapshot) {
+            if (!snapshot.hasData) return const SizedBox();
+
+            final List<Map<String, dynamic>> items = snapshot.data!.docs
+                .map((d) => d.data())
+                .where((m) => parseDDay(m["d_day"]) != null)
+                .toList()
+              ..sort((a, b) {
+                final int ad = parseDDay(a["d_day"]) ?? 999999;
+                final int bd = parseDDay(b["d_day"]) ?? 999999;
+                return ad.compareTo(bd);
+              });
+
+            if (items.isEmpty) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                child: Text("진행 중인 일정이 없습니다."),
               );
-            },
-          ),
+            }
+
+            final List<Map<String, dynamic>> top = items.take(3).toList();
+            return ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+              itemCount: top.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 10),
+              itemBuilder: (context, index) => _buildDeadlineCard(top[index]),
+            );
+          },
         ),
       ],
     );
   }
 
   Widget _buildDeadlineCard(Map<String, dynamic> data) {
-    return Container(
-      width: 200,
-      margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
-      child: Material(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        elevation: 2,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: () async {
-            if (kIsWeb) {
-              await launchUrl(
-                Uri.parse(_mpuWebBaseUrl),
-                webOnlyWindowName: "_blank",
-              );
-            } else {
-              Navigator.push<void>(
-                context,
-                MaterialPageRoute<void>(
-                  builder: (_) => CommonWebViewScreen(
-                    url: _mpuWebBaseUrl,
-                    title: "핵심역량 관리 (MPU)",
-                  ),
+    final String title = (data["title"] ?? "").toString();
+    final String ddayRaw = (data["d_day"] ?? "").toString().trim();
+    final String dateLine = (data["end_date"] ??
+            data["date"] ??
+            data["reg_date"] ??
+            data["deadline"] ??
+            "")
+        .toString()
+        .trim();
+
+    final String dNumber = (RegExp(r"^D-(\d+)$", caseSensitive: false)
+                .firstMatch(ddayRaw)
+                ?.group(1) ??
+            "")
+        .trim();
+
+    Widget ddayBadge() {
+      final Color bg = const Color(0xFF0D47A1);
+      return SizedBox(
+        width: 56,
+        height: 56,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                "D-",
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.92),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  height: 1.0,
                 ),
-              );
-            }
-          },
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFFEBEF),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    data["d_day"] ?? "",
-                    style: const TextStyle(
-                      color: Colors.red,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
+              ),
+              const SizedBox(height: 2),
+              Text(
+                dNumber.isEmpty ? "?" : dNumber,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                  height: 1.0,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(14),
+      elevation: 1.5,
+      shadowColor: Colors.black12,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: () async {
+          if (kIsWeb) {
+            await launchUrl(
+              Uri.parse(_mpuWebBaseUrl),
+              webOnlyWindowName: "_blank",
+            );
+          } else {
+            if (!context.mounted) return;
+            Navigator.push<void>(
+              context,
+              MaterialPageRoute<void>(
+                builder: (_) => CommonWebViewScreen(
+                  url: _mpuWebBaseUrl,
+                  title: "핵심역량 관리 (MPU)",
+                ),
+              ),
+            );
+          }
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 15,
+                        height: 1.15,
+                      ),
                     ),
-                  ),
+                    if (dateLine.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        dateLine,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.black54,
+                          fontSize: 12,
+                          height: 1.1,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  data["title"] ?? "",
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                  ),
-                ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 12),
+              ddayBadge(),
+            ],
           ),
         ),
       ),
@@ -663,7 +732,10 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 20),
           itemCount: notices.length,
           separatorBuilder: (_, __) => const SizedBox(height: 12),
-          itemBuilder: (context, index) => _buildNoticeCard(notices[index]),
+          itemBuilder: (context, index) {
+            final Widget card = _buildNoticeCard(notices[index]);
+            return card;
+          },
         );
       },
     );

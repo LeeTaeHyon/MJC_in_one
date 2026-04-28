@@ -1,8 +1,6 @@
 import "package:flutter/material.dart";
 import "package:flutter/scheduler.dart";
 
-import "package:mio_notice/agent_debug_log.dart";
-
 /// [ScrollController] 뷰포트 크기를 안전히 읽어 맨 위로 버튼 임계값에 씁니다.
 /// Flutter 웹 등에서 [ScrollPosition] 프록시가 깨지는 경우를 막습니다.
 abstract final class ScrollFabMetrics {
@@ -62,6 +60,7 @@ final class NestedScrollFabScrollReporter {
   double _innerListPixels = 0;
   double _innerViewportDimension = 0;
   TabController? _tabController;
+  bool _reportFlushScheduled = false;
 
   void attachCoordinator(ScrollToTopCoordinator? c) {
     coordinator = c;
@@ -128,10 +127,17 @@ final class NestedScrollFabScrollReporter {
       c.reportMainTabScroll(tabIndex, combinedPixels, viewportHeight);
     }
 
-    if (SchedulerBinding.instance.schedulerPhase == SchedulerPhase.idle) {
+    final SchedulerPhase phase = SchedulerBinding.instance.schedulerPhase;
+    if (phase == SchedulerPhase.idle ||
+        phase == SchedulerPhase.postFrameCallbacks) {
       send();
     } else {
-      WidgetsBinding.instance.addPostFrameCallback((_) => send());
+      if (_reportFlushScheduled) return;
+      _reportFlushScheduled = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _reportFlushScheduled = false;
+        send();
+      });
     }
   }
 }
@@ -195,7 +201,7 @@ class ScrollToTopCoordinator {
 
   bool _fabVisibilityFlushScheduled = false;
   bool? _fabVisibilityPending;
-  int _logSeq = 0;
+  bool _mainTabVisibilityDecisionScheduled = false;
 
   static double _scrollRevealThreshold(double viewportHeight) {
     final double h = viewportHeight > 0 ? viewportHeight : 400;
@@ -207,24 +213,22 @@ class ScrollToTopCoordinator {
     return h * fabHideHysteresisViewportFraction;
   }
 
+  void _commitFabVisible(bool visible) {
+    if (fabVisibleNotifier.value != visible) {
+      fabVisibleNotifier.value = visible;
+    }
+  }
+
   /// 빌드 중([build] / [didChangeDependencies])에는 [ValueNotifier]를 건드리면
   /// `setState() or markNeedsBuild() called during build`가 날 수 있어 프레임 이후에 반영합니다.
   void _setFabVisible(bool visible) {
-    // #region agent log
-    _logSeq += 1;
-    if (_logSeq % 50 == 0 &&
-        SchedulerBinding.instance.schedulerPhase != SchedulerPhase.idle) {
-      agentDebugNdjson(
-        hypothesisId: "H3",
-        location: "scroll_to_top_scope.dart:_setFabVisible",
-        message: "_setFabVisible while scheduler not idle",
-        data: <String, dynamic>{
-          "visible": visible,
-          "phase": SchedulerBinding.instance.schedulerPhase.name,
-        },
-      );
+    final SchedulerPhase phase = SchedulerBinding.instance.schedulerPhase;
+    if (phase == SchedulerPhase.idle ||
+        phase == SchedulerPhase.postFrameCallbacks) {
+      _fabVisibilityPending = null;
+      _commitFabVisible(visible);
+      return;
     }
-    // #endregion
     _fabVisibilityPending = visible;
     if (_fabVisibilityFlushScheduled) return;
     _fabVisibilityFlushScheduled = true;
@@ -233,24 +237,18 @@ class ScrollToTopCoordinator {
       final bool next =
           _fabVisibilityPending ?? fabVisibleNotifier.value;
       _fabVisibilityPending = null;
-      if (fabVisibleNotifier.value != next) {
-        // #region agent log
-        agentDebugNdjson(
-          hypothesisId: "H3b",
-          location: "scroll_to_top_scope.dart:_setFabVisible:pfc",
-          message: "fabVisibleNotifier value commit",
-          data: <String, dynamic>{"next": next},
-        );
-        // #endregion
-        fabVisibleNotifier.value = next;
-      }
+      _commitFabVisible(next);
     });
   }
 
   void setActiveMainTab(int index) {
     _activeMainTab = index;
-    final double? y = _lastMainScrollPixels[index];
-    final double? vh = _lastMainViewportHeight[index];
+    _scheduleMainTabVisibilityDecision();
+  }
+
+  void _decideMainTabVisibility() {
+    final double? y = _lastMainScrollPixels[_activeMainTab];
+    final double? vh = _lastMainViewportHeight[_activeMainTab];
     if (y == null || vh == null) {
       _setFabVisible(false);
       return;
@@ -262,47 +260,32 @@ class ScrollToTopCoordinator {
     _setFabVisible(next);
   }
 
+  void _scheduleMainTabVisibilityDecision() {
+    final SchedulerPhase phase = SchedulerBinding.instance.schedulerPhase;
+    if (phase == SchedulerPhase.idle ||
+        phase == SchedulerPhase.postFrameCallbacks) {
+      _decideMainTabVisibility();
+      return;
+    }
+    if (_mainTabVisibilityDecisionScheduled) return;
+    _mainTabVisibilityDecisionScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _mainTabVisibilityDecisionScheduled = false;
+      _decideMainTabVisibility();
+    });
+  }
+
   /// [pixels]: 스크롤 오프셋(또는 웹뷰 `scrollY`). [viewportHeight]: 같은 축의 뷰포트 높이(스크롤뷰 뷰포트 또는 `innerHeight` 등).
   void reportMainTabScroll(
     int tabIndex,
     double pixels,
     double viewportHeight,
   ) {
-    // #region agent log
-    _logSeq += 1;
-    if (_logSeq % 50 == 0 &&
-        SchedulerBinding.instance.schedulerPhase != SchedulerPhase.idle) {
-      agentDebugNdjson(
-        hypothesisId: "H1",
-        location: "scroll_to_top_scope.dart:reportMainTabScroll",
-        message: "reportMainTabScroll during non-idle scheduler phase",
-        data: <String, dynamic>{
-          "tabIndex": tabIndex,
-          "pixels": pixels,
-          "viewportHeight": viewportHeight,
-          "phase": SchedulerBinding.instance.schedulerPhase.name,
-        },
-      );
-    }
-    // #endregion
     _lastMainScrollPixels[tabIndex] = pixels;
     _lastMainViewportHeight[tabIndex] = viewportHeight;
     if (tabIndex != _activeMainTab) return;
-    // 스크롤 리스너/노티는 transient/persistent 중에도 불려, 즉시 ValueNotifier를 건드리면
-    // 빌드 예약이 겹치면서 build jank로 커질 수 있어 idle 프레임에서만 반영합니다.
-    void decideAndSet() {
-      final bool cur = fabVisibleNotifier.value;
-      final bool next = cur
-          ? (pixels > _scrollHideThreshold(viewportHeight))
-          : (pixels > _scrollRevealThreshold(viewportHeight));
-      _setFabVisible(next);
-    }
-
-    if (SchedulerBinding.instance.schedulerPhase == SchedulerPhase.idle) {
-      decideAndSet();
-    } else {
-      WidgetsBinding.instance.addPostFrameCallback((_) => decideAndSet());
-    }
+    // 스크롤 이벤트가 한 프레임에 여러 번 들어와도 최신 값으로 1회만 결정합니다.
+    _scheduleMainTabVisibilityDecision();
   }
 
   /// 푸시된 라우트(설정·내역 등) 본문 스크롤.

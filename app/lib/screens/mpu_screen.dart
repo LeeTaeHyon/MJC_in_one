@@ -1,7 +1,6 @@
 import "dart:ui" show lerpDouble;
 
 import "package:flutter/foundation.dart";
-import "package:mio_notice/agent_debug_log.dart";
 import "package:flutter/material.dart";
 import "package:flutter_animate/flutter_animate.dart";
 import "package:mio_notice/screens/common_webview_screen.dart";
@@ -146,10 +145,6 @@ class _MpuCollapsingHeaderDelegate extends SliverPersistentHeaderDelegate {
     required this.topPadding,
     required this.tabBar,
   });
-  // #region agent log (H7A)
-  static int _h7Count = 0;
-  static int _h7WinStart = 0;
-  // #endregion
 
   final double topPadding;
   final TabBar tabBar;
@@ -177,21 +172,6 @@ class _MpuCollapsingHeaderDelegate extends SliverPersistentHeaderDelegate {
     double shrinkOffset,
     bool overlapsContent,
   ) {
-    // #region agent log (H7A)
-    final int _h7Now = DateTime.now().millisecondsSinceEpoch;
-    if (_h7WinStart == 0) _h7WinStart = _h7Now;
-    _h7Count++;
-    if (_h7Now - _h7WinStart >= 2000) {
-      agentDebugNdjson(
-        hypothesisId: "H7A",
-        location: "mpu_screen.dart:_MpuCollapsingHeaderDelegate:build",
-        message: "header build frequency",
-        data: <String, dynamic>{"buildsIn2sec": _h7Count, "windowMs": _h7Now - _h7WinStart},
-      );
-      _h7Count = 0;
-      _h7WinStart = _h7Now;
-    }
-    // #endregion
     final double extent =
         (maxExtent - shrinkOffset).clamp(minExtent, maxExtent);
     final double range = maxExtent - minExtent;

@@ -11,7 +11,6 @@ import "package:mio_notice/widgets/nested_scroll_refresh_indicator.dart";
 import "package:mio_notice/widgets/scroll_to_top_scope.dart";
 import "package:shared_preferences/shared_preferences.dart";
 import "package:url_launcher/url_launcher.dart";
-import "package:mio_notice/agent_debug_log.dart";
 
 /// 스크롤/전환 중 jank를 줄이기 위해 entrance stagger는 앱 실행 동안 1회만 재생.
 class _MainWebsiteListEntrance {
@@ -154,10 +153,6 @@ class _MainWebsiteCollapsingHeaderDelegate
     required this.topPadding,
     required this.tabBar,
   });
-  // #region agent log (H7A)
-  static int _h7Count = 0;
-  static int _h7WinStart = 0;
-  // #endregion
 
   final double topPadding;
   final TabBar tabBar;
@@ -185,21 +180,6 @@ class _MainWebsiteCollapsingHeaderDelegate
     double shrinkOffset,
     bool overlapsContent,
   ) {
-    // #region agent log (H7A)
-    final int _h7Now = DateTime.now().millisecondsSinceEpoch;
-    if (_h7WinStart == 0) _h7WinStart = _h7Now;
-    _h7Count++;
-    if (_h7Now - _h7WinStart >= 2000) {
-      agentDebugNdjson(
-        hypothesisId: "H7A",
-        location: "main_website_screen.dart:_MainWebsiteCollapsingHeaderDelegate:build",
-        message: "header build frequency",
-        data: <String, dynamic>{"buildsIn2sec": _h7Count, "windowMs": _h7Now - _h7WinStart},
-      );
-      _h7Count = 0;
-      _h7WinStart = _h7Now;
-    }
-    // #endregion
     final double extent =
         (maxExtent - shrinkOffset).clamp(minExtent, maxExtent);
     final double range = maxExtent - minExtent;
@@ -333,14 +313,6 @@ class _NoticeListTab extends StatefulWidget {
 class _NoticeListTabState extends State<_NoticeListTab> {
   Set<String> _readNoticeIds = {};
   late Future<List<Map<String, dynamic>>> _noticeFuture;
-  int _h6WindowStartMs = DateTime.now().millisecondsSinceEpoch;
-  int _h6BuildCalls = 0;
-  int _h6BuildUsSum = 0;
-  int _h6BuildUsMax = 0;
-  // #region agent log (H7B)
-  int _h7bCount = 0;
-  int _h7bWinStart = 0;
-  // #endregion
 
   @override
   void initState() {
@@ -380,21 +352,6 @@ class _NoticeListTabState extends State<_NoticeListTab> {
 
   @override
   Widget build(BuildContext context) {
-    // #region agent log (H7B)
-    final int _h7bNow = DateTime.now().millisecondsSinceEpoch;
-    if (_h7bWinStart == 0) _h7bWinStart = _h7bNow;
-    _h7bCount++;
-    if (_h7bNow - _h7bWinStart >= 2000) {
-      agentDebugNdjson(
-        hypothesisId: "H7B",
-        location: "main_website_screen.dart:_NoticeListTabState:build",
-        message: "noticeListTab rebuild frequency",
-        data: <String, dynamic>{"boardId": widget.boardId, "rebuildsIn2sec": _h7bCount, "windowMs": _h7bNow - _h7bWinStart},
-      );
-      _h7bCount = 0;
-      _h7bWinStart = _h7bNow;
-    }
-    // #endregion
     return NestedScrollRefreshIndicator(
       onRefresh: _handleRefresh,
       color: const Color(0xFF003FB4),
@@ -454,9 +411,6 @@ class _NoticeListTabState extends State<_NoticeListTab> {
         sliver: SliverList(
           delegate: SliverChildBuilderDelegate(
             (BuildContext context, int index) {
-              // #region agent log
-              final Stopwatch sw = Stopwatch()..start();
-              // #endregion
               if (index == 0 && _MainWebsiteListEntrance.shouldAnimateList) {
                 _MainWebsiteListEntrance.scheduleEndEntranceAnimation();
               }
@@ -519,36 +473,6 @@ class _NoticeListTabState extends State<_NoticeListTab> {
                         duration: 240.ms,
                       )
                   : paintIsolated;
-
-              // #region agent log
-              sw.stop();
-              final int us = sw.elapsedMicroseconds;
-              _h6BuildCalls += 1;
-              _h6BuildUsSum += us;
-              if (us > _h6BuildUsMax) _h6BuildUsMax = us;
-              final int nowMs = DateTime.now().millisecondsSinceEpoch;
-              final int windowMs = nowMs - _h6WindowStartMs;
-              if (index == 0 || windowMs >= 2000) {
-                agentDebugNdjson(
-                  hypothesisId: "H6",
-                  location: "main_website_screen.dart:_NoticeListTab:SliverChildBuilderDelegate",
-                  message: "notice list item build cost summary",
-                  data: <String, dynamic>{
-                    "boardId": widget.boardId,
-                    "windowMs": windowMs,
-                    "buildCalls": _h6BuildCalls,
-                    "avgUs": _h6BuildCalls == 0 ? 0 : (_h6BuildUsSum / _h6BuildCalls).round(),
-                    "maxUs": _h6BuildUsMax,
-                    "docsLen": docs.length,
-                    "kPerfLowRasterMode": kPerfLowRasterMode,
-                  },
-                );
-                _h6WindowStartMs = nowMs;
-                _h6BuildCalls = 0;
-                _h6BuildUsSum = 0;
-                _h6BuildUsMax = 0;
-              }
-              // #endregion
 
               return out;
             },

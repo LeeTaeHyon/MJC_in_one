@@ -1,9 +1,10 @@
 import "package:flutter/material.dart";
 import "package:mio_notice/notification_sources.dart";
 import "package:mio_notice/screens/open_source_licenses_screen.dart";
-import "package:mio_notice/theme/app_colors.dart";
+import "package:mio_notice/theme/theme_mode_scope.dart";
 import "package:mio_notice/utils/snack_bar_utils.dart";
 import "package:mio_notice/widgets/scroll_to_top_scope.dart";
+import "package:mio_notice/debug_session_log.dart";
 import "package:shared_preferences/shared_preferences.dart";
 import "package:url_launcher/url_launcher.dart";
 
@@ -16,6 +17,7 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _allNoticesEnabled = true;
+  bool _keywordNoticesEnabled = true;
   List<String> _keywords = [];
   List<String> _enabledSources = List<String>.from(kNotificationSourceIds);
   final ScrollController _scrollController = ScrollController();
@@ -81,6 +83,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (!mounted) return;
     setState(() {
       _allNoticesEnabled = prefs.getBool("allNoticesEnabled") ?? true;
+      _keywordNoticesEnabled = prefs.getBool("keywordNoticesEnabled") ?? true;
       _keywords = prefs.getStringList("keywords") ?? [];
       final stored = prefs.getStringList(kNotificationSourcesPrefKey);
       if (stored == null || stored.isEmpty) {
@@ -112,7 +115,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _allNoticesEnabled = value;
     });
     if (mounted) {
-      final message = value ? "전체 알림이 활성화되었습니다." : "키워드 알림 모드로 전환되었습니다.";
+      final bool allOff = !value && !_keywordNoticesEnabled;
+      final message = allOff
+          ? "알람이 꺼집니다."
+          : (value ? "전체 알림이 활성화되었습니다." : "전체 알림이 비활성화되었습니다.");
       SnackBarUtils.showUnique(
         context,
         key: "settings_all_notices_${value ? "on" : "off"}",
@@ -123,6 +129,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
       );
     }
+  }
+
+  Future<void> _toggleKeywordNotices(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool("keywordNoticesEnabled", value);
+    if (!mounted) return;
+    setState(() => _keywordNoticesEnabled = value);
+
+    if (!mounted) return;
+    final bool allOff = !_allNoticesEnabled && !value;
+    final String message = allOff
+        ? "알람이 꺼집니다."
+        : (value ? "키워드 알림이 활성화되었습니다." : "키워드 알림이 비활성화되었습니다.");
+    SnackBarUtils.showUnique(
+      context,
+      key: "settings_keyword_notices_${value ? "on" : "off"}",
+      snackBar: SnackBar(
+        behavior: SnackBarBehavior.floating,
+        margin: _snackBarMargin(context),
+        content: Text(message),
+      ),
+    );
   }
 
   Future<void> _setSourceEnabled(String sourceId, bool enabled) async {
@@ -190,14 +218,81 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 final text = controller.text.trim();
                                 if (text.isEmpty || _keywords.contains(text)) return;
 
-                                final prefs = await SharedPreferences.getInstance();
-                                _keywords = [..._keywords, text];
-                                await prefs.setStringList("keywords", _keywords);
-                                if (!mounted) return;
+                                // #region agent log
+                                debugSessionNdjson(
+                                  hypothesisId: "H1",
+                                  location: "settings_screen.dart:_showKeywordDialog:add:onPressed:start",
+                                  message: "Keyword add pressed",
+                                  data: <String, dynamic>{
+                                    "mounted": mounted,
+                                    "textLen": text.length,
+                                    "keywordsCountBefore": _keywords.length,
+                                  },
+                                );
+                                // #endregion
 
-                                controller.clear();
-                                setDialogState(() {}); // 다이얼로그 UI 갱신
-                                setState(() {}); // 배경 설정창 UI 갱신
+                                try {
+                                  final prefs = await SharedPreferences.getInstance();
+                                  // #region agent log
+                                  debugSessionNdjson(
+                                    hypothesisId: "H2",
+                                    location:
+                                        "settings_screen.dart:_showKeywordDialog:add:onPressed:afterPrefs",
+                                    message: "SharedPreferences obtained",
+                                    data: <String, dynamic>{
+                                      "mounted": mounted,
+                                    },
+                                  );
+                                  // #endregion
+
+                                  _keywords = [..._keywords, text];
+                                  await prefs.setStringList("keywords", _keywords);
+                                  // #region agent log
+                                  debugSessionNdjson(
+                                    hypothesisId: "H2",
+                                    location:
+                                        "settings_screen.dart:_showKeywordDialog:add:onPressed:afterSetStringList",
+                                    message: "keywords saved",
+                                    data: <String, dynamic>{
+                                      "mounted": mounted,
+                                      "keywordsCountAfter": _keywords.length,
+                                    },
+                                  );
+                                  // #endregion
+
+                                  if (!mounted) {
+                                    // #region agent log
+                                    debugSessionNdjson(
+                                      hypothesisId: "H1",
+                                      location:
+                                          "settings_screen.dart:_showKeywordDialog:add:onPressed:unmountedEarlyReturn",
+                                      message: "State unmounted after await; return before setState",
+                                      data: <String, dynamic>{
+                                        "keywordsCount": _keywords.length,
+                                      },
+                                    );
+                                    // #endregion
+                                    return;
+                                  }
+
+                                  controller.clear();
+                                  setDialogState(() {}); // 다이얼로그 UI 갱신
+                                  setState(() {}); // 배경 설정창 UI 갱신
+                                } catch (e) {
+                                  // #region agent log
+                                  debugSessionNdjson(
+                                    hypothesisId: "HERR",
+                                    location:
+                                        "settings_screen.dart:_showKeywordDialog:add:onPressed:catch",
+                                    message: "Exception during keyword add",
+                                    data: <String, dynamic>{
+                                      "error": e.toString(),
+                                      "mounted": mounted,
+                                    },
+                                  );
+                                  // #endregion
+                                  rethrow;
+                                }
                               },
                             ),
                           ),
@@ -212,13 +307,71 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               return Chip(
                                 label: Text(kw),
                                 onDeleted: () async {
-                                  final prefs = await SharedPreferences.getInstance();
-                                  _keywords = _keywords.where((k) => k != kw).toList();
-                                  await prefs.setStringList("keywords", _keywords);
-                                  if (!mounted) return;
+                                  // #region agent log
+                                  debugSessionNdjson(
+                                    hypothesisId: "H1",
+                                    location:
+                                        "settings_screen.dart:_showKeywordDialog:delete:onDeleted:start",
+                                    message: "Keyword delete pressed",
+                                    data: <String, dynamic>{
+                                      "mounted": mounted,
+                                      "kwLen": kw.length,
+                                      "keywordsCountBefore": _keywords.length,
+                                    },
+                                  );
+                                  // #endregion
 
-                                  setDialogState(() {});
-                                  setState(() {});
+                                  try {
+                                    final prefs = await SharedPreferences.getInstance();
+                                    _keywords =
+                                        _keywords.where((k) => k != kw).toList();
+                                    await prefs.setStringList("keywords", _keywords);
+                                    // #region agent log
+                                    debugSessionNdjson(
+                                      hypothesisId: "H2",
+                                      location:
+                                          "settings_screen.dart:_showKeywordDialog:delete:onDeleted:afterSetStringList",
+                                      message: "keywords saved after delete",
+                                      data: <String, dynamic>{
+                                        "mounted": mounted,
+                                        "keywordsCountAfter": _keywords.length,
+                                      },
+                                    );
+                                    // #endregion
+
+                                    if (!mounted) {
+                                      // #region agent log
+                                      debugSessionNdjson(
+                                        hypothesisId: "H1",
+                                        location:
+                                            "settings_screen.dart:_showKeywordDialog:delete:onDeleted:unmountedEarlyReturn",
+                                        message:
+                                            "State unmounted after await; return before setState",
+                                        data: <String, dynamic>{
+                                          "keywordsCount": _keywords.length,
+                                        },
+                                      );
+                                      // #endregion
+                                      return;
+                                    }
+
+                                    setDialogState(() {});
+                                    setState(() {});
+                                  } catch (e) {
+                                    // #region agent log
+                                    debugSessionNdjson(
+                                      hypothesisId: "HERR",
+                                      location:
+                                          "settings_screen.dart:_showKeywordDialog:delete:onDeleted:catch",
+                                      message: "Exception during keyword delete",
+                                      data: <String, dynamic>{
+                                        "error": e.toString(),
+                                        "mounted": mounted,
+                                      },
+                                    );
+                                    // #endregion
+                                    rethrow;
+                                  }
                                 },
                               );
                             }).toList(),
@@ -271,146 +424,259 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final ThemeModeController? themeController = ThemeModeScope.maybeOf(context);
+    final ThemeMode themeMode = themeController?.value ?? ThemeMode.system;
+    final bool allNotices = _allNoticesEnabled;
+    final bool keywordNotices = _keywordNoticesEnabled;
+    final bool notificationsAllOff = !allNotices && !keywordNotices;
+
     return Scaffold(
-      backgroundColor: Colors.white,
       appBar: AppBar(
-        iconTheme: const IconThemeData(color: Colors.white),
-        backgroundColor: AppColors.primary,
-        elevation: 0,
-        title: const Text(
-          "설정",
-          style: TextStyle(fontWeight: FontWeight.w600, color: Colors.white),
+        title: const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text("설정"),
+            SizedBox(height: 2),
+            Text(
+              "MJC in one",
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w400,
+                height: 1.1,
+                color: Colors.white70,
+              ),
+            ),
+          ],
         ),
       ),
       body: ListView(
         controller: _scrollController,
+        padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
         children: [
-          const Padding(
-            padding: EdgeInsets.fromLTRB(16, 24, 16, 8),
-            child: Text(
-              "알림 설정",
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: AppColors.primary,
+          _SectionHeader(title: "알림"),
+          Card(
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              children: [
+                SwitchListTile(
+                  title: const Text("전체 알람"),
+                  subtitle: const Text("모든 공지사항 새글 알림 받기"),
+                  value: allNotices,
+                  onChanged: _toggleAllNotices,
+                ),
+                const Divider(height: 1),
+                SwitchListTile(
+                  title: const Text("키워드 알람"),
+                  subtitle: const Text("등록한 키워드가 포함된 공지사항만"),
+                  value: keywordNotices,
+                  onChanged: _toggleKeywordNotices,
+                ),
+                if (notificationsAllOff) ...[
+                  const Divider(height: 1),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.notifications_off_outlined,
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withValues(alpha: 0.72),
+                          size: 18,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            "알람이 꺼집니다.",
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurface
+                                  .withValues(alpha: 0.78),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          AnimatedCrossFade(
+            duration: const Duration(milliseconds: 220),
+            crossFadeState: keywordNotices
+                ? CrossFadeState.showSecond
+                : CrossFadeState.showFirst,
+            firstChild: const SizedBox(width: double.infinity),
+            secondChild: Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Card(
+                clipBehavior: Clip.antiAlias,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.fromLTRB(16, 16, 16, 6),
+                      child: Text(
+                        "키워드 관리",
+                        style: TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.fromLTRB(16, 0, 16, 10),
+                      child: Text(
+                        "키워드가 없으면 알림이 오지 않습니다.",
+                        style: TextStyle(fontSize: 12),
+                      ),
+                    ),
+                    ListTile(
+                      title: const Text("키워드 추가/삭제"),
+                      subtitle: Text(
+                        _keywords.isEmpty
+                            ? "현재 등록된 키워드 없음"
+                            : "${_keywords.length}개 키워드 감시 중",
+                      ),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: _showKeywordDialog,
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
-          SwitchListTile(
-            activeThumbColor: Colors.white,
-            activeTrackColor: AppColors.primary,
-            title: const Text("전체 공지사항 새글 알림"),
-            subtitle: Text(
-              _allNoticesEnabled
-                  ? "모든 새 공지 알림을 받습니다."
-                  : "키워드가 포함된 알림만 받습니다. 아래에서 키워드를 설정하세요.",
+          const SizedBox(height: 18),
+          _SectionHeader(title: "테마"),
+          Card(
+            clipBehavior: Clip.antiAlias,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "앱 화면 테마 선택",
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 12),
+                  SegmentedButton<ThemeMode>(
+                    segments: const [
+                      ButtonSegment<ThemeMode>(
+                        value: ThemeMode.light,
+                        label: Text("라이트"),
+                        icon: Icon(Icons.light_mode_outlined),
+                      ),
+                      ButtonSegment<ThemeMode>(
+                        value: ThemeMode.dark,
+                        label: Text("다크"),
+                        icon: Icon(Icons.dark_mode_outlined),
+                      ),
+                      ButtonSegment<ThemeMode>(
+                        value: ThemeMode.system,
+                        label: Text("자동"),
+                        icon: Icon(Icons.settings_suggest_outlined),
+                      ),
+                    ],
+                    selected: {themeMode},
+                    onSelectionChanged: (s) {
+                      final ThemeMode next = s.isEmpty ? ThemeMode.system : s.first;
+                      if (themeController == null) return;
+                      themeController.setAndPersist(next);
+                    },
+                  ),
+                ],
+              ),
             ),
-            value: _allNoticesEnabled,
-            onChanged: _toggleAllNotices,
           ),
-          AnimatedCrossFade(
-            duration: const Duration(milliseconds: 240),
-            sizeCurve: Curves.easeInOut,
-            firstCurve: Curves.easeOut,
-            secondCurve: Curves.easeIn,
-            crossFadeState: _allNoticesEnabled
-                ? CrossFadeState.showFirst
-                : CrossFadeState.showSecond,
-            firstChild: const SizedBox(width: double.infinity),
-            secondChild: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          const SizedBox(height: 18),
+          _SectionHeader(title: "알림 받을 출처"),
+          Card(
+            clipBehavior: Clip.antiAlias,
+            child: Column(
               children: [
+                SwitchListTile(
+                  title: const Text("메인 홈페이지 (mjc.ac.kr)"),
+                  subtitle: const Text("공지·학사·장학 등 본교 게시판"),
+                  value: _enabledSources.contains("mjc"),
+                  onChanged: (v) => _setSourceEnabled("mjc", v),
+                ),
                 const Divider(height: 1),
-                const Padding(
-                  padding: EdgeInsets.fromLTRB(16, 14, 16, 4),
-                  child: Text(
-                    "맞춤 키워드 알림",
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14,
-                      color: AppColors.primary,
-                    ),
-                  ),
+                SwitchListTile(
+                  title: const Text("CTL (ctl.mjc.ac.kr)"),
+                  subtitle: const Text("CTL 프로그램·공지"),
+                  value: _enabledSources.contains("ctl"),
+                  onChanged: (v) => _setSourceEnabled("ctl", v),
                 ),
-                const Padding(
-                  padding: EdgeInsets.fromLTRB(16, 0, 16, 4),
-                  child: Text(
-                    "등록한 키워드가 알림 제목·본문에 포함될 때만 표시됩니다.",
-                    style: TextStyle(fontSize: 12, color: Colors.black54),
-                  ),
-                ),
-                ListTile(
-                  title: const Text("키워드 관리"),
-                  subtitle: Text(
-                    _keywords.isEmpty
-                        ? "키워드가 없으면 알림이 오지 않습니다."
-                        : "${_keywords.length}개 키워드 감시 중",
-                  ),
-                  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                  onTap: _showKeywordDialog,
+                const Divider(height: 1),
+                SwitchListTile(
+                  title: const Text("MPU 핵심역량 (mpu.mjc.ac.kr)"),
+                  subtitle: const Text("핵심역량 프로그램 안내"),
+                  value: _enabledSources.contains("mpu"),
+                  onChanged: (v) => _setSourceEnabled("mpu", v),
                 ),
               ],
             ),
           ),
-          const Padding(
-            padding: EdgeInsets.fromLTRB(16, 8, 16, 0),
-            child: Text(
-              "알림 받을 출처",
-              style: TextStyle(fontSize: 13, color: Colors.black54),
-            ),
-          ),
-          SwitchListTile(
-            activeThumbColor: Colors.white,
-            activeTrackColor: AppColors.primary,
-            title: const Text("메인 홈페이지 (mjc.ac.kr)"),
-            subtitle: const Text("공지·학사·장학 등 본교 게시판"),
-            value: _enabledSources.contains("mjc"),
-            onChanged: (v) => _setSourceEnabled("mjc", v),
-          ),
-          SwitchListTile(
-            activeThumbColor: Colors.white,
-            activeTrackColor: AppColors.primary,
-            title: const Text("CTL (ctl.mjc.ac.kr)"),
-            subtitle: const Text("CTL 프로그램·공지"),
-            value: _enabledSources.contains("ctl"),
-            onChanged: (v) => _setSourceEnabled("ctl", v),
-          ),
-          SwitchListTile(
-            activeThumbColor: Colors.white,
-            activeTrackColor: AppColors.primary,
-            title: const Text("MPU 핵심역량 (mpu.mjc.ac.kr)"),
-            subtitle: const Text("핵심역량 프로그램 안내"),
-            value: _enabledSources.contains("mpu"),
-            onChanged: (v) => _setSourceEnabled("mpu", v),
-          ),
-          const Divider(height: 1),
-          const Padding(
-            padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
-            child: Text(
-              "앱 정보",
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: AppColors.primary,
-              ),
-            ),
-          ),
-          const ListTile(
-            title: Text("앱 버전"),
-            trailing: Text("1.0.0 (Build 1)"),
-          ),
-          ListTile(
-            title: const Text("개발자에게 문의하기"),
-            subtitle: const Text("불편한 점이나 건의사항을 보내주세요."),
-            onTap: _contactDeveloper,
-          ),
-          ListTile(
-            title: const Text("오픈소스 라이선스"),
-            onTap: () {
-              Navigator.of(context).push<void>(
-                MaterialPageRoute<void>(
-                  builder: (context) => const OpenSourceLicensesScreen(),
+          const SizedBox(height: 18),
+          _SectionHeader(title: "앱 정보"),
+          Card(
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              children: [
+                const ListTile(
+                  title: Text("앱 버전"),
+                  trailing: Text("1.0.0 (Build 1)"),
                 ),
-              );
-            },
+                const Divider(height: 1),
+                ListTile(
+                  title: const Text("개발자에게 문의하기"),
+                  subtitle: const Text("불편한 점이나 건의사항을 보내주세요."),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: _contactDeveloper,
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  title: const Text("오픈소스 라이선스"),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () {
+                    Navigator.of(context).push<void>(
+                      MaterialPageRoute<void>(
+                        builder: (context) => const OpenSourceLicensesScreen(),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 8, 4, 10),
+      child: Row(
+        children: [
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+              color: Theme.of(context).colorScheme.primary,
+              letterSpacing: -0.2,
+            ),
           ),
         ],
       ),

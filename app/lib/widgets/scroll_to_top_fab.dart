@@ -15,29 +15,31 @@ class ScrollToTopFab extends StatelessWidget {
       valueListenable: coordinator.fabVisibleNotifier,
       builder: (BuildContext context, bool visible, Widget? child) {
         if (!visible) return const SizedBox.shrink();
-        return Material(
-          elevation: 6,
-          shadowColor: Colors.black26,
-          shape: const CircleBorder(),
-          color: AppColors.primary,
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            customBorder: const CircleBorder(),
-            onTap: () => coordinator.scrollToTop(),
-            splashColor: Colors.white.withValues(alpha: 0.28),
-            highlightColor: Colors.white.withValues(alpha: 0.14),
-            child: Tooltip(
-              message: "맨 위로",
-              child: Semantics(
-                button: true,
-                label: "맨 위로 스크롤",
-                child: const SizedBox(
-                  width: 46,
-                  height: 46,
-                  child: Icon(
-                    Icons.vertical_align_top_rounded,
-                    color: Colors.white,
-                    size: 24,
+        return RepaintBoundary(
+          child: Material(
+            elevation: 6,
+            shadowColor: Colors.black26,
+            shape: const CircleBorder(),
+            color: AppColors.primary,
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              customBorder: const CircleBorder(),
+              onTap: () => coordinator.scrollToTop(),
+              splashColor: Colors.white.withValues(alpha: 0.28),
+              highlightColor: Colors.white.withValues(alpha: 0.14),
+              child: Tooltip(
+                message: "맨 위로",
+                child: Semantics(
+                  button: true,
+                  label: "맨 위로 스크롤",
+                  child: const SizedBox(
+                    width: 46,
+                    height: 46,
+                    child: Icon(
+                      Icons.vertical_align_top_rounded,
+                      color: Colors.white,
+                      size: 24,
+                    ),
                   ),
                 ),
               ),
