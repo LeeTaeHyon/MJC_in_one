@@ -3,6 +3,7 @@ import "package:flutter/foundation.dart" show kIsWeb;
 import "package:mio_notice/notification_history_prefs.dart";
 import "package:mio_notice/screens/common_webview_screen.dart";
 import "package:mio_notice/screens/login_screen.dart";
+import "package:mio_notice/screens/my_page_screen.dart";
 import "package:mio_notice/screens/notification_history_screen.dart";
 import "package:mio_notice/screens/settings_screen.dart";
 import "package:mio_notice/theme/app_colors.dart";
@@ -158,6 +159,26 @@ class _AppMenuDrawerContentState extends State<AppMenuDrawerContent> {
     }
   }
 
+  void _openMyPage(BuildContext context) {
+    final BuildContext navCtx = widget.dialogContext ?? context;
+    void push() {
+      if (!navCtx.mounted) return;
+      Navigator.push<void>(
+        navCtx,
+        MaterialPageRoute<void>(
+          builder: (context) => const MyPageScreen(),
+        ),
+      );
+    }
+
+    widget.closeMenu();
+    if (widget.closeBeforeSystemDialogs) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => push());
+    } else {
+      push();
+    }
+  }
+
   void _openLogin(BuildContext context) {
     final BuildContext navCtx = widget.dialogContext ?? context;
     void push() {
@@ -262,6 +283,7 @@ class _AppMenuDrawerContentState extends State<AppMenuDrawerContent> {
                   ),
                   const SizedBox(height: 8),
                   _MenuBlock(
+                    onMyPage: () => _openMyPage(context),
                     onSettings: () => _openSettings(context),
                     onAppInfo: () => _showAppInfo(context),
                     onHelp: () => _showHelp(context),
@@ -641,11 +663,13 @@ class _NoticePreviewCard extends StatelessWidget {
 
 class _MenuBlock extends StatelessWidget {
   const _MenuBlock({
+    required this.onMyPage,
     required this.onSettings,
     required this.onAppInfo,
     required this.onHelp,
   });
 
+  final VoidCallback onMyPage;
   final VoidCallback onSettings;
   final VoidCallback onAppInfo;
   final VoidCallback onHelp;
@@ -667,6 +691,11 @@ class _MenuBlock extends StatelessWidget {
                 color: Color(0xFF1A1A1A),
               ),
             ),
+          ),
+          _MenuRow(
+            icon: Icons.person_outline_rounded,
+            label: "마이페이지",
+            onTap: onMyPage,
           ),
           _MenuRow(
             icon: Icons.settings_outlined,

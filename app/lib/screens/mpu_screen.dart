@@ -8,7 +8,9 @@ import "package:mio_notice/screens/main_navigation_screen.dart";
 import "package:mio_notice/services/notice_manager.dart";
 import "package:mio_notice/perf_flags.dart";
 import "package:mio_notice/widgets/nested_scroll_refresh_indicator.dart";
+import "package:mio_notice/widgets/pin_favorite_buttons.dart";
 import "package:mio_notice/widgets/scroll_to_top_scope.dart";
+import "package:shared_preferences/shared_preferences.dart";
 import "package:url_launcher/url_launcher.dart";
 
 class _MpuListEntrance {
@@ -305,13 +307,59 @@ class _MpuListTab extends StatefulWidget {
 
 class _MpuListTabState extends State<_MpuListTab> {
   late Future<List<Map<String, dynamic>>> _mpuFuture;
+  Set<String> _pinnedKeys = {};
+  Set<String> _favoriteKeys = {};
   bool get _lowRaster =>
       kPerfLowRasterMode || defaultTargetPlatform == TargetPlatform.android;
 
   @override
   void initState() {
     super.initState();
+    _loadPinsAndFavorites();
     _mpuFuture = NoticeManager().getNotices(boardId: "mpu_programs");
+  }
+
+  String _itemKey(Map<String, dynamic> data) {
+    final String title = (data["title"] ?? "").toString().trim();
+    final String branch = (data["branch"] ?? "").toString().trim();
+    final String dDay = (data["d_day"] ?? "").toString().trim();
+    final String date = (data["reg_date"] ?? data["date"] ?? "").toString().trim();
+    return "$title|$branch|$dDay|$date";
+  }
+
+  Future<void> _loadPinsAndFavorites() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() {
+      _pinnedKeys =
+          (prefs.getStringList("pinned_notices_mpu_programs") ?? []).toSet();
+      _favoriteKeys =
+          (prefs.getStringList("favorite_notices_mpu_programs") ?? []).toSet();
+    });
+  }
+
+  Future<void> _togglePinned(String key) async {
+    final prefs = await SharedPreferences.getInstance();
+    final Set<String> next = {..._pinnedKeys};
+    if (next.contains(key)) {
+      next.remove(key);
+    } else {
+      next.add(key);
+    }
+    if (mounted) setState(() => _pinnedKeys = next);
+    await prefs.setStringList("pinned_notices_mpu_programs", next.toList());
+  }
+
+  Future<void> _toggleFavorite(String key) async {
+    final prefs = await SharedPreferences.getInstance();
+    final Set<String> next = {..._favoriteKeys};
+    if (next.contains(key)) {
+      next.remove(key);
+    } else {
+      next.add(key);
+    }
+    if (mounted) setState(() => _favoriteKeys = next);
+    await prefs.setStringList("favorite_notices_mpu_programs", next.toList());
   }
 
   Future<void> _handleRefresh() async {
@@ -386,6 +434,11 @@ class _MpuListTabState extends State<_MpuListTab> {
       return valB.compareTo(valA);
     });
 
+    final List<Map<String, dynamic>> ordered = [
+      ...filteredItems.where((d) => _pinnedKeys.contains(_itemKey(d))),
+      ...filteredItems.where((d) => !_pinnedKeys.contains(_itemKey(d))),
+    ];
+
     if (filteredItems.isEmpty) {
       return [
         SliverFillRemaining(
@@ -415,23 +468,43 @@ class _MpuListTabState extends State<_MpuListTab> {
               if (index == 0 && _MpuListEntrance.shouldAnimateList) {
                 _MpuListEntrance.scheduleEndEntranceAnimation();
               }
-              final Map<String, dynamic> data = filteredItems[index];
+              final Map<String, dynamic> data = ordered[index];
+              final String key = _itemKey(data);
+              final bool isPinned = _pinnedKeys.contains(key);
+              final bool isFavorite = _favoriteKeys.contains(key);
               final Widget card = RepaintBoundary(
                 child: _buildMpuCard(context, data),
+              );
+              final Widget overlaid = Stack(
+                children: [
+                  card,
+                  Positioned(
+                    right: 16,
+                    top: 10,
+                    child: PinFavoriteButtons(
+                      isPinned: isPinned,
+                      isFavorite: isFavorite,
+                      onTogglePinned: () => _togglePinned(key),
+                      onToggleFavorite: () => _toggleFavorite(key),
+                      pinnedColor: const Color(0xFF7986CB),
+                      favoriteColor: const Color(0xFF7986CB),
+                    ),
+                  ),
+                ],
               );
               final bool animate = _MpuListEntrance.shouldAnimateList &&
                   index < _MpuListEntrance.maxAnimatedItems;
               if (animate) {
-                return card
+                return overlaid
                     .animate()
                     .fadeIn(
                       delay: (index * 24).clamp(0, 240).ms,
                       duration: 240.ms,
                     );
               }
-              return card;
+              return overlaid;
             },
-            childCount: filteredItems.length,
+            childCount: ordered.length,
           ),
         ),
       ),

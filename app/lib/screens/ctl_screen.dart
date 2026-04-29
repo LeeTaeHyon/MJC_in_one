@@ -8,7 +8,9 @@ import "package:mio_notice/screens/main_navigation_screen.dart";
 import "package:mio_notice/services/notice_manager.dart";
 import "package:mio_notice/perf_flags.dart";
 import "package:mio_notice/widgets/nested_scroll_refresh_indicator.dart";
+import "package:mio_notice/widgets/pin_favorite_buttons.dart";
 import "package:mio_notice/widgets/scroll_to_top_scope.dart";
+import "package:shared_preferences/shared_preferences.dart";
 import "package:url_launcher/url_launcher.dart";
 
 class _CtlListEntrance {
@@ -305,13 +307,61 @@ class _CtlListTab extends StatefulWidget {
 
 class _CtlListTabState extends State<_CtlListTab> {
   late Future<List<Map<String, dynamic>>> _ctlFuture;
+  Set<String> _pinnedKeys = {};
+  Set<String> _favoriteKeys = {};
   bool get _lowRaster =>
       kPerfLowRasterMode || defaultTargetPlatform == TargetPlatform.android;
 
   @override
   void initState() {
     super.initState();
+    _loadPinsAndFavorites();
     _ctlFuture = NoticeManager().getNotices(boardId: widget.isProgram ? "ctl_programs" : "ctl_notice");
+  }
+
+  String _boardId() => widget.isProgram ? "ctl_programs" : "ctl_notice";
+
+  String _itemKey(Map<String, dynamic> data) {
+    final String url = (data["link"] ?? data["url"] ?? "").toString().trim();
+    final String title = (data["title"] ?? "").toString().trim();
+    final String date = (data["reg_date"] ?? data["date"] ?? "").toString().trim();
+    return "$url|$title|$date";
+  }
+
+  Future<void> _loadPinsAndFavorites() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    final String b = _boardId();
+    setState(() {
+      _pinnedKeys = (prefs.getStringList("pinned_notices_$b") ?? []).toSet();
+      _favoriteKeys = (prefs.getStringList("favorite_notices_$b") ?? []).toSet();
+    });
+  }
+
+  Future<void> _togglePinned(String key) async {
+    final prefs = await SharedPreferences.getInstance();
+    final String b = _boardId();
+    final Set<String> next = {..._pinnedKeys};
+    if (next.contains(key)) {
+      next.remove(key);
+    } else {
+      next.add(key);
+    }
+    if (mounted) setState(() => _pinnedKeys = next);
+    await prefs.setStringList("pinned_notices_$b", next.toList());
+  }
+
+  Future<void> _toggleFavorite(String key) async {
+    final prefs = await SharedPreferences.getInstance();
+    final String b = _boardId();
+    final Set<String> next = {..._favoriteKeys};
+    if (next.contains(key)) {
+      next.remove(key);
+    } else {
+      next.add(key);
+    }
+    if (mounted) setState(() => _favoriteKeys = next);
+    await prefs.setStringList("favorite_notices_$b", next.toList());
   }
 
   Future<void> _handleRefresh() async {
@@ -374,6 +424,11 @@ class _CtlListTabState extends State<_CtlListTab> {
       ];
     }
 
+    final List<Map<String, dynamic>> ordered = [
+      ...items.where((d) => _pinnedKeys.contains(_itemKey(d))),
+      ...items.where((d) => !_pinnedKeys.contains(_itemKey(d))),
+    ];
+
     return [
       SliverPadding(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
@@ -383,23 +438,41 @@ class _CtlListTabState extends State<_CtlListTab> {
               if (index == 0 && _CtlListEntrance.shouldAnimateList) {
                 _CtlListEntrance.scheduleEndEntranceAnimation();
               }
-              final data = items[index];
+              final data = ordered[index];
+              final String key = _itemKey(data);
+              final bool isPinned = _pinnedKeys.contains(key);
+              final bool isFavorite = _favoriteKeys.contains(key);
               final Widget card = RepaintBoundary(
                 child: _buildCtlCard(context, data),
+              );
+              final Widget overlaid = Stack(
+                children: [
+                  card,
+                  Positioned(
+                    right: 12,
+                    top: 10,
+                    child: PinFavoriteButtons(
+                      isPinned: isPinned,
+                      isFavorite: isFavorite,
+                      onTogglePinned: () => _togglePinned(key),
+                      onToggleFavorite: () => _toggleFavorite(key),
+                    ),
+                  ),
+                ],
               );
               final bool animate = _CtlListEntrance.shouldAnimateList &&
                   index < _CtlListEntrance.maxAnimatedItems;
               if (animate) {
-                return card
+                return overlaid
                     .animate()
                     .fadeIn(
                       delay: (index * 24).clamp(0, 240).ms,
                       duration: 240.ms,
                     );
               }
-              return card;
+              return overlaid;
             },
-            childCount: items.length,
+            childCount: ordered.length,
           ),
         ),
       ),

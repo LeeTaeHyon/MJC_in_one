@@ -8,6 +8,7 @@ import "package:mio_notice/screens/main_navigation_screen.dart";
 import "package:mio_notice/services/notice_manager.dart";
 import "package:mio_notice/perf_flags.dart";
 import "package:mio_notice/widgets/nested_scroll_refresh_indicator.dart";
+import "package:mio_notice/widgets/pin_favorite_buttons.dart";
 import "package:mio_notice/widgets/scroll_to_top_scope.dart";
 import "package:shared_preferences/shared_preferences.dart";
 import "package:url_launcher/url_launcher.dart";
@@ -312,12 +313,15 @@ class _NoticeListTab extends StatefulWidget {
 
 class _NoticeListTabState extends State<_NoticeListTab> {
   Set<String> _readNoticeIds = {};
+  Set<String> _pinnedKeys = {};
+  Set<String> _favoriteKeys = {};
   late Future<List<Map<String, dynamic>>> _noticeFuture;
 
   @override
   void initState() {
     super.initState();
     _loadReadHistory();
+    _loadPinsAndFavorites();
     _noticeFuture = NoticeManager().getNotices(boardId: widget.boardId);
   }
 
@@ -327,6 +331,50 @@ class _NoticeListTabState extends State<_NoticeListTab> {
     setState(() {
       _readNoticeIds = (prefs.getStringList("read_notices_${widget.boardId}") ?? []).toSet();
     });
+  }
+
+  String _noticeKey(Map<String, dynamic> data) {
+    final String id = (data["id"] ?? "").toString().trim();
+    if (id.isNotEmpty) return id;
+    final String url = (data["url"] ?? data["link"] ?? "").toString().trim();
+    final String title = (data["title"] ?? "").toString().trim();
+    final String date = (data["date"] ?? data["reg_date"] ?? "").toString().trim();
+    return "$url|$title|$date";
+  }
+
+  Future<void> _loadPinsAndFavorites() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() {
+      _pinnedKeys =
+          (prefs.getStringList("pinned_notices_${widget.boardId}") ?? []).toSet();
+      _favoriteKeys =
+          (prefs.getStringList("favorite_notices_${widget.boardId}") ?? []).toSet();
+    });
+  }
+
+  Future<void> _togglePinned(String key) async {
+    final prefs = await SharedPreferences.getInstance();
+    final Set<String> next = {..._pinnedKeys};
+    if (next.contains(key)) {
+      next.remove(key);
+    } else {
+      next.add(key);
+    }
+    if (mounted) setState(() => _pinnedKeys = next);
+    await prefs.setStringList("pinned_notices_${widget.boardId}", next.toList());
+  }
+
+  Future<void> _toggleFavorite(String key) async {
+    final prefs = await SharedPreferences.getInstance();
+    final Set<String> next = {..._favoriteKeys};
+    if (next.contains(key)) {
+      next.remove(key);
+    } else {
+      next.add(key);
+    }
+    if (mounted) setState(() => _favoriteKeys = next);
+    await prefs.setStringList("favorite_notices_${widget.boardId}", next.toList());
   }
 
   Future<void> _handleRefresh() async {
@@ -405,6 +453,11 @@ class _NoticeListTabState extends State<_NoticeListTab> {
       ];
     }
 
+    final List<Map<String, dynamic>> ordered = [
+      ...docs.where((d) => _pinnedKeys.contains(_noticeKey(d))),
+      ...docs.where((d) => !_pinnedKeys.contains(_noticeKey(d))),
+    ];
+
     return [
       SliverPadding(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
@@ -414,10 +467,13 @@ class _NoticeListTabState extends State<_NoticeListTab> {
               if (index == 0 && _MainWebsiteListEntrance.shouldAnimateList) {
                 _MainWebsiteListEntrance.scheduleEndEntranceAnimation();
               }
-              final data = docs[index];
+              final data = ordered[index];
               final String id = data["id"] ?? "";
               final bool isRead = _readNoticeIds.contains(id);
               final String url = data["url"] ?? "";
+              final String key = _noticeKey(data);
+              final bool isPinned = _pinnedKeys.contains(key);
+              final bool isFavorite = _favoriteKeys.contains(key);
 
               final Widget tile = _ScaleFeedbackButton(
                 onTap: () async {
@@ -442,6 +498,10 @@ class _NoticeListTabState extends State<_NoticeListTab> {
                   data,
                   id,
                   isRead,
+                  isPinned: isPinned,
+                  isFavorite: isFavorite,
+                  onTogglePinned: () => _togglePinned(key),
+                  onToggleFavorite: () => _toggleFavorite(key),
                   () async {
                     await _markAsRead(id);
                     if (url.isEmpty) return;
@@ -476,14 +536,24 @@ class _NoticeListTabState extends State<_NoticeListTab> {
 
               return out;
             },
-            childCount: docs.length,
+            childCount: ordered.length,
           ),
         ),
       ),
     ];
   }
 
-  Widget _buildNoticeListItem(BuildContext context, Map<String, dynamic> data, String id, bool isRead, VoidCallback onTap) {
+  Widget _buildNoticeListItem(
+    BuildContext context,
+    Map<String, dynamic> data,
+    String id,
+    bool isRead,
+    VoidCallback onTap, {
+    required bool isPinned,
+    required bool isFavorite,
+    required VoidCallback onTogglePinned,
+    required VoidCallback onToggleFavorite,
+  }) {
     final String title = data["title"] ?? "";
     final String dateStr = data["date"] ?? "";
     final String type = data["category"] ?? "공지";
@@ -520,7 +590,7 @@ class _NoticeListTabState extends State<_NoticeListTab> {
                       ),
                     ),
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 16, 48, 16),
+                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -575,12 +645,15 @@ class _NoticeListTabState extends State<_NoticeListTab> {
                         ],
                       ),
                     ),
-                    const Positioned(
+                    Positioned(
                       right: 12,
-                      top: 0,
-                      bottom: 0,
-                      child: Icon(Icons.chevron_right,
-                          color: Colors.grey, size: 24),
+                      top: 10,
+                      child: PinFavoriteButtons(
+                        isPinned: isPinned,
+                        isFavorite: isFavorite,
+                        onTogglePinned: onTogglePinned,
+                        onToggleFavorite: onToggleFavorite,
+                      ),
                     ),
                   ],
                 )
@@ -607,7 +680,7 @@ class _NoticeListTabState extends State<_NoticeListTab> {
                         ),
                       ),
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 16, 48, 16),
+                        padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -663,12 +736,15 @@ class _NoticeListTabState extends State<_NoticeListTab> {
                           ],
                         ),
                       ),
-                      const Positioned(
+                      Positioned(
                         right: 12,
-                        top: 0,
-                        bottom: 0,
-                        child: Icon(Icons.chevron_right,
-                            color: Colors.grey, size: 24),
+                        top: 10,
+                        child: PinFavoriteButtons(
+                          isPinned: isPinned,
+                          isFavorite: isFavorite,
+                          onTogglePinned: onTogglePinned,
+                          onToggleFavorite: onToggleFavorite,
+                        ),
                       ),
                     ],
                   ),
