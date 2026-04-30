@@ -5,9 +5,12 @@ import "package:flutter/material.dart";
 import "package:flutter_animate/flutter_animate.dart";
 import "package:mio_notice/screens/common_webview_screen.dart";
 import "package:mio_notice/screens/main_navigation_screen.dart";
+import "package:mio_notice/screens/settings_screen.dart";
+import "package:mio_notice/services/notice_filter.dart";
 import "package:mio_notice/services/notice_manager.dart";
 import "package:mio_notice/perf_flags.dart";
 import "package:mio_notice/widgets/nested_scroll_refresh_indicator.dart";
+import "package:mio_notice/widgets/notice_filter_bar.dart";
 import "package:mio_notice/widgets/pin_favorite_buttons.dart";
 import "package:mio_notice/widgets/scroll_to_top_scope.dart";
 import "package:shared_preferences/shared_preferences.dart";
@@ -221,8 +224,7 @@ class _MpuCollapsingHeaderDelegate extends SliverPersistentHeaderDelegate {
                               onTap: () => MainNavigationScreen
                                   .scaffoldKey.currentState
                                   ?.openDrawer(),
-                              splashColor:
-                                  Colors.white.withValues(alpha: 0.35),
+                              splashColor: Colors.white.withValues(alpha: 0.35),
                               highlightColor:
                                   Colors.white.withValues(alpha: 0.14),
                               child: const Padding(
@@ -309,6 +311,9 @@ class _MpuListTabState extends State<_MpuListTab> {
   late Future<List<Map<String, dynamic>>> _mpuFuture;
   Set<String> _pinnedKeys = {};
   Set<String> _favoriteKeys = {};
+  NoticeFilterState _noticeFilter = const NoticeFilterState();
+  List<String> _noticeSharedKeywords = [];
+  String _noticeQuickQuery = "";
   bool get _lowRaster =>
       kPerfLowRasterMode || defaultTargetPlatform == TargetPlatform.android;
 
@@ -316,14 +321,35 @@ class _MpuListTabState extends State<_MpuListTab> {
   void initState() {
     super.initState();
     _loadPinsAndFavorites();
+    _loadNoticeFilter();
     _mpuFuture = NoticeManager().getNotices(boardId: "mpu_programs");
+  }
+
+  Future<void> _loadNoticeFilter() async {
+    final NoticeFilterState filter = await NoticeFilterState.load();
+    final List<String> keywords = await loadSharedNoticeKeywords();
+    if (!mounted) return;
+    setState(() {
+      _noticeFilter = filter.copyWith(quickQuery: _noticeQuickQuery);
+      _noticeSharedKeywords = keywords;
+    });
+  }
+
+  Future<void> _openNoticeFilterSettings() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (context) => const SettingsScreen(),
+      ),
+    );
+    if (mounted) await _loadNoticeFilter();
   }
 
   String _itemKey(Map<String, dynamic> data) {
     final String title = (data["title"] ?? "").toString().trim();
     final String branch = (data["branch"] ?? "").toString().trim();
     final String dDay = (data["d_day"] ?? "").toString().trim();
-    final String date = (data["reg_date"] ?? data["date"] ?? "").toString().trim();
+    final String date =
+        (data["reg_date"] ?? data["date"] ?? "").toString().trim();
     return "$title|$branch|$dDay|$date";
   }
 
@@ -363,8 +389,10 @@ class _MpuListTabState extends State<_MpuListTab> {
   }
 
   Future<void> _handleRefresh() async {
+    await _loadNoticeFilter();
     setState(() {
-      _mpuFuture = NoticeManager().getNotices(boardId: "mpu_programs", forceRefresh: true);
+      _mpuFuture = NoticeManager()
+          .getNotices(boardId: "mpu_programs", forceRefresh: true);
     });
     await _mpuFuture;
   }
@@ -405,7 +433,16 @@ class _MpuListTabState extends State<_MpuListTab> {
     BuildContext context,
     List<Map<String, dynamic>> allItems,
   ) {
-    final List<Map<String, dynamic>> filteredItems = allItems.where((item) {
+    final NoticeFilterState filter =
+        _noticeFilter.copyWith(quickQuery: _noticeQuickQuery);
+    final List<Map<String, dynamic>> noticeFilteredItems = filter.apply(
+      allItems,
+      sharedKeywords: _noticeSharedKeywords,
+      fallbackSource: "MPU",
+      fallbackType: "역량관리",
+    );
+    final List<Map<String, dynamic>> filteredItems =
+        noticeFilteredItems.where((item) {
       final String dDay = (item["d_day"] ?? "").toString();
       final bool isCompleted = dDay.isEmpty ||
           dDay.contains("마감") ||
@@ -413,6 +450,17 @@ class _MpuListTabState extends State<_MpuListTab> {
           dDay == "D-0";
       return widget.showCompleted ? isCompleted : !isCompleted;
     }).toList();
+    final Widget filterBar = NoticeFilterBar(
+      filter: filter,
+      keywordCount: _noticeSharedKeywords.length,
+      totalCount: allItems.length,
+      filteredCount: filteredItems.length,
+      accentColor: const Color(0xFF7986CB),
+      onQueryChanged: (String value) {
+        setState(() => _noticeQuickQuery = value);
+      },
+      onOpenSettings: _openNoticeFilterSettings,
+    );
 
     int getDValue(String d) {
       if (d.contains("마감")) return 9999;
@@ -441,6 +489,7 @@ class _MpuListTabState extends State<_MpuListTab> {
 
     if (filteredItems.isEmpty) {
       return [
+        SliverToBoxAdapter(child: filterBar),
         SliverFillRemaining(
           hasScrollBody: false,
           child: Column(
@@ -448,9 +497,11 @@ class _MpuListTabState extends State<_MpuListTab> {
             children: [
               const SizedBox(height: 48),
               Text(
-                widget.showCompleted
-                    ? "완료된 프로그램이 없습니다."
-                    : "진행 중인 프로그램이 없습니다.",
+                allItems.isEmpty
+                    ? "등록된 프로그램이 없습니다."
+                    : (widget.showCompleted
+                        ? "완료된 프로그램이 없거나 필터에 맞는 항목이 없습니다."
+                        : "진행 중인 프로그램이 없거나 필터에 맞는 항목이 없습니다."),
                 style: TextStyle(color: Colors.grey.shade600),
               ),
             ],
@@ -460,6 +511,7 @@ class _MpuListTabState extends State<_MpuListTab> {
     }
 
     return [
+      SliverToBoxAdapter(child: filterBar),
       SliverPadding(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         sliver: SliverList(
@@ -495,9 +547,7 @@ class _MpuListTabState extends State<_MpuListTab> {
               final bool animate = _MpuListEntrance.shouldAnimateList &&
                   index < _MpuListEntrance.maxAnimatedItems;
               if (animate) {
-                return overlaid
-                    .animate()
-                    .fadeIn(
+                return overlaid.animate().fadeIn(
                       delay: (index * 24).clamp(0, 240).ms,
                       duration: 240.ms,
                     );
@@ -515,7 +565,7 @@ class _MpuListTabState extends State<_MpuListTab> {
     final String title = data["title"] ?? "";
     final String branch = data["branch"] ?? "";
     final String dDay = data["d_day"] ?? "";
-    
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       child: Material(
@@ -531,7 +581,11 @@ class _MpuListTabState extends State<_MpuListTab> {
             if (kIsWeb) {
               await launchUrl(Uri.parse(url), webOnlyWindowName: "_blank");
             } else {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const CommonWebViewScreen(url: url, title: "핵심역량 관리 (MPU)")));
+              Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const CommonWebViewScreen(
+                          url: url, title: "핵심역량 관리 (MPU)")));
             }
           },
           child: (_lowRaster)

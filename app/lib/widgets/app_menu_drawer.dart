@@ -1,6 +1,7 @@
 import "package:flutter/material.dart";
 import "package:flutter/foundation.dart" show kIsWeb;
 import "package:mio_notice/notification_history_prefs.dart";
+import "package:mio_notice/screens/academic_schedule_screen.dart";
 import "package:mio_notice/screens/common_webview_screen.dart";
 import "package:mio_notice/screens/login_screen.dart";
 import "package:mio_notice/screens/my_page_screen.dart";
@@ -8,6 +9,7 @@ import "package:mio_notice/screens/notification_history_screen.dart";
 import "package:mio_notice/screens/settings_screen.dart";
 import "package:mio_notice/theme/app_colors.dart";
 import "package:url_launcher/url_launcher.dart";
+
 /// 드로어 본문(헤더 + 알림 미리보기 + 메뉴). [Drawer]·홈 슬라이드 패널 공통.
 class AppMenuDrawerContent extends StatefulWidget {
   /// 메뉴/닫기 직전에 호출(스캐폴드 드로어면 pop, 홈 오버레이면 닫기 애니메이션).
@@ -79,7 +81,8 @@ class _AppMenuDrawerContentState extends State<AppMenuDrawerContent> {
     return "";
   }
 
-  void _openNoticeFromPreviewItem(BuildContext context, Map<String, dynamic> item) {
+  void _openNoticeFromPreviewItem(
+      BuildContext context, Map<String, dynamic> item) {
     final BuildContext navCtx = widget.dialogContext ?? context;
 
     final String openUrl = _extractNotificationOpenUrl(item);
@@ -147,6 +150,26 @@ class _AppMenuDrawerContentState extends State<AppMenuDrawerContent> {
         navCtx,
         MaterialPageRoute<void>(
           builder: (context) => const SettingsScreen(),
+        ),
+      );
+    }
+
+    widget.closeMenu();
+    if (widget.closeBeforeSystemDialogs) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => push());
+    } else {
+      push();
+    }
+  }
+
+  void _openAcademicSchedule(BuildContext context) {
+    final BuildContext navCtx = widget.dialogContext ?? context;
+    void push() {
+      if (!navCtx.mounted) return;
+      Navigator.push<void>(
+        navCtx,
+        MaterialPageRoute<void>(
+          builder: (context) => const AcademicScheduleScreen(),
         ),
       );
     }
@@ -284,6 +307,7 @@ class _AppMenuDrawerContentState extends State<AppMenuDrawerContent> {
                   const SizedBox(height: 8),
                   _MenuBlock(
                     onMyPage: () => _openMyPage(context),
+                    onAcademicSchedule: () => _openAcademicSchedule(context),
                     onSettings: () => _openSettings(context),
                     onAppInfo: () => _showAppInfo(context),
                     onHelp: () => _showHelp(context),
@@ -460,7 +484,8 @@ class _AlertsBlock extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.notifications_none_rounded, color: AppColors.primary, size: 22),
+              Icon(Icons.notifications_none_rounded,
+                  color: AppColors.primary, size: 22),
               const SizedBox(width: 8),
               const Text(
                 "알림",
@@ -473,7 +498,8 @@ class _AlertsBlock extends StatelessWidget {
               const Spacer(),
               if (!loading && badgeCount > 0)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                   decoration: BoxDecoration(
                     color: const Color(0xFFE53935),
                     borderRadius: BorderRadius.circular(10),
@@ -507,12 +533,14 @@ class _AlertsBlock extends StatelessWidget {
             ...List.generate(items.length, (i) {
               final m = items[i];
               return Padding(
-                padding: EdgeInsets.only(bottom: i == items.length - 1 ? 0 : 10),
+                padding:
+                    EdgeInsets.only(bottom: i == items.length - 1 ? 0 : 10),
                 child: _NoticePreviewCard(
                   title: "${m["title"] ?? "알림"}",
                   subtitle: "${m["body"] ?? ""}",
                   timeLabel: relativeTimeLabel(m["received_at"]?.toString()),
-                  showUnreadDot: !readKeys.contains(notificationHistoryItemKey(m)),
+                  showUnreadDot:
+                      !readKeys.contains(notificationHistoryItemKey(m)),
                   onTap: () => onItemTap(m),
                   onDismiss: () => onDismissAt(i),
                 ),
@@ -524,7 +552,8 @@ class _AlertsBlock extends StatelessWidget {
               onPressed: onViewAll,
               style: TextButton.styleFrom(
                 foregroundColor: AppColors.primary,
-                textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                textStyle:
+                    const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
               ),
               child: const Text("모든 알림 보기"),
             ),
@@ -636,7 +665,8 @@ class _NoticePreviewCard extends StatelessWidget {
                       padding: EdgeInsets.only(left: showUnreadDot ? 16 : 0),
                       child: Text(
                         timeLabel.isEmpty ? " " : timeLabel,
-                        style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                        style: TextStyle(
+                            fontSize: 11, color: Colors.grey.shade500),
                       ),
                     ),
                   ],
@@ -647,7 +677,8 @@ class _NoticePreviewCard extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(0, 4, 4, 4),
             child: IconButton(
-              icon: Icon(Icons.close_rounded, size: 20, color: Colors.grey.shade600),
+              icon: Icon(Icons.close_rounded,
+                  size: 20, color: Colors.grey.shade600),
               tooltip: "삭제",
               onPressed: () => onDismiss(),
               visualDensity: VisualDensity.compact,
@@ -664,12 +695,14 @@ class _NoticePreviewCard extends StatelessWidget {
 class _MenuBlock extends StatelessWidget {
   const _MenuBlock({
     required this.onMyPage,
+    required this.onAcademicSchedule,
     required this.onSettings,
     required this.onAppInfo,
     required this.onHelp,
   });
 
   final VoidCallback onMyPage;
+  final VoidCallback onAcademicSchedule;
   final VoidCallback onSettings;
   final VoidCallback onAppInfo;
   final VoidCallback onHelp;
@@ -696,6 +729,11 @@ class _MenuBlock extends StatelessWidget {
             icon: Icons.person_outline_rounded,
             label: "마이페이지",
             onTap: onMyPage,
+          ),
+          _MenuRow(
+            icon: Icons.event_note_outlined,
+            label: "학사일정",
+            onTap: onAcademicSchedule,
           ),
           _MenuRow(
             icon: Icons.settings_outlined,
@@ -751,7 +789,8 @@ class _MenuRow extends StatelessWidget {
                   ),
                 ),
               ),
-              Icon(Icons.chevron_right_rounded, color: Colors.grey.shade400, size: 22),
+              Icon(Icons.chevron_right_rounded,
+                  color: Colors.grey.shade400, size: 22),
             ],
           ),
         ),
@@ -763,7 +802,8 @@ class _MenuRow extends StatelessWidget {
 /// `received_at` 예: `2026.04.12 14:30` → 상대 시간 문자열
 String relativeTimeLabel(String? raw) {
   if (raw == null || raw.trim().isEmpty) return "";
-  final match = RegExp(r"(\d{4})\.(\d{2})\.(\d{2})\s+(\d{1,2}):(\d{2})").firstMatch(raw);
+  final match =
+      RegExp(r"(\d{4})\.(\d{2})\.(\d{2})\s+(\d{1,2}):(\d{2})").firstMatch(raw);
   if (match == null) return raw;
   try {
     final y = int.parse(match.group(1)!);

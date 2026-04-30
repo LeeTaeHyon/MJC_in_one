@@ -19,6 +19,7 @@ dependencies:
   shared_preferences: ^2.3.2
   flutter_animate: ^4.5.2
   share_plus: ^10.1.3
+  cp949_codec: ^1.0.2
 
 dev_dependencies:
   flutter_test:
@@ -30,3 +31,4 @@ flutter:
   assets:
     - assets/images/
     - assets/licenses/
+    - assets/data/

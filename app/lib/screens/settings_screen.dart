@@ -1,6 +1,7 @@
 import "package:flutter/material.dart";
 import "package:mio_notice/notification_sources.dart";
 import "package:mio_notice/screens/open_source_licenses_screen.dart";
+import "package:mio_notice/services/notice_filter.dart";
 import "package:mio_notice/theme/theme_mode_scope.dart";
 import "package:mio_notice/utils/snack_bar_utils.dart";
 import "package:mio_notice/widgets/scroll_to_top_scope.dart";
@@ -20,6 +21,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _keywordNoticesEnabled = true;
   List<String> _keywords = [];
   List<String> _enabledSources = List<String>.from(kNotificationSourceIds);
+  NoticeFilterState _noticeFilter = const NoticeFilterState();
   final ScrollController _scrollController = ScrollController();
   ScrollToTopCoordinator? _scrollRouteCoordinator;
   bool _registeredScrollRoute = false;
@@ -52,7 +54,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         if (!mounted || !_scrollController.hasClients) return;
         c.reportRouteScroll(
           _scrollController.offset,
-          ScrollFabMetrics.viewportHeightForThreshold(_scrollController, context),
+          ScrollFabMetrics.viewportHeightForThreshold(
+              _scrollController, context),
         );
       });
     }
@@ -85,13 +88,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _allNoticesEnabled = prefs.getBool("allNoticesEnabled") ?? true;
       _keywordNoticesEnabled = prefs.getBool("keywordNoticesEnabled") ?? true;
       _keywords = prefs.getStringList("keywords") ?? [];
+      _noticeFilter = NoticeFilterState(
+        enabled: prefs.getBool(kNoticeFilterEnabledPrefKey) ?? false,
+        requireKeywordHit:
+            prefs.getBool(kNoticeFilterRequireKeywordPrefKey) ?? false,
+        sources: (prefs.getStringList(kNoticeFilterSourcesPrefKey) ??
+                kNoticeFilterSourceOptions)
+            .where(kNoticeFilterSourceOptions.contains)
+            .toList(),
+        types: (prefs.getStringList(kNoticeFilterTypesPrefKey) ??
+                kNoticeFilterTypeOptions)
+            .where(kNoticeFilterTypeOptions.contains)
+            .toList(),
+        excludes: prefs.getStringList(kNoticeFilterExcludesPrefKey) ?? const [],
+      );
+      if (_noticeFilter.sources.isEmpty || _noticeFilter.types.isEmpty) {
+        _noticeFilter = _noticeFilter.copyWith(
+          sources: _noticeFilter.sources.isEmpty
+              ? kNoticeFilterSourceOptions
+              : _noticeFilter.sources,
+          types: _noticeFilter.types.isEmpty
+              ? kNoticeFilterTypeOptions
+              : _noticeFilter.types,
+        );
+      }
       final stored = prefs.getStringList(kNotificationSourcesPrefKey);
       if (stored == null || stored.isEmpty) {
         _enabledSources = defaultNotificationSources();
       } else {
-        _enabledSources = kNotificationSourceIds
-            .where((id) => stored.contains(id))
-            .toList();
+        _enabledSources =
+            kNotificationSourceIds.where((id) => stored.contains(id)).toList();
         if (_enabledSources.isEmpty) {
           _enabledSources = defaultNotificationSources();
         }
@@ -103,7 +129,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   EdgeInsets _snackBarMargin(BuildContext context) {
     const double mainBottomNavHeight = 10;
     final double safeBottom = MediaQuery.paddingOf(context).bottom;
-    return EdgeInsets.fromLTRB(16, 0, 16, safeBottom + mainBottomNavHeight + 12);
+    return EdgeInsets.fromLTRB(
+        16, 0, 16, safeBottom + mainBottomNavHeight + 12);
   }
 
   /// 전체 알림 스위치 저장
@@ -183,6 +210,114 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() => _enabledSources = ordered);
   }
 
+  Future<void> _setNoticeFilter(NoticeFilterState next) async {
+    final NoticeFilterState safeNext = next.copyWith(
+      sources: next.sources.isEmpty ? kNoticeFilterSourceOptions : next.sources,
+      types: next.types.isEmpty ? kNoticeFilterTypeOptions : next.types,
+    );
+    await safeNext.save();
+    if (!mounted) return;
+    setState(() => _noticeFilter = safeNext);
+  }
+
+  Future<void> _toggleNoticeFilterSource(String source, bool selected) async {
+    final Set<String> next = Set<String>.from(_noticeFilter.sources);
+    selected ? next.add(source) : next.remove(source);
+    await _setNoticeFilter(_noticeFilter.copyWith(sources: next.toList()));
+  }
+
+  Future<void> _toggleNoticeFilterType(String type, bool selected) async {
+    final Set<String> next = Set<String>.from(_noticeFilter.types);
+    selected ? next.add(type) : next.remove(type);
+    await _setNoticeFilter(_noticeFilter.copyWith(types: next.toList()));
+  }
+
+  void _showExcludeKeywordDialog() {
+    final TextEditingController controller = TextEditingController();
+    showDialog<void>(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text("제외 키워드 관리"),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        "제외 키워드가 제목이나 설명에 포함된 공지는 앱 목록에서 숨겨집니다.",
+                        style: TextStyle(fontSize: 12, color: Colors.grey),
+                      ),
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: controller,
+                        decoration: InputDecoration(
+                          hintText: "예: 폐강, 취소",
+                          suffixIcon: IconButton(
+                            icon: const Icon(Icons.add),
+                            onPressed: () async {
+                              final String text = controller.text.trim();
+                              if (text.isEmpty ||
+                                  _noticeFilter.excludes.contains(text)) {
+                                return;
+                              }
+                              final List<String> next = [
+                                ..._noticeFilter.excludes,
+                                text,
+                              ];
+                              await _setNoticeFilter(
+                                _noticeFilter.copyWith(excludes: next),
+                              );
+                              if (!mounted) return;
+                              controller.clear();
+                              setDialogState(() {});
+                            },
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: _noticeFilter.excludes.map((kw) {
+                            return Chip(
+                              label: Text(kw),
+                              onDeleted: () async {
+                                final List<String> next = _noticeFilter.excludes
+                                    .where((item) => item != kw)
+                                    .toList();
+                                await _setNoticeFilter(
+                                  _noticeFilter.copyWith(excludes: next),
+                                );
+                                if (!mounted) return;
+                                setDialogState(() {});
+                              },
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text("닫기"),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    ).whenComplete(controller.dispose);
+  }
+
   /// 키워드 관리 다이얼로그
   void _showKeywordDialog() {
     final TextEditingController controller = TextEditingController();
@@ -216,12 +351,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               icon: const Icon(Icons.add),
                               onPressed: () async {
                                 final text = controller.text.trim();
-                                if (text.isEmpty || _keywords.contains(text)) return;
+                                if (text.isEmpty || _keywords.contains(text))
+                                  return;
 
                                 // #region agent log
                                 debugSessionNdjson(
                                   hypothesisId: "H1",
-                                  location: "settings_screen.dart:_showKeywordDialog:add:onPressed:start",
+                                  location:
+                                      "settings_screen.dart:_showKeywordDialog:add:onPressed:start",
                                   message: "Keyword add pressed",
                                   data: <String, dynamic>{
                                     "mounted": mounted,
@@ -232,7 +369,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 // #endregion
 
                                 try {
-                                  final prefs = await SharedPreferences.getInstance();
+                                  final prefs =
+                                      await SharedPreferences.getInstance();
                                   // #region agent log
                                   debugSessionNdjson(
                                     hypothesisId: "H2",
@@ -246,7 +384,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   // #endregion
 
                                   _keywords = [..._keywords, text];
-                                  await prefs.setStringList("keywords", _keywords);
+                                  await prefs.setStringList(
+                                      "keywords", _keywords);
                                   // #region agent log
                                   debugSessionNdjson(
                                     hypothesisId: "H2",
@@ -266,7 +405,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                       hypothesisId: "H1",
                                       location:
                                           "settings_screen.dart:_showKeywordDialog:add:onPressed:unmountedEarlyReturn",
-                                      message: "State unmounted after await; return before setState",
+                                      message:
+                                          "State unmounted after await; return before setState",
                                       data: <String, dynamic>{
                                         "keywordsCount": _keywords.length,
                                       },
@@ -322,10 +462,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   // #endregion
 
                                   try {
-                                    final prefs = await SharedPreferences.getInstance();
-                                    _keywords =
-                                        _keywords.where((k) => k != kw).toList();
-                                    await prefs.setStringList("keywords", _keywords);
+                                    final prefs =
+                                        await SharedPreferences.getInstance();
+                                    _keywords = _keywords
+                                        .where((k) => k != kw)
+                                        .toList();
+                                    await prefs.setStringList(
+                                        "keywords", _keywords);
                                     // #region agent log
                                     debugSessionNdjson(
                                       hypothesisId: "H2",
@@ -363,7 +506,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                       hypothesisId: "HERR",
                                       location:
                                           "settings_screen.dart:_showKeywordDialog:delete:onDeleted:catch",
-                                      message: "Exception during keyword delete",
+                                      message:
+                                          "Exception during keyword delete",
                                       data: <String, dynamic>{
                                         "error": e.toString(),
                                         "mounted": mounted,
@@ -412,19 +556,137 @@ class _SettingsScreenState extends State<SettingsScreen> {
           snackBar: SnackBar(
             behavior: SnackBarBehavior.floating,
             margin: _snackBarMargin(context),
-            content: RichText(text: TextSpan(style: TextStyle(color: Colors.white), 
-            children: [TextSpan(text: "메일 앱을 열 수 없어요. ", style: TextStyle(fontWeight: FontWeight.w700)),
-            TextSpan(text: "메일 앱 설치/계정 설정 후 다시 시도해 주세요.", style: TextStyle(fontWeight: FontWeight.w400)),]
-      )),
+            content: RichText(
+                text:
+                    TextSpan(style: TextStyle(color: Colors.white), children: [
+              TextSpan(
+                  text: "메일 앱을 열 수 없어요. ",
+                  style: TextStyle(fontWeight: FontWeight.w700)),
+              TextSpan(
+                  text: "메일 앱 설치/계정 설정 후 다시 시도해 주세요.",
+                  style: TextStyle(fontWeight: FontWeight.w400)),
+            ])),
           ),
         );
       }
     }
   }
 
+  Widget _buildFilterChipGroup({
+    required List<String> options,
+    required List<String> selected,
+    required ValueChanged<String> onEnabled,
+    required ValueChanged<String> onDisabled,
+  }) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: options.map((String value) {
+        final bool isSelected = selected.contains(value);
+        return FilterChip(
+          label: Text(value),
+          selected: isSelected,
+          onSelected: (bool next) =>
+              next ? onEnabled(value) : onDisabled(value),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildNoticeScreenFilterCard() {
+    final bool enabled = _noticeFilter.enabled;
+    final bool requireKeyword = _noticeFilter.requireKeywordHit;
+    final String excludeSummary = _noticeFilter.excludes.isEmpty
+        ? "현재 등록된 제외 키워드 없음"
+        : "${_noticeFilter.excludes.length}개 제외 키워드 사용 중";
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SectionHeader(title: "공지 화면 필터"),
+        Card(
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SwitchListTile(
+                title: const Text("공지 화면 필터 사용"),
+                subtitle: const Text("홈·공지·CTL·MPU 목록에 필터를 적용합니다."),
+                value: enabled,
+                onChanged: (bool value) =>
+                    _setNoticeFilter(_noticeFilter.copyWith(enabled: value)),
+              ),
+              const Divider(height: 1),
+              SwitchListTile(
+                title: const Text("키워드 알람과 동일한 키워드만 표시"),
+                subtitle: Text(
+                  _keywords.isEmpty
+                      ? "키워드가 없으면 필터 사용 시 목록이 비어 보일 수 있습니다."
+                      : "${_keywords.length}개 키워드를 화면 필터에도 사용",
+                ),
+                value: requireKeyword,
+                onChanged: (bool value) => _setNoticeFilter(
+                  _noticeFilter.copyWith(requireKeywordHit: value),
+                ),
+              ),
+              const Divider(height: 1),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
+                child: Text(
+                  "출처",
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.primary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                child: _buildFilterChipGroup(
+                  options: kNoticeFilterSourceOptions,
+                  selected: _noticeFilter.sources,
+                  onEnabled: (value) => _toggleNoticeFilterSource(value, true),
+                  onDisabled: (value) =>
+                      _toggleNoticeFilterSource(value, false),
+                ),
+              ),
+              const Divider(height: 1),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
+                child: Text(
+                  "유형",
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.primary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                child: _buildFilterChipGroup(
+                  options: kNoticeFilterTypeOptions,
+                  selected: _noticeFilter.types,
+                  onEnabled: (value) => _toggleNoticeFilterType(value, true),
+                  onDisabled: (value) => _toggleNoticeFilterType(value, false),
+                ),
+              ),
+              const Divider(height: 1),
+              ListTile(
+                title: const Text("제외 키워드 추가/삭제"),
+                subtitle: Text(excludeSummary),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: _showExcludeKeywordDialog,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final ThemeModeController? themeController = ThemeModeScope.maybeOf(context);
+    final ThemeModeController? themeController =
+        ThemeModeScope.maybeOf(context);
     final ThemeMode themeMode = themeController?.value ?? ThemeMode.system;
     final bool allNotices = _allNoticesEnabled;
     final bool keywordNotices = _keywordNoticesEnabled;
@@ -549,6 +811,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
           const SizedBox(height: 18),
+          _buildNoticeScreenFilterCard(),
+          const SizedBox(height: 18),
           _SectionHeader(title: "테마"),
           Card(
             clipBehavior: Clip.antiAlias,
@@ -582,7 +846,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ],
                     selected: {themeMode},
                     onSelectionChanged: (s) {
-                      final ThemeMode next = s.isEmpty ? ThemeMode.system : s.first;
+                      final ThemeMode next =
+                          s.isEmpty ? ThemeMode.system : s.first;
                       if (themeController == null) return;
                       themeController.setAndPersist(next);
                     },

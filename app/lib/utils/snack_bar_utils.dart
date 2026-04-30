@@ -7,8 +7,9 @@ import "package:flutter/material.dart";
 class SnackBarUtils {
   SnackBarUtils._();
 
-  static final Map<String, ScaffoldFeatureController<SnackBar, SnackBarClosedReason>>
-      _inFlight = <String, ScaffoldFeatureController<SnackBar, SnackBarClosedReason>>{};
+  static final Map<String,
+          ScaffoldFeatureController<SnackBar, SnackBarClosedReason>> _inFlight =
+      <String, ScaffoldFeatureController<SnackBar, SnackBarClosedReason>>{};
 
   static ScaffoldFeatureController<SnackBar, SnackBarClosedReason>? showUnique(
     BuildContext context, {
@@ -32,4 +33,3 @@ class SnackBarUtils {
     return controller;
   }
 }
-

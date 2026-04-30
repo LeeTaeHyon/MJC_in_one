@@ -10,7 +10,9 @@ String notificationHistoryItemKey(Map<String, dynamic> item) {
   final String title = (item["title"] ?? "").toString().trim();
   final String body = (item["body"] ?? "").toString().trim();
   final String url = ((item["data"] is Map)
-          ? ((item["data"] as Map)["url"] ?? (item["data"] as Map)["link"] ?? "")
+          ? ((item["data"] as Map)["url"] ??
+              (item["data"] as Map)["link"] ??
+              "")
           : (item["url"] ?? item["link"] ?? ""))
       .toString()
       .trim();
@@ -47,7 +49,8 @@ Future<void> markNotificationHistoryItemRead(Map<String, dynamic> item) async {
   final String key = notificationHistoryItemKey(item);
   if (key.isEmpty) return;
   final prefs = await SharedPreferences.getInstance();
-  final Set<String> keys = (prefs.getStringList(kNotificationReadKeysPrefKey) ?? []).toSet();
+  final Set<String> keys =
+      (prefs.getStringList(kNotificationReadKeysPrefKey) ?? []).toSet();
   if (keys.contains(key)) return;
   keys.add(key);
   // 너무 많이 쌓이지 않게 200개까지만 유지
@@ -59,9 +62,11 @@ Future<void> markNotificationHistoryItemRead(Map<String, dynamic> item) async {
 }
 
 /// [newestFirstIndex]: 0이 가장 최근 알림.
-Future<void> removeNotificationHistoryAtNewestFirstIndex(int newestFirstIndex) async {
+Future<void> removeNotificationHistoryAtNewestFirstIndex(
+    int newestFirstIndex) async {
   final prefs = await SharedPreferences.getInstance();
-  final historyStrings = List<String>.from(prefs.getStringList(kNotificationHistoryPrefKey) ?? []);
+  final historyStrings =
+      List<String>.from(prefs.getStringList(kNotificationHistoryPrefKey) ?? []);
 
   final validRawIndices = <int>[];
   for (var i = 0; i < historyStrings.length; i++) {
@@ -70,8 +75,10 @@ Future<void> removeNotificationHistoryAtNewestFirstIndex(int newestFirstIndex) a
       if (m.isNotEmpty) validRawIndices.add(i);
     } catch (_) {}
   }
-  if (newestFirstIndex < 0 || newestFirstIndex >= validRawIndices.length) return;
-  final rawIndex = validRawIndices[validRawIndices.length - 1 - newestFirstIndex];
+  if (newestFirstIndex < 0 || newestFirstIndex >= validRawIndices.length)
+    return;
+  final rawIndex =
+      validRawIndices[validRawIndices.length - 1 - newestFirstIndex];
   historyStrings.removeAt(rawIndex);
   await prefs.setStringList(kNotificationHistoryPrefKey, historyStrings);
 }

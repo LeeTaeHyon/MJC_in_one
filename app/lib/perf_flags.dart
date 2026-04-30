@@ -5,4 +5,3 @@ const bool kPerfLowRasterMode = bool.fromEnvironment(
   "MJC_PERF_LOW_RASTER",
   defaultValue: false,
 );
-

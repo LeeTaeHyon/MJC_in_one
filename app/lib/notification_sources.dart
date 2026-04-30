@@ -9,9 +9,7 @@ List<String> defaultNotificationSources() =>
 /// 크롤러가 넣은 `source`가 없을 때 기존 페이로드로 추정 (구버전 FCM 호환).
 String resolveNotificationSource(Map<String, dynamic> data) {
   final raw = data["source"]?.toString().trim();
-  if (raw != null &&
-      raw.isNotEmpty &&
-      kNotificationSourceIds.contains(raw)) {
+  if (raw != null && raw.isNotEmpty && kNotificationSourceIds.contains(raw)) {
     return raw;
   }
   final board = (data["board"] ?? "").toString();

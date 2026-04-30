@@ -11,7 +11,8 @@ class NotificationHistoryScreen extends StatefulWidget {
   const NotificationHistoryScreen({super.key});
 
   @override
-  State<NotificationHistoryScreen> createState() => _NotificationHistoryScreenState();
+  State<NotificationHistoryScreen> createState() =>
+      _NotificationHistoryScreenState();
 }
 
 class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
@@ -92,7 +93,8 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
         if (!mounted || !_scrollController.hasClients) return;
         c.reportRouteScroll(
           _scrollController.offset,
-          ScrollFabMetrics.viewportHeightForThreshold(_scrollController, context),
+          ScrollFabMetrics.viewportHeightForThreshold(
+              _scrollController, context),
         );
       });
     }
@@ -170,13 +172,16 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
                     title: const Text("알림 삭제"),
                     content: const Text("모든 알림 내역을 지울까요?"),
                     actions: [
-                      TextButton(onPressed: () => Navigator.pop(context), child: const Text("취소")),
+                      TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text("취소")),
                       TextButton(
                         onPressed: () {
                           _clearHistory();
                           Navigator.pop(context);
                         },
-                        child: const Text("지우기", style: TextStyle(color: Colors.red)),
+                        child: const Text("지우기",
+                            style: TextStyle(color: Colors.red)),
                       ),
                     ],
                   ),
@@ -193,13 +198,16 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
                   controller: _scrollController,
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   itemCount: _history.length,
-                  separatorBuilder: (context, index) => const Divider(height: 1),
+                  separatorBuilder: (context, index) =>
+                      const Divider(height: 1),
                   itemBuilder: (context, index) {
                     final item = _history[index];
                     return ListTile(
                       leading: CircleAvatar(
-                        backgroundColor: AppColors.iconBackdrop(AppColors.primary),
-                        child: const Icon(Icons.notifications, color: AppColors.primary, size: 20),
+                        backgroundColor:
+                            AppColors.iconBackdrop(AppColors.primary),
+                        child: const Icon(Icons.notifications,
+                            color: AppColors.primary, size: 20),
                       ),
                       title: Text(
                         item["title"] ?? "새로운 알림",
@@ -213,12 +221,14 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
                           const SizedBox(height: 4),
                           Text(
                             item["received_at"] ?? "",
-                            style: const TextStyle(fontSize: 12, color: Colors.grey),
+                            style: const TextStyle(
+                                fontSize: 12, color: Colors.grey),
                           ),
                         ],
                       ),
                       trailing: IconButton(
-                        icon: Icon(Icons.close_rounded, color: Colors.grey.shade500),
+                        icon: Icon(Icons.close_rounded,
+                            color: Colors.grey.shade500),
                         tooltip: "이 알림 삭제",
                         onPressed: () => _removeOneAt(index),
                       ),

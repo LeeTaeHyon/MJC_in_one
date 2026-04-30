@@ -114,9 +114,8 @@ final class NestedScrollFabScrollReporter {
     void send() {
       final double outerPixels =
           outerController.hasClients ? outerController.offset : 0.0;
-      final double combinedPixels = outerPixels > _innerListPixels
-          ? outerPixels
-          : _innerListPixels;
+      final double combinedPixels =
+          outerPixels > _innerListPixels ? outerPixels : _innerListPixels;
       double viewportHeight =
           ScrollFabMetrics.viewportHeightInScrollListener(outerController);
       if (_innerViewportDimension > 0) {
@@ -234,8 +233,7 @@ class ScrollToTopCoordinator {
     _fabVisibilityFlushScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _fabVisibilityFlushScheduled = false;
-      final bool next =
-          _fabVisibilityPending ?? fabVisibleNotifier.value;
+      final bool next = _fabVisibilityPending ?? fabVisibleNotifier.value;
       _fabVisibilityPending = null;
       _commitFabVisible(next);
     });
@@ -254,9 +252,8 @@ class ScrollToTopCoordinator {
       return;
     }
     final bool cur = fabVisibleNotifier.value;
-    final bool next = cur
-        ? (y > _scrollHideThreshold(vh))
-        : (y > _scrollRevealThreshold(vh));
+    final bool next =
+        cur ? (y > _scrollHideThreshold(vh)) : (y > _scrollRevealThreshold(vh));
     _setFabVisible(next);
   }
 
@@ -334,13 +331,16 @@ class ScrollToTopScope extends InheritedWidget {
   final ScrollToTopCoordinator coordinator;
 
   static ScrollToTopCoordinator of(BuildContext context) {
-    final scope = context.dependOnInheritedWidgetOfExactType<ScrollToTopScope>();
+    final scope =
+        context.dependOnInheritedWidgetOfExactType<ScrollToTopScope>();
     assert(scope != null, "ScrollToTopScope가 없습니다.");
     return scope!.coordinator;
   }
 
   static ScrollToTopCoordinator? maybeOf(BuildContext context) {
-    return context.getInheritedWidgetOfExactType<ScrollToTopScope>()?.coordinator;
+    return context
+        .getInheritedWidgetOfExactType<ScrollToTopScope>()
+        ?.coordinator;
   }
 
   @override

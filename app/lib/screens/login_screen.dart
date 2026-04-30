@@ -137,10 +137,12 @@ class _LoginScreenState extends State<LoginScreen> {
                         height: 56,
                         child: FilledButton.tonal(
                           style: FilledButton.styleFrom(
-                            backgroundColor:
-                                Theme.of(context).colorScheme.primary.withValues(
-                                      alpha: 0.10,
-                                    ),
+                            backgroundColor: Theme.of(context)
+                                .colorScheme
+                                .primary
+                                .withValues(
+                                  alpha: 0.10,
+                                ),
                             foregroundColor:
                                 Theme.of(context).colorScheme.primary,
                             shape: RoundedRectangleBorder(
@@ -310,4 +312,3 @@ class _LoginCard extends StatelessWidget {
     );
   }
 }
-

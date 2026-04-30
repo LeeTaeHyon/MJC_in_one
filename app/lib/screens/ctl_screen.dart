@@ -5,9 +5,12 @@ import "package:flutter/material.dart";
 import "package:flutter_animate/flutter_animate.dart";
 import "package:mio_notice/screens/common_webview_screen.dart";
 import "package:mio_notice/screens/main_navigation_screen.dart";
+import "package:mio_notice/screens/settings_screen.dart";
+import "package:mio_notice/services/notice_filter.dart";
 import "package:mio_notice/services/notice_manager.dart";
 import "package:mio_notice/perf_flags.dart";
 import "package:mio_notice/widgets/nested_scroll_refresh_indicator.dart";
+import "package:mio_notice/widgets/notice_filter_bar.dart";
 import "package:mio_notice/widgets/pin_favorite_buttons.dart";
 import "package:mio_notice/widgets/scroll_to_top_scope.dart";
 import "package:shared_preferences/shared_preferences.dart";
@@ -221,8 +224,7 @@ class _CtlCollapsingHeaderDelegate extends SliverPersistentHeaderDelegate {
                               onTap: () => MainNavigationScreen
                                   .scaffoldKey.currentState
                                   ?.openDrawer(),
-                              splashColor:
-                                  Colors.white.withValues(alpha: 0.35),
+                              splashColor: Colors.white.withValues(alpha: 0.35),
                               highlightColor:
                                   Colors.white.withValues(alpha: 0.14),
                               child: const Padding(
@@ -309,6 +311,9 @@ class _CtlListTabState extends State<_CtlListTab> {
   late Future<List<Map<String, dynamic>>> _ctlFuture;
   Set<String> _pinnedKeys = {};
   Set<String> _favoriteKeys = {};
+  NoticeFilterState _noticeFilter = const NoticeFilterState();
+  List<String> _noticeSharedKeywords = [];
+  String _noticeQuickQuery = "";
   bool get _lowRaster =>
       kPerfLowRasterMode || defaultTargetPlatform == TargetPlatform.android;
 
@@ -316,7 +321,28 @@ class _CtlListTabState extends State<_CtlListTab> {
   void initState() {
     super.initState();
     _loadPinsAndFavorites();
-    _ctlFuture = NoticeManager().getNotices(boardId: widget.isProgram ? "ctl_programs" : "ctl_notice");
+    _loadNoticeFilter();
+    _ctlFuture = NoticeManager()
+        .getNotices(boardId: widget.isProgram ? "ctl_programs" : "ctl_notice");
+  }
+
+  Future<void> _loadNoticeFilter() async {
+    final NoticeFilterState filter = await NoticeFilterState.load();
+    final List<String> keywords = await loadSharedNoticeKeywords();
+    if (!mounted) return;
+    setState(() {
+      _noticeFilter = filter.copyWith(quickQuery: _noticeQuickQuery);
+      _noticeSharedKeywords = keywords;
+    });
+  }
+
+  Future<void> _openNoticeFilterSettings() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (context) => const SettingsScreen(),
+      ),
+    );
+    if (mounted) await _loadNoticeFilter();
   }
 
   String _boardId() => widget.isProgram ? "ctl_programs" : "ctl_notice";
@@ -324,7 +350,8 @@ class _CtlListTabState extends State<_CtlListTab> {
   String _itemKey(Map<String, dynamic> data) {
     final String url = (data["link"] ?? data["url"] ?? "").toString().trim();
     final String title = (data["title"] ?? "").toString().trim();
-    final String date = (data["reg_date"] ?? data["date"] ?? "").toString().trim();
+    final String date =
+        (data["reg_date"] ?? data["date"] ?? "").toString().trim();
     return "$url|$title|$date";
   }
 
@@ -334,7 +361,8 @@ class _CtlListTabState extends State<_CtlListTab> {
     final String b = _boardId();
     setState(() {
       _pinnedKeys = (prefs.getStringList("pinned_notices_$b") ?? []).toSet();
-      _favoriteKeys = (prefs.getStringList("favorite_notices_$b") ?? []).toSet();
+      _favoriteKeys =
+          (prefs.getStringList("favorite_notices_$b") ?? []).toSet();
     });
   }
 
@@ -365,8 +393,11 @@ class _CtlListTabState extends State<_CtlListTab> {
   }
 
   Future<void> _handleRefresh() async {
+    await _loadNoticeFilter();
     setState(() {
-      _ctlFuture = NoticeManager().getNotices(boardId: widget.isProgram ? "ctl_programs" : "ctl_notice", forceRefresh: true);
+      _ctlFuture = NoticeManager().getNotices(
+          boardId: widget.isProgram ? "ctl_programs" : "ctl_notice",
+          forceRefresh: true);
     });
     await _ctlFuture;
   }
@@ -394,7 +425,8 @@ class _CtlListTabState extends State<_CtlListTab> {
                   hasScrollBody: false,
                   child: Center(child: CircularProgressIndicator()),
                 )
-              else ..._buildCtlSlivers(context, snapshot.data ?? []),
+              else
+                ..._buildCtlSlivers(context, snapshot.data ?? []),
             ],
           );
         },
@@ -406,8 +438,29 @@ class _CtlListTabState extends State<_CtlListTab> {
     BuildContext context,
     List<Map<String, dynamic>> items,
   ) {
-    if (items.isEmpty) {
+    final NoticeFilterState filter =
+        _noticeFilter.copyWith(quickQuery: _noticeQuickQuery);
+    final List<Map<String, dynamic>> filteredItems = filter.apply(
+      items,
+      sharedKeywords: _noticeSharedKeywords,
+      fallbackSource: "CTL",
+      fallbackType: widget.isProgram ? "CTL 프로그램" : "학습공지",
+    );
+    final Widget filterBar = NoticeFilterBar(
+      filter: filter,
+      keywordCount: _noticeSharedKeywords.length,
+      totalCount: items.length,
+      filteredCount: filteredItems.length,
+      accentColor: const Color(0xFF2962FF),
+      onQueryChanged: (String value) {
+        setState(() => _noticeQuickQuery = value);
+      },
+      onOpenSettings: _openNoticeFilterSettings,
+    );
+
+    if (filteredItems.isEmpty) {
       return [
+        SliverToBoxAdapter(child: filterBar),
         SliverFillRemaining(
           hasScrollBody: false,
           child: Column(
@@ -415,7 +468,7 @@ class _CtlListTabState extends State<_CtlListTab> {
             children: [
               const SizedBox(height: 48),
               Text(
-                "등록된 항목이 없습니다.",
+                items.isEmpty ? "등록된 항목이 없습니다." : "필터에 맞는 항목이 없습니다.",
                 style: TextStyle(color: Colors.grey.shade600),
               ),
             ],
@@ -425,11 +478,12 @@ class _CtlListTabState extends State<_CtlListTab> {
     }
 
     final List<Map<String, dynamic>> ordered = [
-      ...items.where((d) => _pinnedKeys.contains(_itemKey(d))),
-      ...items.where((d) => !_pinnedKeys.contains(_itemKey(d))),
+      ...filteredItems.where((d) => _pinnedKeys.contains(_itemKey(d))),
+      ...filteredItems.where((d) => !_pinnedKeys.contains(_itemKey(d))),
     ];
 
     return [
+      SliverToBoxAdapter(child: filterBar),
       SliverPadding(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         sliver: SliverList(
@@ -463,9 +517,7 @@ class _CtlListTabState extends State<_CtlListTab> {
               final bool animate = _CtlListEntrance.shouldAnimateList &&
                   index < _CtlListEntrance.maxAnimatedItems;
               if (animate) {
-                return overlaid
-                    .animate()
-                    .fadeIn(
+                return overlaid.animate().fadeIn(
                       delay: (index * 24).clamp(0, 240).ms,
                       duration: 240.ms,
                     );
@@ -485,7 +537,7 @@ class _CtlListTabState extends State<_CtlListTab> {
     final String opPeriod = data["op_period"] ?? "";
     final String url = data["link"] ?? "";
     final String status = data["status"] ?? "진행중";
-    
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       child: Material(
@@ -501,7 +553,11 @@ class _CtlListTabState extends State<_CtlListTab> {
             if (kIsWeb) {
               await launchUrl(Uri.parse(url), webOnlyWindowName: "_blank");
             } else {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => CommonWebViewScreen(url: url, title: title)));
+              Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) =>
+                          CommonWebViewScreen(url: url, title: title)));
             }
           },
           child: (_lowRaster)

@@ -4,11 +4,16 @@ import "package:cloud_firestore/cloud_firestore.dart";
 import "package:flutter/foundation.dart";
 import "package:flutter/gestures.dart";
 import "package:flutter/material.dart";
+import "package:mio_notice/screens/academic_schedule_screen.dart";
 import "package:mio_notice/screens/common_webview_screen.dart";
+import "package:mio_notice/screens/settings_screen.dart";
+import "package:mio_notice/services/notice_filter.dart";
 import "package:mio_notice/services/notice_manager.dart";
 import "package:mio_notice/theme/app_colors.dart";
 import "package:mio_notice/widgets/app_menu_drawer.dart";
+import "package:mio_notice/widgets/notice_filter_bar.dart";
 import "package:mio_notice/widgets/scroll_to_top_scope.dart";
+import "package:mio_notice/widgets/shuttle_status_card.dart";
 import "package:shared_preferences/shared_preferences.dart";
 import "package:url_launcher/url_launcher.dart";
 
@@ -160,13 +165,18 @@ class HomeDashboardScreen extends StatefulWidget {
 
 class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   late Future<List<Map<String, dynamic>>> _combinedNoticeFuture;
+  late Future<List<Map<String, dynamic>>> _academicScheduleFuture;
   Set<String> _readDashboardNoticeKeys = {};
+  NoticeFilterState _noticeFilter = const NoticeFilterState();
+  List<String> _noticeSharedKeywords = [];
+  String _noticeQuickQuery = "";
   final ScrollController _scrollController = ScrollController();
   ScrollToTopCoordinator? _scrollToTopCoordinator;
 
   static const String _prefsReadDashboard = "read_notices_combined_dashboard";
   static const double _drawerEdgeDragFraction = 0.5;
-  static const String _mpuWebBaseUrl = "https://mpu.mjc.ac.kr/Main/default.aspx";
+  static const String _mpuWebBaseUrl =
+      "https://mpu.mjc.ac.kr/Main/default.aspx";
   static const double _menuFabHit = 52;
 
   bool _menuPointerDown = false;
@@ -180,12 +190,35 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   void initState() {
     super.initState();
     _combinedNoticeFuture = _prepareDashboardNotices();
+    _academicScheduleFuture =
+        NoticeManager().getNotices(boardId: "main_schedule");
+    _loadNoticeFilter();
     _scrollController.addListener(_onHomeScrollOffset);
     // 첫 진입 시 히어로 이미지 디코드/업로드 비용이 스크롤/전환 jank로 튀는 걸 줄이기 위해 프리캐시.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      precacheImage(const NetworkImage(_HomeHeroHeaderDelegate._heroImageUrl), context);
+      precacheImage(
+          const NetworkImage(_HomeHeroHeaderDelegate._heroImageUrl), context);
     });
+  }
+
+  Future<void> _loadNoticeFilter() async {
+    final NoticeFilterState filter = await NoticeFilterState.load();
+    final List<String> keywords = await loadSharedNoticeKeywords();
+    if (!mounted) return;
+    setState(() {
+      _noticeFilter = filter.copyWith(quickQuery: _noticeQuickQuery);
+      _noticeSharedKeywords = keywords;
+    });
+  }
+
+  Future<void> _openNoticeFilterSettings() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (context) => const SettingsScreen(),
+      ),
+    );
+    if (mounted) await _loadNoticeFilter();
   }
 
   void _onHomeScrollOffset() {
@@ -236,8 +269,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   /// 통합 공지를 불러오기 전에 읽음 목록을 로드해, 첫 표시부터 숨길 항목을 반영합니다.
   Future<List<Map<String, dynamic>>> _prepareDashboardNotices() async {
     final prefs = await SharedPreferences.getInstance();
-    final keys =
-        (prefs.getStringList(_prefsReadDashboard) ?? []).toSet();
+    final keys = (prefs.getStringList(_prefsReadDashboard) ?? []).toSet();
     if (mounted) {
       setState(() => _readDashboardNoticeKeys = keys);
     }
@@ -249,8 +281,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     final String source = (data["source"] ?? "").toString();
     final String type = (data["type"] ?? "").toString();
     if (id.isNotEmpty) return "$source|$type|$id";
-    final String url =
-        (data["url"] ?? data["link"] ?? "").toString().trim();
+    final String url = (data["url"] ?? data["link"] ?? "").toString().trim();
     final String title = (data["title"] ?? "").toString();
     return "$source|$type|$url|$title";
   }
@@ -266,13 +297,18 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   }
 
   Future<void> _handleRefresh() async {
+    await _loadNoticeFilter();
     setState(() {
       _combinedNoticeFuture = NoticeManager().getNotices(
         boardId: "combined_dashboard",
         forceRefresh: true,
       );
+      _academicScheduleFuture = NoticeManager().getNotices(
+        boardId: "main_schedule",
+        forceRefresh: true,
+      );
     });
-    await _combinedNoticeFuture;
+    await Future.wait([_combinedNoticeFuture, _academicScheduleFuture]);
   }
 
   void _snapMenuAfterDrag({required double velocityX}) {
@@ -301,8 +337,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     final double dw = homeSideMenuDrawerWidth(context);
     final double drawerDragEdgeW =
         MediaQuery.sizeOf(context).width * _drawerEdgeDragFraction;
-    final Rect menuFabRect =
-        Rect.fromLTWH(0, topPad, _menuFabHit, _menuFabHit);
+    final Rect menuFabRect = Rect.fromLTWH(0, topPad, _menuFabHit, _menuFabHit);
 
     return Stack(
       clipBehavior: Clip.none,
@@ -382,7 +417,9 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                     child: Column(
                       children: [
                         _buildGridButtons(context),
+                        const ShuttleStatusCard(),
                         _buildDeadlineSection(context),
+                        _buildAcademicScheduleSection(context),
                         _buildNoticeHeader(context),
                         _buildNoticeList(),
                         const SizedBox(height: 50),
@@ -506,7 +543,8 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   Widget _buildDeadlineSection(BuildContext context) {
     int? parseDDay(dynamic v) {
       final String s = (v ?? "").toString().trim();
-      final RegExpMatch? m = RegExp(r"^D-(\d+)$", caseSensitive: false).firstMatch(s);
+      final RegExpMatch? m =
+          RegExp(r"^D-(\d+)$", caseSensitive: false).firstMatch(s);
       if (m == null) return null;
       return int.tryParse(m.group(1)!);
     }
@@ -690,6 +728,179 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     );
   }
 
+  Widget _buildAcademicScheduleSection(BuildContext context) {
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: _academicScheduleFuture,
+      builder: (context, snapshot) {
+        final List<Map<String, dynamic>> upcoming =
+            _upcomingAcademicSchedules(snapshot.data ?? const []);
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    "다가오는 학사일정",
+                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                  ),
+                  TextButton(
+                    onPressed: _openAcademicScheduleScreen,
+                    child: const Text("더보기"),
+                  ),
+                ],
+              ),
+            ),
+            if (snapshot.connectionState == ConnectionState.waiting)
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                child: LinearProgressIndicator(minHeight: 2),
+              )
+            else if (upcoming.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                child: Text("예정된 학사일정이 없습니다."),
+              )
+            else
+              ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                itemCount: upcoming.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 10),
+                itemBuilder: (context, index) =>
+                    _buildAcademicScheduleCard(upcoming[index]),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+  List<Map<String, dynamic>> _upcomingAcademicSchedules(
+    List<Map<String, dynamic>> items,
+  ) {
+    final DateTime today = DateTime.now();
+    final DateTime startOfToday = DateTime(today.year, today.month, today.day);
+    final DateTime limit = startOfToday.add(const Duration(days: 30));
+    final List<Map<String, dynamic>> upcoming = items.where((item) {
+      final DateTime? start =
+          _parseIsoDate((item["start_date"] ?? item["date"] ?? "").toString());
+      if (start == null) return false;
+      return !start.isBefore(startOfToday) && !start.isAfter(limit);
+    }).toList()
+      ..sort((a, b) {
+        final DateTime dateA =
+            _parseIsoDate((a["start_date"] ?? a["date"] ?? "").toString()) ??
+                DateTime(2099);
+        final DateTime dateB =
+            _parseIsoDate((b["start_date"] ?? b["date"] ?? "").toString()) ??
+                DateTime(2099);
+        return dateA.compareTo(dateB);
+      });
+    return upcoming.take(3).toList();
+  }
+
+  DateTime? _parseIsoDate(String value) {
+    final RegExpMatch? match =
+        RegExp(r"^(\d{4})[-.](\d{1,2})[-.](\d{1,2})").firstMatch(value);
+    if (match == null) return null;
+    return DateTime(
+      int.parse(match.group(1)!),
+      int.parse(match.group(2)!),
+      int.parse(match.group(3)!),
+    );
+  }
+
+  Widget _buildAcademicScheduleCard(Map<String, dynamic> data) {
+    final String title = (data["title"] ?? "").toString();
+    final String start = (data["start_date"] ?? data["date"] ?? "").toString();
+    final String end = (data["end_date"] ?? start).toString();
+    final DateTime? startDate = _parseIsoDate(start);
+    final DateTime today = DateTime.now();
+    final int dDay = startDate == null
+        ? 0
+        : startDate
+            .difference(DateTime(today.year, today.month, today.day))
+            .inDays;
+    final String range = start.replaceAll("-", ".") == end.replaceAll("-", ".")
+        ? start.replaceAll("-", ".")
+        : "${start.replaceAll("-", ".")}~${end.replaceAll("-", ".")}";
+
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(14),
+      elevation: 1.5,
+      shadowColor: Colors.black12,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: _openAcademicScheduleScreen,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(
+            children: [
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Center(
+                  child: Text(
+                    dDay <= 0 ? "D-DAY" : "D-$dDay",
+                    style: const TextStyle(
+                      color: AppColors.primary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      range,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.black54,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _openAcademicScheduleScreen() {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (context) => const AcademicScheduleScreen(),
+      ),
+    );
+  }
+
   Widget _buildNoticeHeader(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
@@ -717,25 +928,56 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           return const Center(child: CircularProgressIndicator());
         }
         final List<Map<String, dynamic>> all = snapshot.data ?? [];
-        final notices = all
+        final unreadNotices = all
             .where(
               (Map<String, dynamic> n) =>
                   !_readDashboardNoticeKeys.contains(_dashboardNoticeKey(n)),
             )
             .toList();
-        if (notices.isEmpty) {
-          return const Center(child: Text("새로운 소식이 없습니다."));
-        }
-        return ListView.separated(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          itemCount: notices.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 12),
-          itemBuilder: (context, index) {
-            final Widget card = _buildNoticeCard(notices[index]);
-            return card;
+        final NoticeFilterState filter =
+            _noticeFilter.copyWith(quickQuery: _noticeQuickQuery);
+        final notices = filter.apply(
+          unreadNotices,
+          sharedKeywords: _noticeSharedKeywords,
+        );
+        final Widget filterBar = NoticeFilterBar(
+          filter: filter,
+          keywordCount: _noticeSharedKeywords.length,
+          totalCount: unreadNotices.length,
+          filteredCount: notices.length,
+          accentColor: AppColors.primary,
+          horizontalPadding: 20,
+          onQueryChanged: (String value) {
+            setState(() => _noticeQuickQuery = value);
           },
+          onOpenSettings: _openNoticeFilterSettings,
+        );
+        if (notices.isEmpty) {
+          return Column(
+            children: [
+              filterBar,
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: Center(child: Text("새로운 소식이 없습니다.")),
+              ),
+            ],
+          );
+        }
+        return Column(
+          children: [
+            filterBar,
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              itemCount: notices.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 12),
+              itemBuilder: (context, index) {
+                final Widget card = _buildNoticeCard(notices[index]);
+                return card;
+              },
+            ),
+          ],
         );
       },
     );
@@ -745,9 +987,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     final String source = data["source"] ?? "본교";
     final Color accent = source == "MJC"
         ? const Color(0xFF1976D2)
-        : (source == "MPU"
-            ? const Color(0xFF7986CB)
-            : const Color(0xFF2962FF));
+        : (source == "MPU" ? const Color(0xFF7986CB) : const Color(0xFF2962FF));
 
     return Material(
       color: Colors.white,
@@ -773,8 +1013,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
             Navigator.push<void>(
               context,
               MaterialPageRoute<void>(
-                builder: (_) =>
-                    CommonWebViewScreen(url: openUrl, title: title),
+                builder: (_) => CommonWebViewScreen(url: openUrl, title: title),
               ),
             );
           }
@@ -881,17 +1120,18 @@ class _HomeHeroHeaderDelegate extends SliverPersistentHeaderDelegate {
                   final int cw = (size.width * dpr).round().clamp(1, 4096);
                   final int ch = (extent * dpr).round().clamp(1, 4096);
                   return Image.network(
-                _heroImageUrl,
-                fit: BoxFit.cover,
-                width: double.infinity,
-                height: double.infinity,
-                alignment: Alignment.center,
-                cacheWidth: cw,
-                cacheHeight: ch,
-                // Opacity(saveLayer) 대신 colorFilter로 블렌딩해서 raster 비용을 줄입니다.
-                color: Colors.black.withValues(alpha: (0.35 * (1.0 - u)).clamp(0.0, 1.0)),
-                colorBlendMode: BlendMode.srcOver,
-                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                    _heroImageUrl,
+                    fit: BoxFit.cover,
+                    width: double.infinity,
+                    height: double.infinity,
+                    alignment: Alignment.center,
+                    cacheWidth: cw,
+                    cacheHeight: ch,
+                    // Opacity(saveLayer) 대신 colorFilter로 블렌딩해서 raster 비용을 줄입니다.
+                    color: Colors.black
+                        .withValues(alpha: (0.35 * (1.0 - u)).clamp(0.0, 1.0)),
+                    colorBlendMode: BlendMode.srcOver,
+                    errorBuilder: (_, __, ___) => const SizedBox.shrink(),
                   );
                 },
               ),
@@ -908,8 +1148,7 @@ class _HomeHeroHeaderDelegate extends SliverPersistentHeaderDelegate {
                       24 + 16 + 6 + 34; // 여백 + 부제 + 간격 + 큰 타이틀
                   final double expandedTitleTop =
                       (ih - bottomBlock).clamp(0.0, ih);
-                  final double collapsedTitleTop =
-                      (ih - titleSize * 1.15) / 2;
+                  final double collapsedTitleTop = (ih - titleSize * 1.15) / 2;
                   final double titleTop =
                       lerpDouble(expandedTitleTop, collapsedTitleTop, u)!;
                   final double subtitleOpacity =

@@ -12,4 +12,3 @@ void postNdjson(String line) {
     req.send(utf8.encode(line));
   } catch (_) {}
 }
-

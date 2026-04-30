@@ -20,8 +20,7 @@ class WebViewNavigationOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color disabled =
-        AppColors.mutedForeground.withValues(alpha: 0.35);
+    final Color disabled = AppColors.mutedForeground.withValues(alpha: 0.35);
     return Positioned(
       left: 12,
       bottom: 12 + MediaQuery.paddingOf(context).bottom,

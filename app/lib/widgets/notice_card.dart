@@ -51,7 +51,7 @@ class _NoticeCardState extends State<NoticeCard> {
   bool get _isActuallyNew {
     // 1. 이미 터치하여 읽은 공지면 무조건 제거
     if (_hasRead) return false;
-    
+
     // 2. 관리자가 지정한 isNew 속성이 없으면 안 붙임
     if (!widget.notice.isNew) return false;
 
@@ -66,7 +66,7 @@ class _NoticeCardState extends State<NoticeCard> {
     } catch (_) {
       // 파싱 실패시 무시
     }
-    
+
     return true;
   }
 

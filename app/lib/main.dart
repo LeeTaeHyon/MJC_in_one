@@ -35,10 +35,10 @@ Future<void> _processAndShowNotification(RemoteMessage message) async {
   final allNoticesEnabled = prefs.getBool("allNoticesEnabled") ?? true;
   final keywordNoticesEnabled = prefs.getBool("keywordNoticesEnabled") ?? true;
   final keywordsList = prefs.getStringList("keywords") ?? [];
-  
+
   final title = message.data["title"] ?? "새 알림";
   final body = message.data["body"] ?? "";
-  
+
   bool shouldShow = false;
 
   if (allNoticesEnabled) {
@@ -59,14 +59,16 @@ Future<void> _processAndShowNotification(RemoteMessage message) async {
     final historyItem = {
       "title": title,
       "body": body,
-      "received_at": "${now.year}.${now.month.toString().padLeft(2, '0')}.${now.day.toString().padLeft(2, '0')} ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}",
+      "received_at":
+          "${now.year}.${now.month.toString().padLeft(2, '0')}.${now.day.toString().padLeft(2, '0')} ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}",
       "data": message.data,
     };
 
     // 2. SharedPreferences에 알람 내역 추가 저장
-    final historyStrings = prefs.getStringList(kNotificationHistoryPrefKey) ?? [];
+    final historyStrings =
+        prefs.getStringList(kNotificationHistoryPrefKey) ?? [];
     historyStrings.add(jsonEncode(historyItem));
-    
+
     // 너무 많이 쌓이지 않게 최신 50개만 유지
     if (historyStrings.length > 50) {
       historyStrings.removeAt(0);
@@ -75,19 +77,23 @@ Future<void> _processAndShowNotification(RemoteMessage message) async {
 
     // 3. 실제 기기에 푸시 노티 표시
     final flnp = FlutterLocalNotificationsPlugin();
-    const AndroidInitializationSettings initSettingsAndroid = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const InitializationSettings initSettings = InitializationSettings(android: initSettingsAndroid);
+    const AndroidInitializationSettings initSettingsAndroid =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+    const InitializationSettings initSettings =
+        InitializationSettings(android: initSettingsAndroid);
     await flnp.initialize(initSettings);
 
-    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+    const AndroidNotificationDetails androidDetails =
+        AndroidNotificationDetails(
       'mjc_channel_id',
       'MJC 공지 알림',
       channelDescription: '명지전문대학 새 글 알림입니다.',
       importance: Importance.max,
       priority: Priority.high,
     );
-    const NotificationDetails platformDetails = NotificationDetails(android: androidDetails);
-    
+    const NotificationDetails platformDetails =
+        NotificationDetails(android: androidDetails);
+
     await flnp.show(
       message.messageId?.hashCode ?? DateTime.now().millisecondsSinceEpoch,
       title,
@@ -105,14 +111,14 @@ Future<void> main() async {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
-    
+
     // 알림 권한 요청 (안드로이드 13+, iOS 용)
     final messaging = FirebaseMessaging.instance;
     await messaging.requestPermission();
 
     // 백그라운드 핸들러 등록
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-    
+
     // 포그라운드(앱이 켜져 있을 때) 핸들러 등록
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       _processAndShowNotification(message);
@@ -135,7 +141,8 @@ class MioNoticeApp extends StatefulWidget {
 }
 
 class _MioNoticeAppState extends State<MioNoticeApp> {
-  final ScrollToTopCoordinator _scrollToTopCoordinator = ScrollToTopCoordinator();
+  final ScrollToTopCoordinator _scrollToTopCoordinator =
+      ScrollToTopCoordinator();
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
   ThemeModeController? _themeModeController;
 

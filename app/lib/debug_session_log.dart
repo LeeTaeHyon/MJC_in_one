@@ -28,4 +28,3 @@ void debugSessionNdjson({
   final line = jsonEncode(payload);
   http.postNdjson(line);
 }
-

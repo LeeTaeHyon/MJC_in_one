@@ -30,5 +30,6 @@ jobs:
           CRAWL_MODE: ${{ github.event.inputs.mode || 'incremental' }}
         run: |
           python crawler_mjc.py
+          python crawler_schedule.py
           python crawler_mpu.py
           python crawler_ctl.py

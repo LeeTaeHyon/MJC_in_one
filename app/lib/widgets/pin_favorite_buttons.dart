@@ -78,4 +78,3 @@ class PinFavoriteButtons extends StatelessWidget {
     );
   }
 }
-

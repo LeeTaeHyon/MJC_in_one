@@ -190,7 +190,8 @@ class _CommonWebViewScreenState extends State<CommonWebViewScreen> {
                 value: "browser",
                 child: Row(
                   children: [
-                    Icon(Icons.public_outlined, size: 20, color: Colors.black87),
+                    Icon(Icons.public_outlined,
+                        size: 20, color: Colors.black87),
                     SizedBox(width: 12),
                     Text("브라우저로 열기"),
                   ],

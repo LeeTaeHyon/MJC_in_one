@@ -15,7 +15,9 @@ class NoticeManager {
     required String boardId,
     bool forceRefresh = false,
   }) async {
-    if (!forceRefresh && _cache.containsKey(boardId) && _cache[boardId] != null) {
+    if (!forceRefresh &&
+        _cache.containsKey(boardId) &&
+        _cache[boardId] != null) {
       return _cache[boardId]!;
     }
 
@@ -115,6 +117,7 @@ class NoticeManager {
       "main_notice": "공지사항",
       "main_academic": "학사공지",
       "main_scholarship": "장학공지",
+      "main_schedule": "학사일정",
       "mpu_programs": "역량관리",
       "ctl_notice": "학습공지"
     };
@@ -164,7 +167,9 @@ class NoticeManager {
         return DateTime.parse("$year-$month-$day");
       }
       return null;
-    } catch (e) { return null; }
+    } catch (e) {
+      return null;
+    }
   }
 
   void clearCache() {

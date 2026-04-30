@@ -17,7 +17,8 @@ String _bodyKey(LicenseEntry e) {
 void main() {
   test("generate assets/licenses/licenses.json", () async {
     final raw = await LicenseRegistry.licenses.toList();
-    final byBody = <String, ({List<Map<String, dynamic>> paragraphs, Set<String> packages})>{};
+    final byBody = <String,
+        ({List<Map<String, dynamic>> paragraphs, Set<String> packages})>{};
 
     for (final e in raw) {
       final key = _bodyKey(e);
@@ -56,4 +57,3 @@ void main() {
     );
   });
 }
-

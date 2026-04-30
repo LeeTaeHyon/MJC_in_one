@@ -5,9 +5,12 @@ import "package:flutter/material.dart";
 import "package:flutter_animate/flutter_animate.dart";
 import "package:mio_notice/screens/common_webview_screen.dart";
 import "package:mio_notice/screens/main_navigation_screen.dart";
+import "package:mio_notice/screens/settings_screen.dart";
+import "package:mio_notice/services/notice_filter.dart";
 import "package:mio_notice/services/notice_manager.dart";
 import "package:mio_notice/perf_flags.dart";
 import "package:mio_notice/widgets/nested_scroll_refresh_indicator.dart";
+import "package:mio_notice/widgets/notice_filter_bar.dart";
 import "package:mio_notice/widgets/pin_favorite_buttons.dart";
 import "package:mio_notice/widgets/scroll_to_top_scope.dart";
 import "package:shared_preferences/shared_preferences.dart";
@@ -209,7 +212,8 @@ class _MainWebsiteCollapsingHeaderDelegate
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  const DecoratedBox(decoration: BoxDecoration(gradient: _headerGradient)),
+                  const DecoratedBox(
+                      decoration: BoxDecoration(gradient: _headerGradient)),
                   SafeArea(
                     bottom: false,
                     minimum: EdgeInsets.zero,
@@ -226,8 +230,7 @@ class _MainWebsiteCollapsingHeaderDelegate
                               onTap: () => MainNavigationScreen
                                   .scaffoldKey.currentState
                                   ?.openDrawer(),
-                              splashColor:
-                                  Colors.white.withValues(alpha: 0.35),
+                              splashColor: Colors.white.withValues(alpha: 0.35),
                               highlightColor:
                                   Colors.white.withValues(alpha: 0.14),
                               child: const Padding(
@@ -315,6 +318,9 @@ class _NoticeListTabState extends State<_NoticeListTab> {
   Set<String> _readNoticeIds = {};
   Set<String> _pinnedKeys = {};
   Set<String> _favoriteKeys = {};
+  NoticeFilterState _noticeFilter = const NoticeFilterState();
+  List<String> _noticeSharedKeywords = [];
+  String _noticeQuickQuery = "";
   late Future<List<Map<String, dynamic>>> _noticeFuture;
 
   @override
@@ -322,14 +328,46 @@ class _NoticeListTabState extends State<_NoticeListTab> {
     super.initState();
     _loadReadHistory();
     _loadPinsAndFavorites();
+    _loadNoticeFilter();
     _noticeFuture = NoticeManager().getNotices(boardId: widget.boardId);
+  }
+
+  String _fallbackType() {
+    switch (widget.boardId) {
+      case "main_academic":
+        return "학사공지";
+      case "main_scholarship":
+        return "장학공지";
+      default:
+        return "공지사항";
+    }
+  }
+
+  Future<void> _loadNoticeFilter() async {
+    final NoticeFilterState filter = await NoticeFilterState.load();
+    final List<String> keywords = await loadSharedNoticeKeywords();
+    if (!mounted) return;
+    setState(() {
+      _noticeFilter = filter.copyWith(quickQuery: _noticeQuickQuery);
+      _noticeSharedKeywords = keywords;
+    });
+  }
+
+  Future<void> _openNoticeFilterSettings() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (context) => const SettingsScreen(),
+      ),
+    );
+    if (mounted) await _loadNoticeFilter();
   }
 
   Future<void> _loadReadHistory() async {
     final prefs = await SharedPreferences.getInstance();
     if (!mounted) return;
     setState(() {
-      _readNoticeIds = (prefs.getStringList("read_notices_${widget.boardId}") ?? []).toSet();
+      _readNoticeIds =
+          (prefs.getStringList("read_notices_${widget.boardId}") ?? []).toSet();
     });
   }
 
@@ -338,7 +376,8 @@ class _NoticeListTabState extends State<_NoticeListTab> {
     if (id.isNotEmpty) return id;
     final String url = (data["url"] ?? data["link"] ?? "").toString().trim();
     final String title = (data["title"] ?? "").toString().trim();
-    final String date = (data["date"] ?? data["reg_date"] ?? "").toString().trim();
+    final String date =
+        (data["date"] ?? data["reg_date"] ?? "").toString().trim();
     return "$url|$title|$date";
   }
 
@@ -347,9 +386,11 @@ class _NoticeListTabState extends State<_NoticeListTab> {
     if (!mounted) return;
     setState(() {
       _pinnedKeys =
-          (prefs.getStringList("pinned_notices_${widget.boardId}") ?? []).toSet();
+          (prefs.getStringList("pinned_notices_${widget.boardId}") ?? [])
+              .toSet();
       _favoriteKeys =
-          (prefs.getStringList("favorite_notices_${widget.boardId}") ?? []).toSet();
+          (prefs.getStringList("favorite_notices_${widget.boardId}") ?? [])
+              .toSet();
     });
   }
 
@@ -362,7 +403,8 @@ class _NoticeListTabState extends State<_NoticeListTab> {
       next.add(key);
     }
     if (mounted) setState(() => _pinnedKeys = next);
-    await prefs.setStringList("pinned_notices_${widget.boardId}", next.toList());
+    await prefs.setStringList(
+        "pinned_notices_${widget.boardId}", next.toList());
   }
 
   Future<void> _toggleFavorite(String key) async {
@@ -374,28 +416,29 @@ class _NoticeListTabState extends State<_NoticeListTab> {
       next.add(key);
     }
     if (mounted) setState(() => _favoriteKeys = next);
-    await prefs.setStringList("favorite_notices_${widget.boardId}", next.toList());
+    await prefs.setStringList(
+        "favorite_notices_${widget.boardId}", next.toList());
   }
 
   Future<void> _handleRefresh() async {
+    await _loadNoticeFilter();
     setState(() {
-      _noticeFuture = NoticeManager().getNotices(
-        boardId: widget.boardId, 
-        forceRefresh: true
-      );
+      _noticeFuture = NoticeManager()
+          .getNotices(boardId: widget.boardId, forceRefresh: true);
     });
     await _noticeFuture;
   }
 
   Future<void> _markAsRead(String id) async {
     if (_readNoticeIds.contains(id)) return;
-    
+
     final prefs = await SharedPreferences.getInstance();
     if (!mounted) return;
     setState(() {
       _readNoticeIds.add(id);
     });
-    await prefs.setStringList("read_notices_${widget.boardId}", _readNoticeIds.toList());
+    await prefs.setStringList(
+        "read_notices_${widget.boardId}", _readNoticeIds.toList());
   }
 
   @override
@@ -421,7 +464,8 @@ class _NoticeListTabState extends State<_NoticeListTab> {
                   hasScrollBody: false,
                   child: Center(child: CircularProgressIndicator()),
                 )
-              else ..._buildNoticeSlivers(context, snapshot.data ?? []),
+              else
+                ..._buildNoticeSlivers(context, snapshot.data ?? []),
             ],
           );
 
@@ -435,8 +479,28 @@ class _NoticeListTabState extends State<_NoticeListTab> {
     BuildContext context,
     List<Map<String, dynamic>> docs,
   ) {
-    if (docs.isEmpty) {
+    final NoticeFilterState filter =
+        _noticeFilter.copyWith(quickQuery: _noticeQuickQuery);
+    final List<Map<String, dynamic>> filteredDocs = filter.apply(
+      docs,
+      sharedKeywords: _noticeSharedKeywords,
+      fallbackSource: "MJC",
+      fallbackType: _fallbackType(),
+    );
+    final Widget filterBar = NoticeFilterBar(
+      filter: filter,
+      keywordCount: _noticeSharedKeywords.length,
+      totalCount: docs.length,
+      filteredCount: filteredDocs.length,
+      onQueryChanged: (String value) {
+        setState(() => _noticeQuickQuery = value);
+      },
+      onOpenSettings: _openNoticeFilterSettings,
+    );
+
+    if (filteredDocs.isEmpty) {
       return [
+        SliverToBoxAdapter(child: filterBar),
         SliverFillRemaining(
           hasScrollBody: false,
           child: Column(
@@ -444,7 +508,7 @@ class _NoticeListTabState extends State<_NoticeListTab> {
             children: [
               const SizedBox(height: 48),
               Text(
-                "표시할 공지가 없습니다.",
+                docs.isEmpty ? "표시할 공지가 없습니다." : "필터에 맞는 공지가 없습니다.",
                 style: TextStyle(color: Colors.grey.shade600),
               ),
             ],
@@ -454,11 +518,12 @@ class _NoticeListTabState extends State<_NoticeListTab> {
     }
 
     final List<Map<String, dynamic>> ordered = [
-      ...docs.where((d) => _pinnedKeys.contains(_noticeKey(d))),
-      ...docs.where((d) => !_pinnedKeys.contains(_noticeKey(d))),
+      ...filteredDocs.where((d) => _pinnedKeys.contains(_noticeKey(d))),
+      ...filteredDocs.where((d) => !_pinnedKeys.contains(_noticeKey(d))),
     ];
 
     return [
+      SliverToBoxAdapter(child: filterBar),
       SliverPadding(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         sliver: SliverList(
@@ -480,7 +545,8 @@ class _NoticeListTabState extends State<_NoticeListTab> {
                   await _markAsRead(id);
                   if (url.isEmpty) return;
                   if (kIsWeb) {
-                    await launchUrl(Uri.parse(url), webOnlyWindowName: "_blank");
+                    await launchUrl(Uri.parse(url),
+                        webOnlyWindowName: "_blank");
                   } else {
                     Navigator.push(
                       context,
@@ -772,7 +838,10 @@ class _ScaleFeedbackButtonState extends State<_ScaleFeedbackButton> {
       onTapUp: (_) => setState(() => _isPressed = false),
       onTapCancel: () => setState(() => _isPressed = false),
       onTap: widget.onTap,
-      child: AnimatedScale(scale: _isPressed ? 0.98 : 1.0, duration: const Duration(milliseconds: 100), child: widget.child),
+      child: AnimatedScale(
+          scale: _isPressed ? 0.98 : 1.0,
+          duration: const Duration(milliseconds: 100),
+          child: widget.child),
     );
   }
 }

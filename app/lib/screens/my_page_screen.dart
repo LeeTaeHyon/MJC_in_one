@@ -248,7 +248,8 @@ class _MyPageScreenState extends State<MyPageScreen> {
                                     Text(
                                       _studentId,
                                       style: TextStyle(
-                                        color: Colors.white.withValues(alpha: 0.86),
+                                        color: Colors.white
+                                            .withValues(alpha: 0.86),
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
@@ -300,7 +301,8 @@ class _MyPageScreenState extends State<MyPageScreen> {
                           indicatorWeight: 2,
                           labelColor: const Color(0xFF1A3FBB),
                           unselectedLabelColor: Colors.black54,
-                          labelStyle: const TextStyle(fontWeight: FontWeight.w800),
+                          labelStyle:
+                              const TextStyle(fontWeight: FontWeight.w800),
                           unselectedLabelStyle:
                               const TextStyle(fontWeight: FontWeight.w700),
                           tabs: const [
@@ -322,7 +324,8 @@ class _MyPageScreenState extends State<MyPageScreen> {
                                   child: SizedBox(
                                     width: 22,
                                     height: 22,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2),
                                   ),
                                 )
                               : TabBarView(
@@ -360,7 +363,8 @@ class _MyPageScreenState extends State<MyPageScreen> {
                     alignment: Alignment.centerLeft,
                     child: Text(
                       "계정 설정",
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                      style:
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -420,7 +424,8 @@ class _MyPageScreenState extends State<MyPageScreen> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: const [
-                            Icon(Icons.logout_rounded, color: Color(0xFFD4183D)),
+                            Icon(Icons.logout_rounded,
+                                color: Color(0xFFD4183D)),
                             SizedBox(width: 10),
                             Text(
                               "로그아웃",
@@ -552,7 +557,8 @@ class _NoticeList extends StatelessWidget {
         child: Text(
           emptyText,
           style: TextStyle(
-            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.55),
+            color:
+                Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.55),
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -765,4 +771,3 @@ class _MyNotice {
     required this.url,
   });
 }
-

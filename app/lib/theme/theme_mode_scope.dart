@@ -62,4 +62,3 @@ class ThemeModeScope extends InheritedNotifier<ThemeModeController> {
     return c!;
   }
 }
-

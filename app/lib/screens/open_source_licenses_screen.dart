@@ -44,7 +44,8 @@ String _bodyKeyFromParagraphs(Iterable<_LicenseParagraph> paragraphs) {
 List<_MergedLicense> _mergeDuplicateLicenseBodiesFromRegistry(
   List<LicenseEntry> raw,
 ) {
-  final byBody = <String, ({List<_LicenseParagraph> source, Set<String> names})>{};
+  final byBody =
+      <String, ({List<_LicenseParagraph> source, Set<String> names})>{};
   for (final e in raw) {
     final paragraphs = e.paragraphs
         .map((p) => _LicenseParagraph(indent: p.indent, text: p.text))
@@ -67,7 +68,8 @@ List<_MergedLicense> _mergeDuplicateLicenseBodiesFromRegistry(
 }
 
 List<_MergedLicense> _mergeDuplicateLicenseBodiesFromJson(List<dynamic> raw) {
-  final byBody = <String, ({List<_LicenseParagraph> source, Set<String> names})>{};
+  final byBody =
+      <String, ({List<_LicenseParagraph> source, Set<String> names})>{};
   for (final item in raw) {
     if (item is! Map) continue;
 
@@ -77,16 +79,14 @@ List<_MergedLicense> _mergeDuplicateLicenseBodiesFromJson(List<dynamic> raw) {
     final paragraphsRaw = (item["paragraphs"] is List)
         ? (item["paragraphs"] as List).whereType<Map>().toList()
         : const <Map>[];
-    final paragraphs = paragraphsRaw
-        .map((p) {
-          final indent = p["indent"];
-          final text = p["text"];
-          return _LicenseParagraph(
-            indent: indent is int ? indent : int.tryParse("$indent") ?? 0,
-            text: text is String ? text : "$text",
-          );
-        })
-        .toList(growable: false);
+    final paragraphs = paragraphsRaw.map((p) {
+      final indent = p["indent"];
+      final text = p["text"];
+      return _LicenseParagraph(
+        indent: indent is int ? indent : int.tryParse("$indent") ?? 0,
+        text: text is String ? text : "$text",
+      );
+    }).toList(growable: false);
 
     final key = _bodyKeyFromParagraphs(paragraphs);
     final cur = byBody[key];
@@ -152,7 +152,8 @@ List<_LicenseTile> _toTiles(List<_MergedLicense> mergedBodies) {
   }
 
   for (final m in multi) {
-    tiles.add(_LicenseTile(sortedNames: m.sortedNames, sections: [m.paragraphs]));
+    tiles.add(
+        _LicenseTile(sortedNames: m.sortedNames, sections: [m.paragraphs]));
   }
 
   tiles.sort((a, b) {
@@ -232,7 +233,8 @@ class _OpenSourceLicensesScreenState extends State<OpenSourceLicensesScreen> {
         if (!mounted || !_scrollController.hasClients) return;
         c.reportRouteScroll(
           _scrollController.offset,
-          ScrollFabMetrics.viewportHeightForThreshold(_scrollController, context),
+          ScrollFabMetrics.viewportHeightForThreshold(
+              _scrollController, context),
         );
       });
     }
@@ -336,7 +338,7 @@ class _OpenSourceLicensesScreenState extends State<OpenSourceLicensesScreen> {
                           t.sortedNames.length <= 6
                               ? "포함: ${t.sortedNames.join(", ")}"
                               : "포함: ${t.sortedNames.take(4).join(", ")} "
-                                    "외 ${t.sortedNames.length - 4}개",
+                                  "외 ${t.sortedNames.length - 4}개",
                           style: TextStyle(
                             fontSize: 11.5,
                             height: 1.3,

@@ -49,7 +49,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
       curve: Curves.easeOutBack, // 열릴 때 살짝 튕기는 효과
     );
     _screens = [
-      HomeDashboardScreen(onNavigate: _onMenuItemClick, menuOpen: _homeMenuOpen),
+      HomeDashboardScreen(
+          onNavigate: _onMenuItemClick, menuOpen: _homeMenuOpen),
       const LibraryScreen(),
       const MainWebsiteScreen(),
       const CtlScreen(),
@@ -85,7 +86,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
   void _onMenuItemClick(int index) {
     final bool tabChanged = index != _index;
     setState(() {
-      _visitedTabs.add(index); // Ensure the target screen is built before showing
+      _visitedTabs
+          .add(index); // Ensure the target screen is built before showing
       if (tabChanged) {
         if (_index == 0 && index != 0) {
           _homeMenuOpen.value = 0.0;
@@ -108,7 +110,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
   void _onSystemPopInvoked(bool didPop, Object? result) {
     if (didPop) return;
 
-    final ScaffoldState? scaffold = MainNavigationScreen.scaffoldKey.currentState;
+    final ScaffoldState? scaffold =
+        MainNavigationScreen.scaffoldKey.currentState;
     if (scaffold?.isDrawerOpen == true) {
       scaffold!.closeDrawer();
       return;
@@ -213,7 +216,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
               ],
             ),
             floatingActionButton: _buildMainFab(),
-            floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+            floatingActionButtonLocation:
+                FloatingActionButtonLocation.centerDocked,
             bottomNavigationBar: _buildBottomAppBar(),
           ),
           if (!_isMenuOpen)
@@ -363,16 +367,12 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Expanded(
-            child: _buildNavTab(
-                0, Icons.home_outlined, Icons.home, "홈"),
+            child: _buildNavTab(0, Icons.home_outlined, Icons.home, "홈"),
           ),
           const SizedBox(width: 40),
           Expanded(
             child: _buildNavTab(
-                1,
-                Icons.local_library_outlined,
-                Icons.local_library,
-                "도서관"),
+                1, Icons.local_library_outlined, Icons.local_library, "도서관"),
           ),
         ],
       ),
