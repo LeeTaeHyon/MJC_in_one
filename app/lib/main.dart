@@ -5,6 +5,8 @@ import "package:mio_notice/firebase_options.dart";
 import "package:mio_notice/notification_history_prefs.dart";
 import "package:mio_notice/notification_sources.dart";
 import "package:mio_notice/screens/main_navigation_screen.dart";
+import "package:mio_notice/services/deep_link_handler.dart";
+import "package:mio_notice/services/user_data_repository.dart";
 import "package:mio_notice/theme/app_theme.dart";
 import "package:mio_notice/theme/theme_mode_scope.dart";
 import "package:mio_notice/widgets/scroll_to_top_fab.dart";
@@ -140,7 +142,8 @@ class MioNoticeApp extends StatefulWidget {
   State<MioNoticeApp> createState() => _MioNoticeAppState();
 }
 
-class _MioNoticeAppState extends State<MioNoticeApp> {
+class _MioNoticeAppState extends State<MioNoticeApp>
+    with WidgetsBindingObserver {
   final ScrollToTopCoordinator _scrollToTopCoordinator =
       ScrollToTopCoordinator();
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
@@ -149,10 +152,30 @@ class _MioNoticeAppState extends State<MioNoticeApp> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      DeepLinkHandler.instance.start(_navigatorKey);
+    });
     ThemeModeController.load().then((c) {
       if (!mounted) return;
       setState(() => _themeModeController = c);
     });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive) {
+      UserDataRepository.instance.pushSnapshotToCloud();
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    DeepLinkHandler.instance.dispose();
+    super.dispose();
   }
 
   @override

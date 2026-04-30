@@ -1454,7 +1454,7 @@ class _FoodcourtSlotMachineDialogState
       }
 
       final int nextTick = _tick + 1;
-      final bool done = nextTick >= 24;
+      final bool done = nextTick >= 12;
       setState(() {
         _tick = nextTick;
         _currentItem = _pickRandom();

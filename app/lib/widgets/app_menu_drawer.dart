@@ -1,3 +1,4 @@
+import "package:firebase_auth/firebase_auth.dart";
 import "package:flutter/material.dart";
 import "package:flutter/foundation.dart" show kIsWeb;
 import "package:mio_notice/notification_history_prefs.dart";
@@ -7,6 +8,8 @@ import "package:mio_notice/screens/login_screen.dart";
 import "package:mio_notice/screens/my_page_screen.dart";
 import "package:mio_notice/screens/notification_history_screen.dart";
 import "package:mio_notice/screens/settings_screen.dart";
+import "package:mio_notice/services/auth_service.dart";
+import "package:mio_notice/services/user_data_repository.dart";
 import "package:mio_notice/theme/app_colors.dart";
 import "package:url_launcher/url_launcher.dart";
 
@@ -222,6 +225,15 @@ class _AppMenuDrawerContentState extends State<AppMenuDrawerContent> {
     }
   }
 
+  Future<void> _signOut() async {
+    await UserDataRepository.instance.pushSnapshotToCloud();
+    await AuthService.instance.signOut();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("로그아웃되었습니다.")),
+    );
+  }
+
   BuildContext _dialogHost(BuildContext stateContext) {
     final BuildContext? anchor = widget.dialogContext;
     if (widget.closeBeforeSystemDialogs && anchor != null) return anchor;
@@ -287,6 +299,7 @@ class _AppMenuDrawerContentState extends State<AppMenuDrawerContent> {
         _DrawerHeader(
           onClose: widget.closeMenu,
           onLogin: () => _openLogin(context),
+          onLogout: _signOut,
         ),
         Expanded(
           child: Stack(
@@ -356,10 +369,15 @@ class _AppMenuDrawerContentState extends State<AppMenuDrawerContent> {
 }
 
 class _DrawerHeader extends StatelessWidget {
-  const _DrawerHeader({required this.onClose, required this.onLogin});
+  const _DrawerHeader({
+    required this.onClose,
+    required this.onLogin,
+    required this.onLogout,
+  });
 
   final VoidCallback onClose;
   final VoidCallback onLogin;
+  final Future<void> Function() onLogout;
 
   @override
   Widget build(BuildContext context) {
@@ -424,29 +442,63 @@ class _DrawerHeader extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 16),
-              SizedBox(
-                height: 48,
-                child: FilledButton(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: Colors.white.withValues(alpha: 0.14),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                  onPressed: onLogin,
-                  child: const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+              StreamBuilder<User?>(
+                stream: AuthService.instance.authStateChanges(),
+                initialData: AuthService.instance.currentUser,
+                builder: (context, snapshot) {
+                  final User? user = snapshot.data;
+                  final bool signedIn = user != null;
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Icon(Icons.login_rounded, size: 20),
-                      SizedBox(width: 10),
-                      Text(
-                        "로그인",
-                        style: TextStyle(fontWeight: FontWeight.w800),
+                      if (signedIn) ...[
+                        Text(
+                          user.email ?? "로그인됨",
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.88),
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                      SizedBox(
+                        height: 48,
+                        child: FilledButton(
+                          style: FilledButton.styleFrom(
+                            backgroundColor:
+                                Colors.white.withValues(alpha: 0.14),
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
+                          onPressed: signedIn ? () => onLogout() : onLogin,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                signedIn
+                                    ? Icons.logout_rounded
+                                    : Icons.login_rounded,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 10),
+                              Text(
+                                signedIn ? "로그아웃" : "로그인",
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ],
-                  ),
-                ),
+                  );
+                },
               ),
             ],
           ),

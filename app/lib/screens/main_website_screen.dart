@@ -8,6 +8,7 @@ import "package:mio_notice/screens/main_navigation_screen.dart";
 import "package:mio_notice/screens/settings_screen.dart";
 import "package:mio_notice/services/notice_filter.dart";
 import "package:mio_notice/services/notice_manager.dart";
+import "package:mio_notice/services/user_data_repository.dart";
 import "package:mio_notice/perf_flags.dart";
 import "package:mio_notice/widgets/nested_scroll_refresh_indicator.dart";
 import "package:mio_notice/widgets/notice_filter_bar.dart";
@@ -405,6 +406,11 @@ class _NoticeListTabState extends State<_NoticeListTab> {
     if (mounted) setState(() => _pinnedKeys = next);
     await prefs.setStringList(
         "pinned_notices_${widget.boardId}", next.toList());
+    await UserDataRepository.instance.updateBookmarks(
+      widget.boardId,
+      pinned: true,
+      values: next.toList(),
+    );
   }
 
   Future<void> _toggleFavorite(String key) async {
@@ -418,6 +424,11 @@ class _NoticeListTabState extends State<_NoticeListTab> {
     if (mounted) setState(() => _favoriteKeys = next);
     await prefs.setStringList(
         "favorite_notices_${widget.boardId}", next.toList());
+    await UserDataRepository.instance.updateBookmarks(
+      widget.boardId,
+      pinned: false,
+      values: next.toList(),
+    );
   }
 
   Future<void> _handleRefresh() async {

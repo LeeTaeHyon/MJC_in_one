@@ -1,0 +1,21 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isMjcEmail() {
+      return request.auth.token.email is string
+        && request.auth.token.email.lower().matches('.*@mjc[.]ac[.]kr$');
+    }
+
+    match /users/{uid} {
+      allow read, write: if request.auth != null
+        && request.auth.uid == uid
+        && isMjcEmail();
+    }
+
+    match /notices/{document=**} {
+      allow read: if true;
+      allow write: if false;
+    }
+  }
+}

@@ -1,7 +1,13 @@
+import "dart:ui" show ImageFilter;
+
+import "package:firebase_auth/firebase_auth.dart";
 import "package:flutter/foundation.dart" show kIsWeb;
 import "package:flutter/material.dart";
 import "package:mio_notice/screens/common_webview_screen.dart";
+import "package:mio_notice/screens/login_screen.dart";
+import "package:mio_notice/services/auth_service.dart";
 import "package:mio_notice/services/notice_manager.dart";
+import "package:mio_notice/services/user_data_repository.dart";
 import "package:mio_notice/theme/app_colors.dart";
 import "package:shared_preferences/shared_preferences.dart";
 import "package:url_launcher/url_launcher.dart";
@@ -17,13 +23,6 @@ class _MyPageScreenState extends State<MyPageScreen> {
   bool _loading = true;
   List<_MyNotice> _pinned = const [];
   List<_MyNotice> _favorites = const [];
-
-  // TODO: 로그인 구현 후 사용자 정보 바인딩
-  final String _userName = "홍길동";
-  final String _studentId = "202401234";
-  final String _department = "컴퓨터공학과";
-  final String _grade = "2학년";
-  final String _email = "hong@mjc.ac.kr";
 
   @override
   void initState() {
@@ -189,8 +188,27 @@ class _MyPageScreenState extends State<MyPageScreen> {
     );
   }
 
+  void _showFetchMyPageMessage() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("마이페이지 가져오기는 추후 연결 예정입니다.")),
+    );
+  }
+
+  Future<void> _signOut() async {
+    await UserDataRepository.instance.pushSnapshotToCloud();
+    await AuthService.instance.signOut();
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil<void>(
+      MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
+      (route) => false,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final User? user = FirebaseAuth.instance.currentUser;
+    final String email = user?.email ?? "로그인이 필요합니다";
+
     return DefaultTabController(
       length: 2,
       child: Scaffold(
@@ -215,6 +233,23 @@ class _MyPageScreenState extends State<MyPageScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
+                          FilledButton.icon(
+                            style: FilledButton.styleFrom(
+                              backgroundColor:
+                                  Colors.white.withValues(alpha: 0.14),
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                            onPressed: _showFetchMyPageMessage,
+                            icon: const Icon(Icons.cloud_download_outlined),
+                            label: const Text(
+                              "마이페이지 가져오기",
+                              style: TextStyle(fontWeight: FontWeight.w800),
+                            ),
+                          ),
+                          const SizedBox(height: 14),
                           Row(
                             children: [
                               Container(
@@ -235,23 +270,14 @@ class _MyPageScreenState extends State<MyPageScreen> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(
-                                      _userName,
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.w800,
-                                        letterSpacing: -0.2,
-                                      ),
+                                    const _BlurredProfilePlaceholder(
+                                      width: 86,
+                                      height: 20,
                                     ),
                                     const SizedBox(height: 4),
-                                    Text(
-                                      _studentId,
-                                      style: TextStyle(
-                                        color: Colors.white
-                                            .withValues(alpha: 0.86),
-                                        fontWeight: FontWeight.w600,
-                                      ),
+                                    const _BlurredProfilePlaceholder(
+                                      width: 112,
+                                      height: 16,
                                     ),
                                   ],
                                 ),
@@ -261,19 +287,17 @@ class _MyPageScreenState extends State<MyPageScreen> {
                           const SizedBox(height: 14),
                           Row(
                             children: [
-                              Expanded(
+                              const Expanded(
                                 child: _ProfileChip(
                                   icon: Icons.school_outlined,
                                   label: "학과",
-                                  value: _department,
                                 ),
                               ),
                               const SizedBox(width: 10),
-                              Expanded(
+                              const Expanded(
                                 child: _ProfileChip(
                                   icon: Icons.badge_outlined,
                                   label: "학년",
-                                  value: _grade,
                                 ),
                               ),
                             ],
@@ -380,7 +404,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
                             "이메일 변경",
                             style: TextStyle(fontWeight: FontWeight.w700),
                           ),
-                          subtitle: Text(_email),
+                          subtitle: Text(email),
                           trailing: const Icon(Icons.chevron_right_rounded),
                           onTap: () {
                             ScaffoldMessenger.of(context).showSnackBar(
@@ -414,9 +438,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
                     child: InkWell(
                       borderRadius: BorderRadius.circular(18),
                       onTap: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text("로그아웃 로직은 추후 연결됩니다.")),
-                        );
+                        _signOut();
                       },
                       child: SizedBox(
                         height: 56,
@@ -453,12 +475,10 @@ class _ProfileChip extends StatelessWidget {
   const _ProfileChip({
     required this.icon,
     required this.label,
-    required this.value,
   });
 
   final IconData icon;
   final String label;
-  final String value;
 
   @override
   Widget build(BuildContext context) {
@@ -508,20 +528,39 @@ class _ProfileChip extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  value,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: -0.2,
-                  ),
+                const _BlurredProfilePlaceholder(
+                  width: double.infinity,
+                  height: 16,
                 ),
               ],
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _BlurredProfilePlaceholder extends StatelessWidget {
+  const _BlurredProfilePlaceholder({
+    required this.width,
+    required this.height,
+  });
+
+  final double width;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    return ImageFiltered(
+      imageFilter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
+      child: Container(
+        width: width,
+        height: height,
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.55),
+          borderRadius: BorderRadius.circular(6),
+        ),
       ),
     );
   }

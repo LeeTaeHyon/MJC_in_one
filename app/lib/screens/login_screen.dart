@@ -1,4 +1,8 @@
+import "dart:async";
+
+import "package:firebase_auth/firebase_auth.dart";
 import "package:flutter/material.dart";
+import "package:mio_notice/services/auth_service.dart";
 import "package:mio_notice/theme/app_colors.dart";
 
 class LoginScreen extends StatefulWidget {
@@ -9,16 +13,68 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final TextEditingController _idController = TextEditingController();
-  final TextEditingController _pwController = TextEditingController();
-  bool _obscure = true;
-  bool _keepSignedIn = false;
+  final TextEditingController _emailController = TextEditingController();
+  bool _sending = false;
+  bool _sent = false;
+  String? _errorText;
+  Timer? _cooldownTimer;
+  int _cooldownSeconds = 0;
 
   @override
   void dispose() {
-    _idController.dispose();
-    _pwController.dispose();
+    _cooldownTimer?.cancel();
+    _emailController.dispose();
     super.dispose();
+  }
+
+  void _startCooldown() {
+    _cooldownTimer?.cancel();
+    setState(() => _cooldownSeconds = 30);
+    _cooldownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      if (_cooldownSeconds <= 1) {
+        timer.cancel();
+        setState(() => _cooldownSeconds = 0);
+      } else {
+        setState(() => _cooldownSeconds -= 1);
+      }
+    });
+  }
+
+  Future<void> _sendLoginLink() async {
+    final String email = _emailController.text.trim().toLowerCase();
+    setState(() {
+      _errorText = null;
+      _sending = true;
+    });
+
+    try {
+      await AuthService.instance.sendMagicLink(email);
+      if (!mounted) return;
+      setState(() => _sent = true);
+      _startCooldown();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("로그인 링크를 이메일로 보냈습니다.")),
+      );
+    } on MjcDomainException {
+      if (!mounted) return;
+      setState(() => _errorText = "@mjc.ac.kr 이메일만 가능합니다.");
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _errorText = e.message ?? "로그인 링크 발송에 실패했습니다.";
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _errorText = "로그인 링크 발송에 실패했습니다.");
+    } finally {
+      if (mounted) {
+        setState(() => _sending = false);
+      }
+    }
   }
 
   @override
@@ -115,21 +171,12 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: Column(
                     children: [
                       _LoginCard(
-                        idController: _idController,
-                        pwController: _pwController,
-                        obscure: _obscure,
-                        keepSignedIn: _keepSignedIn,
-                        onToggleObscure: () =>
-                            setState(() => _obscure = !_obscure),
-                        onToggleKeep: (v) =>
-                            setState(() => _keepSignedIn = v ?? false),
-                        onLogin: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text("로그인 기능은 추후 연결됩니다."),
-                            ),
-                          );
-                        },
+                        emailController: _emailController,
+                        sending: _sending,
+                        sent: _sent,
+                        errorText: _errorText,
+                        cooldownSeconds: _cooldownSeconds,
+                        onSend: _sendLoginLink,
                       ),
                       const SizedBox(height: 18),
                       SizedBox(
@@ -140,9 +187,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             backgroundColor: Theme.of(context)
                                 .colorScheme
                                 .primary
-                                .withValues(
-                                  alpha: 0.10,
-                                ),
+                                .withValues(alpha: 0.10),
                             foregroundColor:
                                 Theme.of(context).colorScheme.primary,
                             shape: RoundedRectangleBorder(
@@ -171,26 +216,25 @@ class _LoginScreenState extends State<LoginScreen> {
 
 class _LoginCard extends StatelessWidget {
   const _LoginCard({
-    required this.idController,
-    required this.pwController,
-    required this.obscure,
-    required this.keepSignedIn,
-    required this.onToggleObscure,
-    required this.onToggleKeep,
-    required this.onLogin,
+    required this.emailController,
+    required this.sending,
+    required this.sent,
+    required this.errorText,
+    required this.cooldownSeconds,
+    required this.onSend,
   });
 
-  final TextEditingController idController;
-  final TextEditingController pwController;
-  final bool obscure;
-  final bool keepSignedIn;
-  final VoidCallback onToggleObscure;
-  final ValueChanged<bool?> onToggleKeep;
-  final VoidCallback onLogin;
+  final TextEditingController emailController;
+  final bool sending;
+  final bool sent;
+  final String? errorText;
+  final int cooldownSeconds;
+  final VoidCallback onSend;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final bool canSend = !sending && cooldownSeconds == 0;
 
     return Card(
       elevation: 0,
@@ -203,8 +247,18 @@ class _LoginCard extends StatelessWidget {
           children: [
             const Center(
               child: Text(
-                "로그인",
+                "이메일 로그인",
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              "명지전문대학 이메일로 받은 링크를 열면 로그인됩니다.",
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: cs.onSurface.withValues(alpha: 0.62),
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
               ),
             ),
             const SizedBox(height: 16),
@@ -217,62 +271,67 @@ class _LoginCard extends StatelessWidget {
                 ),
               ),
               clipBehavior: Clip.antiAlias,
-              child: Column(
-                children: [
-                  TextField(
-                    controller: idController,
-                    textInputAction: TextInputAction.next,
-                    decoration: const InputDecoration(
-                      hintText: "학번",
-                      prefixIcon: Icon(Icons.person_outline_rounded),
-                      border: InputBorder.none,
-                      enabledBorder: InputBorder.none,
-                      focusedBorder: InputBorder.none,
-                      contentPadding:
-                          EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-                    ),
-                  ),
-                  Divider(height: 1, thickness: 1, color: Color(0x22000000)),
-                  TextField(
-                    controller: pwController,
-                    obscureText: obscure,
-                    decoration: InputDecoration(
-                      hintText: "비밀번호",
-                      prefixIcon: const Icon(Icons.lock_outline_rounded),
-                      suffixIcon: IconButton(
-                        onPressed: onToggleObscure,
-                        icon: Icon(
-                          obscure
-                              ? Icons.visibility_outlined
-                              : Icons.visibility_off_outlined,
+              child: TextField(
+                controller: emailController,
+                keyboardType: TextInputType.emailAddress,
+                textInputAction: TextInputAction.done,
+                autofillHints: const [AutofillHints.email],
+                onSubmitted: (_) {
+                  if (canSend) onSend();
+                },
+                decoration: const InputDecoration(
+                  hintText: "name@mjc.ac.kr",
+                  prefixIcon: Icon(Icons.mail_outline_rounded),
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  contentPadding:
+                      EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                ),
+              ),
+            ),
+            if (errorText != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                errorText!,
+                style: const TextStyle(
+                  color: Color(0xFFD4183D),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+            if (sent) ...[
+              const SizedBox(height: 12),
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.mark_email_read_outlined,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          "메일함에서 로그인 링크를 확인해 주세요.",
+                          style: TextStyle(
+                            color: cs.onSurface.withValues(alpha: 0.75),
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
-                        tooltip: obscure ? "비밀번호 보기" : "비밀번호 숨기기",
                       ),
-                      border: InputBorder.none,
-                      enabledBorder: InputBorder.none,
-                      focusedBorder: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 16,
-                      ),
-                    ),
+                    ],
                   ),
-                ],
+                ),
               ),
-            ),
-            const SizedBox(height: 6),
-            CheckboxListTile(
-              value: keepSignedIn,
-              onChanged: onToggleKeep,
-              contentPadding: EdgeInsets.zero,
-              dense: true,
-              controlAffinity: ListTileControlAffinity.leading,
-              title: const Text(
-                "로그인 상태 유지",
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-              ),
-            ),
-            const SizedBox(height: 6),
+            ],
+            const SizedBox(height: 16),
             SizedBox(
               height: 54,
               child: FilledButton(
@@ -282,28 +341,25 @@ class _LoginCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(14),
                   ),
                 ),
-                onPressed: onLogin,
-                child: const Text(
-                  "로그인",
-                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Center(
-              child: TextButton(
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("추후 연결 예정입니다.")),
-                  );
-                },
-                child: Text(
-                  "아이디 찾기   |   비밀번호 찾기",
-                  style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    color: cs.onSurface.withValues(alpha: 0.55),
-                  ),
-                ),
+                onPressed: canSend ? onSend : null,
+                child: sending
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : Text(
+                        cooldownSeconds > 0
+                            ? "$cooldownSeconds초 후 다시 보내기"
+                            : (sent ? "로그인 링크 다시 받기" : "로그인 링크 받기"),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 15,
+                        ),
+                      ),
               ),
             ),
           ],

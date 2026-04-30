@@ -2,6 +2,7 @@ import "package:flutter/material.dart";
 import "package:mio_notice/notification_sources.dart";
 import "package:mio_notice/screens/open_source_licenses_screen.dart";
 import "package:mio_notice/services/notice_filter.dart";
+import "package:mio_notice/services/user_data_repository.dart";
 import "package:mio_notice/theme/theme_mode_scope.dart";
 import "package:mio_notice/utils/snack_bar_utils.dart";
 import "package:mio_notice/widgets/scroll_to_top_scope.dart";
@@ -137,6 +138,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _toggleAllNotices(bool value) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool("allNoticesEnabled", value);
+    await UserDataRepository.instance.pushSnapshotToCloud();
     if (!mounted) return;
     setState(() {
       _allNoticesEnabled = value;
@@ -161,6 +163,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _toggleKeywordNotices(bool value) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool("keywordNoticesEnabled", value);
+    await UserDataRepository.instance.pushSnapshotToCloud();
     if (!mounted) return;
     setState(() => _keywordNoticesEnabled = value);
 
@@ -206,6 +209,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         kNotificationSourceIds.where((id) => next.contains(id)).toList();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setStringList(kNotificationSourcesPrefKey, ordered);
+    await UserDataRepository.instance.updateSources(ordered);
     if (!mounted) return;
     setState(() => _enabledSources = ordered);
   }
@@ -216,6 +220,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       types: next.types.isEmpty ? kNoticeFilterTypeOptions : next.types,
     );
     await safeNext.save();
+    await UserDataRepository.instance.updateNoticeFilter(safeNext);
     if (!mounted) return;
     setState(() => _noticeFilter = safeNext);
   }
@@ -386,6 +391,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   _keywords = [..._keywords, text];
                                   await prefs.setStringList(
                                       "keywords", _keywords);
+                                  await UserDataRepository.instance
+                                      .updateKeywords(_keywords);
                                   // #region agent log
                                   debugSessionNdjson(
                                     hypothesisId: "H2",
@@ -469,6 +476,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                         .toList();
                                     await prefs.setStringList(
                                         "keywords", _keywords);
+                                    await UserDataRepository.instance
+                                        .updateKeywords(_keywords);
                                     // #region agent log
                                     debugSessionNdjson(
                                       hypothesisId: "H2",
