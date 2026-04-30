@@ -4,7 +4,14 @@ import "package:flutter/material.dart";
 import "package:flutter/services.dart";
 import "package:cp949_codec/cp949_codec.dart";
 
-enum ShuttleStatusKind { empty, beforeDeparture, enRoute, noMoreToday }
+enum ShuttleStatusKind {
+  empty,
+  beforeDeparture,
+  enRoute,
+  morningFinished,
+  closed,
+  noMoreToday,
+}
 
 class ShuttleDeparture {
   const ShuttleDeparture({
@@ -37,6 +44,7 @@ class ShuttleStatus {
     required this.kind,
     this.departure,
     this.minutes = 0,
+    this.progress = 0,
   });
 
   factory ShuttleStatus.empty() =>
@@ -44,6 +52,20 @@ class ShuttleStatus {
 
   factory ShuttleStatus.noMoreToday() =>
       const ShuttleStatus._(kind: ShuttleStatusKind.noMoreToday);
+
+  factory ShuttleStatus.closed() =>
+      const ShuttleStatus._(kind: ShuttleStatusKind.closed);
+
+  factory ShuttleStatus.morningFinished(
+    ShuttleDeparture departure,
+    int minutes,
+  ) {
+    return ShuttleStatus._(
+      kind: ShuttleStatusKind.morningFinished,
+      departure: departure,
+      minutes: minutes,
+    );
+  }
 
   factory ShuttleStatus.beforeDeparture(
     ShuttleDeparture departure,
@@ -56,21 +78,31 @@ class ShuttleStatus {
     );
   }
 
-  factory ShuttleStatus.enRoute(ShuttleDeparture departure, int minutes) {
+  factory ShuttleStatus.enRoute(
+    ShuttleDeparture departure,
+    int minutes,
+    double progress,
+  ) {
     return ShuttleStatus._(
       kind: ShuttleStatusKind.enRoute,
       departure: departure,
       minutes: minutes,
+      progress: progress,
     );
   }
 
   final ShuttleStatusKind kind;
   final ShuttleDeparture? departure;
   final int minutes;
+  final double progress;
 }
 
 class ShuttleScheduleService {
   static const String assetPath = "assets/data/shuttle.csv";
+  static const int serviceOpenMinute = 6 * 60;
+  static const int morningFinishedMinute = 9 * 60 + 50;
+  static const int afternoonStartMinute = 15 * 60;
+  static const int serviceClosedMinute = 18 * 60 + 40;
 
   Future<List<ShuttleDeparture>> loadFromAsset() async {
     final ByteData data = await rootBundle.load(assetPath);
@@ -92,11 +124,11 @@ class ShuttleScheduleService {
     final List<ShuttleDeparture> rows = [];
     for (final String line in lines.skip(1)) {
       final Map<String, String> row = _rowMap(headers, _splitCsvLine(line));
-      final String stopName = (row["stop_name"] ?? "").trim();
+      final String stopName = _normalizeStopName(row["stop_name"]);
       final TimeOfDay? time = _parseTime(row["depart_time"]);
       final Set<int> weekdays = _parseWeekdays(row["weekday"]);
       if (stopName.isEmpty || time == null || weekdays.isEmpty) continue;
-      final String arriveStop = (row["arrive_stop"] ?? "").trim();
+      final String arriveStop = _normalizeStopName(row["arrive_stop"]);
       rows.add(
         ShuttleDeparture(
           stopName: stopName,
@@ -125,10 +157,17 @@ class ShuttleScheduleService {
   }
 
   ShuttleStatus nextStatus(DateTime now, List<ShuttleDeparture> departures) {
+    if (departures.isEmpty) return ShuttleStatus.empty();
+    final int currentMinute = now.hour * 60 + now.minute;
+    if (currentMinute < serviceOpenMinute ||
+        currentMinute >= serviceClosedMinute) {
+      return ShuttleStatus.closed();
+    }
+
     final List<ShuttleDeparture> todays = departures
         .where((departure) => departure.weekdays.contains(now.weekday))
-        .toList();
-    if (departures.isEmpty) return ShuttleStatus.empty();
+        .toList()
+      ..sort((a, b) => _timeMinute(a).compareTo(_timeMinute(b)));
     if (todays.isEmpty) return ShuttleStatus.noMoreToday();
 
     for (final ShuttleDeparture departure in todays) {
@@ -140,12 +179,29 @@ class ShuttleScheduleService {
           !now.isBefore(departAt)) {
         final DateTime arriveAt = departAt.add(Duration(minutes: travelMin));
         if (now.isBefore(arriveAt)) {
+          final int elapsedSeconds = now.difference(departAt).inSeconds;
+          final int travelSeconds = travelMin * 60;
           return ShuttleStatus.enRoute(
             departure,
             _ceilMinutes(arriveAt.difference(now)),
+            (elapsedSeconds / travelSeconds).clamp(0, 1).toDouble(),
           );
         }
       }
+    }
+
+    if (currentMinute >= morningFinishedMinute &&
+        currentMinute < afternoonStartMinute) {
+      final ShuttleDeparture afternoonDeparture = todays.firstWhere(
+        (departure) =>
+            departure.stopName == "학교" &&
+            _timeMinute(departure) >= afternoonStartMinute,
+        orElse: () => todays.first,
+      );
+      return ShuttleStatus.morningFinished(
+        afternoonDeparture,
+        _ceilMinutes(afternoonDeparture.departDateTime(now).difference(now)),
+      );
     }
 
     for (final ShuttleDeparture departure in todays) {
@@ -159,6 +215,19 @@ class ShuttleScheduleService {
     }
 
     return ShuttleStatus.noMoreToday();
+  }
+
+  int _timeMinute(ShuttleDeparture departure) {
+    return departure.departTime.hour * 60 + departure.departTime.minute;
+  }
+
+  String _normalizeStopName(String? value) {
+    final String raw = (value ?? "").trim();
+    return switch (raw) {
+      "명지대" => "가좌역",
+      "홍대입구" => "홍대역",
+      _ => raw,
+    };
   }
 
   Map<String, String> _rowMap(List<String> headers, List<String> values) {
