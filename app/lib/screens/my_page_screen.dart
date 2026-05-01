@@ -3,8 +3,10 @@ import "dart:ui" show ImageFilter;
 import "package:firebase_auth/firebase_auth.dart";
 import "package:flutter/foundation.dart" show kIsWeb;
 import "package:flutter/material.dart";
+import "package:mio_notice/mpu_profile_prefs.dart";
 import "package:mio_notice/screens/common_webview_screen.dart";
 import "package:mio_notice/screens/login_screen.dart";
+import "package:mio_notice/screens/mpu_profile_import_screen.dart";
 import "package:mio_notice/services/auth_service.dart";
 import "package:mio_notice/services/notice_manager.dart";
 import "package:mio_notice/services/user_data_repository.dart";
@@ -27,11 +29,17 @@ class _MyPageScreenState extends State<MyPageScreen> {
   bool _loading = true;
   List<_MyNotice> _pinned = const [];
   List<_MyNotice> _favorites = const [];
+  MpuProfile _mpuProfile = const MpuProfile(
+    name: "",
+    grade: "",
+    mileage: "",
+  );
 
   @override
   void initState() {
     super.initState();
     _loadPinnedAndFavorites();
+    _loadMpuProfile();
   }
 
   String _boardLabel(String boardId) {
@@ -177,6 +185,12 @@ class _MyPageScreenState extends State<MyPageScreen> {
     });
   }
 
+  Future<void> _loadMpuProfile() async {
+    final profile = await loadMpuProfile();
+    if (!mounted) return;
+    setState(() => _mpuProfile = profile);
+  }
+
   Future<void> _openNotice(_MyNotice item) async {
     final String url = item.url.trim();
     if (url.isEmpty) return;
@@ -192,10 +206,22 @@ class _MyPageScreenState extends State<MyPageScreen> {
     );
   }
 
-  void _showFetchMyPageMessage() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("마이페이지 가져오기는 추후 연결 예정입니다.")),
+  Future<void> _openMpuProfileImport() async {
+    if (kIsWeb) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("마이페이지 가져오기는 모바일 앱에서 지원합니다.")),
+      );
+      return;
+    }
+
+    final bool? imported = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (_) => const MpuProfileImportScreen(),
+      ),
     );
+    if (imported == true) {
+      await _loadMpuProfile();
+    }
   }
 
   Future<void> _signOut() async {
@@ -224,7 +250,8 @@ class _MyPageScreenState extends State<MyPageScreen> {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(
-          color: light ? _cardBorderLight : scheme.outline.withValues(alpha: 0.35),
+          color:
+              light ? _cardBorderLight : scheme.outline.withValues(alpha: 0.35),
           width: 1,
         ),
       ),
@@ -237,6 +264,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
   Widget build(BuildContext context) {
     final User? user = FirebaseAuth.instance.currentUser;
     final String email = user?.email ?? "로그인이 필요합니다";
+    final bool hasMpuProfile = _mpuProfile.hasAnyValue;
     final bool light = Theme.of(context).brightness == Brightness.light;
     final Color pageBg = light
         ? _pageBackground
@@ -276,7 +304,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
                                 borderRadius: BorderRadius.circular(14),
                               ),
                             ),
-                            onPressed: _showFetchMyPageMessage,
+                            onPressed: _openMpuProfileImport,
                             icon: const Icon(Icons.cloud_download_outlined),
                             label: const Text(
                               "마이페이지 가져오기",
@@ -304,15 +332,31 @@ class _MyPageScreenState extends State<MyPageScreen> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    const _BlurredProfilePlaceholder(
-                                      width: 86,
-                                      height: 20,
-                                    ),
-                                    const SizedBox(height: 4),
-                                    const _BlurredProfilePlaceholder(
-                                      width: 112,
-                                      height: 16,
-                                    ),
+                                    if (hasMpuProfile)
+                                      Text(
+                                        _mpuProfile.name.trim().isEmpty
+                                            ? "MPU 사용자"
+                                            : _mpuProfile.name.trim(),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w900,
+                                          letterSpacing: -0.2,
+                                        ),
+                                      )
+                                    else ...[
+                                      const _BlurredProfilePlaceholder(
+                                        width: 86,
+                                        height: 20,
+                                      ),
+                                      const SizedBox(height: 4),
+                                      const _BlurredProfilePlaceholder(
+                                        width: 112,
+                                        height: 16,
+                                      ),
+                                    ],
                                   ],
                                 ),
                               ),
@@ -321,17 +365,19 @@ class _MyPageScreenState extends State<MyPageScreen> {
                           const SizedBox(height: 14),
                           Row(
                             children: [
-                              const Expanded(
-                                child: _ProfileChip(
-                                  icon: Icons.school_outlined,
-                                  label: "학과",
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              const Expanded(
+                              Expanded(
                                 child: _ProfileChip(
                                   icon: Icons.badge_outlined,
                                   label: "학년",
+                                  value: _mpuProfile.grade.trim(),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: _ProfileChip(
+                                  icon: Icons.stars_rounded,
+                                  label: "내 마일리지",
+                                  value: _mpuProfile.mileage.trim(),
                                 ),
                               ),
                             ],
@@ -380,7 +426,10 @@ class _MyPageScreenState extends State<MyPageScreen> {
                             ),
                           ],
                         ),
-                        Divider(height: 1, thickness: 1, color: _hairlineBorderColor()),
+                        Divider(
+                            height: 1,
+                            thickness: 1,
+                            color: _hairlineBorderColor()),
                         SizedBox(
                           height: 270,
                           child: _loading
@@ -446,7 +495,10 @@ class _MyPageScreenState extends State<MyPageScreen> {
                             );
                           },
                         ),
-                        Divider(height: 1, thickness: 1, color: _hairlineBorderColor()),
+                        Divider(
+                            height: 1,
+                            thickness: 1,
+                            color: _hairlineBorderColor()),
                         ListTile(
                           leading: const Icon(Icons.lock_outline_rounded),
                           title: const Text(
@@ -504,10 +556,12 @@ class _ProfileChip extends StatelessWidget {
   const _ProfileChip({
     required this.icon,
     required this.label,
+    required this.value,
   });
 
   final IconData icon;
   final String label;
+  final String value;
 
   @override
   Widget build(BuildContext context) {
@@ -557,10 +611,23 @@ class _ProfileChip extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 2),
-                const _BlurredProfilePlaceholder(
-                  width: double.infinity,
-                  height: 16,
-                ),
+                if (value.isEmpty)
+                  const _BlurredProfilePlaceholder(
+                    width: double.infinity,
+                    height: 16,
+                  )
+                else
+                  Text(
+                    value,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w900,
+                      height: 1.15,
+                    ),
+                  ),
               ],
             ),
           ),
@@ -662,9 +729,9 @@ class _NoticeList extends StatelessWidget {
                     children: [
                       Row(
                         children: [
-                          _MiniChip(
+                          const _MiniChip(
                             label: "N",
-                            background: const Color(0xFFE53935),
+                            background: Color(0xFFE53935),
                             foreground: Colors.white,
                             radius: 4,
                           ),
