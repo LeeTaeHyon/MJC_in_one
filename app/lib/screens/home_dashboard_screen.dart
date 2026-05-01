@@ -187,7 +187,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     // Home tab must always be visually opaque during transitions, otherwise
     // AnimatedSwitcher fade can reveal the previous tab underneath.
     return ColoredBox(
-      color: AppColors.scaffoldMuted,
+      color: Theme.of(context).scaffoldBackgroundColor,
       child: RefreshIndicator(
         onRefresh: _handleRefresh,
         color: AppColors.primary,
@@ -281,7 +281,11 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     int tabIndex, {
     NoticesSubTab? noticesSubTab,
   }) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final MjcSurfaceTokens tokens =
+        Theme.of(context).extension<MjcSurfaceTokens>()!;
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color accent = colors.last;
     return Expanded(
       child: _HoverFeedback(
         onTap: () => widget.onNavigate(tabIndex, noticesSubTab: noticesSubTab),
@@ -289,31 +293,58 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           height: 110,
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: colors,
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
+            color: isDark ? scheme.surface : null,
+            gradient: isDark
+                ? null
+                : LinearGradient(
+                    colors: colors,
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
             borderRadius: BorderRadius.circular(16),
+            border: isDark
+                ? Border.all(color: tokens.cardBorder.withValues(alpha: 0.85))
+                : null,
             boxShadow: [
               BoxShadow(
-                color: colors.first.withValues(alpha: isDark ? 0.20 : 0.30),
-                blurRadius: 10,
-                offset: const Offset(0, 5),
+                color: Colors.black.withValues(alpha: isDark ? 0.36 : 0.0),
+                blurRadius: isDark ? 14 : 0,
+                offset: const Offset(0, 6),
               ),
+              if (!isDark)
+                BoxShadow(
+                  color: colors.first.withValues(alpha: 0.30),
+                  blurRadius: 10,
+                  offset: const Offset(0, 5),
+                ),
             ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(icon, color: Colors.white, size: 26),
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? accent.withValues(alpha: 0.16)
+                      : Colors.white.withValues(alpha: 0.0),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Padding(
+                  padding: EdgeInsets.all(isDark ? 8 : 0),
+                  child: Icon(
+                    icon,
+                    color: isDark ? accent : Colors.white,
+                    size: isDark ? 24 : 26,
+                  ),
+                ),
+              ),
               const Spacer(),
               Text(
                 title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: isDark ? scheme.onSurface : Colors.white,
                   fontSize: 15,
                   fontWeight: FontWeight.bold,
                 ),
@@ -322,7 +353,10 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                 sub,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: Colors.white70, fontSize: 10),
+                style: TextStyle(
+                  color: isDark ? scheme.onSurfaceVariant : Colors.white70,
+                  fontSize: 10,
+                ),
               ),
             ],
           ),
@@ -1025,6 +1059,7 @@ class _HomeHeroHeaderDelegate extends SliverPersistentHeaderDelegate {
     final double range = maxExtent - minExtent;
     final double t = range > 0 ? (shrinkOffset / range).clamp(0.0, 1.0) : 0.0;
     final double u = Curves.easeInOut.transform(t);
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
 
     return SizedBox(
       height: extent,
@@ -1033,7 +1068,9 @@ class _HomeHeroHeaderDelegate extends SliverPersistentHeaderDelegate {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            const ColoredBox(color: AppColors.primary),
+            ColoredBox(
+              color: isDark ? const Color(0xFF073A8C) : AppColors.primary,
+            ),
             Positioned.fill(
               child: Builder(
                 builder: (BuildContext context) {
@@ -1051,8 +1088,10 @@ class _HomeHeroHeaderDelegate extends SliverPersistentHeaderDelegate {
                     cacheWidth: cw,
                     cacheHeight: ch,
                     // Opacity(saveLayer) 대신 colorFilter로 블렌딩해서 raster 비용을 줄입니다.
-                    color: Colors.black
-                        .withValues(alpha: (0.35 * (1.0 - u)).clamp(0.0, 1.0)),
+                    color: Colors.black.withValues(
+                      alpha:
+                          ((isDark ? 0.50 : 0.35) * (1.0 - u)).clamp(0.0, 1.0),
+                    ),
                     colorBlendMode: BlendMode.srcOver,
                     errorBuilder: (_, __, ___) => const SizedBox.shrink(),
                   );

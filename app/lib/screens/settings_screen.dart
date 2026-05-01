@@ -1,5 +1,6 @@
 import "package:flutter/material.dart";
 import "package:mio_notice/notification_sources.dart";
+import "package:mio_notice/screens/common_webview_screen.dart";
 import "package:mio_notice/screens/open_source_licenses_screen.dart";
 import "package:mio_notice/services/notice_filter.dart";
 import "package:mio_notice/services/user_data_repository.dart";
@@ -21,6 +22,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   /// 설정 화면 본문·카드 구분용 (참고 UI와 유사한 톤).
   static const Color _pageBackground = Color(0xFFF5F7F9);
   static const Color _cardBorder = Color(0xFFEDEDED);
+  static const String _privacyPolicyUrl = "https://mjcinone.web.app/privacy";
 
   bool _allNoticesEnabled = true;
   bool _keywordNoticesEnabled = true;
@@ -435,8 +437,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               icon: const Icon(Icons.add),
                               onPressed: () async {
                                 final text = controller.text.trim();
-                                if (text.isEmpty || _keywords.contains(text))
+                                if (text.isEmpty || _keywords.contains(text)) {
                                   return;
+                                }
 
                                 // #region agent log
                                 debugSessionNdjson(
@@ -645,15 +648,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
             behavior: SnackBarBehavior.floating,
             margin: _snackBarMargin(context),
             content: RichText(
-                text:
-                    TextSpan(style: TextStyle(color: Colors.white), children: [
-              TextSpan(
-                  text: "메일 앱을 열 수 없어요. ",
-                  style: TextStyle(fontWeight: FontWeight.w700)),
-              TextSpan(
-                  text: "메일 앱 설치/계정 설정 후 다시 시도해 주세요.",
-                  style: TextStyle(fontWeight: FontWeight.w400)),
-            ])),
+                text: const TextSpan(
+                    style: TextStyle(color: Colors.white),
+                    children: [
+                  TextSpan(
+                      text: "메일 앱을 열 수 없어요. ",
+                      style: TextStyle(fontWeight: FontWeight.w700)),
+                  TextSpan(
+                      text: "메일 앱 설치/계정 설정 후 다시 시도해 주세요.",
+                      style: TextStyle(fontWeight: FontWeight.w400)),
+                ])),
           ),
         );
       }
@@ -1059,6 +1063,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     Navigator.of(context).push<void>(
                       MaterialPageRoute<void>(
                         builder: (context) => const OpenSourceLicensesScreen(),
+                      ),
+                    );
+                  },
+                ),
+                _hairlineDivider(),
+                ListTile(
+                  title: const Text("개인정보처리방침"),
+                  subtitle: const Text("수집 항목과 이용 목적을 확인할 수 있어요."),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () {
+                    Navigator.of(context).push<void>(
+                      MaterialPageRoute<void>(
+                        builder: (context) => const CommonWebViewScreen(
+                          url: _privacyPolicyUrl,
+                          title: "개인정보처리방침",
+                        ),
                       ),
                     );
                   },

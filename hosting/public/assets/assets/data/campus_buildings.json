@@ -1,0 +1,97 @@
+{
+  "mapCenter": {
+    "lat": 37.58461,
+    "lng": 126.92525
+  },
+  "buildings": [
+    {
+      "id": "main",
+      "name": "본관",
+      "prefixes": ["본"],
+      "floors": 10,
+      "description": "행정·강의실이 있는 본관입니다.",
+      "lat": 37.58463,
+      "lng": 126.92480
+    },
+    {
+      "id": "engineering",
+      "name": "공학관",
+      "prefixes": ["공"],
+      "floors": 5,
+      "description": "공학 계열 강의실과 실습실이 있는 건물입니다.",
+      "lat": 37.58507,
+      "lng": 126.92501
+    },
+    {
+      "id": "social-education",
+      "name": "사회교육관",
+      "prefixes": ["사"],
+      "floors": 6,
+      "description": "사회교육관 및 관련 강의실 안내입니다.",
+      "lat": 37.58458,
+      "lng": 126.92571
+    },
+    {
+      "id": "arts-sports",
+      "name": "예체능관",
+      "prefixes": ["예", "예체능"],
+      "floors": 5,
+      "description": "예체능 계열 수업과 실습 공간이 있는 건물입니다.",
+      "lat": 37.58408,
+      "lng": 126.92594
+    },
+    {
+      "id": "mj-gym",
+      "name": "MJ GYM",
+      "prefixes": ["짐", "헬스", "MJ"],
+      "floors": 1,
+      "description": "예체능관 인근 체육 시설입니다.",
+      "lat": 37.58395,
+      "lng": 126.92587
+    },
+    {
+      "id": "library",
+      "name": "도서관",
+      "prefixes": ["도"],
+      "floors": 7,
+      "description": "도서관과 학습 공간입니다. 지상 1층, 지하 1층",
+      "lat": 37.58481,
+      "lng": 126.92467
+    }
+  ],
+  "aliases": {
+    "본관": {
+      "buildingId": "main",
+      "message": "본관 건물로 이동하세요."
+    },
+    "공학관": {
+      "buildingId": "engineering",
+      "message": "공학관 건물로 이동하세요."
+    },
+    "사회교육관": {
+      "buildingId": "social-education",
+      "message": "사회교육관 건물로 이동하세요."
+    },
+    "예체능관": {
+      "buildingId": "arts-sports",
+      "message": "예체능관 건물로 이동하세요."
+    },
+    "MJ GYM": {
+      "buildingId": "mj-gym",
+      "message": "MJ GYM으로 이동하세요."
+    },
+    "엠제이짐": {
+      "buildingId": "mj-gym",
+      "message": "MJ GYM으로 이동하세요."
+    },
+    "헬스장": {
+      "buildingId": "mj-gym",
+      "message": "MJ GYM으로 이동하세요."
+    },
+    "도서관": {
+      "buildingId": "library",
+      "floor": 1,
+      "message": "도서관 건물로 이동하세요."
+    }
+  }
+}

@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MJC in one 개인정보처리방침</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #f6f8fb;
+        --card: #ffffff;
+        --text: #172033;
+        --muted: #5f6b7a;
+        --line: #d9e1ec;
+        --primary: #0d47a1;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #101318;
+          --card: #181c22;
+          --text: #eef2f8;
+          --muted: #b7c0ce;
+          --line: #303844;
+          --primary: #8ab4f8;
+        }
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          "Noto Sans KR", "Apple SD Gothic Neo", sans-serif;
+        line-height: 1.65;
+      }
+
+      main {
+        width: min(920px, 100%);
+        margin: 0 auto;
+        padding: 28px 18px 48px;
+      }
+
+      article {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        padding: clamp(22px, 5vw, 42px);
+        box-shadow: 0 10px 30px rgb(0 0 0 / 0.06);
+      }
+
+      h1 {
+        margin: 0 0 8px;
+        font-size: clamp(26px, 5vw, 36px);
+        line-height: 1.25;
+        letter-spacing: -0.03em;
+      }
+
+      h2 {
+        margin: 34px 0 10px;
+        padding-top: 2px;
+        color: var(--primary);
+        font-size: 20px;
+        line-height: 1.35;
+      }
+
+      h3 {
+        margin: 20px 0 8px;
+        font-size: 16px;
+      }
+
+      p {
+        margin: 8px 0;
+      }
+
+      ul {
+        margin: 8px 0 0;
+        padding-left: 22px;
+      }
+
+      li {
+        margin: 6px 0;
+      }
+
+      table {
+        width: 100%;
+        margin: 14px 0;
+        border-collapse: collapse;
+        font-size: 14px;
+      }
+
+      th,
+      td {
+        border: 1px solid var(--line);
+        padding: 10px;
+        text-align: left;
+        vertical-align: top;
+      }
+
+      th {
+        background: color-mix(in srgb, var(--primary) 10%, transparent);
+        font-weight: 700;
+      }
+
+      .meta,
+      .note {
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      .notice {
+        margin: 18px 0 24px;
+        padding: 14px 16px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: color-mix(in srgb, var(--primary) 7%, transparent);
+      }
+
+      a {
+        color: var(--primary);
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <article>
+        <h1>MJC in one 개인정보처리방침</h1>
+        <p class="meta">시행일: 2026년 5월 1일</p>
+
+        <div class="notice">
+          <p>
+            MJC in one(이하 "앱")은 이용자의 개인정보를 중요하게 생각하며,
+            개인정보 보호법 등 관련 법령을 준수하기 위해 다음과 같이
+            개인정보처리방침을 공개합니다.
+          </p>
+          <p class="note">
+            본 앱은 명지전문대학교 공식 앱이 아니며, 학교 웹사이트에서
+            이용자가 직접 로그인한 뒤 이용자의 요청에 따라 일부 정보를
+            가져와 표시하거나 계정에 동기화합니다.
+          </p>
+        </div>
+
+        <h2>1. 개인정보의 처리 목적</h2>
+        <p>앱은 다음 목적을 위해 개인정보를 처리합니다.</p>
+        <ul>
+          <li>회원 식별 및 로그인 상태 유지</li>
+          <li>앱 설정, 알림 키워드, 관심 공지, 북마크 등 개인 설정 동기화</li>
+          <li>마이페이지 정보(이름, 학년, 마일리지 현황)의 표시 및 계정 연동</li>
+          <li>문의 대응 및 서비스 운영 안정성 확보</li>
+        </ul>
+
+        <h2>2. 처리하는 개인정보 항목</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>구분</th>
+              <th>항목</th>
+              <th>처리 목적</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>계정 정보</td>
+              <td>Firebase UID, 학교 이메일 주소, 이메일 도메인</td>
+              <td>회원 식별, 계정 기반 동기화</td>
+            </tr>
+            <tr>
+              <td>마이페이지 정보</td>
+              <td>이름, 학년, 마일리지 현황</td>
+              <td>마이페이지 표시, 계정 연동 및 기기 간 동기화</td>
+            </tr>
+            <tr>
+              <td>개인 설정 정보</td>
+              <td>
+                알림 사용 여부, 알림 출처, 키워드, 공지 필터 조건,
+                즐겨찾기/고정 공지 목록
+              </td>
+              <td>개인화 기능 제공 및 설정 동기화</td>
+            </tr>
+            <tr>
+              <td>서비스 이용 중 생성 정보</td>
+              <td>생성일시, 수정일시, 문의 내용(이용자가 문의하는 경우)</td>
+              <td>서비스 운영, 문의 대응, 데이터 관리</td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="note">
+          학교 사이트의 비밀번호는 앱 서버 또는 Firestore에 저장하지 않습니다.
+          이용자는 WebView에서 학교 사이트에 직접 로그인하며, 앱은 이용자가
+          "가져오기"를 실행한 경우 필요한 마이페이지 정보만 처리합니다.
+        </p>
+
+        <h2>3. 개인정보의 처리 및 보유 기간</h2>
+        <p>
+          앱은 개인정보를 처리 목적 달성에 필요한 기간 동안 보유합니다. 원칙적으로
+          이용자가 계정 삭제, 연동 해제 또는 삭제 요청을 하는 경우 지체 없이
+          파기합니다.
+        </p>
+        <ul>
+          <li>계정 및 동기화 정보: 계정 유지 기간 동안 보유</li>
+          <li>마이페이지 정보: 계정 연동 유지 기간 동안 보유</li>
+          <li>문의 정보: 문의 처리 완료 후 분쟁 대응에 필요한 기간 동안 보유</li>
+        </ul>
+        <p class="note">
+          관계 법령에 따라 보존이 필요한 경우에는 해당 법령에서 정한 기간 동안
+          보관할 수 있습니다.
+        </p>
+
+        <h2>4. 개인정보의 제3자 제공</h2>
+        <p>
+          앱은 이용자의 개인정보를 제3자에게 판매하거나 제공하지 않습니다. 다만,
+          법령에 근거가 있거나 이용자의 별도 동의가 있는 경우에는 예외로 합니다.
+        </p>
+
+        <h2>5. 개인정보 처리위탁 및 국외이전</h2>
+        <p>
+          앱은 서비스 제공을 위해 다음과 같이 외부 서비스를 이용할 수 있습니다.
+          Firebase 및 Google Cloud 서비스 특성상 개인정보가 국외에서 처리 또는
+          보관될 수 있습니다.
+        </p>
+        <table>
+          <thead>
+            <tr>
+              <th>수탁자/이전받는 자</th>
+              <th>이전 국가</th>
+              <th>이전 항목</th>
+              <th>이용 목적</th>
+              <th>보유 및 이용 기간</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Google LLC 및 Google Cloud/Firebase 관련 계열사·수탁업체</td>
+              <td>미국 등 Google이 운영하는 데이터센터 소재 국가</td>
+              <td>계정 정보, 마이페이지 정보, 개인 설정 정보</td>
+              <td>인증, 데이터 저장·동기화, 호스팅, 메시징 등 앱 기능 제공</td>
+              <td>서비스 이용 기간 또는 삭제 요청 시까지</td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="note">
+          국외이전을 원하지 않는 경우 계정 연동 및 클라우드 동기화 기능 이용이
+          제한될 수 있습니다.
+        </p>
+
+        <h2>6. 개인정보의 파기 절차 및 방법</h2>
+        <p>
+          보유 기간이 경과하거나 처리 목적이 달성된 개인정보는 복구하기 어렵도록
+          삭제합니다.
+        </p>
+        <ul>
+          <li>전자적 파일: Firestore 문서 및 관련 저장 데이터를 삭제</li>
+          <li>문의 기록 등 별도 보관 데이터: 보유 필요성이 사라진 후 삭제</li>
+        </ul>
+
+        <h2>7. 이용자의 권리와 행사 방법</h2>
+        <p>
+          이용자는 자신의 개인정보에 대해 열람, 정정, 삭제, 처리정지, 동의 철회를
+          요청할 수 있습니다. 요청은 앱 내 문의 기능 또는 아래 연락처를 통해 할 수
+          있으며, 앱은 관련 법령에 따라 지체 없이 조치합니다.
+        </p>
+
+        <h2>8. 안전성 확보조치</h2>
+        <p>앱은 개인정보 보호를 위해 다음 조치를 적용합니다.</p>
+        <ul>
+          <li>Firebase Authentication 기반 사용자 식별</li>
+          <li>Firestore 보안 규칙을 통한 본인 데이터 접근 제한</li>
+          <li>전송 구간 암호화(HTTPS/TLS)</li>
+          <li>관리자 접근 권한 최소화</li>
+          <li>불필요한 개인정보 수집 및 보관 최소화</li>
+        </ul>
+
+        <h2>9. 쿠키 및 유사 기술</h2>
+        <p>
+          학교 사이트 로그인 과정에서 WebView 내 쿠키 또는 세션 정보가 사용될 수
+          있습니다. 해당 쿠키와 세션은 학교 사이트의 로그인 상태 유지에 사용되며,
+          앱은 학교 계정 비밀번호를 서버에 저장하지 않습니다.
+        </p>
+
+        <h2>10. 개인정보 보호책임자 및 문의</h2>
+        <p>
+          개인정보 관련 문의, 권리 행사, 불만 처리는 아래 연락처로 요청할 수
+          있습니다.
+        </p>
+        <ul>
+          <li>개인정보 보호책임자: MJC in one 개발자</li>
+          <li>이메일: <a href="mailto:dlxogus0619@mjc.ac.kr">dlxogus0619@mjc.ac.kr</a></li>
+        </ul>
+
+        <h2>11. 방침의 변경</h2>
+        <p>
+          이 개인정보처리방침은 법령, 서비스 내용 또는 개인정보 처리 방식 변경에
+          따라 수정될 수 있습니다. 중요한 변경이 있는 경우 앱 또는 게시 페이지를
+          통해 안내합니다.
+        </p>
+      </article>
+    </main>
+  </body>
+</html>
