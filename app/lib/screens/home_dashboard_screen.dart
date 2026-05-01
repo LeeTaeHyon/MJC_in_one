@@ -15,6 +15,7 @@ import "package:mio_notice/services/notice_manager.dart";
 import "package:mio_notice/theme/app_colors.dart";
 import "package:mio_notice/widgets/scroll_to_top_scope.dart";
 import "package:mio_notice/widgets/shuttle_status_card.dart";
+import "package:mio_notice/debug/agent_logger.dart";
 import "package:shared_preferences/shared_preferences.dart";
 import "package:url_launcher/url_launcher.dart";
 
@@ -171,33 +172,48 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // #region agent log
+    AgentLogger.log(
+      hypothesisId: "B",
+      location: "home_dashboard_screen.dart:build",
+      message: "HomeDashboardScreen build",
+      data: <String, Object?>{
+        "hasScrollClients": _scrollController.hasClients,
+      },
+    );
+    // #endregion
     final double topPad = MediaQuery.paddingOf(context).top;
-    return RefreshIndicator(
-      onRefresh: _handleRefresh,
-      color: AppColors.primary,
-      child: CustomScrollView(
-        controller: _scrollController,
-        physics: const AlwaysScrollableScrollPhysics(),
-        slivers: [
-          SliverPersistentHeader(
-            pinned: true,
-            delegate: _HomeHeroHeaderDelegate(topPadding: topPad),
-          ),
-          SliverToBoxAdapter(
-            child: Column(
-              children: [
-                _buildGridButtons(context),
-                const ShuttleStatusCard(),
-                _buildFoodcourtSection(context),
-                _buildDeadlineSection(context),
-                _buildAcademicScheduleSection(context),
-                _buildNoticeHeader(context),
-                _buildNoticeList(),
-                const SizedBox(height: 50),
-              ],
+    // Home tab must always be visually opaque during transitions, otherwise
+    // AnimatedSwitcher fade can reveal the previous tab underneath.
+    return ColoredBox(
+      color: AppColors.scaffoldMuted,
+      child: RefreshIndicator(
+        onRefresh: _handleRefresh,
+        color: AppColors.primary,
+        child: CustomScrollView(
+          controller: _scrollController,
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverPersistentHeader(
+              pinned: true,
+              delegate: _HomeHeroHeaderDelegate(topPadding: topPad),
             ),
-          ),
-        ],
+            SliverToBoxAdapter(
+              child: Column(
+                children: [
+                  _buildGridButtons(context),
+                  const ShuttleStatusCard(),
+                  _buildFoodcourtSection(context),
+                  _buildDeadlineSection(context),
+                  _buildAcademicScheduleSection(context),
+                  _buildNoticeHeader(context),
+                  _buildNoticeList(),
+                  const SizedBox(height: 50),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
