@@ -4,161 +4,26 @@ import "dart:ui" show lerpDouble;
 
 import "package:cloud_firestore/cloud_firestore.dart";
 import "package:flutter/foundation.dart";
-import "package:flutter/gestures.dart";
 import "package:flutter/material.dart";
 import "package:mio_notice/screens/academic_schedule_screen.dart";
 import "package:mio_notice/screens/common_webview_screen.dart";
 import "package:mio_notice/screens/foodcourt_menu_screen.dart";
+import "package:mio_notice/screens/notices_tab_screen.dart";
 import "package:mio_notice/services/foodcourt_menu.dart";
 import "package:mio_notice/services/notice_filter.dart";
 import "package:mio_notice/services/notice_manager.dart";
 import "package:mio_notice/theme/app_colors.dart";
-import "package:mio_notice/widgets/app_menu_drawer.dart";
 import "package:mio_notice/widgets/scroll_to_top_scope.dart";
 import "package:mio_notice/widgets/shuttle_status_card.dart";
 import "package:shared_preferences/shared_preferences.dart";
 import "package:url_launcher/url_launcher.dart";
 
-/// 홈 슬라이드 메뉴 패널 너비 (본문 제스처·전역 오버레이 공통).
-double homeSideMenuDrawerWidth(BuildContext context) {
-  final double w = MediaQuery.sizeOf(context).width;
-  return (w * 0.86).clamp(280.0, 400.0);
-}
-
-void applyHomeSideMenuSnap(
-  AnimationController menuOpen, {
-  required double velocityX,
-}) {
-  const double snapThreshold = 0.42;
-  const double velocitySnapOpen = 400;
-  const double velocitySnapClose = -400;
-  final double v = menuOpen.value;
-  if (velocityX >= velocitySnapOpen) {
-    menuOpen.animateTo(1.0, curve: Curves.easeOutCubic);
-  } else if (velocityX <= velocitySnapClose) {
-    menuOpen.animateTo(0.0, curve: Curves.easeInCubic);
-  } else if (v >= snapThreshold) {
-    menuOpen.animateTo(1.0, curve: Curves.easeOutCubic);
-  } else {
-    menuOpen.animateTo(0.0, curve: Curves.easeInCubic);
-  }
-}
-
-/// 홈 슬라이드 메뉴. [Scaffold] 위에 두어 하단 바·FAB보다 위에 그려지게 합니다.
-class HomeSideMenuOverlay extends StatelessWidget {
-  const HomeSideMenuOverlay({
-    super.key,
-    required this.menuOpen,
-    required this.dialogContext,
-  });
-
-  final AnimationController menuOpen;
-  final BuildContext dialogContext;
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: menuOpen,
-      builder: (BuildContext context, Widget? child) {
-        final double v = menuOpen.value;
-        if (v <= 0 && !menuOpen.isAnimating) {
-          return const SizedBox.shrink();
-        }
-
-        final double dw = homeSideMenuDrawerWidth(context);
-        final double slide = v * dw;
-
-        void snapClosed() {
-          menuOpen.animateTo(0.0, curve: Curves.easeInCubic);
-        }
-
-        final ThemeData theme = Theme.of(context);
-        final DrawerThemeData drawerTheme = theme.drawerTheme;
-        final ShapeBorder drawerShape = drawerTheme.shape ??
-            const RoundedRectangleBorder(
-              borderRadius: BorderRadius.only(
-                topRight: Radius.circular(16),
-                bottomRight: Radius.circular(16),
-              ),
-            );
-
-        return Positioned.fill(
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              Positioned.fill(
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onHorizontalDragUpdate: (DragUpdateDetails d) {
-                    menuOpen.value =
-                        (menuOpen.value + d.delta.dx / dw).clamp(0.0, 1.0);
-                  },
-                  onHorizontalDragEnd: (DragEndDetails d) {
-                    applyHomeSideMenuSnap(
-                      menuOpen,
-                      velocityX: d.primaryVelocity ?? 0,
-                    );
-                  },
-                  child: Material(
-                    color: Colors.black
-                        .withValues(alpha: (0.48 * v).clamp(0.0, 0.55)),
-                    child: InkWell(
-                      onTap: snapClosed,
-                      splashColor: Colors.white.withValues(alpha: 0.22),
-                      highlightColor: Colors.white.withValues(alpha: 0.10),
-                      hoverColor: Colors.white.withValues(alpha: 0.06),
-                      child: const SizedBox.expand(),
-                    ),
-                  ),
-                ),
-              ),
-              Positioned(
-                left: -dw + slide,
-                top: 0,
-                bottom: 0,
-                width: dw,
-                child: GestureDetector(
-                  onHorizontalDragUpdate: (DragUpdateDetails d) {
-                    menuOpen.value =
-                        (menuOpen.value + d.delta.dx / dw).clamp(0.0, 1.0);
-                  },
-                  onHorizontalDragEnd: (DragEndDetails d) {
-                    applyHomeSideMenuSnap(
-                      menuOpen,
-                      velocityX: d.primaryVelocity ?? 0,
-                    );
-                  },
-                  child: Material(
-                    color: drawerTheme.backgroundColor ?? Colors.white,
-                    elevation: drawerTheme.elevation ?? 1,
-                    shadowColor: drawerTheme.shadowColor ?? Colors.black38,
-                    surfaceTintColor: drawerTheme.surfaceTintColor,
-                    shape: drawerShape,
-                    clipBehavior: Clip.antiAlias,
-                    child: AppMenuDrawerContent(
-                      closeMenu: snapClosed,
-                      closeBeforeSystemDialogs: true,
-                      dialogContext: dialogContext,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
 class HomeDashboardScreen extends StatefulWidget {
-  final void Function(int) onNavigate;
-  final AnimationController menuOpen;
+  final void Function(int, {NoticesSubTab? noticesSubTab}) onNavigate;
 
   const HomeDashboardScreen({
     super.key,
     required this.onNavigate,
-    required this.menuOpen,
   });
 
   @override
@@ -172,24 +37,15 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   Set<String> _readDashboardNoticeKeys = {};
   NoticeFilterState _noticeFilter = const NoticeFilterState();
   List<String> _noticeSharedKeywords = [];
-  String _noticeQuickQuery = "";
+  final String _noticeQuickQuery = "";
   final ScrollController _scrollController = ScrollController();
   final FoodcourtMenuService _foodcourtMenuService = FoodcourtMenuService();
   final Random _foodRandom = Random();
   ScrollToTopCoordinator? _scrollToTopCoordinator;
 
   static const String _prefsReadDashboard = "read_notices_combined_dashboard";
-  static const double _drawerEdgeDragFraction = 0.5;
   static const String _mpuWebBaseUrl =
       "https://mpu.mjc.ac.kr/Main/default.aspx";
-  static const double _menuFabHit = 52;
-
-  bool _menuPointerDown = false;
-  bool _edgePullArmed = false;
-  bool _menuHorizontalDrag = false;
-  double _edgeAccumDx = 0;
-  double _edgeAccumDy = 0;
-  VelocityTracker? _menuVelocityTracker;
 
   @override
   void initState() {
@@ -313,128 +169,36 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     ]);
   }
 
-  void _snapMenuAfterDrag({required double velocityX}) {
-    applyHomeSideMenuSnap(widget.menuOpen, velocityX: velocityX);
-  }
-
-  void _snapMenuClosed() {
-    widget.menuOpen.animateTo(0.0, curve: Curves.easeInCubic);
-  }
-
-  void _openMenuFromIcon() {
-    widget.menuOpen.animateTo(1.0, curve: Curves.easeOutCubic);
-  }
-
-  void _toggleMenuFromFab() {
-    if (widget.menuOpen.value > 0.5) {
-      _snapMenuClosed();
-    } else {
-      _openMenuFromIcon();
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final double topPad = MediaQuery.paddingOf(context).top;
-    final double dw = homeSideMenuDrawerWidth(context);
-    final double drawerDragEdgeW =
-        MediaQuery.sizeOf(context).width * _drawerEdgeDragFraction;
-    final Rect menuFabRect = Rect.fromLTWH(0, topPad, _menuFabHit, _menuFabHit);
-
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        Listener(
-          behavior: HitTestBehavior.translucent,
-          onPointerDown: (PointerDownEvent e) {
-            if (widget.menuOpen.value > 0.001) return;
-            _menuPointerDown = true;
-            _edgePullArmed = e.localPosition.dx <= drawerDragEdgeW &&
-                !menuFabRect.contains(e.localPosition);
-            _menuHorizontalDrag = false;
-            _edgeAccumDx = 0;
-            _edgeAccumDy = 0;
-            _menuVelocityTracker = VelocityTracker.withKind(e.kind)
-              ..addPosition(e.timeStamp, e.position);
-          },
-          onPointerMove: (PointerMoveEvent e) {
-            _menuVelocityTracker?.addPosition(e.timeStamp, e.position);
-            if (!_menuPointerDown) return;
-
-            if (_menuHorizontalDrag) {
-              widget.menuOpen.value =
-                  (widget.menuOpen.value + e.delta.dx / dw).clamp(0.0, 1.0);
-              return;
-            }
-            if (!_edgePullArmed) return;
-
-            _edgeAccumDx += e.delta.dx;
-            _edgeAccumDy += e.delta.dy.abs();
-            if (_edgeAccumDx > 10 && _edgeAccumDx > _edgeAccumDy * 1.25) {
-              _menuHorizontalDrag = true;
-              widget.menuOpen.value =
-                  (widget.menuOpen.value + e.delta.dx / dw).clamp(0.0, 1.0);
-            }
-          },
-          onPointerUp: (PointerUpEvent e) {
-            _menuVelocityTracker?.addPosition(e.timeStamp, e.position);
-            final double vx = _menuVelocityTracker == null
-                ? 0
-                : _menuVelocityTracker!.getVelocity().pixelsPerSecond.dx;
-            if (_menuHorizontalDrag) {
-              _snapMenuAfterDrag(velocityX: vx);
-            }
-            _menuPointerDown = false;
-            _edgePullArmed = false;
-            _menuHorizontalDrag = false;
-            _menuVelocityTracker = null;
-          },
-          onPointerCancel: (_) {
-            if (_menuHorizontalDrag) {
-              _snapMenuAfterDrag(velocityX: 0);
-            }
-            _menuPointerDown = false;
-            _edgePullArmed = false;
-            _menuHorizontalDrag = false;
-            _menuVelocityTracker = null;
-          },
-          child: AbsorbPointer(
-            absorbing: widget.menuOpen.value > 0.001,
-            child: RefreshIndicator(
-              onRefresh: _handleRefresh,
-              color: AppColors.primary,
-              child: CustomScrollView(
-                controller: _scrollController,
-                physics: const AlwaysScrollableScrollPhysics(),
-                slivers: [
-                  SliverPersistentHeader(
-                    pinned: true,
-                    delegate: _HomeHeroHeaderDelegate(
-                      topPadding: topPad,
-                      onMenuTap: _toggleMenuFromFab,
-                      menuOpen: widget.menuOpen,
-                    ),
-                  ),
-                  SliverToBoxAdapter(
-                    child: Column(
-                      children: [
-                        _buildGridButtons(context),
-                        _buildFoodcourtSection(context),
-                        const ShuttleStatusCard(),
-                        _buildDeadlineSection(context),
-                        _buildAcademicScheduleSection(context),
-                        _buildNoticeHeader(context),
-                        _buildNoticeList(),
-                        const SizedBox(height: 50),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+    return RefreshIndicator(
+      onRefresh: _handleRefresh,
+      color: AppColors.primary,
+      child: CustomScrollView(
+        controller: _scrollController,
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          SliverPersistentHeader(
+            pinned: true,
+            delegate: _HomeHeroHeaderDelegate(topPadding: topPad),
+          ),
+          SliverToBoxAdapter(
+            child: Column(
+              children: [
+                _buildGridButtons(context),
+                const ShuttleStatusCard(),
+                _buildFoodcourtSection(context),
+                _buildDeadlineSection(context),
+                _buildAcademicScheduleSection(context),
+                _buildNoticeHeader(context),
+                _buildNoticeList(),
+                const SizedBox(height: 50),
+              ],
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -450,7 +214,8 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                 "최신 소식",
                 Icons.school,
                 [const Color(0xFF0D47A1), const Color(0xFF1976D2)],
-                2,
+                MainNavTabIndex.notices,
+                noticesSubTab: NoticesSubTab.main,
               ),
               const SizedBox(width: 12),
               _expandedButton(
@@ -458,7 +223,8 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                 "학습 지원",
                 Icons.menu_book,
                 [const Color(0xFF2962FF), const Color(0xFF448AFF)],
-                3,
+                MainNavTabIndex.notices,
+                noticesSubTab: NoticesSubTab.ctl,
               ),
             ],
           ),
@@ -470,7 +236,8 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                 "프로그램 신청",
                 Icons.emoji_events,
                 [const Color(0xFF7986CB), const Color(0xFF90A4AE)],
-                4,
+                MainNavTabIndex.notices,
+                noticesSubTab: NoticesSubTab.mpu,
               ),
               const SizedBox(width: 12),
               _expandedButton(
@@ -478,7 +245,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                 "자료 검색",
                 Icons.local_library,
                 [const Color(0xFF0288D1), const Color(0xFF26C6DA)],
-                1,
+                MainNavTabIndex.library,
               ),
             ],
           ),
@@ -492,11 +259,12 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     String sub,
     IconData icon,
     List<Color> colors,
-    int tabIndex,
-  ) {
+    int tabIndex, {
+    NoticesSubTab? noticesSubTab,
+  }) {
     return Expanded(
       child: _HoverFeedback(
-        onTap: () => widget.onNavigate(tabIndex),
+        onTap: () => widget.onNavigate(tabIndex, noticesSubTab: noticesSubTab),
         child: Container(
           height: 110,
           padding: const EdgeInsets.all(16),
@@ -609,23 +377,26 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                     ],
                   ),
                   const SizedBox(height: 14),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.icon(
-                      onPressed:
-                          loading ? null : () => _recommendFoodcourtMenu(items),
-                      icon: const Icon(Icons.casino_rounded),
-                      label: const Text("학식 뭐먹지?"),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: _openFoodcourtMenuScreen,
-                      icon: const Icon(Icons.restaurant_menu_rounded),
-                      label: const Text("학식 메뉴"),
-                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: FilledButton.icon(
+                          onPressed: loading
+                              ? null
+                              : () => _recommendFoodcourtMenu(items),
+                          icon: const Icon(Icons.casino_rounded),
+                          label: const Text("학식 뭐먹지?"),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: _openFoodcourtMenuScreen,
+                          icon: const Icon(Icons.restaurant_menu_rounded),
+                          label: const Text("학식 메뉴"),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -1034,7 +805,10 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           TextButton(
-            onPressed: () => widget.onNavigate(2),
+            onPressed: () => widget.onNavigate(
+              MainNavTabIndex.notices,
+              noticesSubTab: NoticesSubTab.main,
+            ),
             child: const Text("더보기"),
           ),
         ],
@@ -1069,9 +843,9 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           return !type.contains("학사일정");
         }).toList();
         if (notices.isEmpty) {
-          return Column(
+          return const Column(
             children: [
-              const Padding(
+              Padding(
                 padding: EdgeInsets.symmetric(vertical: 12),
                 child: Center(child: Text("새로운 소식이 없습니다.")),
               ),
@@ -1186,13 +960,9 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
 class _HomeHeroHeaderDelegate extends SliverPersistentHeaderDelegate {
   _HomeHeroHeaderDelegate({
     required this.topPadding,
-    required this.onMenuTap,
-    required this.menuOpen,
   });
 
   final double topPadding;
-  final VoidCallback onMenuTap;
-  final Animation<double> menuOpen;
 
   static const double _heroBody = 240;
   static const double _collapsedBar = 52;
@@ -1257,7 +1027,7 @@ class _HomeHeroHeaderDelegate extends SliverPersistentHeaderDelegate {
                 builder: (BuildContext context, BoxConstraints constraints) {
                   final double ih = constraints.maxHeight;
                   final double titleSize = lerpDouble(34, 20, u)!;
-                  final double titleLeft = lerpDouble(24, 52, u)!;
+                  const double titleLeft = 24;
                   const double bottomBlock =
                       24 + 16 + 6 + 34; // 여백 + 부제 + 간격 + 큰 타이틀
                   final double expandedTitleTop =
@@ -1271,59 +1041,6 @@ class _HomeHeroHeaderDelegate extends SliverPersistentHeaderDelegate {
                   return Stack(
                     clipBehavior: Clip.hardEdge,
                     children: [
-                      Positioned(
-                        left: 2,
-                        top: 0,
-                        child: AnimatedBuilder(
-                          animation: menuOpen,
-                          builder: (BuildContext context, Widget? child) {
-                            final double m = menuOpen.value;
-                            return Material(
-                              color: Colors.transparent,
-                              child: InkWell(
-                                customBorder: const CircleBorder(),
-                                onTap: onMenuTap,
-                                splashColor:
-                                    Colors.white.withValues(alpha: 0.38),
-                                highlightColor:
-                                    Colors.white.withValues(alpha: 0.16),
-                                hoverColor:
-                                    Colors.white.withValues(alpha: 0.12),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(6),
-                                  child: DecoratedBox(
-                                    decoration: BoxDecoration(
-                                      color: m > 0.02
-                                          ? Color.lerp(
-                                              Colors.white
-                                                  .withValues(alpha: 0.18),
-                                              Colors.black
-                                                  .withValues(alpha: 0.06),
-                                              m,
-                                            )
-                                          : Colors.transparent,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(6),
-                                      child: AnimatedIcon(
-                                        icon: AnimatedIcons.menu_close,
-                                        progress: menuOpen,
-                                        color: Color.lerp(
-                                          Colors.white,
-                                          const Color(0xFF212121),
-                                          m,
-                                        )!,
-                                        size: 26,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
                       Positioned(
                         left: titleLeft,
                         top: titleTop,
@@ -1374,9 +1091,7 @@ class _HomeHeroHeaderDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   bool shouldRebuild(covariant _HomeHeroHeaderDelegate oldDelegate) {
-    return topPadding != oldDelegate.topPadding ||
-        onMenuTap != oldDelegate.onMenuTap ||
-        menuOpen != oldDelegate.menuOpen;
+    return topPadding != oldDelegate.topPadding;
   }
 }
 

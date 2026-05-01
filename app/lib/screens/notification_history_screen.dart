@@ -8,7 +8,9 @@ import "package:url_launcher/url_launcher.dart";
 
 /// 푸시 알람 수신 내역을 모아보는 화면입니다.
 class NotificationHistoryScreen extends StatefulWidget {
-  const NotificationHistoryScreen({super.key});
+  const NotificationHistoryScreen({super.key, this.embedded = false});
+
+  final bool embedded;
 
   @override
   State<NotificationHistoryScreen> createState() =>
@@ -21,6 +23,7 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
   final ScrollController _scrollController = ScrollController();
   ScrollToTopCoordinator? _scrollRouteCoordinator;
   bool _registeredScrollRoute = false;
+  bool _registeredMainTab = false;
 
   String _extractNotificationOpenUrl(Map<String, dynamic> item) {
     final dynamic dataAny = item["data"];
@@ -74,28 +77,50 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
 
   void _onHistoryScroll() {
     if (!mounted) return;
-    _scrollRouteCoordinator?.reportRouteScroll(
-      _scrollController.offset,
-      ScrollFabMetrics.viewportHeightInScrollListener(_scrollController),
-    );
+    final double viewportHeight =
+        ScrollFabMetrics.viewportHeightInScrollListener(_scrollController);
+    if (widget.embedded) {
+      _scrollRouteCoordinator?.reportMainTabScroll(
+        MainNavTabIndex.alerts,
+        _scrollController.offset,
+        viewportHeight,
+      );
+    } else {
+      _scrollRouteCoordinator?.reportRouteScroll(
+        _scrollController.offset,
+        viewportHeight,
+      );
+    }
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (_registeredScrollRoute) return;
+    if (_registeredScrollRoute || _registeredMainTab) return;
     final ScrollToTopCoordinator? c = ScrollToTopScope.maybeOf(context);
     if (c != null) {
       _scrollRouteCoordinator = c;
-      c.pushRouteHandler(_scrollContentToTop);
-      _registeredScrollRoute = true;
+      if (widget.embedded) {
+        c.registerMainTab(MainNavTabIndex.alerts, _scrollContentToTop);
+        _registeredMainTab = true;
+      } else {
+        c.pushRouteHandler(_scrollContentToTop);
+        _registeredScrollRoute = true;
+      }
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted || !_scrollController.hasClients) return;
-        c.reportRouteScroll(
-          _scrollController.offset,
-          ScrollFabMetrics.viewportHeightForThreshold(
-              _scrollController, context),
-        );
+        final double viewportHeight =
+            ScrollFabMetrics.viewportHeightForThreshold(
+                _scrollController, context);
+        if (widget.embedded) {
+          c.reportMainTabScroll(
+            MainNavTabIndex.alerts,
+            _scrollController.offset,
+            viewportHeight,
+          );
+        } else {
+          c.reportRouteScroll(_scrollController.offset, viewportHeight);
+        }
       });
     }
   }
@@ -115,6 +140,9 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
     if (_registeredScrollRoute) {
       _scrollRouteCoordinator?.popRouteHandler();
     }
+    if (_registeredMainTab) {
+      _scrollRouteCoordinator?.unregisterMainTab(MainNavTabIndex.alerts);
+    }
     _scrollController.dispose();
     super.dispose();
   }
@@ -128,10 +156,20 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_scrollController.hasClients) return;
-      _scrollRouteCoordinator?.reportRouteScroll(
-        _scrollController.offset,
-        ScrollFabMetrics.viewportHeightForThreshold(_scrollController, context),
-      );
+      final double viewportHeight = ScrollFabMetrics.viewportHeightForThreshold(
+          _scrollController, context);
+      if (widget.embedded) {
+        _scrollRouteCoordinator?.reportMainTabScroll(
+          MainNavTabIndex.alerts,
+          _scrollController.offset,
+          viewportHeight,
+        );
+      } else {
+        _scrollRouteCoordinator?.reportRouteScroll(
+          _scrollController.offset,
+          viewportHeight,
+        );
+      }
     });
   }
 

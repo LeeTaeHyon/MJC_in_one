@@ -81,7 +81,7 @@ class CampusLookupResult {
     final CampusBuilding? selected = building;
     if (selected == null) return "검색 안내";
     if (roomCode == null) return selected.name;
-    return "${selected.name} $floor층 $roomSuffix호";
+    return "${selected.name} $floor층 $roomCode호";
   }
 
   String get guidance {
@@ -92,7 +92,7 @@ class CampusLookupResult {
       if (floor == null) return "${selected.name} 건물로 이동하세요.";
       return "${selected.name} $floor층으로 이동하세요.";
     }
-    return "${selected.name} 건물로 이동한 뒤 $floor층 $roomSuffix호를 찾으세요.";
+    return "${selected.name} 건물로 이동한 뒤 $floor층 $roomCode호를 찾으세요.";
   }
 
   factory CampusLookupResult.empty() {

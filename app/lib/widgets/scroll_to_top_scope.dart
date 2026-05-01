@@ -177,10 +177,10 @@ class _NestedScrollFabTabBindingState extends State<NestedScrollFabTabBinding> {
 /// [MainNavigationScreen] 하단 탭 순서와 같아야 합니다.
 abstract final class MainNavTabIndex {
   static const int home = 0;
-  static const int library = 1;
-  static const int mainSite = 2;
-  static const int ctl = 3;
-  static const int mpu = 4;
+  static const int notices = 1;
+  static const int library = 2;
+  static const int alerts = 3;
+  static const int more = 4;
 }
 
 /// 메인 탭·푸시 라우트에서 등록한 스크롤/웹뷰 맨 위로 동작을 한곳에서 호출합니다.
@@ -191,6 +191,7 @@ class ScrollToTopCoordinator {
   static const double fabHideHysteresisViewportFraction = 0.22;
 
   int _activeMainTab = 0;
+
   /// 메인 탭 활성 변경을 구독할 수 있게 노출합니다.
   ///
   /// `MainNavigationScreen`에서 탭 전환 시 프레임 끝에 갱신되며,

@@ -1,6 +1,8 @@
 import "package:flutter/material.dart";
 import "package:flutter_animate/flutter_animate.dart";
 import "package:mio_notice/screens/main_navigation_screen.dart";
+import "package:mio_notice/theme/app_colors.dart";
+import "package:google_fonts/google_fonts.dart";
 
 class IntroScreen extends StatefulWidget {
   const IntroScreen({super.key});
@@ -37,7 +39,7 @@ class _IntroScreenState extends State<IntroScreen>
           color: Colors.white,
           fontSize: 52,
         ) ??
-        const TextStyle(
+        GoogleFonts.notoSansKr(
           fontSize: 52,
           fontWeight: FontWeight.w900,
           letterSpacing: 0.3,
@@ -61,42 +63,56 @@ class _IntroScreenState extends State<IntroScreen>
     return PopScope(
       canPop: false,
       child: Scaffold(
-        backgroundColor: Colors.black,
+        backgroundColor: AppColors.primary,
         body: SafeArea(
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 28),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text("MJC in one", style: titleStyle)
-                      .animate(
-                        onComplete: (controller) => _goNext(),
-                      )
-                      .fadeIn(duration: 520.ms, curve: Curves.easeOut)
-                      .slideX(
-                        begin: -0.12,
-                        end: 0,
-                        duration: 650.ms,
-                        curve: Curves.easeOutCubic,
-                      ),
-                  const SizedBox(height: 10),
-                  Text("명지전문대학 통합 플랫폼", style: subtitleStyle)
-                      .animate()
-                      .fadeIn(
-                        delay: 220.ms,
-                        duration: 520.ms,
-                        curve: Curves.easeOut,
-                      )
-                      .slideX(
-                        begin: -0.10,
-                        end: 0,
-                        delay: 220.ms,
-                        duration: 650.ms,
-                        curve: Curves.easeOutCubic,
-                      ),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  AppColors.primary,
+                  AppColors.secondary.withValues(alpha: 0.92),
+                  const Color(0xFF0B1B3A),
                 ],
+                stops: const [0.0, 0.55, 1.0],
+              ),
+            ),
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 28),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text("MJC in one", style: titleStyle)
+                        .animate(
+                          onComplete: (controller) => _goNext(),
+                        )
+                        .fadeIn(duration: 520.ms, curve: Curves.easeOut)
+                        .slideX(
+                          begin: -0.12,
+                          end: 0,
+                          duration: 650.ms,
+                          curve: Curves.easeOutCubic,
+                        ),
+                    const SizedBox(height: 10),
+                    Text("명지전문대학 통합 플랫폼", style: subtitleStyle)
+                        .animate()
+                        .fadeIn(
+                          delay: 220.ms,
+                          duration: 520.ms,
+                          curve: Curves.easeOut,
+                        )
+                        .slideX(
+                          begin: -0.10,
+                          end: 0,
+                          delay: 220.ms,
+                          duration: 650.ms,
+                          curve: Curves.easeOutCubic,
+                        ),
+                  ],
+                ),
               ),
             ),
           ),

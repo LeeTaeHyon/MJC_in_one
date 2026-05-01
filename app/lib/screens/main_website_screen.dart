@@ -4,7 +4,6 @@ import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
 import "package:flutter_animate/flutter_animate.dart";
 import "package:mio_notice/screens/common_webview_screen.dart";
-import "package:mio_notice/screens/main_navigation_screen.dart";
 import "package:mio_notice/screens/settings_screen.dart";
 import "package:mio_notice/services/notice_filter.dart";
 import "package:mio_notice/services/notice_manager.dart";
@@ -42,7 +41,9 @@ class _MainWebsiteListEntrance {
 
 /// 명지전문대학 공식 홈페이지의 공지사항을 탭별로 보여주는 화면입니다.
 class MainWebsiteScreen extends StatefulWidget {
-  const MainWebsiteScreen({super.key});
+  const MainWebsiteScreen({super.key, this.activeInNoticesTab = true});
+
+  final bool activeInNoticesTab;
 
   @override
   State<MainWebsiteScreen> createState() => _MainWebsiteScreenState();
@@ -52,10 +53,11 @@ class _MainWebsiteScreenState extends State<MainWebsiteScreen> {
   final ScrollController _outerScrollController = ScrollController();
   ScrollToTopCoordinator? _scrollToTopCoordinator;
   ValueNotifier<int>? _activeTabNotifier;
+  bool _registeredMainTab = false;
   int _entryTick = 0;
   late final NestedScrollFabScrollReporter _nestedFabReporter =
       NestedScrollFabScrollReporter(
-    tabIndex: MainNavTabIndex.mainSite,
+    tabIndex: MainNavTabIndex.notices,
     outerController: _outerScrollController,
   );
 
@@ -72,7 +74,7 @@ class _MainWebsiteScreenState extends State<MainWebsiteScreen> {
     if (c != null) {
       _scrollToTopCoordinator = c;
       _nestedFabReporter.attachCoordinator(c);
-      c.registerMainTab(MainNavTabIndex.mainSite, _scrollContentToTop);
+      _syncScrollToTopRegistration();
       if (!identical(_activeTabNotifier, c.activeMainTabNotifier)) {
         _activeTabNotifier?.removeListener(_handleMainTabChanged);
         _activeTabNotifier = c.activeMainTabNotifier;
@@ -87,10 +89,34 @@ class _MainWebsiteScreenState extends State<MainWebsiteScreen> {
     }
   }
 
+  @override
+  void didUpdateWidget(covariant MainWebsiteScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.activeInNoticesTab != widget.activeInNoticesTab) {
+      _syncScrollToTopRegistration();
+      if (widget.activeInNoticesTab) _handleMainTabChanged();
+    }
+  }
+
+  void _syncScrollToTopRegistration() {
+    final ScrollToTopCoordinator? c = _scrollToTopCoordinator;
+    if (c == null) return;
+    if (widget.activeInNoticesTab) {
+      c.registerMainTab(MainNavTabIndex.notices, _scrollContentToTop);
+      _registeredMainTab = true;
+    } else if (_registeredMainTab) {
+      c.unregisterMainTab(MainNavTabIndex.notices);
+      _registeredMainTab = false;
+    }
+  }
+
   void _handleMainTabChanged() {
     final ScrollToTopCoordinator? c = _scrollToTopCoordinator;
     if (c == null) return;
-    if (c.activeMainTabNotifier.value != MainNavTabIndex.mainSite) return;
+    if (!widget.activeInNoticesTab ||
+        c.activeMainTabNotifier.value != MainNavTabIndex.notices) {
+      return;
+    }
     if (!mounted) return;
     setState(() {
       _entryTick++;
@@ -109,7 +135,9 @@ class _MainWebsiteScreenState extends State<MainWebsiteScreen> {
   @override
   void dispose() {
     _outerScrollController.removeListener(_nestedFabReporter.reportOuterScroll);
-    _scrollToTopCoordinator?.unregisterMainTab(MainNavTabIndex.mainSite);
+    if (_registeredMainTab) {
+      _scrollToTopCoordinator?.unregisterMainTab(MainNavTabIndex.notices);
+    }
     _activeTabNotifier?.removeListener(_handleMainTabChanged);
     _outerScrollController.dispose();
     // 성능상 재진입 때마다 전체 리스트 entrance 애니메이션을 다시 돌리면 jank가 커져서 유지합니다.
@@ -219,7 +247,7 @@ class _MainWebsiteCollapsingHeaderDelegate
     // LayoutBuilder removed: c.maxHeight == heroH - topPadding (SafeArea subtracts status bar)
     final double ih = heroH - topPadding;
     final double titleSize = lerpDouble(28, 19, u)!;
-    final double titleLeft = lerpDouble(20, 50, u)!;
+    const double titleLeft = 20;
     const double bottomBlock = 20 + 14 + 6 + 28;
     final double expandedTitleTop = (ih - bottomBlock).clamp(0.0, ih);
     final double collapsedTitleTop = (ih - titleSize * 1.15) / 2;
@@ -246,30 +274,6 @@ class _MainWebsiteCollapsingHeaderDelegate
                     child: Stack(
                       clipBehavior: Clip.hardEdge,
                       children: [
-                        Positioned(
-                          left: 0,
-                          top: 0,
-                          child: Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              customBorder: const CircleBorder(),
-                              onTap: () => MainNavigationScreen
-                                  .scaffoldKey.currentState
-                                  ?.openDrawer(),
-                              splashColor: Colors.white.withValues(alpha: 0.35),
-                              highlightColor:
-                                  Colors.white.withValues(alpha: 0.14),
-                              child: const Padding(
-                                padding: EdgeInsets.all(10),
-                                child: Icon(
-                                  Icons.menu_rounded,
-                                  color: Colors.white,
-                                  size: 26,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
                         Positioned(
                           left: titleLeft,
                           top: titleTop,
@@ -370,9 +374,9 @@ class _NoticeListTabState extends State<_NoticeListTab> {
       if (!_refreshEnabledForDrag &&
           n.metrics.pixels <= n.metrics.minScrollExtent &&
           n.overscroll < 0) {
-        final double next = (_filterBarReveal +
-                (-n.overscroll / _filterBarRevealDistance))
-            .clamp(0.0, 1.0);
+        final double next =
+            (_filterBarReveal + (-n.overscroll / _filterBarRevealDistance))
+                .clamp(0.0, 1.0);
         if (next != _filterBarReveal) {
           setState(() => _filterBarReveal = next);
         }
@@ -733,7 +737,7 @@ class _NoticeListTabState extends State<_NoticeListTab> {
     final String dateStr = data["date"] ?? "";
     final String type = data["category"] ?? "공지";
     final Color mainColor = isRead ? Colors.grey : const Color(0xFF003FB4);
-    final bool lowRaster = kPerfLowRasterMode;
+    const bool lowRaster = kPerfLowRasterMode;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),

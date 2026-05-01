@@ -2,6 +2,7 @@ import "dart:async";
 
 import "package:flutter/material.dart";
 import "package:geolocator/geolocator.dart";
+import "package:latlong2/latlong.dart";
 import "package:mio_notice/services/campus_map_data.dart";
 import "package:mio_notice/services/campus_room_parser.dart";
 import "package:mio_notice/theme/app_colors.dart";
@@ -23,7 +24,7 @@ class _CampusMapScreenState extends State<CampusMapScreen>
 
   CampusLookupResult? _lookupResult;
   CampusBuilding? _selectedBuilding;
-  Offset? _currentLocation;
+  LatLng? _currentLocation;
   String _locationStatus = "현재 위치를 확인하는 중입니다.";
   bool _loadingLocation = false;
   bool _mockLocationEnabled = false;
@@ -61,15 +62,6 @@ class _CampusMapScreenState extends State<CampusMapScreen>
         });
         return;
       }
-      if (!data.calibration.isReady) {
-        setState(() {
-          _currentLocation = null;
-          _locationStatus = "위치 기준점이 아직 입력되지 않았습니다.";
-          _loadingLocation = false;
-        });
-        return;
-      }
-
       final bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
         setState(() {
@@ -109,17 +101,14 @@ class _CampusMapScreenState extends State<CampusMapScreen>
           timeLimit: Duration(seconds: 10),
         ),
       );
-      final Offset? pixel = data.calibration.latLngToPixel(
+      final LatLng location = LatLng(
         position.latitude,
         position.longitude,
       );
-      final bool insideCampus =
-          pixel != null && _isInsideCampus(data.imageSize, pixel);
 
       setState(() {
-        _currentLocation = insideCampus ? pixel : null;
-        _locationStatus =
-            insideCampus ? "현재 위치를 약도에 표시했습니다." : "현재 위치가 캠퍼스 약도 범위를 벗어나 있습니다.";
+        _currentLocation = location;
+        _locationStatus = "현재 위치를 지도에 표시했습니다.";
         _loadingLocation = false;
       });
     } on TimeoutException {
@@ -137,14 +126,6 @@ class _CampusMapScreenState extends State<CampusMapScreen>
     }
   }
 
-  bool _isInsideCampus(Size imageSize, Offset point) {
-    const double margin = 48;
-    return point.dx >= -margin &&
-        point.dy >= -margin &&
-        point.dx <= imageSize.width + margin &&
-        point.dy <= imageSize.height + margin;
-  }
-
   void _submitSearch(CampusMapData data, String query) {
     final CampusLookupResult result = CampusRoomParser(data).resolve(query);
     setState(() {
@@ -155,7 +136,7 @@ class _CampusMapScreenState extends State<CampusMapScreen>
     final CampusBuilding? building = result.building;
     if (building != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _mapKey.currentState?.focusOn(building.center);
+        _mapKey.currentState?.focusOn(building.location);
       });
     }
   }
@@ -176,22 +157,19 @@ class _CampusMapScreenState extends State<CampusMapScreen>
   }
 
   void _setMockLocation({
-    required Offset pixel,
+    required LatLng location,
     required String label,
     CampusBuilding? focusBuilding,
   }) {
     setState(() {
       _mockLocationEnabled = true;
       _mockLocationLabel = label;
-      _currentLocation = pixel;
+      _currentLocation = location;
       _locationStatus = "모의 위치($label)를 표시 중입니다.";
     });
-    final CampusBuilding? focus = focusBuilding;
-    if (focus != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _mapKey.currentState?.focusOn(focus.center);
-      });
-    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _mapKey.currentState?.focusOn(focusBuilding?.location ?? location);
+    });
   }
 
   Future<void> _showMockLocationSheet(CampusMapData data) async {
@@ -215,7 +193,7 @@ class _CampusMapScreenState extends State<CampusMapScreen>
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  "GPS 대신 약도 위의 임의 위치를 '현재 위치'로 표시합니다.",
+                  "GPS 대신 지도 위의 임의 위치를 '현재 위치'로 표시합니다.",
                   style: TextStyle(color: Colors.grey.shade700, height: 1.35),
                 ),
                 const SizedBox(height: 16),
@@ -229,21 +207,20 @@ class _CampusMapScreenState extends State<CampusMapScreen>
                         onPressed: () {
                           Navigator.pop(context);
                           _setMockLocation(
-                            pixel: b.center,
+                            location: b.location,
                             label: b.name,
                             focusBuilding: b,
                           );
                         },
                       ),
                     ActionChip(
-                      label: const Text("약도 중앙"),
+                      label: const Text("캠퍼스 중앙"),
                       onPressed: () {
                         Navigator.pop(context);
-                        final Offset center = Offset(
-                          data.imageSize.width / 2,
-                          data.imageSize.height / 2,
+                        _setMockLocation(
+                          location: data.mapCenter,
+                          label: "캠퍼스 중앙",
                         );
-                        _setMockLocation(pixel: center, label: "약도 중앙");
                       },
                     ),
                   ],
@@ -341,7 +318,7 @@ class _CampusMapScreenState extends State<CampusMapScreen>
               FilledButton.icon(
                 onPressed: () {
                   Navigator.pop(context);
-                  _mapKey.currentState?.focusOn(building.center);
+                  _mapKey.currentState?.focusOn(building.location);
                 },
                 icon: const Icon(Icons.center_focus_strong_rounded),
                 label: const Text("약도에서 크게 보기"),
@@ -390,11 +367,14 @@ class _CampusMapScreenState extends State<CampusMapScreen>
           return AnimatedBuilder(
             animation: _pulseController,
             builder: (context, child) {
-              return Stack(
-                children: [
-                  Positioned.fill(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 132, 16, 16),
+              return SizedBox.expand(
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      top: 166,
+                      left: 16,
+                      right: 16,
+                      bottom: 16,
                       child: CampusMapView(
                         key: _mapKey,
                         data: data,
@@ -405,16 +385,22 @@ class _CampusMapScreenState extends State<CampusMapScreen>
                         onBuildingTap: _selectBuilding,
                       ),
                     ),
-                  ),
-                  _TopControls(
-                    controller: _searchController,
-                    lookupResult: _lookupResult,
-                    locationStatus: _locationStatus,
-                    loadingLocation: _loadingLocation,
-                    onSubmitted: (query) => _submitSearch(data, query),
-                    onLocate: () => _loadCurrentLocation(data),
-                  ),
-                ],
+                    Positioned(
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      child: _TopControls(
+                        controller: _searchController,
+                        lookupResult: _lookupResult,
+                        locationStatus: _locationStatus,
+                        loadingLocation: _loadingLocation,
+                        onSubmitted: (query) => _submitSearch(data, query),
+                        onLocate: () => _loadCurrentLocation(data),
+                        onMockLocation: () => _showMockLocationSheet(data),
+                      ),
+                    ),
+                  ],
+                ),
               );
             },
           );
@@ -432,6 +418,7 @@ class _TopControls extends StatelessWidget {
     required this.loadingLocation,
     required this.onSubmitted,
     required this.onLocate,
+    required this.onMockLocation,
   });
 
   final TextEditingController controller;
@@ -440,6 +427,7 @@ class _TopControls extends StatelessWidget {
   final bool loadingLocation;
   final ValueChanged<String> onSubmitted;
   final VoidCallback onLocate;
+  final VoidCallback onMockLocation;
 
   @override
   Widget build(BuildContext context) {
@@ -462,7 +450,11 @@ class _TopControls extends StatelessWidget {
                 textInputAction: TextInputAction.search,
                 onSubmitted: onSubmitted,
                 decoration: InputDecoration(
-                  hintText: "공512, 사212, 본 512, 보건실",
+                  hintText: "위치를 모르는 강의실 검색",
+                  hintStyle: TextStyle(
+                    color: Colors.grey.shade400,
+                    fontWeight: FontWeight.w600,
+                  ),
                   prefixIcon: const Icon(Icons.search_rounded),
                   suffixIcon: IconButton(
                     tooltip: "검색",
@@ -480,6 +472,7 @@ class _TopControls extends StatelessWidget {
               locationStatus: locationStatus,
               loadingLocation: loadingLocation,
               onLocate: onLocate,
+              onMockLocation: onMockLocation,
             ),
           ],
         ),
@@ -494,12 +487,14 @@ class _StatusCard extends StatelessWidget {
     required this.locationStatus,
     required this.loadingLocation,
     required this.onLocate,
+    required this.onMockLocation,
   });
 
   final CampusLookupResult? result;
   final String locationStatus;
   final bool loadingLocation;
   final VoidCallback onLocate;
+  final VoidCallback onMockLocation;
 
   @override
   Widget build(BuildContext context) {
@@ -562,16 +557,26 @@ class _StatusCard extends StatelessWidget {
                 ],
               ),
             ),
-            IconButton(
-              tooltip: "현재 위치 새로고침",
-              onPressed: loadingLocation ? null : onLocate,
-              icon: loadingLocation
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.my_location_rounded),
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  tooltip: "테스트 위치 선택",
+                  onPressed: onMockLocation,
+                  icon: const Icon(Icons.tune_rounded),
+                ),
+                IconButton(
+                  tooltip: "현재 위치 새로고침",
+                  onPressed: loadingLocation ? null : onLocate,
+                  icon: loadingLocation
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.my_location_rounded),
+                ),
+              ],
             ),
           ],
         ),

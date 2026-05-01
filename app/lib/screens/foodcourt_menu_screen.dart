@@ -13,89 +13,147 @@ class _FoodcourtMenuScreenState extends State<FoodcourtMenuScreen> {
   late Future<List<FoodcourtMenuItem>> _menuFuture;
   final FoodcourtMenuService _service = FoodcourtMenuService();
 
+  static const TextStyle _appBarTitleStyle = TextStyle(
+    color: Colors.white,
+    fontSize: 18,
+    fontWeight: FontWeight.w800,
+  );
+
+  static const List<String> _preferredShopOrder = [
+    "바비든든",
+    "포포420",
+    "경성카츠",
+    "비비고고",
+    "값찌개",
+  ];
+
   @override
   void initState() {
     super.initState();
     _menuFuture = _service.loadFromAsset();
   }
 
-  Future<void> _handleRefresh() async {
-    setState(() {
-      _menuFuture = _service.loadFromAsset();
-    });
-    await _menuFuture;
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<FoodcourtMenuItem>>(
+      future: _menuFuture,
+      builder: (context, snapshot) {
+        final bool loading =
+            snapshot.connectionState == ConnectionState.waiting;
+        final List<FoodcourtMenuItem> items = snapshot.data ?? const [];
+
+        if (!loading && items.isNotEmpty) {
+          final Map<String, List<FoodcourtMenuItem>> grouped =
+              _service.groupByShop(items);
+          final List<String> shops = _orderedShops(grouped.keys.toList());
+
+          return DefaultTabController(
+            length: shops.length,
+            child: Scaffold(
+              backgroundColor: const Color(0xFFF8F9FA),
+              appBar: AppBar(
+                title: const Text("학식 메뉴"),
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                surfaceTintColor: AppColors.primary,
+                elevation: 0,
+                scrolledUnderElevation: 0,
+                titleTextStyle: _appBarTitleStyle,
+                toolbarTextStyle: _appBarTitleStyle,
+                bottom: TabBar(
+                  isScrollable: true,
+                  tabAlignment: TabAlignment.start,
+                  labelColor: Colors.white,
+                  unselectedLabelColor: Colors.white70,
+                  indicatorColor: Colors.white,
+                  indicatorWeight: 3,
+                  dividerColor: Colors.white24,
+                  tabs: [for (final s in shops) Tab(text: s)],
+                ),
+              ),
+              body: TabBarView(
+                children: [
+                  for (final String shop in shops)
+                    _ShopTabList(
+                      shop: shop,
+                      items: grouped[shop] ?? const [],
+                    ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        return Scaffold(
+          backgroundColor: const Color(0xFFF8F9FA),
+          appBar: AppBar(
+            title: const Text("학식 메뉴"),
+            backgroundColor: AppColors.primary,
+            foregroundColor: Colors.white,
+            surfaceTintColor: AppColors.primary,
+            elevation: 0,
+            scrolledUnderElevation: 0,
+            titleTextStyle: _appBarTitleStyle,
+            toolbarTextStyle: _appBarTitleStyle,
+          ),
+          body: loading
+              ? ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  children: const [
+                    SizedBox(height: 220),
+                    Center(child: CircularProgressIndicator()),
+                  ],
+                )
+              : ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  children: const [
+                    SizedBox(height: 220),
+                    Center(child: Text("등록된 학식 메뉴가 없습니다.")),
+                  ],
+                ),
+        );
+      },
+    );
   }
+
+  List<String> _orderedShops(List<String> raw) {
+    final Set<String> all = raw.map((e) => e.trim()).where((e) => e.isNotEmpty).toSet();
+    final List<String> ordered = [
+      for (final s in _preferredShopOrder)
+        if (all.contains(s)) s,
+    ];
+    final Set<String> seen = ordered.toSet();
+    final List<String> extras = all.where((s) => !seen.contains(s)).toList()
+      ..sort();
+    return [...ordered, ...extras];
+  }
+}
+
+class _ShopTabList extends StatelessWidget {
+  const _ShopTabList({required this.shop, required this.items});
+
+  final String shop;
+  final List<FoodcourtMenuItem> items;
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
-      appBar: AppBar(
-        title: const Text("학식 메뉴"),
-      ),
-      body: RefreshIndicator(
-        color: AppColors.primary,
-        onRefresh: _handleRefresh,
-        child: FutureBuilder<List<FoodcourtMenuItem>>(
-          future: _menuFuture,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
-
-            final List<FoodcourtMenuItem> items = snapshot.data ?? const [];
-            if (items.isEmpty) {
-              return ListView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                children: const [
-                  SizedBox(height: 220),
-                  Center(child: Text("등록된 학식 메뉴가 없습니다.")),
-                ],
-              );
-            }
-
-            final Map<String, List<FoodcourtMenuItem>> grouped =
-                _service.groupByShop(items);
-            final List<String> shops = grouped.keys.toList()..sort();
-
-            return ListView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
-              children: [
-                const Text(
-                  "푸드코트별 메뉴",
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                const Text(
-                  "가격은 교내 자료 기준이며 변동될 수 있습니다.",
-                  style: TextStyle(color: Colors.black54, fontSize: 12),
-                ),
-                const SizedBox(height: 16),
-                for (final String shop in shops) ...[
-                  _ShopMenuSection(
-                    shop: shop,
-                    items: grouped[shop] ?? const [],
-                  ),
-                  const SizedBox(height: 14),
-                ],
-              ],
-            );
-          },
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
+      children: [
+        const Text(
+          "가격은 교내 자료 기준이며 변동될 수 있습니다.",
+          style: TextStyle(color: Colors.black54, fontSize: 12),
         ),
-      ),
+        const SizedBox(height: 12),
+        _MenuListCard(shop: shop, items: items),
+      ],
     );
   }
 }
 
-class _ShopMenuSection extends StatelessWidget {
-  const _ShopMenuSection({
-    required this.shop,
-    required this.items,
-  });
+class _MenuListCard extends StatelessWidget {
+  const _MenuListCard({required this.shop, required this.items});
 
   final String shop;
   final List<FoodcourtMenuItem> items;
@@ -149,8 +207,7 @@ class _ShopMenuSection extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 12),
-            for (final FoodcourtMenuItem item in items)
-              _MenuPriceRow(item: item),
+            for (final FoodcourtMenuItem item in items) _MenuPriceRow(item: item),
           ],
         ),
       ),
