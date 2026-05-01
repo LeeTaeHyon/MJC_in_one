@@ -226,6 +226,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
 
   Future<void> _signOut() async {
     await UserDataRepository.instance.pushSnapshotToCloud();
+    await clearMpuProfile();
     await AuthService.instance.signOut();
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil<void>(

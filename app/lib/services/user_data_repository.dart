@@ -1,5 +1,6 @@
 import "package:cloud_firestore/cloud_firestore.dart";
 import "package:firebase_auth/firebase_auth.dart";
+import "package:mio_notice/mpu_profile_prefs.dart";
 import "package:mio_notice/notification_sources.dart";
 import "package:mio_notice/services/notice_filter.dart";
 import "package:shared_preferences/shared_preferences.dart";
@@ -94,6 +95,19 @@ class UserDataRepository {
       prefix: _favoritePrefix,
       data: _asMap(bookmarks["favorites"]) ?? const {},
     );
+
+    final Map<String, dynamic>? mpu = _asMap(data["mpuProfile"]);
+    if (mpu != null) {
+      await saveMpuProfile(
+        MpuProfile(
+          name: (mpu["name"] ?? "").toString(),
+          grade: (mpu["grade"] ?? "").toString(),
+          mileage: (mpu["mileage"] ?? "").toString(),
+        ),
+      );
+    } else {
+      await clearMpuProfile();
+    }
   }
 
   Future<void> pushSnapshotToCloud({
@@ -129,6 +143,11 @@ class UserDataRepository {
       "bookmarks": {
         "pinned": _collectBookmarkPrefs(prefs, _pinnedPrefix),
         "favorites": _collectBookmarkPrefs(prefs, _favoritePrefix),
+      },
+      "mpuProfile": {
+        "name": prefs.getString(kMpuProfileNamePrefKey) ?? "",
+        "grade": prefs.getString(kMpuProfileGradePrefKey) ?? "",
+        "mileage": prefs.getString(kMpuProfileMileagePrefKey) ?? "",
       },
     };
 

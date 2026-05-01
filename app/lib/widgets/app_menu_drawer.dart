@@ -1,6 +1,7 @@
 import "package:firebase_auth/firebase_auth.dart";
 import "package:flutter/material.dart";
 import "package:flutter/foundation.dart" show kIsWeb;
+import "package:mio_notice/mpu_profile_prefs.dart";
 import "package:mio_notice/notification_history_prefs.dart";
 import "package:mio_notice/screens/academic_schedule_screen.dart";
 import "package:mio_notice/screens/common_webview_screen.dart";
@@ -227,6 +228,7 @@ class _AppMenuDrawerContentState extends State<AppMenuDrawerContent> {
 
   Future<void> _signOut() async {
     await UserDataRepository.instance.pushSnapshotToCloud();
+    await clearMpuProfile();
     await AuthService.instance.signOut();
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(

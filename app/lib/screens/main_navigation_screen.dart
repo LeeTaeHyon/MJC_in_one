@@ -1,3 +1,6 @@
+import "dart:async";
+
+import "package:firebase_auth/firebase_auth.dart";
 import "package:flutter/material.dart";
 import "package:flutter/services.dart";
 import "package:mio_notice/screens/ctl_screen.dart";
@@ -5,6 +8,8 @@ import "package:mio_notice/screens/library_screen.dart";
 import "package:mio_notice/screens/main_website_screen.dart";
 import "package:mio_notice/screens/mpu_screen.dart";
 import "package:mio_notice/screens/home_dashboard_screen.dart";
+import "package:mio_notice/services/auth_service.dart";
+import "package:mio_notice/services/user_data_repository.dart";
 import "package:mio_notice/widgets/app_menu_drawer.dart";
 import "package:mio_notice/widgets/scroll_to_top_fab.dart";
 import "package:mio_notice/widgets/scroll_to_top_scope.dart";
@@ -28,6 +33,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
   late AnimationController _animationController;
   late Animation<double> _expandAnimation;
   late AnimationController _homeMenuOpen;
+  StreamSubscription<User?>? _authHydrateSubscription;
 
   @override
   void initState() {
@@ -44,6 +50,15 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
       parent: _animationController,
       curve: Curves.easeOutBack, // 열릴 때 살짝 튕기는 효과
     );
+    _authHydrateSubscription =
+        AuthService.instance.authStateChanges().listen((User? user) async {
+      if (user == null) return;
+      try {
+        await UserDataRepository.instance.hydrateFromCloudOnLogin(user);
+      } catch (e, st) {
+        debugPrint("hydrateFromCloudOnLogin: $e\n$st");
+      }
+    });
     _syncScrollCoordinatorTab();
   }
 
@@ -77,6 +92,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
 
   @override
   void dispose() {
+    _authHydrateSubscription?.cancel();
     _homeMenuOpen.dispose();
     _animationController.dispose();
     super.dispose();
