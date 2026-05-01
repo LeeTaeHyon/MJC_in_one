@@ -364,40 +364,54 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
 
   Widget _buildMainFabInNavBar() {
     // 네비게이션 바 "영역 안"으로 들어오는 버전 (떠있는 FAB 미사용).
-    return Center(
-      child: SizedBox(
-        width: 52,
-        height: 52,
-        child: Material(
-          color: Color(0xFF003FB4),
-          shape: const CircleBorder(),
-          clipBehavior: Clip.antiAlias,
-          elevation: 0,
-          child: InkWell(
-            customBorder: const CircleBorder(),
-            onTap: _toggleMenu,
-            splashColor: Colors.white.withValues(alpha: 0.38),
-            highlightColor: Colors.white.withValues(alpha: 0.22),
-            child: Center(
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 220),
-                transitionBuilder: (child, animation) =>
-                    ScaleTransition(scale: animation, child: child),
-                child: _isMenuOpen
-                    ? const Icon(
-                        Icons.close,
-                        key: ValueKey('close_icon_nav'),
-                        color: Colors.white,
-                        size: 30,
-                      )
-                    : Image.asset(
-                        "assets/images/notice_megaphone.png",
-                        key: const ValueKey('megaphone_icon_nav'),
-                        color: Colors.white,
-                        filterQuality: FilterQuality.medium,
-                        width: 26,
-                        height: 26,
-                      ),
+    return SizedBox(
+      width: 80,
+      height: double.infinity,
+      child: Center(
+        child: FractionallySizedBox(
+          widthFactor: 0.7, // 가로 30% 컷
+          heightFactor: 0.6, // 위/아래 20%씩 컷
+          child: Material(
+            color: Colors.transparent,
+            elevation: 0,
+            borderRadius: BorderRadius.circular(12),
+            clipBehavior: Clip.antiAlias,
+            child: Ink(
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF0D47A1), Color(0xFF1976D2)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: _toggleMenu,
+                splashColor: Colors.white.withValues(alpha: 0.35),
+                highlightColor: Colors.white.withValues(alpha: 0.18),
+                child: Center(
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 220),
+                    transitionBuilder: (child, animation) =>
+                        ScaleTransition(scale: animation, child: child),
+                    child: _isMenuOpen
+                        ? const Icon(
+                            Icons.close,
+                            key: ValueKey('close_icon_nav'),
+                            color: Colors.white,
+                            size: 30,
+                          )
+                        : Image.asset(
+                            "assets/images/notice_megaphone.png",
+                            key: const ValueKey('megaphone_icon_nav'),
+                            color: Colors.white,
+                            filterQuality: FilterQuality.medium,
+                            width: 26,
+                            height: 26,
+                          ),
+                  ),
+                ),
               ),
             ),
           ),
@@ -415,22 +429,41 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
           thickness: 1,
           color: Color(0x1F000000),
         ),
-        BottomAppBar(
+        SizedBox(
           height: 70,
-          color: Colors.white,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+          child: Stack(
+            clipBehavior: Clip.none,
             children: [
-              Expanded(
-                child: _buildNavTab(0, Icons.home_outlined, Icons.home, "홈"),
+              Positioned.fill(
+                child: BottomAppBar(
+                  height: 70,
+                  color: Colors.white,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(
+                        child: _buildNavTab(
+                            0, Icons.home_outlined, Icons.home, "홈"),
+                      ),
+                      const SizedBox(width: 80),
+                      Expanded(
+                        child: _buildNavTab(
+                          1,
+                          Icons.local_library_outlined,
+                          Icons.local_library,
+                          "도서관",
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-              SizedBox(
-                width: 80,
-                child: _buildMainFabInNavBar(),
-              ),
-              Expanded(
-                child: _buildNavTab(1, Icons.local_library_outlined,
-                    Icons.local_library, "도서관"),
+              Positioned(
+                left: 0,
+                right: 0,
+                top: 0,
+                bottom: 0,
+                child: Center(child: _buildMainFabInNavBar()),
               ),
             ],
           ),

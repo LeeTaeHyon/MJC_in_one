@@ -4,7 +4,7 @@ import "package:flutter/material.dart";
 import "package:mio_notice/firebase_options.dart";
 import "package:mio_notice/notification_history_prefs.dart";
 import "package:mio_notice/notification_sources.dart";
-import "package:mio_notice/screens/main_navigation_screen.dart";
+import "package:mio_notice/screens/intro_screen.dart";
 import "package:mio_notice/services/deep_link_handler.dart";
 import "package:mio_notice/services/user_data_repository.dart";
 import "package:mio_notice/theme/app_theme.dart";
@@ -216,7 +216,7 @@ class _MioNoticeAppState extends State<MioNoticeApp>
                   ],
                 );
               },
-              home: const MainNavigationScreen(),
+              home: const IntroScreen(),
             );
           },
         ),

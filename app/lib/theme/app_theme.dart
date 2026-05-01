@@ -1,13 +1,18 @@
 import "package:flutter/material.dart";
+import "package:google_fonts/google_fonts.dart";
 
 import "app_colors.dart";
 
 ThemeData buildMjcTheme() {
   const primary = AppColors.primary;
 
+  final base = ThemeData.light(useMaterial3: true);
+  final textTheme = GoogleFonts.notoSansKrTextTheme(base.textTheme);
+
   return ThemeData(
     useMaterial3: true,
     scaffoldBackgroundColor: AppColors.scaffoldMuted,
+    textTheme: textTheme,
     colorScheme: const ColorScheme.light(
       primary: AppColors.primary,
       onPrimary: Colors.white,
@@ -72,10 +77,14 @@ ThemeData buildMjcDarkTheme() {
   const primary = AppColors.primary;
   const secondary = AppColors.secondary;
 
+  final base = ThemeData.dark(useMaterial3: true);
+  final textTheme = GoogleFonts.notoSansKrTextTheme(base.textTheme);
+
   return ThemeData(
     useMaterial3: true,
     brightness: Brightness.dark,
     scaffoldBackgroundColor: const Color(0xFF0B0F17),
+    textTheme: textTheme,
     colorScheme: const ColorScheme.dark(
       primary: primary,
       onPrimary: Colors.white,
