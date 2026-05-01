@@ -20,15 +20,17 @@ class WebViewNavigationOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color disabled = AppColors.mutedForeground.withValues(alpha: 0.35);
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color disabled = scheme.onSurfaceVariant.withValues(alpha: 0.35);
     return Positioned(
       left: 12,
       bottom: 12 + MediaQuery.paddingOf(context).bottom,
       child: Material(
         elevation: 6,
-        shadowColor: Colors.black26,
+        shadowColor: Colors.black.withValues(alpha: isDark ? 0.45 : 0.26),
         borderRadius: BorderRadius.circular(24),
-        color: Colors.white,
+        color: scheme.surface,
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -47,7 +49,7 @@ class WebViewNavigationOverlay extends StatelessWidget {
               child: VerticalDivider(
                 width: 1,
                 thickness: 1,
-                color: Colors.grey.shade300,
+                color: scheme.outline.withValues(alpha: 0.70),
               ),
             ),
             IconButton(

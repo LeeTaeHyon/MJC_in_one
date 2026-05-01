@@ -8,6 +8,7 @@ import "package:mio_notice/screens/settings_screen.dart";
 import "package:mio_notice/services/notice_filter.dart";
 import "package:mio_notice/services/notice_manager.dart";
 import "package:mio_notice/services/user_data_repository.dart";
+import "package:mio_notice/theme/app_theme.dart";
 import "package:mio_notice/perf_flags.dart";
 import "package:mio_notice/widgets/nested_scroll_refresh_indicator.dart";
 import "package:mio_notice/widgets/notice_filter_bar.dart";
@@ -144,10 +145,13 @@ class _CtlScreenState extends State<CtlScreen> {
   @override
   Widget build(BuildContext context) {
     final double topPad = MediaQuery.paddingOf(context).top;
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final MjcSurfaceTokens tokens =
+        Theme.of(context).extension<MjcSurfaceTokens>()!;
     return DefaultTabController(
       length: 2,
       child: Scaffold(
-        backgroundColor: const Color(0xFFF8F9FA),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         body: NestedScrollView(
           controller: _outerScrollController,
           headerSliverBuilder: (BuildContext context, bool innerBoxIsScrolled) {
@@ -161,10 +165,10 @@ class _CtlScreenState extends State<CtlScreen> {
                     topPadding: topPad,
                     tabBar: TabBar(
                       controller: DefaultTabController.of(context),
-                      indicatorColor: const Color(0xFF2962FF),
+                      indicatorColor: tokens.sourceCtl,
                       indicatorWeight: 3,
-                      labelColor: const Color(0xFF2962FF),
-                      unselectedLabelColor: Colors.grey,
+                      labelColor: tokens.sourceCtl,
+                      unselectedLabelColor: scheme.onSurfaceVariant,
                       labelStyle: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
@@ -244,6 +248,8 @@ class _CtlCollapsingHeaderDelegate extends SliverPersistentHeaderDelegate {
     final double collapsedTitleTop = (ih - titleSize * 1.15) / 2;
     final double titleTop = lerpDouble(expandedTitleTop, collapsedTitleTop, u)!;
     final double subtitleOpacity = (1.0 - u * 1.35).clamp(0.0, 1.0);
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
 
     return SizedBox(
       height: extent,
@@ -308,9 +314,9 @@ class _CtlCollapsingHeaderDelegate extends SliverPersistentHeaderDelegate {
               ),
             ),
             Material(
-              color: Colors.white,
+              color: scheme.surface,
               elevation: overlapsContent ? 0.5 : 0,
-              shadowColor: Colors.black12,
+              shadowColor: Colors.black.withValues(alpha: isDark ? 0.45 : 0.12),
               child: SizedBox(
                 height: _tabBarHeight,
                 child: tabBar,
@@ -511,10 +517,11 @@ class _CtlListTabState extends State<_CtlListTab> {
 
   @override
   Widget build(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
     return NestedScrollRefreshIndicator(
       onRefresh: _handleRefresh,
       color: const Color(0xFF2962FF),
-      backgroundColor: Colors.white,
+      backgroundColor: scheme.surface,
       notificationPredicate: _allowRefreshNotification,
       child: FutureBuilder<List<Map<String, dynamic>>>(
         future: _ctlFuture,
@@ -580,7 +587,8 @@ class _CtlListTabState extends State<_CtlListTab> {
               const SizedBox(height: 48),
               Text(
                 items.isEmpty ? "등록된 항목이 없습니다." : "필터에 맞는 항목이 없습니다.",
-                style: TextStyle(color: Colors.grey.shade600),
+                style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant),
               ),
             ],
           ),
@@ -643,6 +651,13 @@ class _CtlListTabState extends State<_CtlListTab> {
   }
 
   Widget _buildCtlCard(BuildContext context, Map<String, dynamic> data) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final MjcSurfaceTokens tokens =
+        Theme.of(context).extension<MjcSurfaceTokens>()!;
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color accent = tokens.sourceCtl;
+    final Color chipBackground = accent.withValues(alpha: isDark ? 0.18 : 0.12);
+    final Color secondaryText = scheme.onSurfaceVariant;
     final String title = data["title"] ?? "";
     final String date = data["reg_date"] ?? data["date"] ?? "";
     final String opPeriod = data["op_period"] ?? "";
@@ -652,10 +667,12 @@ class _CtlListTabState extends State<_CtlListTab> {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       child: Material(
-        color: Colors.white,
+        color: scheme.surface,
         borderRadius: BorderRadius.circular(12),
         elevation: _lowRaster ? 0 : 2,
-        shadowColor: _lowRaster ? Colors.transparent : Colors.black12,
+        shadowColor: _lowRaster
+            ? Colors.transparent
+            : Colors.black.withValues(alpha: isDark ? 0.45 : 0.12),
         clipBehavior: _lowRaster ? Clip.hardEdge : Clip.none,
         child: InkWell(
           borderRadius: BorderRadius.circular(12),
@@ -680,9 +697,9 @@ class _CtlListTabState extends State<_CtlListTab> {
                       bottom: 0,
                       child: Container(
                         width: 4,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFF2962FF),
-                          borderRadius: BorderRadius.only(
+                        decoration: BoxDecoration(
+                          color: accent,
+                          borderRadius: const BorderRadius.only(
                             topLeft: Radius.circular(12),
                             bottomLeft: Radius.circular(12),
                           ),
@@ -702,22 +719,22 @@ class _CtlListTabState extends State<_CtlListTab> {
                                       horizontal: 8, vertical: 3),
                                   margin: const EdgeInsets.only(right: 8),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFFE8EAF6),
+                                    color: chipBackground,
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: Text(
                                     status,
-                                    style: const TextStyle(
-                                      color: Color(0xFF2962FF),
+                                    style: TextStyle(
+                                      color: accent,
                                       fontSize: 10,
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
                                 ),
-                              const Text(
+                              Text(
                                 "CTL",
                                 style: TextStyle(
-                                  color: Colors.grey,
+                                  color: secondaryText,
                                   fontSize: 11,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -729,10 +746,10 @@ class _CtlListTabState extends State<_CtlListTab> {
                             title,
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
-                              color: Color(0xFF222222),
+                              color: scheme.onSurface,
                               height: 1.4,
                             ),
                           ),
@@ -742,14 +759,14 @@ class _CtlListTabState extends State<_CtlListTab> {
                               padding: const EdgeInsets.only(bottom: 8),
                               child: Row(
                                 children: [
-                                  const Icon(Icons.timer_outlined,
-                                      size: 14, color: Color(0xFF2962FF)),
+                                  Icon(Icons.timer_outlined,
+                                      size: 14, color: accent),
                                   const SizedBox(width: 6),
                                   Expanded(
                                     child: Text(
                                       "진행: $opPeriod",
-                                      style: const TextStyle(
-                                        color: Color(0xFF2962FF),
+                                      style: TextStyle(
+                                        color: accent,
                                         fontSize: 13,
                                         fontWeight: FontWeight.w500,
                                       ),
@@ -760,25 +777,25 @@ class _CtlListTabState extends State<_CtlListTab> {
                             ),
                           Row(
                             children: [
-                              const Icon(Icons.calendar_today_outlined,
-                                  size: 14, color: Colors.grey),
+                              Icon(Icons.calendar_today_outlined,
+                                  size: 14, color: secondaryText),
                               const SizedBox(width: 6),
                               Text(
                                 "신청: $date",
-                                style: const TextStyle(
-                                    color: Colors.grey, fontSize: 13),
+                                style: TextStyle(
+                                    color: secondaryText, fontSize: 13),
                               )
                             ],
                           ),
                         ],
                       ),
                     ),
-                    const Positioned(
+                    Positioned(
                       right: 12,
                       top: 0,
                       bottom: 0,
                       child: Icon(Icons.chevron_right,
-                          color: Colors.grey, size: 24),
+                          color: secondaryText, size: 24),
                     ),
                   ],
                 )
@@ -793,9 +810,9 @@ class _CtlListTabState extends State<_CtlListTab> {
                         bottom: 0,
                         child: Container(
                           width: 4,
-                          decoration: const BoxDecoration(
-                            color: Color(0xFF2962FF),
-                            borderRadius: BorderRadius.only(
+                          decoration: BoxDecoration(
+                            color: accent,
+                            borderRadius: const BorderRadius.only(
                               topLeft: Radius.circular(12),
                               bottomLeft: Radius.circular(12),
                             ),
@@ -815,22 +832,22 @@ class _CtlListTabState extends State<_CtlListTab> {
                                         horizontal: 8, vertical: 3),
                                     margin: const EdgeInsets.only(right: 8),
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFFE8EAF6),
+                                      color: chipBackground,
                                       borderRadius: BorderRadius.circular(4),
                                     ),
                                     child: Text(
                                       status,
-                                      style: const TextStyle(
-                                        color: Color(0xFF2962FF),
+                                      style: TextStyle(
+                                        color: accent,
                                         fontSize: 10,
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
                                   ),
-                                const Text(
+                                Text(
                                   "CTL",
                                   style: TextStyle(
-                                    color: Colors.grey,
+                                    color: secondaryText,
                                     fontSize: 11,
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -842,10 +859,10 @@ class _CtlListTabState extends State<_CtlListTab> {
                               title,
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
-                                color: Color(0xFF222222),
+                                color: scheme.onSurface,
                                 height: 1.4,
                               ),
                             ),
@@ -855,14 +872,14 @@ class _CtlListTabState extends State<_CtlListTab> {
                                 padding: const EdgeInsets.only(bottom: 8),
                                 child: Row(
                                   children: [
-                                    const Icon(Icons.timer_outlined,
-                                        size: 14, color: Color(0xFF2962FF)),
+                                    Icon(Icons.timer_outlined,
+                                        size: 14, color: accent),
                                     const SizedBox(width: 6),
                                     Expanded(
                                       child: Text(
                                         "진행: $opPeriod",
-                                        style: const TextStyle(
-                                          color: Color(0xFF2962FF),
+                                        style: TextStyle(
+                                          color: accent,
                                           fontSize: 13,
                                           fontWeight: FontWeight.w500,
                                         ),
@@ -873,25 +890,25 @@ class _CtlListTabState extends State<_CtlListTab> {
                               ),
                             Row(
                               children: [
-                                const Icon(Icons.calendar_today_outlined,
-                                    size: 14, color: Colors.grey),
+                                Icon(Icons.calendar_today_outlined,
+                                    size: 14, color: secondaryText),
                                 const SizedBox(width: 6),
                                 Text(
                                   "신청: $date",
-                                  style: const TextStyle(
-                                      color: Colors.grey, fontSize: 13),
+                                  style: TextStyle(
+                                      color: secondaryText, fontSize: 13),
                                 )
                               ],
                             ),
                           ],
                         ),
                       ),
-                      const Positioned(
+                      Positioned(
                         right: 12,
                         top: 0,
                         bottom: 0,
                         child: Icon(Icons.chevron_right,
-                            color: Colors.grey, size: 24),
+                            color: secondaryText, size: 24),
                       ),
                     ],
                   ),

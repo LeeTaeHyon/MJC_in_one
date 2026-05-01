@@ -99,6 +99,7 @@ class _NoticeCardState extends State<NoticeCard> {
 
   @override
   Widget build(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
     return ListTile(
       onTap: () => _openUrl(context),
       title: Row(
@@ -110,7 +111,7 @@ class _NoticeCardState extends State<NoticeCard> {
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: _hasRead ? FontWeight.w400 : FontWeight.w600,
-                color: _hasRead ? Colors.grey.shade600 : Colors.black87,
+                color: _hasRead ? scheme.onSurfaceVariant : scheme.onSurface,
               ),
             ),
           ),
@@ -128,9 +129,9 @@ class _NoticeCardState extends State<NoticeCard> {
             padding: const EdgeInsets.only(top: 4),
             child: Text(
               widget.notice.date,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 13,
-                color: AppColors.mutedForeground,
+                color: scheme.onSurfaceVariant,
               ),
             ),
           ),

@@ -151,10 +151,13 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: AppColors.library,
+        backgroundColor: Theme.of(context).brightness == Brightness.light
+            ? AppColors.library
+            : scheme.surface,
         elevation: 0,
         foregroundColor: Colors.white,
         title: const Text(
@@ -169,7 +172,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
           ),
           PopupMenuButton<String>(
             icon: const Icon(Icons.share_outlined, size: 22),
-            color: Colors.white,
+            color: scheme.surface,
             onSelected: (value) async {
               if (value == "share") {
                 await Share.share("${LibraryScreen._title}\n$_currentUrl");
@@ -184,24 +187,25 @@ class _LibraryScreenState extends State<LibraryScreen> {
               }
             },
             itemBuilder: (context) => [
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: "share",
                 child: Row(
                   children: [
-                    Icon(Icons.share_outlined, size: 20, color: Colors.black87),
-                    SizedBox(width: 12),
-                    Text("공유하기"),
+                    Icon(Icons.share_outlined,
+                        size: 20, color: scheme.onSurface),
+                    const SizedBox(width: 12),
+                    const Text("공유하기"),
                   ],
                 ),
               ),
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: "browser",
                 child: Row(
                   children: [
                     Icon(Icons.public_outlined,
-                        size: 20, color: Colors.black87),
-                    SizedBox(width: 12),
-                    Text("브라우저로 열기"),
+                        size: 20, color: scheme.onSurface),
+                    const SizedBox(width: 12),
+                    const Text("브라우저로 열기"),
                   ],
                 ),
               ),

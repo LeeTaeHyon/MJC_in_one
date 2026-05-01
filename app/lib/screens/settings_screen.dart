@@ -324,9 +324,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text(
+                      Text(
                         "등록한 키워드 중 하나라도 제목·본문 등에 포함된 공지만 목록에 보입니다. 비워 두면 이 조건은 쓰지 않아요.",
-                        style: TextStyle(fontSize: 12, color: Colors.grey),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
                       ),
                       const SizedBox(height: 16),
                       TextField(
@@ -415,9 +418,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Text(
+                        Text(
                           "등록한 키워드가 포함된 공지만 알림이 옵니다.",
-                          style: TextStyle(fontSize: 12, color: Colors.grey),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
                         ),
                         const SizedBox(height: 16),
                         TextField(
@@ -702,7 +709,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Divider(
       height: 1,
       thickness: 1,
-      color: light ? _cardBorder : Theme.of(context).colorScheme.outline.withValues(alpha: 0.35),
+      color: light
+          ? _cardBorder
+          : Theme.of(context).colorScheme.outline.withValues(alpha: 0.35),
     );
   }
 

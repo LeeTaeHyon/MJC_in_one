@@ -3,6 +3,7 @@ import "dart:async";
 import "package:flutter/material.dart";
 import "package:mio_notice/services/shuttle_schedule.dart";
 import "package:mio_notice/theme/app_colors.dart";
+import "package:mio_notice/theme/app_theme.dart";
 
 class ShuttleStatusCard extends StatefulWidget {
   const ShuttleStatusCard({super.key});
@@ -33,6 +34,8 @@ class _ShuttleStatusCardState extends State<ShuttleStatusCard> {
 
   @override
   Widget build(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
       child: FutureBuilder<List<ShuttleDeparture>>(
@@ -43,9 +46,9 @@ class _ShuttleStatusCardState extends State<ShuttleStatusCard> {
               _service.nextStatus(DateTime.now(), departures);
           final _ShuttleCopy copy = _copyForStatus(status);
           return Material(
-            color: Colors.white,
+            color: scheme.surface,
             elevation: 1.5,
-            shadowColor: Colors.black12,
+            shadowColor: Colors.black.withValues(alpha: isDark ? 0.45 : 0.12),
             borderRadius: BorderRadius.circular(16),
             clipBehavior: Clip.antiAlias,
             child: InkWell(
@@ -71,12 +74,12 @@ class _ShuttleStatusCardState extends State<ShuttleStatusCard> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
+                          Text(
                             "셔틀버스",
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w700,
-                              color: Colors.black54,
+                              color: scheme.onSurfaceVariant,
                             ),
                           ),
                           const SizedBox(height: 4),
@@ -98,9 +101,9 @@ class _ShuttleStatusCardState extends State<ShuttleStatusCard> {
                               copy.subtitle,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 12,
-                                color: Colors.black54,
+                                color: scheme.onSurfaceVariant,
                               ),
                             ),
                           ],
@@ -108,9 +111,9 @@ class _ShuttleStatusCardState extends State<ShuttleStatusCard> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    const Icon(
+                    Icon(
                       Icons.keyboard_arrow_up_rounded,
-                      color: Colors.black38,
+                      color: scheme.onSurfaceVariant.withValues(alpha: 0.72),
                     ),
                   ],
                 ),
@@ -195,14 +198,23 @@ class _ShuttleRouteSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
     final ShuttleDeparture? departure = status.departure;
     return SafeArea(
       child: Container(
         margin: const EdgeInsets.all(16),
         padding: const EdgeInsets.fromLTRB(20, 18, 20, 22),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: scheme.surface,
           borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isDark ? 0.45 : 0.12),
+              blurRadius: 18,
+              offset: const Offset(0, 8),
+            ),
+          ],
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -253,34 +265,37 @@ class _ShuttleWaitingNotice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final MjcSurfaceTokens tokens =
+        Theme.of(context).extension<MjcSurfaceTokens>()!;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 16),
       decoration: BoxDecoration(
-        color: AppColors.scaffoldMuted,
+        color: tokens.surfaceContainer,
         borderRadius: BorderRadius.circular(18),
       ),
-      child: const Column(
+      child: Column(
         children: [
-          Icon(
+          const Icon(
             Icons.schedule_rounded,
             color: AppColors.primary,
             size: 34,
           ),
-          SizedBox(height: 10),
-          Text(
+          const SizedBox(height: 10),
+          const Text(
             "셔틀 출발 전입니다",
             style: TextStyle(
               fontSize: 17,
               fontWeight: FontWeight.w900,
             ),
           ),
-          SizedBox(height: 6),
+          const SizedBox(height: 6),
           Text(
             "버스가 이동 중일 때 노선도가 표시됩니다.",
             style: TextStyle(
               fontSize: 13,
-              color: Colors.black54,
+              color: scheme.onSurfaceVariant,
             ),
           ),
         ],
@@ -296,6 +311,7 @@ class _ShuttleRouteMap extends StatelessWidget {
   static const double _routeTop = 14;
   static const double _stopGap = 64;
   static const double _markerLeft = 18;
+
   /// Last stop is positioned at `top`; the row (dot + label) still extends
   /// downward, so the stack must be taller than the last `top` alone.
   static const double _stopRowExtent = 28;
@@ -304,6 +320,8 @@ class _ShuttleRouteMap extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
     final ShuttleDeparture departure = status.departure!;
     final int segmentIndex = _segmentIndex(departure);
     final double busTop =
@@ -321,16 +339,14 @@ class _ShuttleRouteMap extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           "${status.minutes}분 뒤 ${departure.arriveStop} 도착 예정",
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 13,
-            color: Colors.black54,
+            color: scheme.onSurfaceVariant,
           ),
         ),
         const SizedBox(height: 16),
         SizedBox(
-          height: _routeTop +
-              _stopGap * (_stops.length - 1) +
-              _stopRowExtent,
+          height: _routeTop + _stopGap * (_stops.length - 1) + _stopRowExtent,
           child: Stack(
             children: [
               Positioned(
@@ -361,12 +377,14 @@ class _ShuttleRouteMap extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: AppColors.primary,
                     shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 3),
-                    boxShadow: const [
+                    border: Border.all(color: scheme.surface, width: 3),
+                    boxShadow: [
                       BoxShadow(
-                        color: Colors.black26,
+                        color: Colors.black.withValues(
+                          alpha: isDark ? 0.50 : 0.26,
+                        ),
                         blurRadius: 8,
-                        offset: Offset(0, 3),
+                        offset: const Offset(0, 3),
                       ),
                     ],
                   ),
@@ -410,6 +428,7 @@ class _RouteStop extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
     return Positioned(
       top: top,
       left: left,
@@ -420,7 +439,7 @@ class _RouteStop extends StatelessWidget {
             width: 23,
             height: 23,
             decoration: BoxDecoration(
-              color: active ? AppColors.primary : Colors.white,
+              color: active ? AppColors.primary : scheme.surface,
               shape: BoxShape.circle,
               border: Border.all(
                 color: AppColors.primary.withValues(alpha: active ? 1 : 0.55),
@@ -441,7 +460,7 @@ class _RouteStop extends StatelessWidget {
             style: TextStyle(
               fontSize: 15,
               fontWeight: active ? FontWeight.w900 : FontWeight.w700,
-              color: active ? Colors.black87 : Colors.black54,
+              color: active ? scheme.onSurface : scheme.onSurfaceVariant,
             ),
           ),
         ],

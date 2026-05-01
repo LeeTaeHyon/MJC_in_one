@@ -13,6 +13,7 @@ import "package:mio_notice/services/foodcourt_menu.dart";
 import "package:mio_notice/services/notice_filter.dart";
 import "package:mio_notice/services/notice_manager.dart";
 import "package:mio_notice/theme/app_colors.dart";
+import "package:mio_notice/theme/app_theme.dart";
 import "package:mio_notice/widgets/scroll_to_top_scope.dart";
 import "package:mio_notice/widgets/shuttle_status_card.dart";
 import "package:mio_notice/debug/agent_logger.dart";
@@ -219,6 +220,8 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   }
 
   Widget _buildGridButtons(BuildContext context) {
+    final MjcSurfaceTokens tokens =
+        Theme.of(context).extension<MjcSurfaceTokens>()!;
     return Padding(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -229,7 +232,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                 "본교 공지",
                 "최신 소식",
                 Icons.school,
-                [const Color(0xFF0D47A1), const Color(0xFF1976D2)],
+                tokens.dashboardGradients[0],
                 MainNavTabIndex.notices,
                 noticesSubTab: NoticesSubTab.main,
               ),
@@ -238,7 +241,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                 "교수학습",
                 "학습 지원",
                 Icons.menu_book,
-                [const Color(0xFF2962FF), const Color(0xFF448AFF)],
+                tokens.dashboardGradients[1],
                 MainNavTabIndex.notices,
                 noticesSubTab: NoticesSubTab.ctl,
               ),
@@ -251,7 +254,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                 "역량관리",
                 "프로그램 신청",
                 Icons.emoji_events,
-                [const Color(0xFF7986CB), const Color(0xFF90A4AE)],
+                tokens.dashboardGradients[2],
                 MainNavTabIndex.notices,
                 noticesSubTab: NoticesSubTab.mpu,
               ),
@@ -260,7 +263,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                 "도서관",
                 "자료 검색",
                 Icons.local_library,
-                [const Color(0xFF0288D1), const Color(0xFF26C6DA)],
+                tokens.dashboardGradients[3],
                 MainNavTabIndex.library,
               ),
             ],
@@ -278,6 +281,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     int tabIndex, {
     NoticesSubTab? noticesSubTab,
   }) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
     return Expanded(
       child: _HoverFeedback(
         onTap: () => widget.onNavigate(tabIndex, noticesSubTab: noticesSubTab),
@@ -293,7 +297,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: colors.first.withValues(alpha: 0.3),
+                color: colors.first.withValues(alpha: isDark ? 0.20 : 0.30),
                 blurRadius: 10,
                 offset: const Offset(0, 5),
               ),
@@ -328,6 +332,10 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   }
 
   Widget _buildFoodcourtSection(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final MjcSurfaceTokens tokens =
+        Theme.of(context).extension<MjcSurfaceTokens>()!;
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
       child: FutureBuilder<List<FoodcourtMenuItem>>(
@@ -337,9 +345,9 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
               snapshot.connectionState == ConnectionState.waiting;
           final List<FoodcourtMenuItem> items = snapshot.data ?? const [];
           return Material(
-            color: Colors.white,
+            color: scheme.surface,
             elevation: 1.5,
-            shadowColor: Colors.black12,
+            shadowColor: Colors.black.withValues(alpha: isDark ? 0.45 : 0.12),
             borderRadius: BorderRadius.circular(16),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
@@ -352,13 +360,13 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                         width: 48,
                         height: 48,
                         decoration: BoxDecoration(
-                          color:
-                              const Color(0xFFFF7043).withValues(alpha: 0.12),
+                          color: const Color(0xFFFF7043)
+                              .withValues(alpha: isDark ? 0.22 : 0.12),
                           borderRadius: BorderRadius.circular(14),
                         ),
-                        child: const Icon(
+                        child: Icon(
                           Icons.ramen_dining_rounded,
-                          color: Color(0xFFE65100),
+                          color: tokens.foodAccent,
                         ),
                       ),
                       const SizedBox(width: 14),
@@ -366,12 +374,12 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
+                            Text(
                               "오늘의 학식",
                               style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w700,
-                                color: Colors.black54,
+                                color: scheme.onSurfaceVariant,
                               ),
                             ),
                             const SizedBox(height: 4),
@@ -514,6 +522,10 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   }
 
   Widget _buildDeadlineCard(Map<String, dynamic> data) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final MjcSurfaceTokens tokens =
+        Theme.of(context).extension<MjcSurfaceTokens>()!;
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
     final String title = (data["title"] ?? "").toString();
     final String ddayRaw = (data["d_day"] ?? "").toString().trim();
     final String dateLine = (data["end_date"] ??
@@ -531,13 +543,12 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
         .trim();
 
     Widget ddayBadge() {
-      const Color bg = Color(0xFF0D47A1);
       return SizedBox(
         width: 56,
         height: 56,
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: bg,
+            color: tokens.deadlineBadge,
             borderRadius: BorderRadius.circular(14),
           ),
           child: Column(
@@ -569,10 +580,10 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     }
 
     return Material(
-      color: Colors.white,
+      color: scheme.surface,
       borderRadius: BorderRadius.circular(14),
       elevation: 1.5,
-      shadowColor: Colors.black12,
+      shadowColor: Colors.black.withValues(alpha: isDark ? 0.45 : 0.12),
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
         onTap: () async {
@@ -618,8 +629,8 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                         dateLine,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.black54,
+                        style: TextStyle(
+                          color: scheme.onSurfaceVariant,
                           fontSize: 12,
                           height: 1.1,
                         ),
@@ -724,6 +735,8 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   }
 
   Widget _buildAcademicScheduleCard(Map<String, dynamic> data) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
     final String title = (data["title"] ?? "").toString();
     final String start = (data["start_date"] ?? data["date"] ?? "").toString();
     final String end = (data["end_date"] ?? start).toString();
@@ -739,10 +752,10 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
         : "${start.replaceAll("-", ".")}~${end.replaceAll("-", ".")}";
 
     return Material(
-      color: Colors.white,
+      color: scheme.surface,
       borderRadius: BorderRadius.circular(14),
       elevation: 1.5,
-      shadowColor: Colors.black12,
+      shadowColor: Colors.black.withValues(alpha: isDark ? 0.45 : 0.12),
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
         onTap: _openAcademicScheduleScreen,
@@ -754,14 +767,15 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                 width: 52,
                 height: 52,
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.10),
+                  color:
+                      AppColors.primary.withValues(alpha: isDark ? 0.18 : 0.10),
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Center(
                   child: Text(
                     dDay <= 0 ? "D-DAY" : "D-$dDay",
-                    style: const TextStyle(
-                      color: AppColors.primary,
+                    style: TextStyle(
+                      color: scheme.primary,
                       fontSize: 12,
                       fontWeight: FontWeight.w900,
                     ),
@@ -787,8 +801,8 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                       range,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.black54,
+                      style: TextStyle(
+                        color: scheme.onSurfaceVariant,
                         fontSize: 12,
                       ),
                     ),
@@ -888,15 +902,21 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   }
 
   Widget _buildNoticeCard(Map<String, dynamic> data) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final MjcSurfaceTokens tokens =
+        Theme.of(context).extension<MjcSurfaceTokens>()!;
     final String source = data["source"] ?? "본교";
     final Color accent = source == "MJC"
-        ? const Color(0xFF1976D2)
-        : (source == "MPU" ? const Color(0xFF7986CB) : const Color(0xFF2962FF));
+        ? tokens.sourceMjc
+        : (source == "MPU" ? tokens.sourceMpu : tokens.sourceCtl);
 
     return Material(
-      color: Colors.white,
+      color: scheme.surface,
       borderRadius: BorderRadius.circular(12),
       elevation: 1,
+      shadowColor: Colors.black.withValues(
+        alpha: Theme.of(context).brightness == Brightness.dark ? 0.45 : 0.12,
+      ),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
         onTap: () async {
@@ -949,7 +969,10 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                         .split("~")
                         .first
                         .trim(),
-                    style: const TextStyle(color: Colors.grey, fontSize: 11),
+                    style: TextStyle(
+                      color: scheme.onSurfaceVariant,
+                      fontSize: 11,
+                    ),
                   ),
                 ],
               ),
@@ -1179,6 +1202,10 @@ class _FoodcourtSlotMachineDialogState
 
   @override
   Widget build(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final MjcSurfaceTokens tokens =
+        Theme.of(context).extension<MjcSurfaceTokens>()!;
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
     return AlertDialog(
       title: const Text("학식 뭐먹지?"),
       content: Column(
@@ -1188,18 +1215,18 @@ class _FoodcourtSlotMachineDialogState
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
             decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.08),
+              color: AppColors.primary.withValues(alpha: isDark ? 0.18 : 0.08),
               borderRadius: BorderRadius.circular(18),
               border: Border.all(
-                color: AppColors.primary.withValues(alpha: 0.16),
+                color: tokens.cardBorder,
               ),
             ),
             child: Column(
               children: [
                 Text(
                   _spinning ? "두구두구..." : "오늘은 이거 어때요?",
-                  style: const TextStyle(
-                    color: Colors.black54,
+                  style: TextStyle(
+                    color: scheme.onSurfaceVariant,
                     fontSize: 13,
                     fontWeight: FontWeight.w800,
                   ),
@@ -1239,8 +1266,8 @@ class _FoodcourtSlotMachineDialogState
                   child: Text(
                     "${_currentItem.shop} • ${_currentItem.formattedPrice}",
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: Colors.black54,
+                    style: TextStyle(
+                      color: scheme.onSurfaceVariant,
                       fontWeight: FontWeight.w700,
                     ),
                   ),

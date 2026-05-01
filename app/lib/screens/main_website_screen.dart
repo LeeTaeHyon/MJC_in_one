@@ -8,6 +8,7 @@ import "package:mio_notice/screens/settings_screen.dart";
 import "package:mio_notice/services/notice_filter.dart";
 import "package:mio_notice/services/notice_manager.dart";
 import "package:mio_notice/services/user_data_repository.dart";
+import "package:mio_notice/theme/app_theme.dart";
 import "package:mio_notice/perf_flags.dart";
 import "package:mio_notice/widgets/nested_scroll_refresh_indicator.dart";
 import "package:mio_notice/widgets/notice_filter_bar.dart";
@@ -147,10 +148,11 @@ class _MainWebsiteScreenState extends State<MainWebsiteScreen> {
   @override
   Widget build(BuildContext context) {
     final double topPad = MediaQuery.paddingOf(context).top;
+    final ColorScheme scheme = Theme.of(context).colorScheme;
     return DefaultTabController(
       length: 3,
       child: Scaffold(
-        backgroundColor: const Color(0xFFF8F9FA),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         body: NestedScrollView(
           controller: _outerScrollController,
           headerSliverBuilder: (BuildContext context, bool innerBoxIsScrolled) {
@@ -164,10 +166,10 @@ class _MainWebsiteScreenState extends State<MainWebsiteScreen> {
                     topPadding: topPad,
                     tabBar: TabBar(
                       controller: DefaultTabController.of(context),
-                      indicatorColor: const Color(0xFF003FB4),
+                      indicatorColor: scheme.primary,
                       indicatorWeight: 3,
-                      labelColor: const Color(0xFF003FB4),
-                      unselectedLabelColor: Colors.grey,
+                      labelColor: scheme.primary,
+                      unselectedLabelColor: scheme.onSurfaceVariant,
                       labelStyle: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 15,
@@ -253,6 +255,8 @@ class _MainWebsiteCollapsingHeaderDelegate
     final double collapsedTitleTop = (ih - titleSize * 1.15) / 2;
     final double titleTop = lerpDouble(expandedTitleTop, collapsedTitleTop, u)!;
     final double subtitleOpacity = (1.0 - u * 1.35).clamp(0.0, 1.0);
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
 
     return SizedBox(
       height: extent,
@@ -316,9 +320,9 @@ class _MainWebsiteCollapsingHeaderDelegate
               ),
             ),
             Material(
-              color: Colors.white,
+              color: scheme.surface,
               elevation: overlapsContent ? 0.5 : 0,
-              shadowColor: Colors.black12,
+              shadowColor: Colors.black.withValues(alpha: isDark ? 0.45 : 0.12),
               child: SizedBox(
                 height: _tabBarHeight,
                 child: tabBar,
@@ -552,10 +556,11 @@ class _NoticeListTabState extends State<_NoticeListTab> {
 
   @override
   Widget build(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
     return NestedScrollRefreshIndicator(
       onRefresh: _handleRefresh,
       color: const Color(0xFF003FB4),
-      backgroundColor: Colors.white,
+      backgroundColor: scheme.surface,
       notificationPredicate: _allowRefreshNotification,
       child: FutureBuilder<List<Map<String, dynamic>>>(
         future: _noticeFuture,
@@ -622,7 +627,8 @@ class _NoticeListTabState extends State<_NoticeListTab> {
               const SizedBox(height: 48),
               Text(
                 docs.isEmpty ? "표시할 공지가 없습니다." : "필터에 맞는 공지가 없습니다.",
-                style: TextStyle(color: Colors.grey.shade600),
+                style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant),
               ),
             ],
           ),
@@ -733,19 +739,33 @@ class _NoticeListTabState extends State<_NoticeListTab> {
     required VoidCallback onTogglePinned,
     required VoidCallback onToggleFavorite,
   }) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final MjcSurfaceTokens tokens =
+        Theme.of(context).extension<MjcSurfaceTokens>()!;
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
     final String title = data["title"] ?? "";
     final String dateStr = data["date"] ?? "";
     final String type = data["category"] ?? "공지";
-    final Color mainColor = isRead ? Colors.grey : const Color(0xFF003FB4);
+    final Color mainColor = isRead ? scheme.onSurfaceVariant : tokens.sourceMjc;
+    final Color chipBackground = isRead
+        ? tokens.surfaceContainer
+        : tokens.sourceMjc.withValues(alpha: isDark ? 0.18 : 0.12);
+    final Color chipForeground =
+        isRead ? scheme.onSurfaceVariant : tokens.sourceMjc;
+    final Color titleColor =
+        isRead ? scheme.onSurfaceVariant : scheme.onSurface;
+    final Color dateColor = scheme.onSurfaceVariant;
     const bool lowRaster = kPerfLowRasterMode;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       child: Material(
-        color: isRead ? const Color(0xFFF1F3F4) : Colors.white,
+        color: isRead ? scheme.surfaceContainerLow : scheme.surface,
         borderRadius: BorderRadius.circular(12),
         elevation: (isRead || lowRaster) ? 0 : 2,
-        shadowColor: lowRaster ? Colors.transparent : Colors.black12,
+        shadowColor: lowRaster
+            ? Colors.transparent
+            : Colors.black.withValues(alpha: isDark ? 0.45 : 0.12),
         clipBehavior: lowRaster ? Clip.hardEdge : Clip.none,
         child: InkWell(
           borderRadius: BorderRadius.circular(12),
@@ -777,17 +797,13 @@ class _NoticeListTabState extends State<_NoticeListTab> {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
-                              color: isRead
-                                  ? Colors.grey.shade200
-                                  : const Color(0xFFE3F2FD),
+                              color: chipBackground,
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
                               type,
                               style: TextStyle(
-                                color: isRead
-                                    ? Colors.grey
-                                    : const Color(0xFF1976D2),
+                                color: chipForeground,
                                 fontSize: 11,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -802,22 +818,23 @@ class _NoticeListTabState extends State<_NoticeListTab> {
                               fontSize: 16,
                               fontWeight:
                                   isRead ? FontWeight.normal : FontWeight.bold,
-                              color: isRead
-                                  ? Colors.grey.shade600
-                                  : const Color(0xFF222222),
+                              color: titleColor,
                               height: 1.4,
                             ),
                           ),
                           const SizedBox(height: 12),
                           Row(
                             children: [
-                              const Icon(Icons.calendar_today_outlined,
-                                  size: 14, color: Colors.grey),
+                              Icon(
+                                Icons.calendar_today_outlined,
+                                size: 14,
+                                color: dateColor,
+                              ),
                               const SizedBox(width: 6),
                               Text(
                                 dateStr,
-                                style: const TextStyle(
-                                    color: Colors.grey, fontSize: 13),
+                                style:
+                                    TextStyle(color: dateColor, fontSize: 13),
                               ),
                             ],
                           ),
@@ -867,17 +884,13 @@ class _NoticeListTabState extends State<_NoticeListTab> {
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
-                                color: isRead
-                                    ? Colors.grey.shade200
-                                    : const Color(0xFFE3F2FD),
+                                color: chipBackground,
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
                                 type,
                                 style: TextStyle(
-                                  color: isRead
-                                      ? Colors.grey
-                                      : const Color(0xFF1976D2),
+                                  color: chipForeground,
                                   fontSize: 11,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -893,22 +906,23 @@ class _NoticeListTabState extends State<_NoticeListTab> {
                                 fontWeight: isRead
                                     ? FontWeight.normal
                                     : FontWeight.bold,
-                                color: isRead
-                                    ? Colors.grey.shade600
-                                    : const Color(0xFF222222),
+                                color: titleColor,
                                 height: 1.4,
                               ),
                             ),
                             const SizedBox(height: 12),
                             Row(
                               children: [
-                                const Icon(Icons.calendar_today_outlined,
-                                    size: 14, color: Colors.grey),
+                                Icon(
+                                  Icons.calendar_today_outlined,
+                                  size: 14,
+                                  color: dateColor,
+                                ),
                                 const SizedBox(width: 6),
                                 Text(
                                   dateStr,
-                                  style: const TextStyle(
-                                      color: Colors.grey, fontSize: 13),
+                                  style:
+                                      TextStyle(color: dateColor, fontSize: 13),
                                 ),
                               ],
                             ),

@@ -1,5 +1,6 @@
 import "package:flutter/material.dart";
 import "package:mio_notice/services/notice_filter.dart";
+import "package:mio_notice/theme/app_theme.dart";
 
 class NoticeFilterBar extends StatefulWidget {
   const NoticeFilterBar({
@@ -65,6 +66,10 @@ class _NoticeFilterBarState extends State<NoticeFilterBar> {
 
   @override
   Widget build(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final MjcSurfaceTokens tokens =
+        Theme.of(context).extension<MjcSurfaceTokens>()!;
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
     final NoticeFilterState filter = widget.filter;
     final bool filterEnabled = filter.enabled;
     final int hiddenCount = (widget.totalCount - widget.filteredCount).clamp(
@@ -79,9 +84,9 @@ class _NoticeFilterBarState extends State<NoticeFilterBar> {
         10,
       ),
       child: Material(
-        color: Colors.white,
+        color: scheme.surface,
         elevation: filterEnabled ? 1.5 : 0,
-        shadowColor: Colors.black12,
+        shadowColor: Colors.black.withValues(alpha: isDark ? 0.45 : 0.12),
         borderRadius: BorderRadius.circular(14),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
@@ -106,11 +111,11 @@ class _NoticeFilterBarState extends State<NoticeFilterBar> {
                         ),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.grey.shade300),
+                          borderSide: BorderSide(color: tokens.cardBorder),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.grey.shade300),
+                          borderSide: BorderSide(color: tokens.cardBorder),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -136,7 +141,7 @@ class _NoticeFilterBarState extends State<NoticeFilterBar> {
                   Text(
                     "${widget.filteredCount}개 표시됨",
                     style: TextStyle(
-                      color: Colors.grey.shade800,
+                      color: scheme.onSurface,
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
                     ),
@@ -144,9 +149,9 @@ class _NoticeFilterBarState extends State<NoticeFilterBar> {
                   if (filterEnabled && hiddenCount > 0) ...[
                     const SizedBox(width: 6),
                     Text(
-                      "(${hiddenCount}개 가려짐)",
+                      "($hiddenCount개 가려짐)",
                       style: TextStyle(
-                        color: Colors.grey.shade600,
+                        color: scheme.onSurfaceVariant,
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                       ),

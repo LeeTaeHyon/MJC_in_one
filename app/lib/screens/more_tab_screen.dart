@@ -108,8 +108,9 @@ class _MoreTabScreenState extends State<MoreTabScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: AppColors.scaffoldMuted,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: CustomScrollView(
           controller: _scrollController,
@@ -186,7 +187,7 @@ class _MoreTabScreenState extends State<MoreTabScreen> {
                           child: Text(
                             "MJC in one  v1.0.0",
                             style: TextStyle(
-                              color: Colors.grey.shade500,
+                              color: scheme.onSurfaceVariant,
                               fontSize: 12,
                             ),
                           ),
@@ -331,10 +332,12 @@ class _MoreMenuItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
     return Material(
-      color: Colors.white,
+      color: scheme.surface,
       elevation: 1,
-      shadowColor: Colors.black12,
+      shadowColor: Colors.black.withValues(alpha: isDark ? 0.45 : 0.12),
       borderRadius: BorderRadius.circular(18),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -360,16 +363,16 @@ class _MoreMenuItem extends StatelessWidget {
                       label,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w800,
-                        color: Color(0xFF1A1A1A),
+                        color: scheme.onSurface,
                       ),
                     ),
                   ),
                   Icon(
                     Icons.chevron_right_rounded,
-                    color: Colors.grey.shade400,
+                    color: scheme.onSurfaceVariant,
                     size: 20,
                   ),
                 ],

@@ -35,7 +35,7 @@ class _AcademicScheduleScreenState extends State<AcademicScheduleScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text("학사일정"),
       ),
@@ -75,12 +75,11 @@ class _AcademicScheduleScreenState extends State<AcademicScheduleScreen> {
                     .toList();
             final Map<String, List<Map<String, dynamic>>> byMonth = {};
             for (final Map<String, dynamic> item in visible) {
-              final String key = (item["month"] ?? _monthFromDate(item))
-                  .toString()
-                  .padLeft(2, "0");
+              final String key = _yearMonthKey(item);
               byMonth.putIfAbsent(key, () => []).add(item);
             }
-            final List<String> months = byMonth.keys.toList()..sort();
+            final List<String> months = byMonth.keys.toList()
+              ..sort((a, b) => _compareYearMonthKey(a, b));
 
             return ListView(
               physics: const AlwaysScrollableScrollPhysics(),
@@ -108,7 +107,7 @@ class _AcademicScheduleScreenState extends State<AcademicScheduleScreen> {
                   const SizedBox(height: 16),
                 ],
                 for (final String month in months) ...[
-                  _MonthHeader(month: month),
+                  _MonthHeader(yearMonth: month),
                   const SizedBox(height: 8),
                   ...byMonth[month]!.map(_ScheduleTile.new),
                   const SizedBox(height: 18),
@@ -126,17 +125,56 @@ class _AcademicScheduleScreenState extends State<AcademicScheduleScreen> {
     final RegExpMatch? match = RegExp(r"^\d{4}-(\d{2})-\d{2}").firstMatch(date);
     return match?.group(1) ?? "";
   }
+
+  String _yearMonthKey(Map<String, dynamic> item) {
+    final String raw = (item["start_date"] ?? item["date"] ?? "").toString();
+    final RegExpMatch? m = RegExp(r"^(\d{4})-(\d{2})-\d{2}").firstMatch(raw);
+    if (m != null) {
+      return "${m.group(1)}-${m.group(2)}";
+    }
+
+    final String month = (item["month"] ?? _monthFromDate(item)).toString();
+    final String year = (item["year"] ?? "").toString();
+    if (year.isNotEmpty) {
+      return "$year-${month.padLeft(2, "0")}";
+    }
+
+    return "0000-${month.padLeft(2, "0")}";
+  }
+
+  int _compareYearMonthKey(String a, String b) {
+    final DateTime? da = _parseYearMonthKey(a);
+    final DateTime? db = _parseYearMonthKey(b);
+    if (da == null && db == null) return a.compareTo(b);
+    if (da == null) return -1;
+    if (db == null) return 1;
+    return da.compareTo(db);
+  }
+
+  DateTime? _parseYearMonthKey(String key) {
+    final RegExpMatch? m = RegExp(r"^(\d{4})-(\d{2})$").firstMatch(key);
+    if (m == null) return null;
+    final int? y = int.tryParse(m.group(1)!);
+    final int? mo = int.tryParse(m.group(2)!);
+    if (y == null || mo == null) return null;
+    return DateTime(y, mo);
+  }
 }
 
 class _MonthHeader extends StatelessWidget {
-  const _MonthHeader({required this.month});
+  const _MonthHeader({required this.yearMonth});
 
-  final String month;
+  final String yearMonth;
 
   @override
   Widget build(BuildContext context) {
+    final RegExpMatch? m =
+        RegExp(r"^(\d{4})-(\d{2})$").firstMatch(yearMonth);
+    final String label = m == null
+        ? "${yearMonth.toString().padLeft(2, "0")}월"
+        : "${m.group(1)}년 ${int.parse(m.group(2)!)}월";
     return Text(
-      "$month월",
+      label,
       style: const TextStyle(
         fontSize: 18,
         fontWeight: FontWeight.w900,
@@ -153,6 +191,8 @@ class _ScheduleTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
     final String title = (item["title"] ?? "").toString();
     final String start = (item["start_date"] ?? item["date"] ?? "").toString();
     final String end = (item["end_date"] ?? start).toString();
@@ -160,9 +200,9 @@ class _ScheduleTile extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Material(
-        color: Colors.white,
+        color: scheme.surface,
         elevation: 1,
-        shadowColor: Colors.black12,
+        shadowColor: Colors.black.withValues(alpha: isDark ? 0.45 : 0.12),
         borderRadius: BorderRadius.circular(14),
         child: InkWell(
           borderRadius: BorderRadius.circular(14),
@@ -208,8 +248,8 @@ class _ScheduleTile extends StatelessWidget {
                     children: [
                       Text(
                         _formatRange(start, end),
-                        style: const TextStyle(
-                          color: Colors.black54,
+                        style: TextStyle(
+                          color: scheme.onSurfaceVariant,
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
                         ),

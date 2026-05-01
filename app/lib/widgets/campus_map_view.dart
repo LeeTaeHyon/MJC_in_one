@@ -36,6 +36,7 @@ class CampusMapViewState extends State<CampusMapView> {
 
   @override
   Widget build(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
     final List<Marker> markers = <Marker>[
       for (final CampusBuilding building in widget.data.buildings)
         _buildingMarker(building),
@@ -52,8 +53,8 @@ class CampusMapViewState extends State<CampusMapView> {
       borderRadius: BorderRadius.circular(24),
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: const Color(0xFFEAF1F8),
-          border: Border.all(color: const Color(0xFFE0E6EF)),
+          color: scheme.surfaceContainerLow,
+          border: Border.all(color: scheme.outline.withValues(alpha: 0.70)),
         ),
         child: FlutterMap(
           mapController: _mapController,
@@ -119,6 +120,8 @@ class _BuildingMarker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
     final Color color = selected ? AppColors.primary : const Color(0xFF374151);
     final double dotSize = selected ? 22 : 18;
 
@@ -130,13 +133,13 @@ class _BuildingMarker extends StatelessWidget {
           top: 0,
           child: DecoratedBox(
             decoration: BoxDecoration(
-              color: selected ? AppColors.primary : Colors.white,
+              color: selected ? AppColors.primary : scheme.surface,
               borderRadius: BorderRadius.circular(999),
-              boxShadow: const [
+              boxShadow: [
                 BoxShadow(
-                  color: Color(0x26000000),
+                  color: Colors.black.withValues(alpha: isDark ? 0.45 : 0.15),
                   blurRadius: 10,
-                  offset: Offset(0, 4),
+                  offset: const Offset(0, 4),
                 ),
               ],
             ),
@@ -147,7 +150,7 @@ class _BuildingMarker extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: selected ? Colors.white : const Color(0xFF111827),
+                  color: selected ? Colors.white : scheme.onSurface,
                   fontSize: selected ? 13 : 12,
                   fontWeight: FontWeight.w900,
                 ),
@@ -161,12 +164,12 @@ class _BuildingMarker extends StatelessWidget {
           decoration: BoxDecoration(
             color: color,
             shape: BoxShape.circle,
-            border: Border.all(color: Colors.white, width: selected ? 4 : 3),
-            boxShadow: const [
+            border: Border.all(color: scheme.surface, width: selected ? 4 : 3),
+            boxShadow: [
               BoxShadow(
-                color: Color(0x33000000),
+                color: Colors.black.withValues(alpha: isDark ? 0.50 : 0.20),
                 blurRadius: 8,
-                offset: Offset(0, 3),
+                offset: const Offset(0, 3),
               ),
             ],
           ),
@@ -183,6 +186,7 @@ class _CurrentLocationMarker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
     final double size = 42 + pulse * 18;
 
     return Center(
@@ -204,7 +208,7 @@ class _CurrentLocationMarker extends StatelessWidget {
               height: 24,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.white,
+                color: scheme.surface,
                 border: Border.all(color: AppColors.secondary, width: 3),
               ),
               child: Center(

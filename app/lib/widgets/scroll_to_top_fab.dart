@@ -11,6 +11,7 @@ class ScrollToTopFab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ScrollToTopCoordinator coordinator = ScrollToTopScope.of(context);
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
     return ValueListenableBuilder<bool>(
       valueListenable: coordinator.fabVisibleNotifier,
       builder: (BuildContext context, bool visible, Widget? child) {
@@ -18,7 +19,7 @@ class ScrollToTopFab extends StatelessWidget {
         return RepaintBoundary(
           child: Material(
             elevation: 6,
-            shadowColor: Colors.black26,
+            shadowColor: Colors.black.withValues(alpha: isDark ? 0.50 : 0.26),
             shape: const CircleBorder(),
             color: AppColors.primary,
             clipBehavior: Clip.antiAlias,

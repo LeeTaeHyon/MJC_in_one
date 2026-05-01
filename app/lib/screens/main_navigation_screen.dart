@@ -15,6 +15,7 @@ import "package:mio_notice/debug/agent_logger.dart";
 import "package:mio_notice/widgets/scroll_to_top_fab.dart";
 import "package:mio_notice/widgets/scroll_to_top_scope.dart";
 import "package:mio_notice/theme/app_colors.dart";
+import "package:mio_notice/theme/app_theme.dart";
 
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
@@ -174,6 +175,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final Color scaffoldBackground = Theme.of(context).scaffoldBackgroundColor;
     // #region agent log
     AgentLogger.log(
       hypothesisId: "A",
@@ -193,13 +195,13 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         fit: StackFit.expand,
         children: [
           Scaffold(
-            backgroundColor: AppColors.scaffoldMuted,
+            backgroundColor: scaffoldBackground,
             body: Stack(
               children: [
                 // 1. 메인 콘텐츠 영역 – 탭 전환 시 새로 생성(상태 유지하지 않음) + 전환 애니메이션.
                 Positioned.fill(
                   child: ColoredBox(
-                    color: AppColors.scaffoldMuted,
+                    color: scaffoldBackground,
                     child: NotificationListener<ScrollNotification>(
                       onNotification: _handleMainScrollNotification,
                       child: AnimatedSwitcher(
@@ -297,23 +299,26 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   }
 
   Widget _buildBottomAppBar() {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final MjcSurfaceTokens tokens =
+        Theme.of(context).extension<MjcSurfaceTokens>()!;
     return ColoredBox(
-      color: Colors.white,
+      color: scheme.surface,
       child: SafeArea(
         top: false,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Divider(
+            Divider(
               height: 1,
               thickness: 1,
-              color: Color(0x1F000000),
+              color: tokens.hairline,
             ),
             SizedBox(
               height: _bottomNavHeight,
               child: BottomAppBar(
                 height: _bottomNavHeight,
-                color: Colors.white,
+                color: scheme.surface,
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -375,6 +380,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   }
 
   Widget _buildNoticeSubNav() {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
     return Align(
       key: const ValueKey<String>("notice_sub_nav"),
       alignment: Alignment.center,
@@ -386,9 +393,10 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
             valueListenable: _noticeSubTab,
             builder: (context, current, _) {
               return Material(
-                color: Colors.white.withValues(alpha: 0.96),
+                color: scheme.surface.withValues(alpha: isDark ? 0.98 : 0.96),
                 elevation: 10,
-                shadowColor: Colors.black.withValues(alpha: 0.20),
+                shadowColor:
+                    Colors.black.withValues(alpha: isDark ? 0.45 : 0.20),
                 borderRadius: BorderRadius.circular(28),
                 clipBehavior: Clip.antiAlias,
                 child: Padding(
@@ -412,13 +420,14 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                             ),
                             decoration: BoxDecoration(
                               color: selected
-                                  ? AppColors.primary.withValues(alpha: 0.12)
+                                  ? scheme.primary
+                                      .withValues(alpha: isDark ? 0.20 : 0.12)
                                   : Colors.transparent,
                               borderRadius: BorderRadius.circular(28),
                               border: selected
                                   ? Border.all(
-                                      color: AppColors.primary
-                                          .withValues(alpha: 0.18),
+                                      color: scheme.primary.withValues(
+                                          alpha: isDark ? 0.35 : 0.18),
                                     )
                                   : null,
                             ),
@@ -429,8 +438,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                                   tab.icon,
                                   size: 18,
                                   color: selected
-                                      ? AppColors.primary
-                                      : Colors.grey.shade700,
+                                      ? scheme.primary
+                                      : scheme.onSurfaceVariant,
                                 ),
                                 const SizedBox(width: 6),
                                 Flexible(
@@ -440,8 +449,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                                     overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
                                       color: selected
-                                          ? AppColors.primary
-                                          : Colors.grey.shade800,
+                                          ? scheme.primary
+                                          : scheme.onSurfaceVariant,
                                       fontSize: 13,
                                       fontWeight: selected
                                           ? FontWeight.w800
@@ -511,6 +520,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     String label,
     int badgeCount,
   ) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 4),
@@ -524,10 +534,10 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                 isSelected
                     ? BouncyIcon(
                         selectedIcon,
-                        color: AppColors.primary,
+                        color: scheme.primary,
                         size: 22,
                       )
-                    : Icon(icon, color: Colors.grey, size: 22),
+                    : Icon(icon, color: scheme.onSurfaceVariant, size: 22),
                 if (badgeCount > 0)
                   Positioned(
                     right: -7,
@@ -558,7 +568,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
               style: TextStyle(
                 fontSize: 12,
                 height: 1.05,
-                color: isSelected ? AppColors.primary : Colors.grey,
+                color: isSelected ? scheme.primary : scheme.onSurfaceVariant,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
               ),
             ),

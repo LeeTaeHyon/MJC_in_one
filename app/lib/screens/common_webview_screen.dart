@@ -149,14 +149,15 @@ class _CommonWebViewScreenState extends State<CommonWebViewScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
         title: Text(
           widget.title,
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
+        backgroundColor: scheme.surface,
+        foregroundColor: scheme.onSurface,
         elevation: 0,
         actions: [
           PopupMenuButton<String>(
@@ -176,24 +177,25 @@ class _CommonWebViewScreenState extends State<CommonWebViewScreen> {
               }
             },
             itemBuilder: (context) => [
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: "share",
                 child: Row(
                   children: [
-                    Icon(Icons.share_outlined, size: 20, color: Colors.black87),
-                    SizedBox(width: 12),
-                    Text("공유하기"),
+                    Icon(Icons.share_outlined,
+                        size: 20, color: scheme.onSurface),
+                    const SizedBox(width: 12),
+                    const Text("공유하기"),
                   ],
                 ),
               ),
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: "browser",
                 child: Row(
                   children: [
                     Icon(Icons.public_outlined,
-                        size: 20, color: Colors.black87),
-                    SizedBox(width: 12),
-                    Text("브라우저로 열기"),
+                        size: 20, color: scheme.onSurface),
+                    const SizedBox(width: 12),
+                    const Text("브라우저로 열기"),
                   ],
                 ),
               ),
@@ -204,7 +206,7 @@ class _CommonWebViewScreenState extends State<CommonWebViewScreen> {
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1.0),
           child: Container(
-            color: Colors.grey.shade200,
+            color: scheme.outline.withValues(alpha: 0.6),
             height: 1.0,
           ),
         ),

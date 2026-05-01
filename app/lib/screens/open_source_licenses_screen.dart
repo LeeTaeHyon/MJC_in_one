@@ -2,7 +2,6 @@ import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
 import "package:flutter/services.dart";
 import "dart:convert";
-import "package:mio_notice/theme/app_colors.dart";
 import "package:mio_notice/widgets/scroll_to_top_scope.dart";
 
 class _LicenseParagraph {
@@ -261,11 +260,12 @@ class _OpenSourceLicensesScreenState extends State<OpenSourceLicensesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         iconTheme: const IconThemeData(color: Colors.white),
-        backgroundColor: AppColors.primary,
+        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
         elevation: 0,
         title: const Text(
           "오픈소스 라이선스",
@@ -313,7 +313,7 @@ class _OpenSourceLicensesScreenState extends State<OpenSourceLicensesScreen> {
                   style: TextStyle(
                     fontSize: 13,
                     height: 1.4,
-                    color: Colors.grey.shade800,
+                    color: scheme.onSurfaceVariant,
                   ),
                 ),
               ),
@@ -321,10 +321,12 @@ class _OpenSourceLicensesScreenState extends State<OpenSourceLicensesScreen> {
                 (t) => ExpansionTile(
                   tilePadding: const EdgeInsets.symmetric(horizontal: 16),
                   collapsedShape: Border(
-                    bottom: BorderSide(color: Colors.grey.shade200),
+                    bottom: BorderSide(
+                        color: scheme.outline.withValues(alpha: 0.6)),
                   ),
                   shape: Border(
-                    bottom: BorderSide(color: Colors.grey.shade200),
+                    bottom: BorderSide(
+                        color: scheme.outline.withValues(alpha: 0.6)),
                   ),
                   title: Text(
                     _compactTitle(t.sortedNames),
@@ -342,7 +344,7 @@ class _OpenSourceLicensesScreenState extends State<OpenSourceLicensesScreen> {
                           style: TextStyle(
                             fontSize: 11.5,
                             height: 1.3,
-                            color: Colors.grey.shade600,
+                            color: scheme.onSurfaceVariant,
                           ),
                         )
                       : null,
@@ -358,7 +360,7 @@ class _OpenSourceLicensesScreenState extends State<OpenSourceLicensesScreen> {
                               style: TextStyle(
                                 fontSize: 12,
                                 height: 1.35,
-                                color: Colors.grey.shade800,
+                                color: scheme.onSurfaceVariant,
                               ),
                             ),
                             const SizedBox(height: 12),
@@ -366,7 +368,8 @@ class _OpenSourceLicensesScreenState extends State<OpenSourceLicensesScreen> {
                           for (var si = 0; si < t.sections.length; si++) ...[
                             if (t.sections.length > 1 && si > 0) ...[
                               const SizedBox(height: 10),
-                              Divider(color: Colors.grey.shade200),
+                              Divider(
+                                  color: scheme.outline.withValues(alpha: 0.6)),
                               const SizedBox(height: 10),
                             ],
                             for (final p in t.sections[si])
@@ -377,10 +380,10 @@ class _OpenSourceLicensesScreenState extends State<OpenSourceLicensesScreen> {
                                 ),
                                 child: SelectableText(
                                   p.text,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 12.5,
                                     height: 1.45,
-                                    color: Color(0xFF1A1A1A),
+                                    color: scheme.onSurface,
                                   ),
                                 ),
                               ),

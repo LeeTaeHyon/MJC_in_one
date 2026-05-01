@@ -20,6 +20,8 @@ class PinFavoriteButtons extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
     final Color pinC = pinnedColor ?? const Color(0xFFFFC107);
     final Color favC = favoriteColor ?? const Color(0xFFFFC107);
 
@@ -30,7 +32,9 @@ class PinFavoriteButtons extends StatelessWidget {
       required String tooltip,
       required Color activeColor,
     }) {
-      final Color fg = active ? activeColor : Colors.black38;
+      final Color fg = active
+          ? activeColor
+          : scheme.onSurfaceVariant.withValues(alpha: 0.72);
       return Material(
         color: Colors.transparent,
         child: InkWell(
@@ -49,11 +53,15 @@ class PinFavoriteButtons extends StatelessWidget {
 
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.92),
+        color: scheme.surface.withValues(alpha: isDark ? 0.96 : 0.92),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.black12),
-        boxShadow: const [
-          BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 2)),
+        border: Border.all(color: scheme.outline.withValues(alpha: 0.70)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.45 : 0.12),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
         ],
       ),
       child: Row(

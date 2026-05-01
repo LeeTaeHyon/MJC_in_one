@@ -189,11 +189,12 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         iconTheme: const IconThemeData(color: Colors.white),
-        backgroundColor: AppColors.primary,
+        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
         elevation: 0,
         title: const Text(
           "알림 내역",
@@ -259,14 +260,14 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
                           const SizedBox(height: 4),
                           Text(
                             item["received_at"] ?? "",
-                            style: const TextStyle(
-                                fontSize: 12, color: Colors.grey),
+                            style: TextStyle(
+                                fontSize: 12, color: scheme.onSurfaceVariant),
                           ),
                         ],
                       ),
                       trailing: IconButton(
                         icon: Icon(Icons.close_rounded,
-                            color: Colors.grey.shade500),
+                            color: scheme.onSurfaceVariant),
                         tooltip: "이 알림 삭제",
                         onPressed: () => _removeOneAt(index),
                       ),
@@ -278,13 +279,16 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
   }
 
   Widget _buildEmptyState() {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.notifications_none, size: 64, color: Colors.grey.shade300),
+          Icon(Icons.notifications_none,
+              size: 64, color: scheme.onSurfaceVariant.withValues(alpha: 0.45)),
           const SizedBox(height: 16),
-          const Text("수신된 알림이 없습니다.", style: TextStyle(color: Colors.grey)),
+          Text("수신된 알림이 없습니다.",
+              style: TextStyle(color: scheme.onSurfaceVariant)),
         ],
       ),
     );

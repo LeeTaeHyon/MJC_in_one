@@ -134,15 +134,17 @@ class _MpuProfileImportScreenState extends State<MpuProfileImportScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Material(
             elevation: 3,
-            color: Colors.white,
-            shadowColor: Colors.black26,
+            color: scheme.surface,
+            shadowColor: Colors.black.withValues(alpha: isDark ? 0.45 : 0.26),
             child: SafeArea(
               bottom: false,
               child: SizedBox(

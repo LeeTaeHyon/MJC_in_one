@@ -50,12 +50,12 @@ class _FoodcourtMenuScreenState extends State<FoodcourtMenuScreen> {
           return DefaultTabController(
             length: shops.length,
             child: Scaffold(
-              backgroundColor: const Color(0xFFF8F9FA),
+              backgroundColor: Theme.of(context).scaffoldBackgroundColor,
               appBar: AppBar(
                 title: const Text("학식 메뉴"),
-                backgroundColor: AppColors.primary,
+                backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
                 foregroundColor: Colors.white,
-                surfaceTintColor: AppColors.primary,
+                surfaceTintColor: Colors.transparent,
                 elevation: 0,
                 scrolledUnderElevation: 0,
                 titleTextStyle: _appBarTitleStyle,
@@ -85,12 +85,12 @@ class _FoodcourtMenuScreenState extends State<FoodcourtMenuScreen> {
         }
 
         return Scaffold(
-          backgroundColor: const Color(0xFFF8F9FA),
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           appBar: AppBar(
             title: const Text("학식 메뉴"),
-            backgroundColor: AppColors.primary,
+            backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
             foregroundColor: Colors.white,
-            surfaceTintColor: AppColors.primary,
+            surfaceTintColor: Colors.transparent,
             elevation: 0,
             scrolledUnderElevation: 0,
             titleTextStyle: _appBarTitleStyle,
@@ -117,7 +117,8 @@ class _FoodcourtMenuScreenState extends State<FoodcourtMenuScreen> {
   }
 
   List<String> _orderedShops(List<String> raw) {
-    final Set<String> all = raw.map((e) => e.trim()).where((e) => e.isNotEmpty).toSet();
+    final Set<String> all =
+        raw.map((e) => e.trim()).where((e) => e.isNotEmpty).toSet();
     final List<String> ordered = [
       for (final s in _preferredShopOrder)
         if (all.contains(s)) s,
@@ -137,13 +138,14 @@ class _ShopTabList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
       children: [
-        const Text(
+        Text(
           "가격은 교내 자료 기준이며 변동될 수 있습니다.",
-          style: TextStyle(color: Colors.black54, fontSize: 12),
+          style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12),
         ),
         const SizedBox(height: 12),
         _MenuListCard(shop: shop, items: items),
@@ -160,10 +162,12 @@ class _MenuListCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
     return Material(
-      color: Colors.white,
+      color: scheme.surface,
       elevation: 1.5,
-      shadowColor: Colors.black12,
+      shadowColor: Colors.black.withValues(alpha: isDark ? 0.45 : 0.12),
       borderRadius: BorderRadius.circular(16),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
@@ -198,8 +202,8 @@ class _MenuListCard extends StatelessWidget {
                 ),
                 Text(
                   "${items.length}개",
-                  style: const TextStyle(
-                    color: Colors.black54,
+                  style: TextStyle(
+                    color: scheme.onSurfaceVariant,
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
                   ),
@@ -207,7 +211,8 @@ class _MenuListCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 12),
-            for (final FoodcourtMenuItem item in items) _MenuPriceRow(item: item),
+            for (final FoodcourtMenuItem item in items)
+              _MenuPriceRow(item: item),
           ],
         ),
       ),

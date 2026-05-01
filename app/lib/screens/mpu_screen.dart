@@ -8,6 +8,7 @@ import "package:mio_notice/screens/settings_screen.dart";
 import "package:mio_notice/services/notice_filter.dart";
 import "package:mio_notice/services/notice_manager.dart";
 import "package:mio_notice/services/user_data_repository.dart";
+import "package:mio_notice/theme/app_theme.dart";
 import "package:mio_notice/perf_flags.dart";
 import "package:mio_notice/widgets/nested_scroll_refresh_indicator.dart";
 import "package:mio_notice/widgets/notice_filter_bar.dart";
@@ -144,10 +145,13 @@ class _MpuScreenState extends State<MpuScreen> {
   @override
   Widget build(BuildContext context) {
     final double topPad = MediaQuery.paddingOf(context).top;
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final MjcSurfaceTokens tokens =
+        Theme.of(context).extension<MjcSurfaceTokens>()!;
     return DefaultTabController(
       length: 2,
       child: Scaffold(
-        backgroundColor: const Color(0xFFF0F2F5),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         body: NestedScrollView(
           controller: _outerScrollController,
           headerSliverBuilder: (BuildContext context, bool innerBoxIsScrolled) {
@@ -161,10 +165,10 @@ class _MpuScreenState extends State<MpuScreen> {
                     topPadding: topPad,
                     tabBar: TabBar(
                       controller: DefaultTabController.of(context),
-                      indicatorColor: const Color(0xFF7986CB),
+                      indicatorColor: tokens.sourceMpu,
                       indicatorWeight: 3,
-                      labelColor: const Color(0xFF7986CB),
-                      unselectedLabelColor: Colors.grey,
+                      labelColor: tokens.sourceMpu,
+                      unselectedLabelColor: scheme.onSurfaceVariant,
                       labelStyle: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
@@ -244,6 +248,8 @@ class _MpuCollapsingHeaderDelegate extends SliverPersistentHeaderDelegate {
     final double collapsedTitleTop = (ih - titleSize * 1.15) / 2;
     final double titleTop = lerpDouble(expandedTitleTop, collapsedTitleTop, u)!;
     final double subtitleOpacity = (1.0 - u * 1.35).clamp(0.0, 1.0);
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
 
     return SizedBox(
       height: extent,
@@ -308,9 +314,9 @@ class _MpuCollapsingHeaderDelegate extends SliverPersistentHeaderDelegate {
               ),
             ),
             Material(
-              color: Colors.white,
+              color: scheme.surface,
               elevation: overlapsContent ? 0.5 : 0,
-              shadowColor: Colors.black12,
+              shadowColor: Colors.black.withValues(alpha: isDark ? 0.45 : 0.12),
               child: SizedBox(
                 height: _tabBarHeight,
                 child: tabBar,
@@ -506,10 +512,11 @@ class _MpuListTabState extends State<_MpuListTab> {
 
   @override
   Widget build(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
     return NestedScrollRefreshIndicator(
       onRefresh: _handleRefresh,
       color: const Color(0xFF7986CB),
-      backgroundColor: Colors.white,
+      backgroundColor: scheme.surface,
       notificationPredicate: _allowRefreshNotification,
       child: FutureBuilder<List<Map<String, dynamic>>>(
         future: _mpuFuture,
@@ -544,6 +551,8 @@ class _MpuListTabState extends State<_MpuListTab> {
     BuildContext context,
     List<Map<String, dynamic>> allItems,
   ) {
+    final MjcSurfaceTokens tokens =
+        Theme.of(context).extension<MjcSurfaceTokens>()!;
     final NoticeFilterState filter =
         _noticeFilter.copyWith(quickQuery: _noticeQuickQuery);
     final List<Map<String, dynamic>> noticeFilteredItems = filter.apply(
@@ -613,7 +622,9 @@ class _MpuListTabState extends State<_MpuListTab> {
                     : (widget.showCompleted
                         ? "완료된 프로그램이 없거나 필터에 맞는 항목이 없습니다."
                         : "진행 중인 프로그램이 없거나 필터에 맞는 항목이 없습니다."),
-                style: TextStyle(color: Colors.grey.shade600),
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ),
             ],
           ),
@@ -649,8 +660,8 @@ class _MpuListTabState extends State<_MpuListTab> {
                       isFavorite: isFavorite,
                       onTogglePinned: () => _togglePinned(key),
                       onToggleFavorite: () => _toggleFavorite(key),
-                      pinnedColor: const Color(0xFF7986CB),
-                      favoriteColor: const Color(0xFF7986CB),
+                      pinnedColor: tokens.sourceMpu,
+                      favoriteColor: tokens.sourceMpu,
                     ),
                   ),
                 ],
@@ -673,6 +684,18 @@ class _MpuListTabState extends State<_MpuListTab> {
   }
 
   Widget _buildMpuCard(BuildContext context, Map<String, dynamic> data) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final MjcSurfaceTokens tokens =
+        Theme.of(context).extension<MjcSurfaceTokens>()!;
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color accent = tokens.sourceMpu;
+    final Color completedColor = scheme.onSurfaceVariant;
+    final Color chipBackground = widget.showCompleted
+        ? tokens.surfaceContainer
+        : accent.withValues(alpha: isDark ? 0.18 : 0.12);
+    final Color chipForeground = widget.showCompleted ? completedColor : accent;
+    final Color titleColor =
+        widget.showCompleted ? completedColor : scheme.onSurface;
     final String title = data["title"] ?? "";
     final String branch = data["branch"] ?? "";
     final String dDay = data["d_day"] ?? "";
@@ -680,10 +703,13 @@ class _MpuListTabState extends State<_MpuListTab> {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       child: Material(
-        color: widget.showCompleted ? Colors.grey.shade50 : Colors.white,
+        color:
+            widget.showCompleted ? scheme.surfaceContainerLow : scheme.surface,
         borderRadius: BorderRadius.circular(16),
         elevation: (widget.showCompleted || _lowRaster) ? 0 : 2,
-        shadowColor: _lowRaster ? Colors.transparent : Colors.black12,
+        shadowColor: _lowRaster
+            ? Colors.transparent
+            : Colors.black.withValues(alpha: isDark ? 0.45 : 0.12),
         clipBehavior: _lowRaster ? Clip.hardEdge : Clip.none,
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
@@ -709,9 +735,7 @@ class _MpuListTabState extends State<_MpuListTab> {
                       child: Container(
                         width: 5,
                         decoration: BoxDecoration(
-                          color: widget.showCompleted
-                              ? Colors.grey
-                              : const Color(0xFF7986CB),
+                          color: widget.showCompleted ? completedColor : accent,
                           borderRadius: const BorderRadius.only(
                             topLeft: Radius.circular(16),
                             bottomLeft: Radius.circular(16),
@@ -731,16 +755,12 @@ class _MpuListTabState extends State<_MpuListTab> {
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 8, vertical: 3),
                                 decoration: BoxDecoration(
-                                    color: widget.showCompleted
-                                        ? Colors.grey.shade200
-                                        : const Color(0xFFE8EAF6),
+                                    color: chipBackground,
                                     borderRadius: BorderRadius.circular(6)),
                                 child: Text(
                                   branch.isEmpty ? "핵심역량" : branch,
                                   style: TextStyle(
-                                      color: widget.showCompleted
-                                          ? Colors.grey
-                                          : const Color(0xFF7986CB),
+                                      color: chipForeground,
                                       fontSize: 10,
                                       fontWeight: FontWeight.bold),
                                 ),
@@ -750,7 +770,7 @@ class _MpuListTabState extends State<_MpuListTab> {
                                   dDay,
                                   style: TextStyle(
                                       color: widget.showCompleted
-                                          ? Colors.grey
+                                          ? completedColor
                                           : const Color(0xFFFF4E6A),
                                       fontSize: 12,
                                       fontWeight: FontWeight.bold),
@@ -764,8 +784,8 @@ class _MpuListTabState extends State<_MpuListTab> {
                                 fontSize: 17,
                                 fontWeight: FontWeight.bold,
                                 color: widget.showCompleted
-                                    ? Colors.grey.shade600
-                                    : const Color(0xFF222222),
+                                    ? completedColor
+                                    : titleColor,
                                 height: 1.3),
                           ),
                         ],
@@ -785,9 +805,8 @@ class _MpuListTabState extends State<_MpuListTab> {
                         child: Container(
                           width: 5,
                           decoration: BoxDecoration(
-                            color: widget.showCompleted
-                                ? Colors.grey
-                                : const Color(0xFF7986CB),
+                            color:
+                                widget.showCompleted ? completedColor : accent,
                             borderRadius: const BorderRadius.only(
                               topLeft: Radius.circular(16),
                               bottomLeft: Radius.circular(16),
@@ -807,16 +826,12 @@ class _MpuListTabState extends State<_MpuListTab> {
                                   padding: const EdgeInsets.symmetric(
                                       horizontal: 8, vertical: 3),
                                   decoration: BoxDecoration(
-                                      color: widget.showCompleted
-                                          ? Colors.grey.shade200
-                                          : const Color(0xFFE8EAF6),
+                                      color: chipBackground,
                                       borderRadius: BorderRadius.circular(6)),
                                   child: Text(
                                     branch.isEmpty ? "핵심역량" : branch,
                                     style: TextStyle(
-                                        color: widget.showCompleted
-                                            ? Colors.grey
-                                            : const Color(0xFF7986CB),
+                                        color: chipForeground,
                                         fontSize: 10,
                                         fontWeight: FontWeight.bold),
                                   ),
@@ -826,7 +841,7 @@ class _MpuListTabState extends State<_MpuListTab> {
                                     dDay,
                                     style: TextStyle(
                                         color: widget.showCompleted
-                                            ? Colors.grey
+                                            ? completedColor
                                             : const Color(0xFFFF4E6A),
                                         fontSize: 12,
                                         fontWeight: FontWeight.bold),
@@ -840,8 +855,8 @@ class _MpuListTabState extends State<_MpuListTab> {
                                   fontSize: 17,
                                   fontWeight: FontWeight.bold,
                                   color: widget.showCompleted
-                                      ? Colors.grey.shade600
-                                      : const Color(0xFF222222),
+                                      ? completedColor
+                                      : titleColor,
                                   height: 1.3),
                             ),
                           ],

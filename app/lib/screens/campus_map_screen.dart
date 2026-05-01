@@ -194,7 +194,10 @@ class _CampusMapScreenState extends State<CampusMapScreen>
                 const SizedBox(height: 8),
                 Text(
                   "GPS 대신 지도 위의 임의 위치를 '현재 위치'로 표시합니다.",
-                  style: TextStyle(color: Colors.grey.shade700, height: 1.35),
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    height: 1.35,
+                  ),
                 ),
                 const SizedBox(height: 16),
                 Wrap(
@@ -300,7 +303,10 @@ class _CampusMapScreenState extends State<CampusMapScreen>
                         ),
                         Text(
                           "약칭 ${building.prefixes.join(", ")} · ${building.floors}층",
-                          style: TextStyle(color: Colors.grey.shade700),
+                          style: TextStyle(
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
                         ),
                       ],
                     ),
@@ -333,10 +339,10 @@ class _CampusMapScreenState extends State<CampusMapScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.scaffoldMuted,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text("캠퍼스 약도"),
-        backgroundColor: AppColors.primary,
+        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
         foregroundColor: Colors.white,
         actions: [
           FutureBuilder<CampusMapData>(
@@ -432,6 +438,8 @@ class _TopControls extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final CampusLookupResult? result = lookupResult;
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
 
     return SafeArea(
       bottom: false,
@@ -441,9 +449,9 @@ class _TopControls extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Material(
-              color: Colors.white,
+              color: scheme.surface,
               elevation: 3,
-              shadowColor: Colors.black12,
+              shadowColor: Colors.black.withValues(alpha: isDark ? 0.45 : 0.12),
               borderRadius: BorderRadius.circular(18),
               child: TextField(
                 controller: controller,
@@ -452,7 +460,7 @@ class _TopControls extends StatelessWidget {
                 decoration: InputDecoration(
                   hintText: "위치를 모르는 강의실 검색",
                   hintStyle: TextStyle(
-                    color: Colors.grey.shade400,
+                    color: scheme.onSurfaceVariant,
                     fontWeight: FontWeight.w600,
                   ),
                   prefixIcon: const Icon(Icons.search_rounded),
@@ -498,6 +506,8 @@ class _StatusCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
     final bool hasSearch = result != null && !result!.isEmpty;
     final bool isError = result?.isError == true;
     final String title = hasSearch
@@ -507,9 +517,9 @@ class _StatusCard extends StatelessWidget {
         hasSearch ? result!.guidance : "예: 공512 → 공학관 5층 12호 안내";
 
     return Material(
-      color: Colors.white,
+      color: scheme.surface,
       elevation: 2,
-      shadowColor: Colors.black12,
+      shadowColor: Colors.black.withValues(alpha: isDark ? 0.45 : 0.12),
       borderRadius: BorderRadius.circular(18),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 13, 10, 13),
@@ -539,7 +549,7 @@ class _StatusCard extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: Colors.grey.shade700,
+                      color: scheme.onSurfaceVariant,
                       fontSize: 12,
                       height: 1.3,
                     ),
@@ -550,7 +560,7 @@ class _StatusCard extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: Colors.grey.shade500,
+                      color: scheme.onSurfaceVariant.withValues(alpha: 0.82),
                       fontSize: 11,
                     ),
                   ),

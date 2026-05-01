@@ -13,11 +13,20 @@ BASE_URL = "https://www.mjc.ac.kr"
 SCHEDULE_URL = f"{BASE_URL}/collegeService/schedule.do?menu_idx=104"
 BOARD_ID = "main_schedule"
 BOARD_NAME = "학사일정"
+SEND_FCM = False
 HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36"
-    )
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/123.0.0.0 Safari/537.36"
+    ),
+    # year/hakgi가 포함된 URL에서 404로 떨어지는 케이스가 있어
+    # 브라우저에 가깝게 헤더를 맞춰준다.
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+    "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
+    "Accept-Encoding": "gzip, deflate, br",
+    "Connection": "keep-alive",
+    "Upgrade-Insecure-Requests": "1",
 }
 
 
@@ -63,12 +72,27 @@ def send_fcm_notice(post: dict):
         print(f"  [FCM 발송 실패]: {e}")
 
 
-def crawl_schedule() -> list[dict]:
-    res = requests.get(SCHEDULE_URL, headers=HEADERS, timeout=10)
+def _fetch_schedule_page(year: int, hakgi: int) -> str:
+    # 페이지 JS는 location.href로 year/hakgi를 붙여 이동한다.
+    # (POST submit도 주석 처리되어 있어, GET으로 맞추는 편이 안전)
+    res = requests.get(
+        f"{BASE_URL}/collegeService/schedule.do",
+        params={
+            "menu_idx": "104",
+            "year": str(year),
+            "hakgi": str(hakgi),
+        },
+        headers=HEADERS,
+        timeout=10,
+    )
     res.raise_for_status()
-    soup = BeautifulSoup(res.text, "html.parser")
+    return res.text
 
-    current_semester = ""
+
+def _parse_schedule_html(html: str, *, semester_fallback: str = "") -> list[dict]:
+    soup = BeautifulSoup(html, "html.parser")
+
+    current_semester = semester_fallback or ""
     current_month = ""
     records: list[dict] = []
 
@@ -121,6 +145,41 @@ def crawl_schedule() -> list[dict]:
     return records
 
 
+def crawl_schedule(year: int | None = None, hakgi_list: list[int] | None = None) -> list[dict]:
+    """
+    MJC 학사일정은 학기(hakgi) 별로 페이지가 나뉘어 렌더링됨.
+    기본 화면(대개 1학기)만 GET으로 긁으면 2학기(9~2월)가 누락될 수 있어
+    year/hakgi를 POST로 각각 요청해서 합친다.
+    """
+    if year is None:
+        year = datetime.now().year
+    if hakgi_list is None:
+        hakgi_list = [1, 2]
+
+    all_records: list[dict] = []
+    seen_ids: set[str] = set()
+
+    for hakgi in hakgi_list:
+        html = _fetch_schedule_page(year=year, hakgi=hakgi)
+        semester_fallback = f"{year}년 {hakgi}학기"
+        records = _parse_schedule_html(html, semester_fallback=semester_fallback)
+
+        # 페이지에 학기 헤더가 없거나 파싱이 빗나간 경우 fallback 주입
+        for r in records:
+            if not r.get("semester"):
+                r["semester"] = semester_fallback
+            if r["semester"] and not re.match(r"^\d{4}년\s+\d학기", r["semester"]):
+                r["semester"] = semester_fallback
+
+            if r["id"] in seen_ids:
+                continue
+            seen_ids.add(r["id"])
+            all_records.append(r)
+
+    all_records.sort(key=lambda item: (item["start_date"], item["title"]))
+    return all_records
+
+
 def save_to_firestore(db, records: list[dict]):
     if not records:
         print("[학사일정] 저장할 데이터가 없습니다.")
@@ -153,7 +212,7 @@ def save_to_firestore(db, records: list[dict]):
         merge=True,
     )
 
-    if latest_id:
+    if SEND_FCM and latest_id:
         for post in new_posts:
             send_fcm_notice(post)
 
