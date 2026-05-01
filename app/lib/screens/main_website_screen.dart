@@ -19,14 +19,19 @@ import "package:url_launcher/url_launcher.dart";
 
 /// 스크롤/전환 중 jank를 줄이기 위해 entrance stagger는 앱 실행 동안 1회만 재생.
 class _MainWebsiteListEntrance {
-  static bool _playedOnce = false;
-  static bool _scheduleEntranceEnd = false;
+  bool _playedOnce = false;
+  bool _scheduleEntranceEnd = false;
 
-  static bool get shouldAnimateList => !kPerfLowRasterMode && !_playedOnce;
+  bool get shouldAnimateList => !kPerfLowRasterMode && !_playedOnce;
   static const int maxAnimatedItems = 8;
 
+  void resetForEntry() {
+    _playedOnce = false;
+    _scheduleEntranceEnd = false;
+  }
+
   /// 첫 리스트 stagger 끝난 뒤에만 끔 (도중 리빌드로 애니메이션이 끊기지 않게).
-  static void scheduleEndEntranceAnimation() {
+  void scheduleEndEntranceAnimation() {
     if (_playedOnce || _scheduleEntranceEnd) return;
     _scheduleEntranceEnd = true;
     Future<void>.delayed(const Duration(milliseconds: 700), () {
@@ -46,6 +51,8 @@ class MainWebsiteScreen extends StatefulWidget {
 class _MainWebsiteScreenState extends State<MainWebsiteScreen> {
   final ScrollController _outerScrollController = ScrollController();
   ScrollToTopCoordinator? _scrollToTopCoordinator;
+  ValueNotifier<int>? _activeTabNotifier;
+  int _entryTick = 0;
   late final NestedScrollFabScrollReporter _nestedFabReporter =
       NestedScrollFabScrollReporter(
     tabIndex: MainNavTabIndex.mainSite,
@@ -66,6 +73,11 @@ class _MainWebsiteScreenState extends State<MainWebsiteScreen> {
       _scrollToTopCoordinator = c;
       _nestedFabReporter.attachCoordinator(c);
       c.registerMainTab(MainNavTabIndex.mainSite, _scrollContentToTop);
+      if (!identical(_activeTabNotifier, c.activeMainTabNotifier)) {
+        _activeTabNotifier?.removeListener(_handleMainTabChanged);
+        _activeTabNotifier = c.activeMainTabNotifier;
+        _activeTabNotifier?.addListener(_handleMainTabChanged);
+      }
     }
     if (_outerScrollController.hasClients) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -73,6 +85,16 @@ class _MainWebsiteScreenState extends State<MainWebsiteScreen> {
         _nestedFabReporter.reportOuterScroll();
       });
     }
+  }
+
+  void _handleMainTabChanged() {
+    final ScrollToTopCoordinator? c = _scrollToTopCoordinator;
+    if (c == null) return;
+    if (c.activeMainTabNotifier.value != MainNavTabIndex.mainSite) return;
+    if (!mounted) return;
+    setState(() {
+      _entryTick++;
+    });
   }
 
   void _scrollContentToTop() {
@@ -88,6 +110,7 @@ class _MainWebsiteScreenState extends State<MainWebsiteScreen> {
   void dispose() {
     _outerScrollController.removeListener(_nestedFabReporter.reportOuterScroll);
     _scrollToTopCoordinator?.unregisterMainTab(MainNavTabIndex.mainSite);
+    _activeTabNotifier?.removeListener(_handleMainTabChanged);
     _outerScrollController.dispose();
     // 성능상 재진입 때마다 전체 리스트 entrance 애니메이션을 다시 돌리면 jank가 커져서 유지합니다.
     super.dispose();
@@ -138,9 +161,11 @@ class _MainWebsiteScreenState extends State<MainWebsiteScreen> {
               reporter: _nestedFabReporter,
               child: TabBarView(
                 children: <Widget>[
-                  _NoticeListTab(boardId: "main_notice"),
-                  _NoticeListTab(boardId: "main_academic"),
-                  _NoticeListTab(boardId: "main_scholarship"),
+                  _NoticeListTab(boardId: "main_notice", entryTick: _entryTick),
+                  _NoticeListTab(
+                      boardId: "main_academic", entryTick: _entryTick),
+                  _NoticeListTab(
+                      boardId: "main_scholarship", entryTick: _entryTick),
                 ],
               ),
             ),
@@ -309,13 +334,15 @@ class _MainWebsiteCollapsingHeaderDelegate
 
 class _NoticeListTab extends StatefulWidget {
   final String boardId;
-  const _NoticeListTab({required this.boardId});
+  final int entryTick;
+  const _NoticeListTab({required this.boardId, required this.entryTick});
 
   @override
   State<_NoticeListTab> createState() => _NoticeListTabState();
 }
 
 class _NoticeListTabState extends State<_NoticeListTab> {
+  final _MainWebsiteListEntrance _entrance = _MainWebsiteListEntrance();
   Set<String> _readNoticeIds = {};
   Set<String> _pinnedKeys = {};
   Set<String> _favoriteKeys = {};
@@ -323,6 +350,65 @@ class _NoticeListTabState extends State<_NoticeListTab> {
   List<String> _noticeSharedKeywords = [];
   String _noticeQuickQuery = "";
   late Future<List<Map<String, dynamic>>> _noticeFuture;
+  double _filterBarReveal = 0;
+  bool _refreshEnabledForDrag = false;
+
+  static const double _filterBarRevealDistance = 96;
+  bool get _filterBarFullyVisible => _filterBarReveal >= 1.0;
+
+  bool _allowRefreshNotification(ScrollNotification n) {
+    if (!defaultScrollNotificationPredicate(n)) return false;
+    return _refreshEnabledForDrag ||
+        n is ScrollEndNotification ||
+        n is UserScrollNotification;
+  }
+
+  bool _handleScrollNotification(ScrollNotification n) {
+    if (n is ScrollStartNotification) {
+      _refreshEnabledForDrag = _filterBarFullyVisible;
+    } else if (n is OverscrollNotification) {
+      if (!_refreshEnabledForDrag &&
+          n.metrics.pixels <= n.metrics.minScrollExtent &&
+          n.overscroll < 0) {
+        final double next = (_filterBarReveal +
+                (-n.overscroll / _filterBarRevealDistance))
+            .clamp(0.0, 1.0);
+        if (next != _filterBarReveal) {
+          setState(() => _filterBarReveal = next);
+        }
+      }
+    } else if (n is ScrollUpdateNotification) {
+      if (n.metrics.pixels > 24 && _filterBarReveal > 0) {
+        setState(() => _filterBarReveal = 0);
+      }
+    } else if (n is ScrollEndNotification) {
+      if (_filterBarReveal > 0 && _filterBarReveal < 1) {
+        setState(() => _filterBarReveal = _filterBarReveal >= 0.35 ? 1 : 0);
+      }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _refreshEnabledForDrag = false;
+      });
+    }
+    return false;
+  }
+
+  Widget _revealedFilterBar(Widget filterBar) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(end: _filterBarReveal),
+      duration: const Duration(milliseconds: 90),
+      curve: Curves.easeOutCubic,
+      child: filterBar,
+      builder: (context, v, child) {
+        return ClipRect(
+          child: Align(
+            alignment: Alignment.topCenter,
+            heightFactor: v,
+            child: child,
+          ),
+        );
+      },
+    );
+  }
 
   @override
   void initState() {
@@ -331,6 +417,14 @@ class _NoticeListTabState extends State<_NoticeListTab> {
     _loadPinsAndFavorites();
     _loadNoticeFilter();
     _noticeFuture = NoticeManager().getNotices(boardId: widget.boardId);
+  }
+
+  @override
+  void didUpdateWidget(covariant _NoticeListTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.entryTick != oldWidget.entryTick) {
+      _entrance.resetForEntry();
+    }
   }
 
   String _fallbackType() {
@@ -458,26 +552,30 @@ class _NoticeListTabState extends State<_NoticeListTab> {
       onRefresh: _handleRefresh,
       color: const Color(0xFF003FB4),
       backgroundColor: Colors.white,
+      notificationPredicate: _allowRefreshNotification,
       child: FutureBuilder<List<Map<String, dynamic>>>(
         future: _noticeFuture,
         builder: (context, snapshot) {
-          final Widget scrollable = CustomScrollView(
-            primary: true,
-            physics: const AlwaysScrollableScrollPhysics(),
-            slivers: [
-              SliverOverlapInjector(
-                handle: NestedScrollView.sliverOverlapAbsorberHandleFor(
-                  context,
+          final Widget scrollable = NotificationListener<ScrollNotification>(
+            onNotification: _handleScrollNotification,
+            child: CustomScrollView(
+              primary: true,
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                SliverOverlapInjector(
+                  handle: NestedScrollView.sliverOverlapAbsorberHandleFor(
+                    context,
+                  ),
                 ),
-              ),
-              if (snapshot.connectionState == ConnectionState.waiting)
-                const SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: Center(child: CircularProgressIndicator()),
-                )
-              else
-                ..._buildNoticeSlivers(context, snapshot.data ?? []),
-            ],
+                if (snapshot.connectionState == ConnectionState.waiting)
+                  const SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                else
+                  ..._buildNoticeSlivers(context, snapshot.data ?? []),
+              ],
+            ),
           );
 
           return scrollable;
@@ -511,7 +609,7 @@ class _NoticeListTabState extends State<_NoticeListTab> {
 
     if (filteredDocs.isEmpty) {
       return [
-        SliverToBoxAdapter(child: filterBar),
+        SliverToBoxAdapter(child: _revealedFilterBar(filterBar)),
         SliverFillRemaining(
           hasScrollBody: false,
           child: Column(
@@ -534,14 +632,14 @@ class _NoticeListTabState extends State<_NoticeListTab> {
     ];
 
     return [
-      SliverToBoxAdapter(child: filterBar),
+      SliverToBoxAdapter(child: _revealedFilterBar(filterBar)),
       SliverPadding(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         sliver: SliverList(
           delegate: SliverChildBuilderDelegate(
             (BuildContext context, int index) {
-              if (index == 0 && _MainWebsiteListEntrance.shouldAnimateList) {
-                _MainWebsiteListEntrance.scheduleEndEntranceAnimation();
+              if (index == 0 && _entrance.shouldAnimateList) {
+                _entrance.scheduleEndEntranceAnimation();
               }
               final data = ordered[index];
               final String id = data["id"] ?? "";
@@ -602,7 +700,7 @@ class _NoticeListTabState extends State<_NoticeListTab> {
                 ),
               );
               final Widget paintIsolated = RepaintBoundary(child: tile);
-              final bool animate = _MainWebsiteListEntrance.shouldAnimateList &&
+              final bool animate = _entrance.shouldAnimateList &&
                   index < _MainWebsiteListEntrance.maxAnimatedItems;
               final Widget out = animate
                   ? paintIsolated.animate().fadeIn(

@@ -28,10 +28,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
   late AnimationController _animationController;
   late Animation<double> _expandAnimation;
   late AnimationController _homeMenuOpen;
-  // Screens are created once and reused across tab switches (state preserved).
-  late final List<Widget> _screens;
-  // Tracks which tabs have been visited so screens are built lazily on first visit.
-  final Set<int> _visitedTabs = {0};
 
   @override
   void initState() {
@@ -48,15 +44,27 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
       parent: _animationController,
       curve: Curves.easeOutBack, // 열릴 때 살짝 튕기는 효과
     );
-    _screens = [
-      HomeDashboardScreen(
-          onNavigate: _onMenuItemClick, menuOpen: _homeMenuOpen),
-      const LibraryScreen(),
-      const MainWebsiteScreen(),
-      const CtlScreen(),
-      const MpuScreen(),
-    ];
     _syncScrollCoordinatorTab();
+  }
+
+  Widget _buildMainTab(int index) {
+    switch (index) {
+      case MainNavTabIndex.home:
+        return HomeDashboardScreen(
+          onNavigate: _onMenuItemClick,
+          menuOpen: _homeMenuOpen,
+        );
+      case MainNavTabIndex.library:
+        return const LibraryScreen();
+      case MainNavTabIndex.mainSite:
+        return const MainWebsiteScreen();
+      case MainNavTabIndex.ctl:
+        return const CtlScreen();
+      case MainNavTabIndex.mpu:
+        return const MpuScreen();
+      default:
+        return const SizedBox.shrink();
+    }
   }
 
   /// [build] 안에서 호출하면 맨 위로 FAB가 빌드 중 재빌드되어 예외가 나므로, 프레임 끝에서만 동기화합니다.
@@ -86,8 +94,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
   void _onMenuItemClick(int index) {
     final bool tabChanged = index != _index;
     setState(() {
-      _visitedTabs
-          .add(index); // Ensure the target screen is built before showing
       if (tabChanged) {
         if (_index == 0 && index != 0) {
           _homeMenuOpen.value = 0.0;
@@ -153,23 +159,48 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
             drawerEnableOpenDragGesture: false,
             body: Stack(
               children: [
-                // 1. 메인 콘텐츠 영역 – lazy-built, state-preserving per-tab.
-                // Screens are built on first visit then kept alive via Offstage.
+                // 1. 메인 콘텐츠 영역 – 탭 전환 시 새로 생성(상태 유지하지 않음) + 전환 애니메이션.
                 Positioned.fill(
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: List.generate(_screens.length, (i) {
-                      final bool active = i == _index;
-                      return Offstage(
-                        offstage: !active,
-                        child: TickerMode(
-                          enabled: active,
-                          child: _visitedTabs.contains(i)
-                              ? _screens[i]
-                              : const SizedBox.shrink(),
-                        ),
-                      );
-                    }),
+                  child: ColoredBox(
+                    color: AppColors.scaffoldMuted,
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 220),
+                      switchInCurve: Curves.easeOutCubic,
+                      switchOutCurve: Curves.easeInCubic,
+                      layoutBuilder: (Widget? currentChild,
+                          List<Widget> previousChildren) {
+                        return Stack(
+                          fit: StackFit.expand,
+                          children: <Widget>[
+                            ...previousChildren,
+                            if (currentChild != null) currentChild,
+                          ],
+                        );
+                      },
+                      transitionBuilder: (child, animation) {
+                        final CurvedAnimation fade = CurvedAnimation(
+                          parent: animation,
+                          curve: Curves.easeOutCubic,
+                        );
+                        // 나가는 화면은 슬라이드하지 않고 페이드만 해서,
+                        // 전환 중 왼쪽에 "빈 흰 영역"이 드러나지 않게 합니다.
+                        if (animation.status == AnimationStatus.reverse) {
+                          return FadeTransition(opacity: fade, child: child);
+                        }
+                        final Animation<Offset> slide = Tween<Offset>(
+                          begin: const Offset(0.04, 0),
+                          end: Offset.zero,
+                        ).animate(fade);
+                        return SlideTransition(
+                          position: slide,
+                          child: FadeTransition(opacity: fade, child: child),
+                        );
+                      },
+                      child: KeyedSubtree(
+                        key: ValueKey<int>(_index),
+                        child: _buildMainTab(_index),
+                      ),
+                    ),
                   ),
                 ),
 
@@ -197,27 +228,24 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
                       label: "메인",
                       color: AppColors.primary,
                       left: centerX - 110,
-                      targetY: 40),
+                      targetY: 10),
                   _buildFixedMenuItem(
                       index: 3,
                       icon: Icons.menu_book,
                       label: "교수학습",
                       color: AppColors.teaching,
                       left: centerX - 30,
-                      targetY: 70),
+                      targetY: 10),
                   _buildFixedMenuItem(
                       index: 4,
                       icon: Icons.emoji_events,
                       label: "역량관리",
                       color: AppColors.competency,
                       left: centerX + 49,
-                      targetY: 40),
+                      targetY: 10),
                 ],
               ],
             ),
-            floatingActionButton: _buildMainFab(),
-            floatingActionButtonLocation:
-                FloatingActionButtonLocation.centerDocked,
             bottomNavigationBar: _buildBottomAppBar(),
           ),
           if (!_isMenuOpen)
@@ -318,38 +346,43 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
     );
   }
 
-  Widget _buildMainFab() {
-    // Material 3 FAB는 리플이 거의 안 보이는 경우가 있어 Material+InkWell로 고정.
-    return SizedBox(
-      width: 56,
-      height: 56,
-      child: Material(
-        color: Colors.red.shade600,
-        shape: const CircleBorder(),
-        clipBehavior: Clip.antiAlias,
-        elevation: 4,
-        shadowColor: Colors.black26,
-        child: InkWell(
-          customBorder: const CircleBorder(),
-          onTap: _toggleMenu,
-          splashColor: Colors.white.withValues(alpha: 0.38),
-          highlightColor: Colors.white.withValues(alpha: 0.22),
-          child: Center(
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 220),
-              transitionBuilder: (child, animation) =>
-                  ScaleTransition(scale: animation, child: child),
-              child: _isMenuOpen
-                  ? const Icon(Icons.close,
-                      key: ValueKey('close_icon'),
-                      color: Colors.white,
-                      size: 32)
-                  : Image.asset("assets/images/notice_megaphone.png",
-                      key: const ValueKey('megaphone_icon'),
-                      color: Colors.white,
-                      filterQuality: FilterQuality.medium,
-                      width: 28,
-                      height: 28),
+  Widget _buildMainFabInNavBar() {
+    // 네비게이션 바 "영역 안"으로 들어오는 버전 (떠있는 FAB 미사용).
+    return Center(
+      child: SizedBox(
+        width: 52,
+        height: 52,
+        child: Material(
+          color: Color(0xFF003FB4),
+          shape: const CircleBorder(),
+          clipBehavior: Clip.antiAlias,
+          elevation: 0,
+          child: InkWell(
+            customBorder: const CircleBorder(),
+            onTap: _toggleMenu,
+            splashColor: Colors.white.withValues(alpha: 0.38),
+            highlightColor: Colors.white.withValues(alpha: 0.22),
+            child: Center(
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 220),
+                transitionBuilder: (child, animation) =>
+                    ScaleTransition(scale: animation, child: child),
+                child: _isMenuOpen
+                    ? const Icon(
+                        Icons.close,
+                        key: ValueKey('close_icon_nav'),
+                        color: Colors.white,
+                        size: 30,
+                      )
+                    : Image.asset(
+                        "assets/images/notice_megaphone.png",
+                        key: const ValueKey('megaphone_icon_nav'),
+                        color: Colors.white,
+                        filterQuality: FilterQuality.medium,
+                        width: 26,
+                        height: 26,
+                      ),
+              ),
             ),
           ),
         ),
@@ -358,24 +391,35 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
   }
 
   Widget _buildBottomAppBar() {
-    return BottomAppBar(
-      shape: const CircularNotchedRectangle(),
-      notchMargin: 8,
-      height: 70,
-      color: Colors.white,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Expanded(
-            child: _buildNavTab(0, Icons.home_outlined, Icons.home, "홈"),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Divider(
+          height: 1,
+          thickness: 1,
+          color: Color(0x1F000000),
+        ),
+        BottomAppBar(
+          height: 70,
+          color: Colors.white,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: _buildNavTab(0, Icons.home_outlined, Icons.home, "홈"),
+              ),
+              SizedBox(
+                width: 80,
+                child: _buildMainFabInNavBar(),
+              ),
+              Expanded(
+                child: _buildNavTab(1, Icons.local_library_outlined,
+                    Icons.local_library, "도서관"),
+              ),
+            ],
           ),
-          const SizedBox(width: 40),
-          Expanded(
-            child: _buildNavTab(
-                1, Icons.local_library_outlined, Icons.local_library, "도서관"),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 

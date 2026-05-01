@@ -9,13 +9,11 @@ import "package:flutter/material.dart";
 import "package:mio_notice/screens/academic_schedule_screen.dart";
 import "package:mio_notice/screens/common_webview_screen.dart";
 import "package:mio_notice/screens/foodcourt_menu_screen.dart";
-import "package:mio_notice/screens/settings_screen.dart";
 import "package:mio_notice/services/foodcourt_menu.dart";
 import "package:mio_notice/services/notice_filter.dart";
 import "package:mio_notice/services/notice_manager.dart";
 import "package:mio_notice/theme/app_colors.dart";
 import "package:mio_notice/widgets/app_menu_drawer.dart";
-import "package:mio_notice/widgets/notice_filter_bar.dart";
 import "package:mio_notice/widgets/scroll_to_top_scope.dart";
 import "package:mio_notice/widgets/shuttle_status_card.dart";
 import "package:shared_preferences/shared_preferences.dart";
@@ -218,15 +216,6 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
       _noticeFilter = filter.copyWith(quickQuery: _noticeQuickQuery);
       _noticeSharedKeywords = keywords;
     });
-  }
-
-  Future<void> _openNoticeFilterSettings() async {
-    await Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(
-        builder: (context) => const SettingsScreen(),
-      ),
-    );
-    if (mounted) await _loadNoticeFilter();
   }
 
   void _onHomeScrollOffset() {
@@ -1073,22 +1062,9 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           unreadNotices,
           sharedKeywords: _noticeSharedKeywords,
         );
-        final Widget filterBar = NoticeFilterBar(
-          filter: filter,
-          keywordCount: _noticeSharedKeywords.length,
-          totalCount: unreadNotices.length,
-          filteredCount: notices.length,
-          accentColor: AppColors.primary,
-          horizontalPadding: 20,
-          onQueryChanged: (String value) {
-            setState(() => _noticeQuickQuery = value);
-          },
-          onOpenSettings: _openNoticeFilterSettings,
-        );
         if (notices.isEmpty) {
           return Column(
             children: [
-              filterBar,
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 12),
                 child: Center(child: Text("새로운 소식이 없습니다.")),
@@ -1098,7 +1074,6 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
         }
         return Column(
           children: [
-            filterBar,
             ListView.separated(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
@@ -1573,8 +1548,9 @@ class _HoverFeedbackState extends State<_HoverFeedback> {
       onTapCancel: () => setState(() => _isPressed = false),
       onTap: widget.onTap,
       child: AnimatedScale(
-        scale: _isPressed ? 0.96 : 1.0,
-        duration: const Duration(milliseconds: 100),
+        scale: _isPressed ? 0.94 : 1.0,
+        duration: const Duration(milliseconds: 90),
+        curve: Curves.easeOutCubic,
         child: widget.child,
       ),
     );

@@ -165,13 +165,19 @@ class _ShuttleStatusCardState extends State<ShuttleStatusCard> {
   }
 
   void _openRouteSheet(BuildContext context, ShuttleStatus status) {
+    // BottomSheet dismiss/route transitions can restore focus to an existing
+    // text input elsewhere in the widget tree, which triggers the soft keyboard.
+    // Force-unfocus on open and after the sheet closes.
+    FocusManager.instance.primaryFocus?.unfocus();
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (context) {
         return _ShuttleRouteSheet(status: status);
       },
-    );
+    ).whenComplete(() {
+      FocusManager.instance.primaryFocus?.unfocus();
+    });
   }
 }
 
@@ -290,6 +296,9 @@ class _ShuttleRouteMap extends StatelessWidget {
   static const double _routeTop = 14;
   static const double _stopGap = 64;
   static const double _markerLeft = 18;
+  /// Last stop is positioned at `top`; the row (dot + label) still extends
+  /// downward, so the stack must be taller than the last `top` alone.
+  static const double _stopRowExtent = 28;
 
   final ShuttleStatus status;
 
@@ -319,7 +328,9 @@ class _ShuttleRouteMap extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         SizedBox(
-          height: _routeTop * 2 + _stopGap * (_stops.length - 1),
+          height: _routeTop +
+              _stopGap * (_stops.length - 1) +
+              _stopRowExtent,
           child: Stack(
             children: [
               Positioned(

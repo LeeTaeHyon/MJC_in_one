@@ -191,6 +191,11 @@ class ScrollToTopCoordinator {
   static const double fabHideHysteresisViewportFraction = 0.22;
 
   int _activeMainTab = 0;
+  /// 메인 탭 활성 변경을 구독할 수 있게 노출합니다.
+  ///
+  /// `MainNavigationScreen`에서 탭 전환 시 프레임 끝에 갱신되며,
+  /// Offstage로 상태를 유지하는 화면들도 "재진입" 이벤트를 감지할 수 있습니다.
+  final ValueNotifier<int> activeMainTabNotifier = ValueNotifier<int>(0);
   final Map<int, VoidCallback> _mainTabHandlers = <int, VoidCallback>{};
   final Map<int, double> _lastMainScrollPixels = <int, double>{};
   final Map<int, double> _lastMainViewportHeight = <int, double>{};
@@ -241,6 +246,9 @@ class ScrollToTopCoordinator {
 
   void setActiveMainTab(int index) {
     _activeMainTab = index;
+    if (activeMainTabNotifier.value != index) {
+      activeMainTabNotifier.value = index;
+    }
     _scheduleMainTabVisibilityDecision();
   }
 

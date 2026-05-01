@@ -12,6 +12,7 @@ class NestedScrollRefreshIndicator extends StatelessWidget {
     this.backgroundColor,
     this.strokeWidth,
     this.displacement = 16,
+    this.notificationPredicate = defaultScrollNotificationPredicate,
   });
 
   final RefreshCallback onRefresh;
@@ -20,6 +21,8 @@ class NestedScrollRefreshIndicator extends StatelessWidget {
   final Color? backgroundColor;
   final double? strokeWidth;
   final double displacement;
+  final ScrollNotificationPredicate notificationPredicate;
+
   @override
   Widget build(BuildContext context) {
     final top = MediaQuery.paddingOf(context).top;
@@ -32,6 +35,7 @@ class NestedScrollRefreshIndicator extends StatelessWidget {
       strokeWidth: strokeWidth ?? RefreshProgressIndicator.defaultStrokeWidth,
       edgeOffset: top + collapsedBar + tabBarH,
       displacement: displacement,
+      notificationPredicate: notificationPredicate,
       child: child,
     );
   }

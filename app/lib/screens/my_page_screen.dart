@@ -20,6 +20,10 @@ class MyPageScreen extends StatefulWidget {
 }
 
 class _MyPageScreenState extends State<MyPageScreen> {
+  /// 설정 화면과 동일한 본문·카드 톤.
+  static const Color _pageBackground = Color(0xFFF5F7F9);
+  static const Color _cardBorderLight = Color(0xFFEDEDED);
+
   bool _loading = true;
   List<_MyNotice> _pinned = const [];
   List<_MyNotice> _favorites = const [];
@@ -204,14 +208,44 @@ class _MyPageScreenState extends State<MyPageScreen> {
     );
   }
 
+  Color _hairlineBorderColor() {
+    final bool light = Theme.of(context).brightness == Brightness.light;
+    return light
+        ? _cardBorderLight
+        : Theme.of(context).colorScheme.outline.withValues(alpha: 0.35);
+  }
+
+  Widget _myPageCard({required Widget child}) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final bool light = Theme.of(context).brightness == Brightness.light;
+    return Material(
+      color: scheme.surface,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color: light ? _cardBorderLight : scheme.outline.withValues(alpha: 0.35),
+          width: 1,
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: child,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final User? user = FirebaseAuth.instance.currentUser;
     final String email = user?.email ?? "로그인이 필요합니다";
+    final bool light = Theme.of(context).brightness == Brightness.light;
+    final Color pageBg = light
+        ? _pageBackground
+        : Theme.of(context).colorScheme.surfaceContainerLow;
 
     return DefaultTabController(
       length: 2,
       child: Scaffold(
+        backgroundColor: pageBg,
         appBar: AppBar(
           title: const Text("마이페이지"),
         ),
@@ -310,21 +344,27 @@ class _MyPageScreenState extends State<MyPageScreen> {
               ),
             ),
             Container(
-              color: Theme.of(context).scaffoldBackgroundColor,
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
+              color: pageBg,
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _SoftCard(
-                    radius: 18,
-                    borderColor: Colors.black.withValues(alpha: 0.08),
-                    shadow: false,
+                  const _MyPageSectionHeader(
+                    title: "고정·즐겨찾기 공지",
+                    icon: Icons.bookmarks_outlined,
+                  ),
+                  _myPageCard(
                     child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         TabBar(
-                          indicatorColor: const Color(0xFF1A3FBB),
+                          indicatorColor: Theme.of(context).colorScheme.primary,
                           indicatorWeight: 2,
-                          labelColor: const Color(0xFF1A3FBB),
-                          unselectedLabelColor: Colors.black54,
+                          labelColor: Theme.of(context).colorScheme.primary,
+                          unselectedLabelColor: Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withValues(alpha: 0.45),
                           labelStyle:
                               const TextStyle(fontWeight: FontWeight.w800),
                           unselectedLabelStyle:
@@ -340,7 +380,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
                             ),
                           ],
                         ),
-                        const Divider(height: 1),
+                        Divider(height: 1, thickness: 1, color: _hairlineBorderColor()),
                         SizedBox(
                           height: 270,
                           child: _loading
@@ -364,6 +404,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
                                       subtitleFor: _boardSubtitle,
                                       formatDate: _formatDate,
                                       onTap: _openNotice,
+                                      dividerColor: _hairlineBorderColor(),
                                     ),
                                     _NoticeList(
                                       items: _favorites,
@@ -375,6 +416,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
                                       subtitleFor: _boardSubtitle,
                                       formatDate: _formatDate,
                                       onTap: _openNotice,
+                                      dividerColor: _hairlineBorderColor(),
                                     ),
                                   ],
                                 ),
@@ -382,20 +424,12 @@ class _MyPageScreenState extends State<MyPageScreen> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 14),
-                  const Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      "계정 설정",
-                      style:
-                          TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
-                    ),
+                  const SizedBox(height: 16),
+                  const _MyPageSectionHeader(
+                    title: "계정 설정",
+                    icon: Icons.manage_accounts_outlined,
                   ),
-                  const SizedBox(height: 10),
-                  _SoftCard(
-                    radius: 18,
-                    borderColor: Colors.black.withValues(alpha: 0.08),
-                    shadow: false,
+                  _myPageCard(
                     child: Column(
                       children: [
                         ListTile(
@@ -412,7 +446,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
                             );
                           },
                         ),
-                        const Divider(height: 1),
+                        Divider(height: 1, thickness: 1, color: _hairlineBorderColor()),
                         ListTile(
                           leading: const Icon(Icons.lock_outline_rounded),
                           title: const Text(
@@ -430,22 +464,17 @@ class _MyPageScreenState extends State<MyPageScreen> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 14),
-                  _SoftCard(
-                    radius: 18,
-                    borderColor: Colors.black.withValues(alpha: 0.08),
-                    shadow: false,
+                  const SizedBox(height: 16),
+                  _myPageCard(
                     child: InkWell(
-                      borderRadius: BorderRadius.circular(18),
-                      onTap: () {
-                        _signOut();
-                      },
-                      child: SizedBox(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: _signOut,
+                      child: const SizedBox(
                         height: 56,
                         width: double.infinity,
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
-                          children: const [
+                          children: [
                             Icon(Icons.logout_rounded,
                                 color: Color(0xFFD4183D)),
                             SizedBox(width: 10),
@@ -577,6 +606,7 @@ class _NoticeList extends StatelessWidget {
     required this.subtitleFor,
     required this.formatDate,
     required this.onTap,
+    required this.dividerColor,
   });
 
   final List<_MyNotice> items;
@@ -588,6 +618,7 @@ class _NoticeList extends StatelessWidget {
   final String Function(String boardId) subtitleFor;
   final String Function(String raw) formatDate;
   final Future<void> Function(_MyNotice item) onTap;
+  final Color dividerColor;
 
   @override
   Widget build(BuildContext context) {
@@ -716,7 +747,8 @@ class _NoticeList extends StatelessWidget {
           ),
         );
       },
-      separatorBuilder: (_, __) => const Divider(height: 1),
+      separatorBuilder: (_, __) =>
+          Divider(height: 1, thickness: 1, color: dividerColor),
       itemCount: items.length,
     );
   }
@@ -809,4 +841,36 @@ class _MyNotice {
     required this.date,
     required this.url,
   });
+}
+
+class _MyPageSectionHeader extends StatelessWidget {
+  const _MyPageSectionHeader({required this.title, this.icon});
+
+  final String title;
+  final IconData? icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color accent = Theme.of(context).colorScheme.primary;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(2, 0, 2, 8),
+      child: Row(
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 20, color: accent),
+            const SizedBox(width: 8),
+          ],
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+              color: accent,
+              letterSpacing: -0.2,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

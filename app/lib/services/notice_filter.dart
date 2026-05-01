@@ -5,6 +5,7 @@ const String kNoticeFilterRequireKeywordPrefKey = "feed_filter_require_kw";
 const String kNoticeFilterSourcesPrefKey = "feed_filter_sources";
 const String kNoticeFilterTypesPrefKey = "feed_filter_types";
 const String kNoticeFilterExcludesPrefKey = "feed_filter_excludes";
+const String kNoticeFilterIncludesPrefKey = "feed_filter_includes";
 const String kNoticeKeywordsPrefKey = "keywords";
 
 const List<String> kNoticeFilterSourceOptions = ["MJC", "CTL", "MPU"];
@@ -25,6 +26,7 @@ class NoticeFilterState {
     this.sources = kNoticeFilterSourceOptions,
     this.types = kNoticeFilterTypeOptions,
     this.excludes = const [],
+    this.includes = const [],
     this.quickQuery = "",
   });
 
@@ -33,6 +35,8 @@ class NoticeFilterState {
   final List<String> sources;
   final List<String> types;
   final List<String> excludes;
+  /// 화면 필터 전용. 비어 있지 않으면 제목·본문 등에 **하나라도** 포함된 공지만 표시.
+  final List<String> includes;
   final String quickQuery;
 
   NoticeFilterState copyWith({
@@ -41,6 +45,7 @@ class NoticeFilterState {
     List<String>? sources,
     List<String>? types,
     List<String>? excludes,
+    List<String>? includes,
     String? quickQuery,
   }) {
     return NoticeFilterState(
@@ -49,6 +54,7 @@ class NoticeFilterState {
       sources: sources ?? this.sources,
       types: types ?? this.types,
       excludes: excludes ?? this.excludes,
+      includes: includes ?? this.includes,
       quickQuery: quickQuery ?? this.quickQuery,
     );
   }
@@ -58,7 +64,8 @@ class NoticeFilterState {
         requireKeywordHit ||
         sources.length != kNoticeFilterSourceOptions.length ||
         types.length != kNoticeFilterTypeOptions.length ||
-        excludes.isNotEmpty;
+        excludes.isNotEmpty ||
+        includes.isNotEmpty;
   }
 
   bool get hasAnyRule => hasPersistentRules || quickQuery.trim().isNotEmpty;
@@ -82,6 +89,7 @@ class NoticeFilterState {
           .where((type) => storedTypes.contains(type))
           .toList(),
       excludes: prefs.getStringList(kNoticeFilterExcludesPrefKey) ?? const [],
+      includes: prefs.getStringList(kNoticeFilterIncludesPrefKey) ?? const [],
     )._ensureNonEmptyDefaults();
   }
 
@@ -95,6 +103,7 @@ class NoticeFilterState {
     await prefs.setStringList(kNoticeFilterSourcesPrefKey, sources);
     await prefs.setStringList(kNoticeFilterTypesPrefKey, types);
     await prefs.setStringList(kNoticeFilterExcludesPrefKey, excludes);
+    await prefs.setStringList(kNoticeFilterIncludesPrefKey, includes);
   }
 
   List<Map<String, dynamic>> apply(
@@ -108,6 +117,8 @@ class NoticeFilterState {
         sharedKeywords.map(_normalize).where((s) => s.isNotEmpty).toList();
     final List<String> normalizedExcludes =
         excludes.map(_normalize).where((s) => s.isNotEmpty).toList();
+    final List<String> normalizedIncludesOnly =
+        includes.map(_normalize).where((s) => s.isNotEmpty).toList();
 
     return items.where((Map<String, dynamic> item) {
       final String searchable = _normalize(_searchableText(item));
@@ -120,6 +131,10 @@ class NoticeFilterState {
       if (!sources.contains(source)) return false;
       if (!types.contains(type)) return false;
       if (normalizedExcludes.any(searchable.contains)) return false;
+      if (normalizedIncludesOnly.isNotEmpty &&
+          !normalizedIncludesOnly.any(searchable.contains)) {
+        return false;
+      }
       if (requireKeywordHit &&
           (normalizedIncludes.isEmpty ||
               !normalizedIncludes.any(searchable.contains))) {

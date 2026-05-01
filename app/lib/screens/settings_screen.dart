@@ -18,6 +18,10 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
+  /// 설정 화면 본문·카드 구분용 (참고 UI와 유사한 톤).
+  static const Color _pageBackground = Color(0xFFF5F7F9);
+  static const Color _cardBorder = Color(0xFFEDEDED);
+
   bool _allNoticesEnabled = true;
   bool _keywordNoticesEnabled = true;
   List<String> _keywords = [];
@@ -102,6 +106,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             .where(kNoticeFilterTypeOptions.contains)
             .toList(),
         excludes: prefs.getStringList(kNoticeFilterExcludesPrefKey) ?? const [],
+        includes: prefs.getStringList(kNoticeFilterIncludesPrefKey) ?? const [],
       );
       if (_noticeFilter.sources.isEmpty || _noticeFilter.types.isEmpty) {
         _noticeFilter = _noticeFilter.copyWith(
@@ -183,6 +188,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  /// [kNoticeFilterSourceOptions] 라벨(MJC·CTL·MPU) ↔ FCM `source` id.
+  String _notificationSourceIdForChip(String chipLabel) {
+    switch (chipLabel) {
+      case "MJC":
+        return "mjc";
+      case "CTL":
+        return "ctl";
+      case "MPU":
+        return "mpu";
+      default:
+        return "";
+    }
+  }
+
+  List<String> _selectedNotificationSourceChipLabels() {
+    return kNoticeFilterSourceOptions
+        .where(
+          (String label) =>
+              _enabledSources.contains(_notificationSourceIdForChip(label)),
+        )
+        .toList();
+  }
+
+  Future<void> _toggleNotificationSourceChip(
+      String label, bool selected) async {
+    final String id = _notificationSourceIdForChip(label);
+    if (id.isEmpty) return;
+    await _setSourceEnabled(id, selected);
+  }
+
   Future<void> _setSourceEnabled(String sourceId, bool enabled) async {
     if (!kNotificationSourceIds.contains(sourceId)) return;
     final next = Set<String>.from(_enabledSources);
@@ -214,6 +249,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() => _enabledSources = ordered);
   }
 
+  /// 저장 전에 출처·유형이 비지 않게 보정합니다(깨진 저장값 복구). 칩은 `_toggleNoticeFilter*`에서 최소 1개를 유지합니다.
   Future<void> _setNoticeFilter(NoticeFilterState next) async {
     final NoticeFilterState safeNext = next.copyWith(
       sources: next.sources.isEmpty ? kNoticeFilterSourceOptions : next.sources,
@@ -227,17 +263,53 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _toggleNoticeFilterSource(String source, bool selected) async {
     final Set<String> next = Set<String>.from(_noticeFilter.sources);
-    selected ? next.add(source) : next.remove(source);
+    if (selected) {
+      next.add(source);
+    } else {
+      next.remove(source);
+      if (next.isEmpty) {
+        if (mounted) {
+          SnackBarUtils.showUnique(
+            context,
+            key: "settings_filter_sources_min_one",
+            snackBar: SnackBar(
+              behavior: SnackBarBehavior.floating,
+              margin: _snackBarMargin(context),
+              content: const Text("화면 필터 출처는 최소 하나 선택해야 해요."),
+            ),
+          );
+        }
+        return;
+      }
+    }
     await _setNoticeFilter(_noticeFilter.copyWith(sources: next.toList()));
   }
 
   Future<void> _toggleNoticeFilterType(String type, bool selected) async {
     final Set<String> next = Set<String>.from(_noticeFilter.types);
-    selected ? next.add(type) : next.remove(type);
+    if (selected) {
+      next.add(type);
+    } else {
+      next.remove(type);
+      if (next.isEmpty) {
+        if (mounted) {
+          SnackBarUtils.showUnique(
+            context,
+            key: "settings_filter_types_min_one",
+            snackBar: SnackBar(
+              behavior: SnackBarBehavior.floating,
+              margin: _snackBarMargin(context),
+              content: const Text("화면 필터 유형은 최소 하나 선택해야 해요."),
+            ),
+          );
+        }
+        return;
+      }
+    }
     await _setNoticeFilter(_noticeFilter.copyWith(types: next.toList()));
   }
 
-  void _showExcludeKeywordDialog() {
+  void _showIncludeKeywordDialog() {
     final TextEditingController controller = TextEditingController();
     showDialog<void>(
       context: context,
@@ -245,7 +317,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
-              title: const Text("제외 키워드 관리"),
+              title: const Text("보고 싶은 키워드"),
               content: SizedBox(
                 width: double.maxFinite,
                 child: SingleChildScrollView(
@@ -253,28 +325,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       const Text(
-                        "제외 키워드가 제목이나 설명에 포함된 공지는 앱 목록에서 숨겨집니다.",
+                        "등록한 키워드 중 하나라도 제목·본문 등에 포함된 공지만 목록에 보입니다. 비워 두면 이 조건은 쓰지 않아요.",
                         style: TextStyle(fontSize: 12, color: Colors.grey),
                       ),
                       const SizedBox(height: 16),
                       TextField(
                         controller: controller,
                         decoration: InputDecoration(
-                          hintText: "예: 폐강, 취소",
+                          hintText: "예: 장학, 수강신청",
                           suffixIcon: IconButton(
                             icon: const Icon(Icons.add),
                             onPressed: () async {
                               final String text = controller.text.trim();
                               if (text.isEmpty ||
-                                  _noticeFilter.excludes.contains(text)) {
+                                  _noticeFilter.includes.contains(text)) {
                                 return;
                               }
                               final List<String> next = [
-                                ..._noticeFilter.excludes,
+                                ..._noticeFilter.includes,
                                 text,
                               ];
                               await _setNoticeFilter(
-                                _noticeFilter.copyWith(excludes: next),
+                                _noticeFilter.copyWith(includes: next),
                               );
                               if (!mounted) return;
                               controller.clear();
@@ -289,15 +361,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         child: Wrap(
                           spacing: 8,
                           runSpacing: 8,
-                          children: _noticeFilter.excludes.map((kw) {
+                          children: _noticeFilter.includes.map((kw) {
                             return Chip(
                               label: Text(kw),
                               onDeleted: () async {
-                                final List<String> next = _noticeFilter.excludes
+                                final List<String> next = _noticeFilter.includes
                                     .where((item) => item != kw)
                                     .toList();
                                 await _setNoticeFilter(
-                                  _noticeFilter.copyWith(excludes: next),
+                                  _noticeFilter.copyWith(includes: next),
                                 );
                                 if (!mounted) return;
                                 setDialogState(() {});
@@ -587,103 +659,156 @@ class _SettingsScreenState extends State<SettingsScreen> {
     required ValueChanged<String> onEnabled,
     required ValueChanged<String> onDisabled,
   }) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: options.map((String value) {
-        final bool isSelected = selected.contains(value);
-        return FilterChip(
-          label: Text(value),
-          selected: isSelected,
-          onSelected: (bool next) =>
-              next ? onEnabled(value) : onDisabled(value),
-        );
-      }).toList(),
+    return Align(
+      alignment: AlignmentDirectional.topStart,
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        alignment: WrapAlignment.start,
+        crossAxisAlignment: WrapCrossAlignment.start,
+        children: options.map((String value) {
+          final bool isSelected = selected.contains(value);
+          return FilterChip(
+            label: Text(value),
+            selected: isSelected,
+            onSelected: (bool next) =>
+                next ? onEnabled(value) : onDisabled(value),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _settingsCard({required Widget child}) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final bool light = Theme.of(context).brightness == Brightness.light;
+    return Material(
+      color: scheme.surface,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color: light ? _cardBorder : scheme.outline.withValues(alpha: 0.35),
+          width: 1,
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: child,
+    );
+  }
+
+  Widget _hairlineDivider() {
+    final bool light = Theme.of(context).brightness == Brightness.light;
+    return Divider(
+      height: 1,
+      thickness: 1,
+      color: light ? _cardBorder : Theme.of(context).colorScheme.outline.withValues(alpha: 0.35),
     );
   }
 
   Widget _buildNoticeScreenFilterCard() {
     final bool enabled = _noticeFilter.enabled;
     final bool requireKeyword = _noticeFilter.requireKeywordHit;
-    final String excludeSummary = _noticeFilter.excludes.isEmpty
-        ? "현재 등록된 제외 키워드 없음"
-        : "${_noticeFilter.excludes.length}개 제외 키워드 사용 중";
+    final String includeSummary = _noticeFilter.includes.isEmpty
+        ? "등록된 보기 키워드 없음(출처·유형만 적용)"
+        : "${_noticeFilter.includes.length}개 키워드가 포함된 공지만 표시";
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _SectionHeader(title: "공지 화면 필터"),
-        Card(
-          clipBehavior: Clip.antiAlias,
+        const _SectionHeader(
+          title: "공지 화면 필터",
+          icon: Icons.tune_rounded,
+        ),
+        _settingsCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               SwitchListTile(
                 title: const Text("공지 화면 필터 사용"),
-                subtitle: const Text("홈·공지·CTL·MPU 목록에 필터를 적용합니다."),
+                subtitle: Text(
+                  enabled
+                      ? "홈·공지·CTL·MPU 목록에 필터를 적용 중입니다."
+                      : "끄면 목록은 필터 없이 표시됩니다. 켜면 아래에서 세부 조건을 설정할 수 있어요.",
+                ),
                 value: enabled,
                 onChanged: (bool value) =>
                     _setNoticeFilter(_noticeFilter.copyWith(enabled: value)),
               ),
-              const Divider(height: 1),
-              SwitchListTile(
-                title: const Text("키워드 알람과 동일한 키워드만 표시"),
-                subtitle: Text(
-                  _keywords.isEmpty
-                      ? "키워드가 없으면 필터 사용 시 목록이 비어 보일 수 있습니다."
-                      : "${_keywords.length}개 키워드를 화면 필터에도 사용",
+              AnimatedCrossFade(
+                duration: const Duration(milliseconds: 220),
+                crossFadeState: enabled
+                    ? CrossFadeState.showSecond
+                    : CrossFadeState.showFirst,
+                firstChild: const SizedBox(width: double.infinity),
+                secondChild: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _hairlineDivider(),
+                    SwitchListTile(
+                      title: const Text("키워드 알람과 동일한 키워드만 표시"),
+                      subtitle: Text(
+                        _keywords.isEmpty
+                            ? "키워드가 없으면 필터 사용 시 목록이 비어 보일 수 있습니다."
+                            : "${_keywords.length}개 키워드를 화면 필터에도 사용",
+                      ),
+                      value: requireKeyword,
+                      onChanged: (bool value) => _setNoticeFilter(
+                        _noticeFilter.copyWith(requireKeywordHit: value),
+                      ),
+                    ),
+                    _hairlineDivider(),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
+                      child: Text(
+                        "출처",
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.primary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                      child: _buildFilterChipGroup(
+                        options: kNoticeFilterSourceOptions,
+                        selected: _noticeFilter.sources,
+                        onEnabled: (value) =>
+                            _toggleNoticeFilterSource(value, true),
+                        onDisabled: (value) =>
+                            _toggleNoticeFilterSource(value, false),
+                      ),
+                    ),
+                    _hairlineDivider(),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
+                      child: Text(
+                        "유형",
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.primary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                      child: _buildFilterChipGroup(
+                        options: kNoticeFilterTypeOptions,
+                        selected: _noticeFilter.types,
+                        onEnabled: (value) =>
+                            _toggleNoticeFilterType(value, true),
+                        onDisabled: (value) =>
+                            _toggleNoticeFilterType(value, false),
+                      ),
+                    ),
+                    _hairlineDivider(),
+                    ListTile(
+                      title: const Text("보고 싶은 키워드 추가/삭제"),
+                      subtitle: Text(includeSummary),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: _showIncludeKeywordDialog,
+                    ),
+                  ],
                 ),
-                value: requireKeyword,
-                onChanged: (bool value) => _setNoticeFilter(
-                  _noticeFilter.copyWith(requireKeywordHit: value),
-                ),
-              ),
-              const Divider(height: 1),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
-                child: Text(
-                  "출처",
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.primary,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                child: _buildFilterChipGroup(
-                  options: kNoticeFilterSourceOptions,
-                  selected: _noticeFilter.sources,
-                  onEnabled: (value) => _toggleNoticeFilterSource(value, true),
-                  onDisabled: (value) =>
-                      _toggleNoticeFilterSource(value, false),
-                ),
-              ),
-              const Divider(height: 1),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
-                child: Text(
-                  "유형",
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.primary,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                child: _buildFilterChipGroup(
-                  options: kNoticeFilterTypeOptions,
-                  selected: _noticeFilter.types,
-                  onEnabled: (value) => _toggleNoticeFilterType(value, true),
-                  onDisabled: (value) => _toggleNoticeFilterType(value, false),
-                ),
-              ),
-              const Divider(height: 1),
-              ListTile(
-                title: const Text("제외 키워드 추가/삭제"),
-                subtitle: Text(excludeSummary),
-                trailing: const Icon(Icons.chevron_right_rounded),
-                onTap: _showExcludeKeywordDialog,
               ),
             ],
           ),
@@ -701,92 +826,123 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final bool keywordNotices = _keywordNoticesEnabled;
     final bool notificationsAllOff = !allNotices && !keywordNotices;
 
+    final Color scaffoldBg = Theme.of(context).brightness == Brightness.light
+        ? _pageBackground
+        : Theme.of(context).colorScheme.surfaceContainerLow;
+
     return Scaffold(
+      backgroundColor: scaffoldBg,
       appBar: AppBar(
-        title: const Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text("설정"),
-            SizedBox(height: 2),
-            Text(
-              "MJC in one",
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w400,
-                height: 1.1,
-                color: Colors.white70,
-              ),
-            ),
-          ],
-        ),
+        title: const Text("설정"),
       ),
       body: ListView(
         controller: _scrollController,
-        padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
         children: [
-          _SectionHeader(title: "알림"),
-          Card(
-            clipBehavior: Clip.antiAlias,
+          const _SectionHeader(
+            title: "알림",
+            icon: Icons.notifications_outlined,
+          ),
+          _settingsCard(
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 SwitchListTile(
                   title: const Text("전체 알람"),
-                  subtitle: const Text("모든 공지사항 새글 알림 받기"),
+                  subtitle: allNotices
+                      ? const Text("모든 공지사항 새글 알림 받기")
+                      : const Text("꺼 두면 아래 알람·출처 설정이 접혀 있어요."),
                   value: allNotices,
                   onChanged: _toggleAllNotices,
                 ),
-                const Divider(height: 1),
-                SwitchListTile(
-                  title: const Text("키워드 알람"),
-                  subtitle: const Text("등록한 키워드가 포함된 공지사항만"),
-                  value: keywordNotices,
-                  onChanged: _toggleKeywordNotices,
-                ),
-                if (notificationsAllOff) ...[
-                  const Divider(height: 1),
+                if (allNotices) ...[
+                  _hairlineDivider(),
+                  SwitchListTile(
+                    title: const Text("키워드 알람"),
+                    subtitle: const Text("등록한 키워드가 포함된 공지사항만"),
+                    value: keywordNotices,
+                    onChanged: _toggleKeywordNotices,
+                  ),
+                  _hairlineDivider(),
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.notifications_off_outlined,
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onSurface
-                              .withValues(alpha: 0.72),
-                          size: 18,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            "알람이 꺼집니다.",
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurface
-                                  .withValues(alpha: 0.78),
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ],
+                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
+                    child: Text(
+                      "알림 받을 출처",
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.primary,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+                    child: Text(
+                      "푸시 알림을 받을 사이트를 고릅니다. 최소 한 곳은 선택해야 해요.",
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Theme.of(context)
+                            .colorScheme
+                            .onSurface
+                            .withValues(alpha: 0.65),
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+                    child: _buildFilterChipGroup(
+                      options: kNoticeFilterSourceOptions,
+                      selected: _selectedNotificationSourceChipLabels(),
+                      onEnabled: (value) =>
+                          _toggleNotificationSourceChip(value, true),
+                      onDisabled: (value) =>
+                          _toggleNotificationSourceChip(value, false),
+                    ),
+                  ),
+                  if (notificationsAllOff) ...[
+                    _hairlineDivider(),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.notifications_off_outlined,
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurface
+                                .withValues(alpha: 0.72),
+                            size: 18,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              "알람이 꺼집니다.",
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurface
+                                    .withValues(alpha: 0.78),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ],
               ],
             ),
           ),
           AnimatedCrossFade(
             duration: const Duration(milliseconds: 220),
-            crossFadeState: keywordNotices
+            crossFadeState: (allNotices && keywordNotices)
                 ? CrossFadeState.showSecond
                 : CrossFadeState.showFirst,
             firstChild: const SizedBox(width: double.infinity),
             secondChild: Padding(
               padding: const EdgeInsets.only(top: 12),
-              child: Card(
-                clipBehavior: Clip.antiAlias,
+              child: _settingsCard(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -819,19 +975,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 16),
           _buildNoticeScreenFilterCard(),
-          const SizedBox(height: 18),
-          _SectionHeader(title: "테마"),
-          Card(
-            clipBehavior: Clip.antiAlias,
+          const SizedBox(height: 16),
+          const _SectionHeader(
+            title: "화면",
+            icon: Icons.palette_outlined,
+          ),
+          _settingsCard(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    "앱 화면 테마 선택",
+                    "앱 화면 테마",
                     style: TextStyle(fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 12),
@@ -865,53 +1023,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
           ),
-          const SizedBox(height: 18),
-          _SectionHeader(title: "알림 받을 출처"),
-          Card(
-            clipBehavior: Clip.antiAlias,
-            child: Column(
-              children: [
-                SwitchListTile(
-                  title: const Text("메인 홈페이지 (mjc.ac.kr)"),
-                  subtitle: const Text("공지·학사·장학 등 본교 게시판"),
-                  value: _enabledSources.contains("mjc"),
-                  onChanged: (v) => _setSourceEnabled("mjc", v),
-                ),
-                const Divider(height: 1),
-                SwitchListTile(
-                  title: const Text("CTL (ctl.mjc.ac.kr)"),
-                  subtitle: const Text("CTL 프로그램·공지"),
-                  value: _enabledSources.contains("ctl"),
-                  onChanged: (v) => _setSourceEnabled("ctl", v),
-                ),
-                const Divider(height: 1),
-                SwitchListTile(
-                  title: const Text("MPU 핵심역량 (mpu.mjc.ac.kr)"),
-                  subtitle: const Text("핵심역량 프로그램 안내"),
-                  value: _enabledSources.contains("mpu"),
-                  onChanged: (v) => _setSourceEnabled("mpu", v),
-                ),
-              ],
-            ),
+          const SizedBox(height: 16),
+          const _SectionHeader(
+            title: "앱 정보",
+            icon: Icons.info_outline_rounded,
           ),
-          const SizedBox(height: 18),
-          _SectionHeader(title: "앱 정보"),
-          Card(
-            clipBehavior: Clip.antiAlias,
+          _settingsCard(
             child: Column(
               children: [
                 const ListTile(
                   title: Text("앱 버전"),
                   trailing: Text("1.0.0 (Build 1)"),
                 ),
-                const Divider(height: 1),
+                _hairlineDivider(),
                 ListTile(
                   title: const Text("개발자에게 문의하기"),
                   subtitle: const Text("불편한 점이나 건의사항을 보내주세요."),
                   trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: _contactDeveloper,
                 ),
-                const Divider(height: 1),
+                _hairlineDivider(),
                 ListTile(
                   title: const Text("오픈소스 라이선스"),
                   trailing: const Icon(Icons.chevron_right_rounded),
@@ -933,22 +1064,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
 }
 
 class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.title});
+  const _SectionHeader({required this.title, this.icon});
 
   final String title;
+  final IconData? icon;
 
   @override
   Widget build(BuildContext context) {
+    final Color accent = Theme.of(context).colorScheme.primary;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 8, 4, 10),
+      padding: const EdgeInsets.fromLTRB(2, 4, 2, 8),
       child: Row(
         children: [
+          if (icon != null) ...[
+            Icon(icon, size: 20, color: accent),
+            const SizedBox(width: 8),
+          ],
           Text(
             title,
             style: TextStyle(
-              fontSize: 14,
+              fontSize: 15,
               fontWeight: FontWeight.w800,
-              color: Theme.of(context).colorScheme.primary,
+              color: accent,
               letterSpacing: -0.2,
             ),
           ),

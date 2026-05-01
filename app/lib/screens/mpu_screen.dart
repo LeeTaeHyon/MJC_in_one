@@ -18,13 +18,18 @@ import "package:shared_preferences/shared_preferences.dart";
 import "package:url_launcher/url_launcher.dart";
 
 class _MpuListEntrance {
-  static bool _playedOnce = false;
-  static bool _scheduleEntranceEnd = false;
+  bool _playedOnce = false;
+  bool _scheduleEntranceEnd = false;
 
-  static bool get shouldAnimateList => !kPerfLowRasterMode && !_playedOnce;
+  bool get shouldAnimateList => !kPerfLowRasterMode && !_playedOnce;
   static const int maxAnimatedItems = 8;
 
-  static void scheduleEndEntranceAnimation() {
+  void resetForEntry() {
+    _playedOnce = false;
+    _scheduleEntranceEnd = false;
+  }
+
+  void scheduleEndEntranceAnimation() {
     if (_playedOnce || _scheduleEntranceEnd) return;
     _scheduleEntranceEnd = true;
     Future<void>.delayed(const Duration(milliseconds: 700), () {
@@ -43,6 +48,8 @@ class MpuScreen extends StatefulWidget {
 class _MpuScreenState extends State<MpuScreen> {
   final ScrollController _outerScrollController = ScrollController();
   ScrollToTopCoordinator? _scrollToTopCoordinator;
+  ValueNotifier<int>? _activeTabNotifier;
+  int _entryTick = 0;
   late final NestedScrollFabScrollReporter _nestedFabReporter =
       NestedScrollFabScrollReporter(
     tabIndex: MainNavTabIndex.mpu,
@@ -63,6 +70,11 @@ class _MpuScreenState extends State<MpuScreen> {
       _scrollToTopCoordinator = c;
       _nestedFabReporter.attachCoordinator(c);
       c.registerMainTab(MainNavTabIndex.mpu, _scrollContentToTop);
+      if (!identical(_activeTabNotifier, c.activeMainTabNotifier)) {
+        _activeTabNotifier?.removeListener(_handleMainTabChanged);
+        _activeTabNotifier = c.activeMainTabNotifier;
+        _activeTabNotifier?.addListener(_handleMainTabChanged);
+      }
     }
     if (_outerScrollController.hasClients) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -70,6 +82,16 @@ class _MpuScreenState extends State<MpuScreen> {
         _nestedFabReporter.reportOuterScroll();
       });
     }
+  }
+
+  void _handleMainTabChanged() {
+    final ScrollToTopCoordinator? c = _scrollToTopCoordinator;
+    if (c == null) return;
+    if (c.activeMainTabNotifier.value != MainNavTabIndex.mpu) return;
+    if (!mounted) return;
+    setState(() {
+      _entryTick++;
+    });
   }
 
   void _scrollContentToTop() {
@@ -85,6 +107,7 @@ class _MpuScreenState extends State<MpuScreen> {
   void dispose() {
     _outerScrollController.removeListener(_nestedFabReporter.reportOuterScroll);
     _scrollToTopCoordinator?.unregisterMainTab(MainNavTabIndex.mpu);
+    _activeTabNotifier?.removeListener(_handleMainTabChanged);
     _outerScrollController.dispose();
     // 성능상 재진입 때마다 전체 리스트 entrance 애니메이션을 다시 돌리면 jank가 커져서 유지합니다.
     super.dispose();
@@ -132,10 +155,10 @@ class _MpuScreenState extends State<MpuScreen> {
             onNotification: _nestedFabReporter.handleInnerScrollNotification,
             child: NestedScrollFabTabBinding(
               reporter: _nestedFabReporter,
-              child: const TabBarView(
+              child: TabBarView(
                 children: [
-                  _MpuListTab(showCompleted: false),
-                  _MpuListTab(showCompleted: true),
+                  _MpuListTab(showCompleted: false, entryTick: _entryTick),
+                  _MpuListTab(showCompleted: true, entryTick: _entryTick),
                 ],
               ),
             ),
@@ -303,20 +326,81 @@ class _MpuCollapsingHeaderDelegate extends SliverPersistentHeaderDelegate {
 
 class _MpuListTab extends StatefulWidget {
   final bool showCompleted;
-  const _MpuListTab({required this.showCompleted});
+  final int entryTick;
+  const _MpuListTab({required this.showCompleted, required this.entryTick});
   @override
   State<_MpuListTab> createState() => _MpuListTabState();
 }
 
 class _MpuListTabState extends State<_MpuListTab> {
+  final _MpuListEntrance _entrance = _MpuListEntrance();
   late Future<List<Map<String, dynamic>>> _mpuFuture;
   Set<String> _pinnedKeys = {};
   Set<String> _favoriteKeys = {};
   NoticeFilterState _noticeFilter = const NoticeFilterState();
   List<String> _noticeSharedKeywords = [];
   String _noticeQuickQuery = "";
+  double _filterBarReveal = 0;
+  bool _refreshEnabledForDrag = false;
   bool get _lowRaster =>
       kPerfLowRasterMode || defaultTargetPlatform == TargetPlatform.android;
+
+  static const double _filterBarRevealDistance = 96;
+  bool get _filterBarFullyVisible => _filterBarReveal >= 1.0;
+
+  bool _allowRefreshNotification(ScrollNotification n) {
+    if (!defaultScrollNotificationPredicate(n)) return false;
+    return _refreshEnabledForDrag ||
+        n is ScrollEndNotification ||
+        n is UserScrollNotification;
+  }
+
+  bool _handleScrollNotification(ScrollNotification n) {
+    if (n is ScrollStartNotification) {
+      _refreshEnabledForDrag = _filterBarFullyVisible;
+    } else if (n is OverscrollNotification) {
+      if (!_refreshEnabledForDrag &&
+          n.metrics.pixels <= n.metrics.minScrollExtent &&
+          n.overscroll < 0) {
+        final double next = (_filterBarReveal +
+                (-n.overscroll / _filterBarRevealDistance))
+            .clamp(0.0, 1.0);
+        if (next != _filterBarReveal) {
+          setState(() => _filterBarReveal = next);
+        }
+      }
+    } else if (n is ScrollUpdateNotification) {
+      if (n.metrics.pixels > 24 && _filterBarReveal > 0) {
+        setState(() => _filterBarReveal = 0);
+      }
+    } else if (n is ScrollEndNotification) {
+      if (_filterBarReveal > 0 && _filterBarReveal < 1) {
+        setState(() => _filterBarReveal = _filterBarReveal >= 0.35 ? 1 : 0);
+      }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _refreshEnabledForDrag = false;
+      });
+    }
+    return false;
+  }
+
+  Widget _revealedFilterBar(Widget filterBar) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(end: _filterBarReveal),
+      duration: const Duration(milliseconds: 90),
+      curve: Curves.easeOutCubic,
+      child: filterBar,
+      builder: (context, v, child) {
+        return ClipRect(
+          child: Align(
+            alignment: Alignment.topCenter,
+            heightFactor: v,
+            child: child,
+          ),
+        );
+      },
+    );
+  }
 
   @override
   void initState() {
@@ -324,6 +408,14 @@ class _MpuListTabState extends State<_MpuListTab> {
     _loadPinsAndFavorites();
     _loadNoticeFilter();
     _mpuFuture = NoticeManager().getNotices(boardId: "mpu_programs");
+  }
+
+  @override
+  void didUpdateWidget(covariant _MpuListTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.entryTick != oldWidget.entryTick) {
+      _entrance.resetForEntry();
+    }
   }
 
   Future<void> _loadNoticeFilter() async {
@@ -414,26 +506,30 @@ class _MpuListTabState extends State<_MpuListTab> {
       onRefresh: _handleRefresh,
       color: const Color(0xFF7986CB),
       backgroundColor: Colors.white,
+      notificationPredicate: _allowRefreshNotification,
       child: FutureBuilder<List<Map<String, dynamic>>>(
         future: _mpuFuture,
         builder: (context, snapshot) {
-          return CustomScrollView(
-            primary: true,
-            physics: const AlwaysScrollableScrollPhysics(),
-            slivers: [
-              SliverOverlapInjector(
-                handle: NestedScrollView.sliverOverlapAbsorberHandleFor(
-                  context,
+          return NotificationListener<ScrollNotification>(
+            onNotification: _handleScrollNotification,
+            child: CustomScrollView(
+              primary: true,
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                SliverOverlapInjector(
+                  handle: NestedScrollView.sliverOverlapAbsorberHandleFor(
+                    context,
+                  ),
                 ),
-              ),
-              if (snapshot.connectionState == ConnectionState.waiting)
-                const SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: Center(child: CircularProgressIndicator()),
-                )
-              else
-                ..._buildMpuSlivers(context, snapshot.data ?? []),
-            ],
+                if (snapshot.connectionState == ConnectionState.waiting)
+                  const SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                else
+                  ..._buildMpuSlivers(context, snapshot.data ?? []),
+              ],
+            ),
           );
         },
       ),
@@ -500,7 +596,7 @@ class _MpuListTabState extends State<_MpuListTab> {
 
     if (filteredItems.isEmpty) {
       return [
-        SliverToBoxAdapter(child: filterBar),
+        SliverToBoxAdapter(child: _revealedFilterBar(filterBar)),
         SliverFillRemaining(
           hasScrollBody: false,
           child: Column(
@@ -522,14 +618,14 @@ class _MpuListTabState extends State<_MpuListTab> {
     }
 
     return [
-      SliverToBoxAdapter(child: filterBar),
+      SliverToBoxAdapter(child: _revealedFilterBar(filterBar)),
       SliverPadding(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         sliver: SliverList(
           delegate: SliverChildBuilderDelegate(
             (BuildContext context, int index) {
-              if (index == 0 && _MpuListEntrance.shouldAnimateList) {
-                _MpuListEntrance.scheduleEndEntranceAnimation();
+              if (index == 0 && _entrance.shouldAnimateList) {
+                _entrance.scheduleEndEntranceAnimation();
               }
               final Map<String, dynamic> data = ordered[index];
               final String key = _itemKey(data);
@@ -555,7 +651,7 @@ class _MpuListTabState extends State<_MpuListTab> {
                   ),
                 ],
               );
-              final bool animate = _MpuListEntrance.shouldAnimateList &&
+              final bool animate = _entrance.shouldAnimateList &&
                   index < _MpuListEntrance.maxAnimatedItems;
               if (animate) {
                 return overlaid.animate().fadeIn(

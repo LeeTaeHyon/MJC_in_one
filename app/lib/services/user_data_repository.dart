@@ -76,6 +76,11 @@ class UserDataRepository {
       kNoticeFilterExcludesPrefKey,
       data["noticeFilterExcludes"],
     );
+    await _setStringList(
+      prefs,
+      kNoticeFilterIncludesPrefKey,
+      data["noticeFilterIncludes"],
+    );
 
     final Map<String, dynamic> bookmarks =
         _asMap(data["bookmarks"]) ?? const {};
@@ -119,6 +124,8 @@ class UserDataRepository {
           kNoticeFilterTypeOptions,
       "noticeFilterExcludes":
           prefs.getStringList(kNoticeFilterExcludesPrefKey) ?? const <String>[],
+      "noticeFilterIncludes":
+          prefs.getStringList(kNoticeFilterIncludesPrefKey) ?? const <String>[],
       "bookmarks": {
         "pinned": _collectBookmarkPrefs(prefs, _pinnedPrefix),
         "favorites": _collectBookmarkPrefs(prefs, _favoritePrefix),
@@ -153,6 +160,7 @@ class UserDataRepository {
       "interestSources": state.sources,
       "interestCategories": state.types,
       "noticeFilterExcludes": state.excludes,
+      "noticeFilterIncludes": state.includes,
       "updatedAt": FieldValue.serverTimestamp(),
     });
   }
