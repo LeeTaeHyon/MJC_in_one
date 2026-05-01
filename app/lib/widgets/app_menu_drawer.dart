@@ -4,6 +4,7 @@ import "package:flutter/foundation.dart" show kIsWeb;
 import "package:mio_notice/mpu_profile_prefs.dart";
 import "package:mio_notice/notification_history_prefs.dart";
 import "package:mio_notice/screens/academic_schedule_screen.dart";
+import "package:mio_notice/screens/campus_map_screen.dart";
 import "package:mio_notice/screens/common_webview_screen.dart";
 import "package:mio_notice/screens/login_screen.dart";
 import "package:mio_notice/screens/my_page_screen.dart";
@@ -186,6 +187,26 @@ class _AppMenuDrawerContentState extends State<AppMenuDrawerContent> {
     }
   }
 
+  void _openCampusMap(BuildContext context) {
+    final BuildContext navCtx = widget.dialogContext ?? context;
+    void push() {
+      if (!navCtx.mounted) return;
+      Navigator.push<void>(
+        navCtx,
+        MaterialPageRoute<void>(
+          builder: (context) => const CampusMapScreen(),
+        ),
+      );
+    }
+
+    widget.closeMenu();
+    if (widget.closeBeforeSystemDialogs) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => push());
+    } else {
+      push();
+    }
+  }
+
   void _openMyPage(BuildContext context) {
     final BuildContext navCtx = widget.dialogContext ?? context;
     void push() {
@@ -323,6 +344,7 @@ class _AppMenuDrawerContentState extends State<AppMenuDrawerContent> {
                   _MenuBlock(
                     onMyPage: () => _openMyPage(context),
                     onAcademicSchedule: () => _openAcademicSchedule(context),
+                    onCampusMap: () => _openCampusMap(context),
                     onSettings: () => _openSettings(context),
                     onAppInfo: () => _showAppInfo(context),
                     onHelp: () => _showHelp(context),
@@ -750,6 +772,7 @@ class _MenuBlock extends StatelessWidget {
   const _MenuBlock({
     required this.onMyPage,
     required this.onAcademicSchedule,
+    required this.onCampusMap,
     required this.onSettings,
     required this.onAppInfo,
     required this.onHelp,
@@ -757,6 +780,7 @@ class _MenuBlock extends StatelessWidget {
 
   final VoidCallback onMyPage;
   final VoidCallback onAcademicSchedule;
+  final VoidCallback onCampusMap;
   final VoidCallback onSettings;
   final VoidCallback onAppInfo;
   final VoidCallback onHelp;
@@ -788,6 +812,11 @@ class _MenuBlock extends StatelessWidget {
             icon: Icons.event_note_outlined,
             label: "학사일정",
             onTap: onAcademicSchedule,
+          ),
+          _MenuRow(
+            icon: Icons.map_outlined,
+            label: "캠퍼스 약도",
+            onTap: onCampusMap,
           ),
           _MenuRow(
             icon: Icons.settings_outlined,

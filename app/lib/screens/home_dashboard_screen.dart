@@ -1058,10 +1058,16 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
             .toList();
         final NoticeFilterState filter =
             _noticeFilter.copyWith(quickQuery: _noticeQuickQuery);
-        final notices = filter.apply(
+        final notices = filter
+            .apply(
           unreadNotices,
           sharedKeywords: _noticeSharedKeywords,
-        );
+        )
+            .where((n) {
+          final String type = (n["type"] ?? n["category"] ?? "").toString();
+          // 홈 "최근 공지사항"에서는 학사일정 항목을 숨깁니다.
+          return !type.contains("학사일정");
+        }).toList();
         if (notices.isEmpty) {
           return Column(
             children: [

@@ -1,0 +1,107 @@
+{
+  "imageAsset": "assets/images/campus_map.png",
+  "imageWidth": 989,
+  "imageHeight": 1024,
+  "calibration": {
+    "points": [
+      {
+        "label": "northWest",
+        "lat": 37.58525,
+        "lng": 126.92475,
+        "px": 70,
+        "py": 140
+      },
+      {
+        "label": "southEast",
+        "lat": 37.58405,
+        "lng": 126.92570,
+        "px": 920,
+        "py": 920
+      }
+    ]
+  },
+  "buildings": [
+    {
+      "id": "main",
+      "name": "본관",
+      "prefixes": ["본"],
+      "floors": 10,
+      "description": "행정·강의실이 있는 본관입니다.",
+      "labelAnchor": {"x": 520, "y": 250},
+      "polygon": [
+        {"x": 390, "y": 170},
+        {"x": 665, "y": 185},
+        {"x": 700, "y": 330},
+        {"x": 420, "y": 355}
+      ]
+    },
+    {
+      "id": "engineering",
+      "name": "공학관",
+      "prefixes": ["공"],
+      "floors": 5,
+      "description": "공학 계열 강의실과 실습실이 있는 건물입니다.",
+      "labelAnchor": {"x": 845, "y": 405},
+      "polygon": [
+        {"x": 720, "y": 300},
+        {"x": 980, "y": 320},
+        {"x": 1015, "y": 505},
+        {"x": 750, "y": 535}
+      ]
+    },
+    {
+      "id": "social-education",
+      "name": "사회교육관",
+      "prefixes": ["사"],
+      "floors": 6,
+      "description": "사회교육관 및 관련 강의실 안내입니다.",
+      "labelAnchor": {"x": 320, "y": 535},
+      "polygon": [
+        {"x": 175, "y": 430},
+        {"x": 430, "y": 410},
+        {"x": 470, "y": 610},
+        {"x": 220, "y": 665}
+      ]
+    },
+    {
+      "id": "student",
+      "name": "학생회관",
+      "prefixes": ["학"],
+      "floors": 5,
+      "description": "학생 편의시설과 학생지원 공간이 있는 건물입니다.",
+      "labelAnchor": {"x": 650, "y": 665},
+      "polygon": [
+        {"x": 540, "y": 560},
+        {"x": 740, "y": 560},
+        {"x": 775, "y": 740},
+        {"x": 560, "y": 770}
+      ]
+    },
+    {
+      "id": "library",
+      "name": "도서관",
+      "prefixes": ["도"],
+      "floors": 7,
+      "description": "도서관과 학습 공간입니다.",
+      "labelAnchor": {"x": 260, "y": 265},
+      "polygon": [
+        {"x": 140, "y": 185},
+        {"x": 330, "y": 175},
+        {"x": 360, "y": 330},
+        {"x": 165, "y": 355}
+      ]
+    }
+  ],
+  "aliases": {
+    "보건실": {
+      "buildingId": "student",
+      "floor": 1,
+      "message": "학생회관 1층 보건실로 이동하세요."
+    },
+    "도서관": {
+      "buildingId": "library",
+      "floor": 1,
+      "message": "도서관 건물로 이동하세요."
+    }
+  }
+}
