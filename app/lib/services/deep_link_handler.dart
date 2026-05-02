@@ -2,6 +2,7 @@ import "dart:async";
 
 import "package:app_links/app_links.dart";
 import "package:flutter/material.dart";
+import "package:mio_notice/screens/profile_setup_screen.dart";
 import "package:mio_notice/services/auth_service.dart";
 import "package:mio_notice/services/user_data_repository.dart";
 
@@ -49,6 +50,10 @@ class DeepLinkHandler {
       }
       _popLoginRouteIfPossible();
       _showSnackBar("로그인되었습니다.");
+      final NavigatorState? navigator = _navigatorKey?.currentState;
+      if (navigator != null) {
+        await ProfileSetupScreen.maybePush(navigator);
+      }
     } on MissingPendingEmailException {
       _showSnackBar("먼저 이 기기에서 로그인 링크를 요청해 주세요.");
     } on MjcDomainException {

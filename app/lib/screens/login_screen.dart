@@ -2,6 +2,7 @@ import "dart:async";
 
 import "package:firebase_auth/firebase_auth.dart";
 import "package:flutter/material.dart";
+import "package:mio_notice/screens/main_navigation_screen.dart";
 import "package:mio_notice/services/auth_service.dart";
 import "package:mio_notice/theme/app_colors.dart";
 
@@ -44,6 +45,21 @@ class _LoginScreenState extends State<LoginScreen> {
     });
   }
 
+  /// 로그아웃 등으로 스택에 이 화면만 남은 경우 [maybePop]이 동작하지 않아,
+  /// 메인 셸로 되돌립니다.
+  void _leaveLoginOrPop(BuildContext context) {
+    final NavigatorState navigator = Navigator.of(context);
+    if (navigator.canPop()) {
+      navigator.pop();
+      return;
+    }
+    navigator.pushReplacement(
+      MaterialPageRoute<void>(
+        builder: (_) => const MainNavigationScreen(),
+      ),
+    );
+  }
+
   Future<void> _sendLoginLink() async {
     final String email = _emailController.text.trim().toLowerCase();
     setState(() {
@@ -80,8 +96,15 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final ColorScheme cs = Theme.of(context).colorScheme;
+    final NavigatorState navigator = Navigator.of(context);
 
-    return Scaffold(
+    return PopScope(
+      canPop: navigator.canPop(),
+      onPopInvokedWithResult: (bool didPop, Object? result) {
+        if (didPop) return;
+        _leaveLoginOrPop(context);
+      },
+      child: Scaffold(
       backgroundColor: cs.surface,
       body: CustomScrollView(
         slivers: [
@@ -94,7 +117,7 @@ class _LoginScreenState extends State<LoginScreen> {
             foregroundColor: Colors.white,
             leading: IconButton(
               icon: const Icon(Icons.arrow_back_rounded),
-              onPressed: () => Navigator.of(context).maybePop(),
+              onPressed: () => _leaveLoginOrPop(context),
               tooltip: "뒤로",
             ),
             flexibleSpace: FlexibleSpaceBar(
@@ -194,7 +217,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               borderRadius: BorderRadius.circular(14),
                             ),
                           ),
-                          onPressed: () => Navigator.of(context).maybePop(),
+                          onPressed: () => _leaveLoginOrPop(context),
                           child: const Text(
                             "둘러보기",
                             style: TextStyle(fontWeight: FontWeight.w700),
@@ -209,6 +232,7 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
         ],
+      ),
       ),
     );
   }

@@ -4,15 +4,16 @@ import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
 import "package:flutter_animate/flutter_animate.dart";
 import "package:mio_notice/screens/common_webview_screen.dart";
-import "package:mio_notice/screens/settings_screen.dart";
 import "package:mio_notice/services/notice_filter.dart";
 import "package:mio_notice/services/notice_manager.dart";
 import "package:mio_notice/services/user_data_repository.dart";
 import "package:mio_notice/theme/app_theme.dart";
+import "package:mio_notice/utils/mpu_program_dday.dart";
 import "package:mio_notice/perf_flags.dart";
 import "package:mio_notice/widgets/nested_scroll_refresh_indicator.dart";
-import "package:mio_notice/widgets/notice_filter_bar.dart";
 import "package:mio_notice/widgets/pin_favorite_buttons.dart";
+import "package:mio_notice/widgets/global_notice_search_sheet.dart";
+import "package:mio_notice/widgets/notice_filter_sheet.dart";
 import "package:mio_notice/widgets/scroll_to_top_scope.dart";
 import "package:shared_preferences/shared_preferences.dart";
 import "package:url_launcher/url_launcher.dart";
@@ -48,11 +49,15 @@ class MpuScreen extends StatefulWidget {
 }
 
 class _MpuScreenState extends State<MpuScreen> {
+  final GlobalKey<NestedScrollViewState> _nestedScrollKey =
+      GlobalKey<NestedScrollViewState>();
   final ScrollController _outerScrollController = ScrollController();
   ScrollToTopCoordinator? _scrollToTopCoordinator;
   ValueNotifier<int>? _activeTabNotifier;
   bool _registeredMainTab = false;
   int _entryTick = 0;
+  bool _openingGlobalSearch = false;
+  final ValueNotifier<int> _filterReloadTick = ValueNotifier<int>(0);
   late final NestedScrollFabScrollReporter _nestedFabReporter =
       NestedScrollFabScrollReporter(
     tabIndex: MainNavTabIndex.notices,
@@ -122,6 +127,15 @@ class _MpuScreenState extends State<MpuScreen> {
   }
 
   void _scrollContentToTop() {
+    final NestedScrollViewState? nested = _nestedScrollKey.currentState;
+    final ScrollController? inner = nested?.innerController;
+    if (inner != null && inner.hasClients) {
+      inner.animateTo(
+        0,
+        duration: const Duration(milliseconds: 320),
+        curve: Curves.easeOutCubic,
+      );
+    }
     if (!_outerScrollController.hasClients) return;
     _outerScrollController.animateTo(
       0,
@@ -130,8 +144,85 @@ class _MpuScreenState extends State<MpuScreen> {
     );
   }
 
+  Future<void> _openNoticeFilterSheet() async {
+    await showNoticeFilterSheet(context);
+    if (mounted) {
+      _filterReloadTick.value++;
+    }
+  }
+
+  Future<void> _openGlobalSearch() async {
+    if (_openingGlobalSearch) return;
+    _openingGlobalSearch = true;
+    try {
+      final List<Map<String, dynamic>> docs =
+          await NoticeManager().getNotices(boardId: "mpu_programs");
+      if (!mounted) return;
+
+      final List<Map<String, dynamic>> items = [
+        for (final d in docs)
+          {
+            ...d,
+            "_searchType": "MPU 프로그램",
+            "_searchSource": "MPU",
+          }
+      ];
+
+      await showGlobalNoticeSearchSheet(
+        context,
+        items: items,
+        accentColor: const Color(0xFF7986CB),
+        openItem: (item) async {
+          const url = "https://mpu.mjc.ac.kr/Main/default.aspx";
+          if (kIsWeb) {
+            await launchUrl(Uri.parse(url), webOnlyWindowName: "_blank");
+          } else {
+            if (!context.mounted) return;
+            await Navigator.of(context).push<void>(
+              MaterialPageRoute<void>(
+                builder: (_) => const CommonWebViewScreen(
+                  url: url,
+                  title: "핵심역량 관리 (MPU)",
+                ),
+              ),
+            );
+          }
+        },
+        chipFor: (item) {
+          final String b = (item["branch"] ?? "").toString().trim();
+          return b.isEmpty ? "핵심역량" : b;
+        },
+        dateFor: (item) {
+          final String reg =
+              (item["reg_date"] ?? item["date"] ?? "").toString().trim();
+          final String edu = (item["edu_date"] ?? "").toString().trim();
+          final List<String> parts = <String>[];
+          if (reg.isNotEmpty) {
+            parts.add("신청: $reg");
+          }
+          if (edu.isNotEmpty) {
+            parts.add("교육: $edu");
+          }
+          return parts.join(" · ");
+        },
+        searchTextFor: (item) {
+          final String title = (item["title"] ?? "").toString();
+          final String branch = (item["branch"] ?? "").toString();
+          final String badge = mpuDeadlineBadgeSecondLine(item);
+          final String reg =
+              (item["reg_date"] ?? item["date"] ?? "").toString();
+          final String edu = (item["edu_date"] ?? "").toString();
+          return "$title $branch D-$badge $reg $edu";
+        },
+      );
+    } finally {
+      _openingGlobalSearch = false;
+    }
+  }
+
   @override
   void dispose() {
+    _filterReloadTick.dispose();
     _outerScrollController.removeListener(_nestedFabReporter.reportOuterScroll);
     if (_registeredMainTab) {
       _scrollToTopCoordinator?.unregisterMainTab(MainNavTabIndex.notices);
@@ -145,6 +236,9 @@ class _MpuScreenState extends State<MpuScreen> {
   @override
   Widget build(BuildContext context) {
     final double topPad = MediaQuery.paddingOf(context).top;
+    final double viewportH = MediaQuery.sizeOf(context).height;
+    // 작은 화면에서 히어로 여백이 과해지지 않도록 조절.
+    final double heroBody = (viewportH * 0.275).clamp(150.0, 225.0);
     final ColorScheme scheme = Theme.of(context).colorScheme;
     final MjcSurfaceTokens tokens =
         Theme.of(context).extension<MjcSurfaceTokens>()!;
@@ -153,6 +247,7 @@ class _MpuScreenState extends State<MpuScreen> {
       child: Scaffold(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         body: NestedScrollView(
+          key: _nestedScrollKey,
           controller: _outerScrollController,
           headerSliverBuilder: (BuildContext context, bool innerBoxIsScrolled) {
             return <Widget>[
@@ -163,6 +258,9 @@ class _MpuScreenState extends State<MpuScreen> {
                   pinned: true,
                   delegate: _MpuCollapsingHeaderDelegate(
                     topPadding: topPad,
+                    heroBody: heroBody,
+                    onOpenFilter: _openNoticeFilterSheet,
+                    onSearch: _openGlobalSearch,
                     tabBar: TabBar(
                       controller: DefaultTabController.of(context),
                       indicatorColor: tokens.sourceMpu,
@@ -189,8 +287,16 @@ class _MpuScreenState extends State<MpuScreen> {
               reporter: _nestedFabReporter,
               child: TabBarView(
                 children: [
-                  _MpuListTab(showCompleted: false, entryTick: _entryTick),
-                  _MpuListTab(showCompleted: true, entryTick: _entryTick),
+                  _MpuListTab(
+                    showCompleted: false,
+                    entryTick: _entryTick,
+                    filterRevision: _filterReloadTick,
+                  ),
+                  _MpuListTab(
+                    showCompleted: true,
+                    entryTick: _entryTick,
+                    filterRevision: _filterReloadTick,
+                  ),
                 ],
               ),
             ),
@@ -204,19 +310,24 @@ class _MpuScreenState extends State<MpuScreen> {
 class _MpuCollapsingHeaderDelegate extends SliverPersistentHeaderDelegate {
   _MpuCollapsingHeaderDelegate({
     required this.topPadding,
+    required this.heroBody,
     required this.tabBar,
+    required this.onOpenFilter,
+    required this.onSearch,
   });
 
   final double topPadding;
+  final double heroBody;
   final TabBar tabBar;
+  final VoidCallback onOpenFilter;
+  final VoidCallback onSearch;
 
-  static const double _heroBody = 200;
   static const double _collapsedBar = 52;
 
   double get _tabBarHeight => tabBar.preferredSize.height;
 
   @override
-  double get maxExtent => topPadding + _heroBody + _tabBarHeight;
+  double get maxExtent => topPadding + heroBody + _tabBarHeight;
 
   @override
   double get minExtent => topPadding + _collapsedBar + _tabBarHeight;
@@ -275,9 +386,9 @@ class _MpuCollapsingHeaderDelegate extends SliverPersistentHeaderDelegate {
                         Positioned(
                           left: titleLeft,
                           top: titleTop,
-                          right: 12,
+                          right: 104,
                           child: Text(
-                            "핵심 역량 이력관리 시스템 (MPU)",
+                            "핵심 역량 이력관리 시스템",
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
@@ -288,14 +399,35 @@ class _MpuCollapsingHeaderDelegate extends SliverPersistentHeaderDelegate {
                             ),
                           ),
                         ),
+                        Positioned(
+                          right: 4,
+                          top: 4,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                tooltip: "공지 목록 필터",
+                                onPressed: onOpenFilter,
+                                icon: const Icon(Icons.tune_rounded),
+                                color: Colors.white,
+                              ),
+                              IconButton(
+                                tooltip: "검색",
+                                onPressed: onSearch,
+                                icon: const Icon(Icons.search_rounded),
+                                color: Colors.white,
+                              ),
+                            ],
+                          ),
+                        ),
                         if (subtitleOpacity > 0.02)
                           Positioned(
                             left: 20,
                             top: titleTop + titleSize * 0.95 + 6,
-                            right: 16,
+                            right: 104,
                             child: IgnorePointer(
                               child: Text(
-                                "자신의 역량을 관리하고 프로그램을 신청하세요",
+                                "다양한 프로그램을 확인합니다.",
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
@@ -330,14 +462,24 @@ class _MpuCollapsingHeaderDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   bool shouldRebuild(covariant _MpuCollapsingHeaderDelegate old) {
-    return topPadding != old.topPadding || tabBar != old.tabBar;
+    return topPadding != old.topPadding ||
+        heroBody != old.heroBody ||
+        tabBar != old.tabBar ||
+        onOpenFilter != old.onOpenFilter ||
+        onSearch != old.onSearch;
   }
 }
 
 class _MpuListTab extends StatefulWidget {
   final bool showCompleted;
   final int entryTick;
-  const _MpuListTab({required this.showCompleted, required this.entryTick});
+  final ValueListenable<int> filterRevision;
+
+  const _MpuListTab({
+    required this.showCompleted,
+    required this.entryTick,
+    required this.filterRevision,
+  });
   @override
   State<_MpuListTab> createState() => _MpuListTabState();
 }
@@ -347,75 +489,26 @@ class _MpuListTabState extends State<_MpuListTab> {
   late Future<List<Map<String, dynamic>>> _mpuFuture;
   Set<String> _pinnedKeys = {};
   Set<String> _favoriteKeys = {};
+  Set<String> _readKeys = {};
   NoticeFilterState _noticeFilter = const NoticeFilterState();
   List<String> _noticeSharedKeywords = [];
-  String _noticeQuickQuery = "";
-  double _filterBarReveal = 0;
-  bool _refreshEnabledForDrag = false;
   bool get _lowRaster =>
       kPerfLowRasterMode || defaultTargetPlatform == TargetPlatform.android;
 
-  static const double _filterBarRevealDistance = 96;
-  bool get _filterBarFullyVisible => _filterBarReveal >= 1.0;
-
   bool _allowRefreshNotification(ScrollNotification n) {
-    if (!defaultScrollNotificationPredicate(n)) return false;
-    return _refreshEnabledForDrag ||
-        n is ScrollEndNotification ||
-        n is UserScrollNotification;
+    return defaultScrollNotificationPredicate(n);
   }
 
-  bool _handleScrollNotification(ScrollNotification n) {
-    if (n is ScrollStartNotification) {
-      _refreshEnabledForDrag = _filterBarFullyVisible;
-    } else if (n is OverscrollNotification) {
-      if (!_refreshEnabledForDrag &&
-          n.metrics.pixels <= n.metrics.minScrollExtent &&
-          n.overscroll < 0) {
-        final double next =
-            (_filterBarReveal + (-n.overscroll / _filterBarRevealDistance))
-                .clamp(0.0, 1.0);
-        if (next != _filterBarReveal) {
-          setState(() => _filterBarReveal = next);
-        }
-      }
-    } else if (n is ScrollUpdateNotification) {
-      if (n.metrics.pixels > 24 && _filterBarReveal > 0) {
-        setState(() => _filterBarReveal = 0);
-      }
-    } else if (n is ScrollEndNotification) {
-      if (_filterBarReveal > 0 && _filterBarReveal < 1) {
-        setState(() => _filterBarReveal = _filterBarReveal >= 0.35 ? 1 : 0);
-      }
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _refreshEnabledForDrag = false;
-      });
-    }
-    return false;
-  }
-
-  Widget _revealedFilterBar(Widget filterBar) {
-    return TweenAnimationBuilder<double>(
-      tween: Tween<double>(end: _filterBarReveal),
-      duration: const Duration(milliseconds: 90),
-      curve: Curves.easeOutCubic,
-      child: filterBar,
-      builder: (context, v, child) {
-        return ClipRect(
-          child: Align(
-            alignment: Alignment.topCenter,
-            heightFactor: v,
-            child: child,
-          ),
-        );
-      },
-    );
+  void _onFilterRevision() {
+    _loadNoticeFilter();
   }
 
   @override
   void initState() {
     super.initState();
+    widget.filterRevision.addListener(_onFilterRevision);
     _loadPinsAndFavorites();
+    _loadReadHistory();
     _loadNoticeFilter();
     _mpuFuture = NoticeManager().getNotices(boardId: "mpu_programs");
   }
@@ -423,9 +516,19 @@ class _MpuListTabState extends State<_MpuListTab> {
   @override
   void didUpdateWidget(covariant _MpuListTab oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.filterRevision != widget.filterRevision) {
+      oldWidget.filterRevision.removeListener(_onFilterRevision);
+      widget.filterRevision.addListener(_onFilterRevision);
+    }
     if (widget.entryTick != oldWidget.entryTick) {
       _entrance.resetForEntry();
     }
+  }
+
+  @override
+  void dispose() {
+    widget.filterRevision.removeListener(_onFilterRevision);
+    super.dispose();
   }
 
   Future<void> _loadNoticeFilter() async {
@@ -433,18 +536,9 @@ class _MpuListTabState extends State<_MpuListTab> {
     final List<String> keywords = await loadSharedNoticeKeywords();
     if (!mounted) return;
     setState(() {
-      _noticeFilter = filter.copyWith(quickQuery: _noticeQuickQuery);
+      _noticeFilter = filter.copyWith(quickQuery: "");
       _noticeSharedKeywords = keywords;
     });
-  }
-
-  Future<void> _openNoticeFilterSettings() async {
-    await Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(
-        builder: (context) => const SettingsScreen(),
-      ),
-    );
-    if (mounted) await _loadNoticeFilter();
   }
 
   String _itemKey(Map<String, dynamic> data) {
@@ -454,6 +548,22 @@ class _MpuListTabState extends State<_MpuListTab> {
     final String date =
         (data["reg_date"] ?? data["date"] ?? "").toString().trim();
     return "$title|$branch|$dDay|$date";
+  }
+
+  Future<void> _loadReadHistory() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() {
+      _readKeys = (prefs.getStringList("read_notices_mpu_programs") ?? []).toSet();
+    });
+  }
+
+  Future<void> _markAsRead(String key) async {
+    if (_readKeys.contains(key)) return;
+    final prefs = await SharedPreferences.getInstance();
+    final Set<String> next = {..._readKeys, key};
+    if (mounted) setState(() => _readKeys = next);
+    await prefs.setStringList("read_notices_mpu_programs", next.toList());
   }
 
   Future<void> _loadPinsAndFavorites() async {
@@ -521,9 +631,7 @@ class _MpuListTabState extends State<_MpuListTab> {
       child: FutureBuilder<List<Map<String, dynamic>>>(
         future: _mpuFuture,
         builder: (context, snapshot) {
-          return NotificationListener<ScrollNotification>(
-            onNotification: _handleScrollNotification,
-            child: CustomScrollView(
+          return CustomScrollView(
               primary: true,
               physics: const AlwaysScrollableScrollPhysics(),
               slivers: [
@@ -540,8 +648,7 @@ class _MpuListTabState extends State<_MpuListTab> {
                 else
                   ..._buildMpuSlivers(context, snapshot.data ?? []),
               ],
-            ),
-          );
+            );
         },
       ),
     );
@@ -553,8 +660,7 @@ class _MpuListTabState extends State<_MpuListTab> {
   ) {
     final MjcSurfaceTokens tokens =
         Theme.of(context).extension<MjcSurfaceTokens>()!;
-    final NoticeFilterState filter =
-        _noticeFilter.copyWith(quickQuery: _noticeQuickQuery);
+    final NoticeFilterState filter = _noticeFilter.copyWith(quickQuery: "");
     final List<Map<String, dynamic>> noticeFilteredItems = filter.apply(
       allItems,
       sharedKeywords: _noticeSharedKeywords,
@@ -563,39 +669,13 @@ class _MpuListTabState extends State<_MpuListTab> {
     );
     final List<Map<String, dynamic>> filteredItems =
         noticeFilteredItems.where((item) {
-      final String dDay = (item["d_day"] ?? "").toString();
-      final bool isCompleted = dDay.isEmpty ||
-          dDay.contains("마감") ||
-          dDay.contains("+") ||
-          dDay == "D-0";
+      final bool isCompleted = mpuListingIsCompleted(item);
       return widget.showCompleted ? isCompleted : !isCompleted;
     }).toList();
-    final Widget filterBar = NoticeFilterBar(
-      filter: filter,
-      keywordCount: _noticeSharedKeywords.length,
-      totalCount: allItems.length,
-      filteredCount: filteredItems.length,
-      accentColor: const Color(0xFF7986CB),
-      onQueryChanged: (String value) {
-        setState(() => _noticeQuickQuery = value);
-      },
-      onOpenSettings: _openNoticeFilterSettings,
-    );
-
-    int getDValue(String d) {
-      if (d.contains("마감")) return 9999;
-      final RegExpMatch? match = RegExp(r"D([-+])(\d+)").firstMatch(d);
-      if (match != null) {
-        final int val = int.parse(match.group(2)!);
-        return match.group(1) == "-" ? -val : val;
-      }
-      if (d == "D-0") return 0;
-      return 9999;
-    }
 
     filteredItems.sort((a, b) {
-      final int valA = getDValue((a["d_day"] ?? "").toString());
-      final int valB = getDValue((b["d_day"] ?? "").toString());
+      final int valA = mpuSortDValue(a);
+      final int valB = mpuSortDValue(b);
       if (widget.showCompleted) {
         return valA.compareTo(valB);
       }
@@ -609,7 +689,6 @@ class _MpuListTabState extends State<_MpuListTab> {
 
     if (filteredItems.isEmpty) {
       return [
-        SliverToBoxAdapter(child: _revealedFilterBar(filterBar)),
         SliverFillRemaining(
           hasScrollBody: false,
           child: Column(
@@ -633,7 +712,6 @@ class _MpuListTabState extends State<_MpuListTab> {
     }
 
     return [
-      SliverToBoxAdapter(child: _revealedFilterBar(filterBar)),
       SliverPadding(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         sliver: SliverList(
@@ -647,7 +725,7 @@ class _MpuListTabState extends State<_MpuListTab> {
               final bool isPinned = _pinnedKeys.contains(key);
               final bool isFavorite = _favoriteKeys.contains(key);
               final Widget card = RepaintBoundary(
-                child: _buildMpuCard(context, data),
+                child: _buildMpuCard(context, data, itemKey: key),
               );
               final Widget overlaid = Stack(
                 children: [
@@ -683,22 +761,140 @@ class _MpuListTabState extends State<_MpuListTab> {
     ];
   }
 
-  Widget _buildMpuCard(BuildContext context, Map<String, dynamic> data) {
+  Widget _mpuProgramDetailsBlock(
+    BuildContext context, {
+    required Map<String, dynamic> data,
+    required String title,
+    required String branch,
+    required Color titleColor,
+    required Color chipBackground,
+    required Color chipForeground,
+  }) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final Color secondaryText = scheme.onSurfaceVariant;
+    final String reg =
+        (data["reg_date"] ?? data["date"] ?? "").toString().trim();
+    final String edu = (data["edu_date"] ?? "").toString().trim();
+
+    final Widget badge = MpuDeadlineHomeStyleBadge(data: data);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: chipBackground,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  branch.isEmpty ? "핵심역량" : branch,
+                  style: TextStyle(
+                    color: chipForeground,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.bold,
+                  color: titleColor,
+                  height: 1.3,
+                ),
+              ),
+              if (reg.isNotEmpty) ...<Widget>[
+                const SizedBox(height: 10),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Icon(
+                      Icons.calendar_today_outlined,
+                      size: 14,
+                      color: secondaryText,
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        "신청: $reg",
+                        style: TextStyle(
+                          color: secondaryText,
+                          fontSize: 13,
+                          height: 1.35,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+              if (edu.isNotEmpty) ...<Widget>[
+                const SizedBox(height: 6),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Icon(
+                      Icons.school_outlined,
+                      size: 14,
+                      color: secondaryText,
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        "교육: $edu",
+                        style: TextStyle(
+                          color: secondaryText,
+                          fontSize: 13,
+                          height: 1.35,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(width: 10),
+        widget.showCompleted
+            ? Opacity(opacity: 0.55, child: badge)
+            : badge,
+      ],
+    );
+  }
+
+  Widget _buildMpuCard(
+    BuildContext context,
+    Map<String, dynamic> data, {
+    required String itemKey,
+  }) {
     final ColorScheme scheme = Theme.of(context).colorScheme;
     final MjcSurfaceTokens tokens =
         Theme.of(context).extension<MjcSurfaceTokens>()!;
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color readTitlePurple =
+        isDark ? const Color(0xFFB39DDB) : const Color(0xFF7E57C2);
     final Color accent = tokens.sourceMpu;
     final Color completedColor = scheme.onSurfaceVariant;
     final Color chipBackground = widget.showCompleted
         ? tokens.surfaceContainer
         : accent.withValues(alpha: isDark ? 0.18 : 0.12);
     final Color chipForeground = widget.showCompleted ? completedColor : accent;
-    final Color titleColor =
-        widget.showCompleted ? completedColor : scheme.onSurface;
+    final bool isRead = !widget.showCompleted && _readKeys.contains(itemKey);
+    final Color titleColor = widget.showCompleted
+        ? completedColor
+        : (isRead ? readTitlePurple : scheme.onSurface);
+    final Color stripColor = widget.showCompleted
+        ? completedColor
+        : (isRead ? scheme.onSurfaceVariant : accent);
     final String title = data["title"] ?? "";
     final String branch = data["branch"] ?? "";
-    final String dDay = data["d_day"] ?? "";
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -715,6 +911,8 @@ class _MpuListTabState extends State<_MpuListTab> {
           borderRadius: BorderRadius.circular(16),
           onTap: () async {
             const url = "https://mpu.mjc.ac.kr/Main/default.aspx";
+            await _markAsRead(itemKey);
+            if (!context.mounted) return;
             if (kIsWeb) {
               await launchUrl(Uri.parse(url), webOnlyWindowName: "_blank");
             } else {
@@ -727,7 +925,7 @@ class _MpuListTabState extends State<_MpuListTab> {
           },
           child: (_lowRaster)
               ? Stack(
-                  children: [
+                  children: <Widget>[
                     Positioned(
                       left: 0,
                       top: 0,
@@ -735,7 +933,7 @@ class _MpuListTabState extends State<_MpuListTab> {
                       child: Container(
                         width: 5,
                         decoration: BoxDecoration(
-                          color: widget.showCompleted ? completedColor : accent,
+                          color: stripColor,
                           borderRadius: const BorderRadius.only(
                             topLeft: Radius.circular(16),
                             bottomLeft: Radius.circular(16),
@@ -744,51 +942,15 @@ class _MpuListTabState extends State<_MpuListTab> {
                       ),
                     ),
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 18, 16, 18),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 3),
-                                decoration: BoxDecoration(
-                                    color: chipBackground,
-                                    borderRadius: BorderRadius.circular(6)),
-                                child: Text(
-                                  branch.isEmpty ? "핵심역량" : branch,
-                                  style: TextStyle(
-                                      color: chipForeground,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold),
-                                ),
-                              ),
-                              if (dDay.isNotEmpty)
-                                Text(
-                                  dDay,
-                                  style: TextStyle(
-                                      color: widget.showCompleted
-                                          ? completedColor
-                                          : const Color(0xFFFF4E6A),
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold),
-                                ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            title,
-                            style: TextStyle(
-                                fontSize: 17,
-                                fontWeight: FontWeight.bold,
-                                color: widget.showCompleted
-                                    ? completedColor
-                                    : titleColor,
-                                height: 1.3),
-                          ),
-                        ],
+                      padding: const EdgeInsets.fromLTRB(20, 18, 88, 18),
+                      child: _mpuProgramDetailsBlock(
+                        context,
+                        data: data,
+                        title: title,
+                        branch: branch,
+                        titleColor: titleColor,
+                        chipBackground: chipBackground,
+                        chipForeground: chipForeground,
                       ),
                     ),
                   ],
@@ -797,7 +959,7 @@ class _MpuListTabState extends State<_MpuListTab> {
                   borderRadius: BorderRadius.circular(16),
                   clipBehavior: Clip.hardEdge,
                   child: Stack(
-                    children: [
+                    children: <Widget>[
                       Positioned(
                         left: 0,
                         top: 0,
@@ -805,8 +967,7 @@ class _MpuListTabState extends State<_MpuListTab> {
                         child: Container(
                           width: 5,
                           decoration: BoxDecoration(
-                            color:
-                                widget.showCompleted ? completedColor : accent,
+                            color: stripColor,
                             borderRadius: const BorderRadius.only(
                               topLeft: Radius.circular(16),
                               bottomLeft: Radius.circular(16),
@@ -815,51 +976,15 @@ class _MpuListTabState extends State<_MpuListTab> {
                         ),
                       ),
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 18, 16, 18),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 3),
-                                  decoration: BoxDecoration(
-                                      color: chipBackground,
-                                      borderRadius: BorderRadius.circular(6)),
-                                  child: Text(
-                                    branch.isEmpty ? "핵심역량" : branch,
-                                    style: TextStyle(
-                                        color: chipForeground,
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold),
-                                  ),
-                                ),
-                                if (dDay.isNotEmpty)
-                                  Text(
-                                    dDay,
-                                    style: TextStyle(
-                                        color: widget.showCompleted
-                                            ? completedColor
-                                            : const Color(0xFFFF4E6A),
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold),
-                                  ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              title,
-                              style: TextStyle(
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.bold,
-                                  color: widget.showCompleted
-                                      ? completedColor
-                                      : titleColor,
-                                  height: 1.3),
-                            ),
-                          ],
+                        padding: const EdgeInsets.fromLTRB(20, 18, 88, 18),
+                        child: _mpuProgramDetailsBlock(
+                          context,
+                          data: data,
+                          title: title,
+                          branch: branch,
+                          titleColor: titleColor,
+                          chipBackground: chipBackground,
+                          chipForeground: chipForeground,
                         ),
                       ),
                     ],

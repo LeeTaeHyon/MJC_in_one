@@ -178,8 +178,9 @@ class _NestedScrollFabTabBindingState extends State<NestedScrollFabTabBinding> {
 abstract final class MainNavTabIndex {
   static const int home = 0;
   static const int notices = 1;
-  static const int library = 2;
-  static const int alerts = 3;
+  static const int alerts = 2;
+  static const int mypage = 3;
+  /// 푸시된 [MoreTabScreen] 등 보조 화면용 (하단 탭 아님).
   static const int more = 4;
 }
 

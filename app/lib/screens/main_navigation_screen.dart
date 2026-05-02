@@ -3,12 +3,12 @@ import "dart:async";
 import "package:firebase_auth/firebase_auth.dart";
 import "package:flutter/material.dart";
 import "package:flutter/services.dart";
-import "package:mio_notice/screens/library_screen.dart";
 import "package:mio_notice/notification_history_prefs.dart";
 import "package:mio_notice/screens/home_dashboard_screen.dart";
-import "package:mio_notice/screens/more_tab_screen.dart";
+import "package:mio_notice/screens/my_page_screen.dart";
 import "package:mio_notice/screens/notification_history_screen.dart";
 import "package:mio_notice/screens/notices_tab_screen.dart";
+import "package:mio_notice/screens/profile_setup_screen.dart";
 import "package:mio_notice/services/auth_service.dart";
 import "package:mio_notice/services/user_data_repository.dart";
 import "package:mio_notice/debug/agent_logger.dart";
@@ -30,6 +30,13 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   static const double _noticeSubNavBottomGap = 8;
   static const double _noticeSubNavFabGap = 16;
 
+  /// Dark `ColorScheme.primary` is too dim on the bottom bar; match toggle ON color.
+  Color _bottomNavSelectedColor(ColorScheme scheme) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? AppColors.switchActiveDark
+        : scheme.primary;
+  }
+
   int _index = 0;
   bool _noticeSubNavVisible = true;
   Timer? _noticeSubNavRevealTimer;
@@ -46,6 +53,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       if (user == null) return;
       try {
         await UserDataRepository.instance.hydrateFromCloudOnLogin(user);
+        if (!mounted) return;
+        await ProfileSetupScreen.maybePush(Navigator.of(context));
       } catch (e, st) {
         debugPrint("hydrateFromCloudOnLogin: $e\n$st");
       }
@@ -61,12 +70,10 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         );
       case MainNavTabIndex.notices:
         return NoticesTabScreen(subTabNotifier: _noticeSubTab);
-      case MainNavTabIndex.library:
-        return const LibraryScreen();
       case MainNavTabIndex.alerts:
         return const NotificationHistoryScreen(embedded: true);
-      case MainNavTabIndex.more:
-        return const MoreTabScreen();
+      case MainNavTabIndex.mypage:
+        return const MyPageScreen(embedded: true);
       default:
         return const SizedBox.shrink();
     }
@@ -339,14 +346,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                       ),
                     ),
                     Expanded(
-                      child: _buildNavTab(
-                        MainNavTabIndex.library,
-                        Icons.local_library_outlined,
-                        Icons.local_library,
-                        "도서관",
-                      ),
-                    ),
-                    Expanded(
                       child: FutureBuilder<List<Map<String, dynamic>>>(
                         future: loadNotificationHistoryNewestFirst(),
                         builder: (context, snapshot) {
@@ -363,10 +362,10 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                     ),
                     Expanded(
                       child: _buildNavTab(
-                        MainNavTabIndex.more,
-                        Icons.menu_rounded,
-                        Icons.menu_rounded,
-                        "더보기",
+                        MainNavTabIndex.mypage,
+                        Icons.person_outline_rounded,
+                        Icons.person_rounded,
+                        "마이페이지",
                       ),
                     ),
                   ],
@@ -382,6 +381,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   Widget _buildNoticeSubNav() {
     final ColorScheme scheme = Theme.of(context).colorScheme;
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color subNavAccent = _bottomNavSelectedColor(scheme);
     return Align(
       key: const ValueKey<String>("notice_sub_nav"),
       alignment: Alignment.center,
@@ -420,13 +420,13 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                             ),
                             decoration: BoxDecoration(
                               color: selected
-                                  ? scheme.primary
+                                  ? subNavAccent
                                       .withValues(alpha: isDark ? 0.20 : 0.12)
                                   : Colors.transparent,
                               borderRadius: BorderRadius.circular(28),
                               border: selected
                                   ? Border.all(
-                                      color: scheme.primary.withValues(
+                                      color: subNavAccent.withValues(
                                           alpha: isDark ? 0.35 : 0.18),
                                     )
                                   : null,
@@ -438,7 +438,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                                   tab.icon,
                                   size: 18,
                                   color: selected
-                                      ? scheme.primary
+                                      ? subNavAccent
                                       : scheme.onSurfaceVariant,
                                 ),
                                 const SizedBox(width: 6),
@@ -449,7 +449,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                                     overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
                                       color: selected
-                                          ? scheme.primary
+                                          ? subNavAccent
                                           : scheme.onSurfaceVariant,
                                       fontSize: 13,
                                       fontWeight: selected
@@ -485,6 +485,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     int badgeCount = 0,
   }) {
     final bool isSelected = _index == index;
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final Color rippleAccent = _bottomNavSelectedColor(scheme);
     return Center(
       child: FractionallySizedBox(
         widthFactor: _navTabHitWidthFactor,
@@ -496,8 +498,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           child: InkWell(
             onTap: () => _onMenuItemClick(index),
             borderRadius: BorderRadius.circular(16),
-            splashColor: AppColors.primary.withValues(alpha: 0.14),
-            highlightColor: AppColors.primary.withValues(alpha: 0.06),
+            splashColor: rippleAccent.withValues(alpha: 0.14),
+            highlightColor: rippleAccent.withValues(alpha: 0.06),
             child: SizedBox.expand(
               child: _buildNavTabContent(
                 isSelected,
@@ -521,6 +523,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     int badgeCount,
   ) {
     final ColorScheme scheme = Theme.of(context).colorScheme;
+    final Color selectedColor = _bottomNavSelectedColor(scheme);
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 4),
@@ -534,7 +537,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                 isSelected
                     ? BouncyIcon(
                         selectedIcon,
-                        color: scheme.primary,
+                        color: selectedColor,
                         size: 22,
                       )
                     : Icon(icon, color: scheme.onSurfaceVariant, size: 22),
@@ -568,7 +571,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
               style: TextStyle(
                 fontSize: 12,
                 height: 1.05,
-                color: isSelected ? scheme.primary : scheme.onSurfaceVariant,
+                color: isSelected ? selectedColor : scheme.onSurfaceVariant,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
               ),
             ),

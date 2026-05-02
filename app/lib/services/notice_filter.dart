@@ -159,6 +159,12 @@ Future<List<String>> loadSharedNoticeKeywords() async {
 
 String _normalize(String value) => value.trim().toLowerCase();
 
+String _aiTagsSearchText(Map<String, dynamic> item) {
+  final Object? v = item["ai_tags"];
+  if (v is! List) return "";
+  return v.map((e) => e.toString()).join(" ");
+}
+
 String _searchableText(Map<String, dynamic> item) {
   return [
     item["title"],
@@ -168,6 +174,7 @@ String _searchableText(Map<String, dynamic> item) {
     item["branch"],
     item["status"],
     item["op_period"],
+    _aiTagsSearchText(item),
   ].whereType<Object>().map((v) => v.toString()).join(" ");
 }
 

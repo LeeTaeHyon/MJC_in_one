@@ -27,6 +27,37 @@ class _FoodcourtMenuScreenState extends State<FoodcourtMenuScreen> {
     "값찌개",
   ];
 
+  static String _shopEmoji(String shop) {
+    switch (shop.trim()) {
+      case "바비든든":
+        return "🍚";
+      case "포포420":
+        return "🍜";
+      case "경성카츠":
+        return "🐷";
+      case "비비고고":
+        return "🥗";
+      case "값찌개":
+        return "🍲";
+      default:
+        return "🍽️";
+    }
+  }
+
+  static Widget _shopIconWidget(String shop, {required Color color}) {
+    final String emoji = _shopEmoji(shop);
+    return Text(
+      emoji,
+      style: TextStyle(
+        fontSize: 20,
+        height: 1,
+        // Emoji는 시스템 컬러 폰트를 쓰는 경우가 많아 color가 적용되지 않음.
+        // 대신 배경색/레이아웃을 유지하고, 동일한 크기/정렬로 보여주도록 한다.
+        color: color,
+      ),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -183,9 +214,11 @@ class _MenuListCard extends StatelessWidget {
                     color: AppColors.primary.withValues(alpha: 0.10),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(
-                    Icons.restaurant_menu_rounded,
-                    color: AppColors.primary,
+                  child: Center(
+                    child: _FoodcourtMenuScreenState._shopIconWidget(
+                      shop,
+                      color: AppColors.primary,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -227,6 +260,9 @@ class _MenuPriceRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color priceColor =
+        isDark ? AppColors.switchActiveDark : AppColors.primary;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 7),
       child: Row(
@@ -245,8 +281,8 @@ class _MenuPriceRow extends StatelessWidget {
           const SizedBox(width: 12),
           Text(
             item.formattedPrice,
-            style: const TextStyle(
-              color: AppColors.primary,
+            style: TextStyle(
+              color: priceColor,
               fontSize: 14,
               fontWeight: FontWeight.w900,
             ),

@@ -184,14 +184,24 @@ ThemeData buildMjcTheme() {
     ),
     switchTheme: SwitchThemeData(
       thumbColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.disabled)) return null;
         if (states.contains(WidgetState.selected)) return primary;
-        return null;
+        // OFF: 흰 카드 위에서도 트랙·썸이 분리되어 보이게.
+        return Colors.white;
       }),
       trackColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.disabled)) return null;
         if (states.contains(WidgetState.selected)) {
           return primary.withValues(alpha: 0.45);
         }
-        return null;
+        return const Color(0xFFD8DCE5);
+      }),
+      trackOutlineColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.disabled)) return null;
+        if (states.contains(WidgetState.selected)) {
+          return Colors.transparent;
+        }
+        return const Color(0xFF9AA3B2);
       }),
     ),
     cardTheme: CardThemeData(
@@ -258,32 +268,48 @@ ThemeData buildMjcDarkTheme() {
       elevation: 6,
       shadowColor: Colors.black54,
       height: 56,
-      indicatorColor: primary.withValues(alpha: 0.22),
+      indicatorColor: AppColors.switchActiveDark.withValues(alpha: 0.22),
       labelTextStyle: WidgetStateProperty.resolveWith((states) {
         final selected = states.contains(WidgetState.selected);
         return TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w500,
-          color: selected ? primary : const Color(0xFF9AA4B2),
+          color: selected
+              ? AppColors.switchActiveDark
+              : const Color(0xFF9AA4B2),
         );
       }),
       iconTheme: WidgetStateProperty.resolveWith((states) {
         final selected = states.contains(WidgetState.selected);
         return IconThemeData(
-          color: selected ? primary : const Color(0xFF9AA4B2),
+          color: selected
+              ? AppColors.switchActiveDark
+              : const Color(0xFF9AA4B2),
         );
       }),
     ),
     switchTheme: SwitchThemeData(
       thumbColor: WidgetStateProperty.resolveWith((states) {
-        if (states.contains(WidgetState.selected)) return primary;
-        return null;
+        if (states.contains(WidgetState.disabled)) return null;
+        if (states.contains(WidgetState.selected)) {
+          return AppColors.switchActiveDark;
+        }
+        // OFF: 기본값은 배경과 붙어 비활성처럼 보임 — 일반 "꺼짐" 토글로 보이게 구분.
+        return const Color(0xFFC8D0DA);
       }),
       trackColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.disabled)) return null;
         if (states.contains(WidgetState.selected)) {
-          return primary.withValues(alpha: 0.45);
+          return AppColors.switchActiveDark.withValues(alpha: 0.48);
         }
-        return null;
+        return const Color(0xFF3E434C);
+      }),
+      trackOutlineColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.disabled)) return null;
+        if (states.contains(WidgetState.selected)) {
+          return Colors.transparent;
+        }
+        return const Color(0xFF6A717D);
       }),
     ),
     cardTheme: CardThemeData(

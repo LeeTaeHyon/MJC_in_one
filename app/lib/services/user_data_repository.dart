@@ -1,5 +1,6 @@
 import "package:cloud_firestore/cloud_firestore.dart";
 import "package:firebase_auth/firebase_auth.dart";
+import "package:mio_notice/home_dashboard_prefs.dart";
 import "package:mio_notice/mpu_profile_prefs.dart";
 import "package:mio_notice/notification_sources.dart";
 import "package:mio_notice/services/notice_filter.dart";
@@ -83,6 +84,17 @@ class UserDataRepository {
       data["noticeFilterIncludes"],
     );
 
+    await _setStringList(
+      prefs,
+      kHomeDashboardEnabledSectionsPrefKey,
+      data["homeDashboardEnabledSections"],
+    );
+    await _setStringList(
+      prefs,
+      kHomeDashboardSectionOrderPrefKey,
+      data["homeDashboardSectionOrder"],
+    );
+
     final Map<String, dynamic> bookmarks =
         _asMap(data["bookmarks"]) ?? const {};
     await _hydrateBookmarkGroup(
@@ -101,7 +113,9 @@ class UserDataRepository {
       await saveMpuProfile(
         MpuProfile(
           name: (mpu["name"] ?? "").toString(),
+          department: (mpu["department"] ?? "").toString(),
           grade: (mpu["grade"] ?? "").toString(),
+          studentId: (mpu["studentId"] ?? "").toString(),
           mileage: (mpu["mileage"] ?? "").toString(),
         ),
       );
@@ -140,13 +154,21 @@ class UserDataRepository {
           prefs.getStringList(kNoticeFilterExcludesPrefKey) ?? const <String>[],
       "noticeFilterIncludes":
           prefs.getStringList(kNoticeFilterIncludesPrefKey) ?? const <String>[],
+      "homeDashboardEnabledSections":
+          prefs.getStringList(kHomeDashboardEnabledSectionsPrefKey) ??
+              defaultHomeDashboardEnabledSections(),
+      "homeDashboardSectionOrder":
+          prefs.getStringList(kHomeDashboardSectionOrderPrefKey) ??
+              defaultHomeDashboardSectionOrder(),
       "bookmarks": {
         "pinned": _collectBookmarkPrefs(prefs, _pinnedPrefix),
         "favorites": _collectBookmarkPrefs(prefs, _favoritePrefix),
       },
       "mpuProfile": {
         "name": prefs.getString(kMpuProfileNamePrefKey) ?? "",
+        "department": prefs.getString(kMpuProfileDepartmentPrefKey) ?? "",
         "grade": prefs.getString(kMpuProfileGradePrefKey) ?? "",
+        "studentId": prefs.getString(kMpuProfileStudentIdPrefKey) ?? "",
         "mileage": prefs.getString(kMpuProfileMileagePrefKey) ?? "",
       },
     };

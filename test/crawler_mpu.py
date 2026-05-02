@@ -8,6 +8,8 @@ import os
 import json
 import hashlib
 
+from notice_ai_tags import enrich_post_dict
+
 # ── Firebase 초기화 ──────────────────────────────────────────
 def init_firebase():
     if firebase_admin._apps:
@@ -146,6 +148,7 @@ def save_to_firestore(db, programs: list[dict]):
 
     # 각 프로그램을 순회
     for prog in programs:
+        enrich_post_dict(prog, "mpu_programs")
         doc_ref = prog_col.document(prog["id"])
         
         # 새로운 프로그램이면 FCM 발송 (단, 최초 수집이 아닐 때만)

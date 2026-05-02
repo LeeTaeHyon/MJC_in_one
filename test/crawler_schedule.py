@@ -9,6 +9,8 @@ import requests
 from bs4 import BeautifulSoup
 from firebase_admin import credentials, firestore, messaging
 
+from notice_ai_tags import enrich_post_dict
+
 BASE_URL = "https://www.mjc.ac.kr"
 SCHEDULE_URL = f"{BASE_URL}/collegeService/schedule.do?menu_idx=104"
 BOARD_ID = "main_schedule"
@@ -196,6 +198,7 @@ def save_to_firestore(db, records: list[dict]):
     batch = db.batch()
     new_posts: list[dict] = []
     for post in records:
+        enrich_post_dict(post, BOARD_ID)
         batch.set(post_col.document(post["id"]), post, merge=True)
         if post["id"] not in known_ids:
             new_posts.append(post)

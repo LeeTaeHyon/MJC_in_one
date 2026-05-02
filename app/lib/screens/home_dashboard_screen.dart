@@ -5,15 +5,19 @@ import "dart:ui" show lerpDouble;
 import "package:cloud_firestore/cloud_firestore.dart";
 import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
+import "package:mio_notice/home_dashboard_prefs.dart";
 import "package:mio_notice/screens/academic_schedule_screen.dart";
 import "package:mio_notice/screens/common_webview_screen.dart";
 import "package:mio_notice/screens/foodcourt_menu_screen.dart";
+import "package:mio_notice/screens/library_screen.dart";
+import "package:mio_notice/screens/more_tab_screen.dart";
 import "package:mio_notice/screens/notices_tab_screen.dart";
 import "package:mio_notice/services/foodcourt_menu.dart";
 import "package:mio_notice/services/notice_filter.dart";
 import "package:mio_notice/services/notice_manager.dart";
 import "package:mio_notice/theme/app_colors.dart";
 import "package:mio_notice/theme/app_theme.dart";
+import "package:mio_notice/utils/mpu_program_dday.dart";
 import "package:mio_notice/widgets/scroll_to_top_scope.dart";
 import "package:mio_notice/widgets/shuttle_status_card.dart";
 import "package:mio_notice/debug/agent_logger.dart";
@@ -44,6 +48,9 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   final FoodcourtMenuService _foodcourtMenuService = FoodcourtMenuService();
   final Random _foodRandom = Random();
   ScrollToTopCoordinator? _scrollToTopCoordinator;
+  Set<String> _enabledDashboardSections =
+      defaultHomeDashboardEnabledSections().toSet();
+  List<String> _dashboardSectionOrder = defaultHomeDashboardSectionOrder();
 
   static const String _prefsReadDashboard = "read_notices_combined_dashboard";
   static const String _mpuWebBaseUrl =
@@ -57,6 +64,8 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
         NoticeManager().getNotices(boardId: "main_schedule");
     _foodcourtMenuFuture = _foodcourtMenuService.loadFromAsset();
     _loadNoticeFilter();
+    _loadEnabledDashboardSections();
+    _loadDashboardSectionOrder();
     _scrollController.addListener(_onHomeScrollOffset);
     // 첫 진입 시 히어로 이미지 디코드/업로드 비용이 스크롤/전환 jank로 튀는 걸 줄이기 위해 프리캐시.
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -74,6 +83,62 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
       _noticeFilter = filter.copyWith(quickQuery: _noticeQuickQuery);
       _noticeSharedKeywords = keywords;
     });
+  }
+
+  Future<void> _loadEnabledDashboardSections() async {
+    final Set<String> enabled = await loadHomeDashboardEnabledSections();
+    if (!mounted) return;
+    setState(() => _enabledDashboardSections = enabled);
+  }
+
+  Future<void> _loadDashboardSectionOrder() async {
+    final List<String> order = await loadHomeDashboardSectionOrder();
+    if (!mounted) return;
+    setState(() => _dashboardSectionOrder = order);
+  }
+
+  bool _sectionEnabled(HomeDashboardSection section) {
+    return _enabledDashboardSections.contains(section.id);
+  }
+
+  List<HomeDashboardSection> _orderedEnabledSections() {
+    final Map<String, HomeDashboardSection> byId = {
+      for (final s in HomeDashboardSection.values) s.id: s,
+    };
+    final List<HomeDashboardSection> out = [];
+    for (final id in _dashboardSectionOrder) {
+      final HomeDashboardSection? s = byId[id];
+      if (s == null) continue;
+      if (_sectionEnabled(s)) out.add(s);
+    }
+    // 혹시 순서 목록이 깨져도 enabled는 잃지 않게 보정
+    final Set<String> seen = out.map((s) => s.id).toSet();
+    for (final s in HomeDashboardSection.values) {
+      if (_sectionEnabled(s) && !seen.contains(s.id)) out.add(s);
+    }
+    return out;
+  }
+
+  Widget _buildSection(HomeDashboardSection section, BuildContext context) {
+    switch (section) {
+      case HomeDashboardSection.quickButtons:
+        return _buildGridButtons(context);
+      case HomeDashboardSection.shuttle:
+        return _buildShuttleSection(context);
+      case HomeDashboardSection.foodcourt:
+        return _buildFoodcourtSection(context);
+      case HomeDashboardSection.mpuDeadline:
+        return _buildDeadlineSection(context);
+      case HomeDashboardSection.academicSchedule:
+        return _buildAcademicScheduleSection(context);
+      case HomeDashboardSection.recentNotices:
+        return Column(
+          children: [
+            _buildNoticeHeader(context),
+            _buildNoticeList(),
+          ],
+        );
+    }
   }
 
   void _onHomeScrollOffset() {
@@ -184,6 +249,9 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     );
     // #endregion
     final double topPad = MediaQuery.paddingOf(context).top;
+    final double viewportH = MediaQuery.sizeOf(context).height;
+    // 홈/공지 화면의 히어로 헤더 높이를 동일한 규칙으로 통일.
+    final double heroBody = (viewportH * 0.275).clamp(150.0, 225.0);
     // Home tab must always be visually opaque during transitions, otherwise
     // AnimatedSwitcher fade can reveal the previous tab underneath.
     return ColoredBox(
@@ -197,23 +265,111 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           slivers: [
             SliverPersistentHeader(
               pinned: true,
-              delegate: _HomeHeroHeaderDelegate(topPadding: topPad),
+              delegate: _HomeHeroHeaderDelegate(
+                topPadding: topPad,
+                heroBody: heroBody,
+                onMoreTap: _openMore,
+              ),
             ),
             SliverToBoxAdapter(
               child: Column(
                 children: [
-                  _buildGridButtons(context),
-                  const ShuttleStatusCard(),
-                  _buildFoodcourtSection(context),
-                  _buildDeadlineSection(context),
-                  _buildAcademicScheduleSection(context),
-                  _buildNoticeHeader(context),
-                  _buildNoticeList(),
+                  for (final s in _orderedEnabledSections())
+                    _buildSection(s, context),
                   const SizedBox(height: 50),
                 ],
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  void _openMore() {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => const MoreTabScreen(),
+      ),
+    );
+  }
+
+  Widget _buildShuttleSection(BuildContext context) {
+    final DateTime now = DateTime.now();
+    final bool isWeekend =
+        now.weekday == DateTime.saturday || now.weekday == DateTime.sunday;
+    if (!isWeekend) return const ShuttleStatusCard();
+
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final MjcSurfaceTokens tokens =
+        Theme.of(context).extension<MjcSurfaceTokens>()!;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
+      child: Opacity(
+        opacity: 0.72,
+        child: Material(
+          color: scheme.surface,
+          elevation: 1.5,
+          shadowColor: Colors.black.withValues(alpha: isDark ? 0.45 : 0.12),
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+            child: Row(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: tokens.surfaceContainer,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Icon(
+                    Icons.directions_bus_filled_outlined,
+                    color: scheme.onSurfaceVariant.withValues(alpha: 0.72),
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "셔틀버스",
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        "주말입니다",
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w900,
+                          height: 1.2,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        "주말에는 셔틀버스 정보가 비활성화됩니다.",
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -264,7 +420,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                 "자료 검색",
                 Icons.local_library,
                 tokens.dashboardGradients[3],
-                MainNavTabIndex.library,
+                MainNavTabIndex.home,
               ),
             ],
           ),
@@ -288,7 +444,17 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     final Color accent = colors.last;
     return Expanded(
       child: _HoverFeedback(
-        onTap: () => widget.onNavigate(tabIndex, noticesSubTab: noticesSubTab),
+        onTap: () {
+          if (title == "도서관") {
+            Navigator.of(context).push<void>(
+              MaterialPageRoute<void>(
+                builder: (_) => const LibraryScreen(),
+              ),
+            );
+            return;
+          }
+          widget.onNavigate(tabIndex, noticesSubTab: noticesSubTab);
+        },
         child: Container(
           height: 110,
           padding: const EdgeInsets.all(16),
@@ -420,13 +586,14 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                             Text(
                               loading
                                   ? "메뉴를 불러오는 중입니다."
-                                  : "${items.length}개 메뉴 중 골라드릴게요.",
+                                  : "${items.length}개 메뉴 중 골라드리겠습니다.",
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w900,
                                 height: 1.2,
+                                color: scheme.onSurface,
                               ),
                             ),
                           ],
@@ -443,13 +610,23 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                               ? null
                               : () => _recommendFoodcourtMenu(items),
                           icon: const Icon(Icons.casino_rounded),
-                          label: const Text("학식 뭐먹지?"),
+                          label: const Text("학식 추천"),
                         ),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
                         child: OutlinedButton.icon(
                           onPressed: _openFoodcourtMenuScreen,
+                          style: isDark
+                              ? OutlinedButton.styleFrom(
+                                  foregroundColor:
+                                      AppColors.switchActiveDark,
+                                  side: BorderSide(
+                                    color: AppColors.switchActiveDark
+                                        .withValues(alpha: 0.55),
+                                  ),
+                                )
+                              : null,
                           icon: const Icon(Icons.restaurant_menu_rounded),
                           label: const Text("학식 메뉴"),
                         ),
@@ -492,14 +669,6 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   }
 
   Widget _buildDeadlineSection(BuildContext context) {
-    int? parseDDay(dynamic v) {
-      final String s = (v ?? "").toString().trim();
-      final RegExpMatch? m =
-          RegExp(r"^D-(\d+)$", caseSensitive: false).firstMatch(s);
-      if (m == null) return null;
-      return int.tryParse(m.group(1)!);
-    }
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -525,11 +694,11 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
 
             final List<Map<String, dynamic>> items = snapshot.data!.docs
                 .map((d) => d.data())
-                .where((m) => parseDDay(m["d_day"]) != null)
+                .where(mpuIncludeInHomeDeadlineList)
                 .toList()
               ..sort((a, b) {
-                final int ad = parseDDay(a["d_day"]) ?? 999999;
-                final int bd = parseDDay(b["d_day"]) ?? 999999;
+                final int ad = mpuEffectiveDaysUntilDeadline(a) ?? 999999;
+                final int bd = mpuEffectiveDaysUntilDeadline(b) ?? 999999;
                 return ad.compareTo(bd);
               });
 
@@ -557,61 +726,16 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
 
   Widget _buildDeadlineCard(Map<String, dynamic> data) {
     final ColorScheme scheme = Theme.of(context).colorScheme;
-    final MjcSurfaceTokens tokens =
-        Theme.of(context).extension<MjcSurfaceTokens>()!;
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
     final String title = (data["title"] ?? "").toString();
-    final String ddayRaw = (data["d_day"] ?? "").toString().trim();
-    final String dateLine = (data["end_date"] ??
+    final String regLine = (data["reg_date"] ??
+            data["end_date"] ??
             data["date"] ??
-            data["reg_date"] ??
             data["deadline"] ??
             "")
         .toString()
         .trim();
-
-    final String dNumber = (RegExp(r"^D-(\d+)$", caseSensitive: false)
-                .firstMatch(ddayRaw)
-                ?.group(1) ??
-            "")
-        .trim();
-
-    Widget ddayBadge() {
-      return SizedBox(
-        width: 56,
-        height: 56,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: tokens.deadlineBadge,
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                "D-",
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.92),
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
-                  height: 1.0,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                dNumber.isEmpty ? "?" : dNumber,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w900,
-                  height: 1.0,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
+    final String eduLine = (data["edu_date"] ?? "").toString().trim();
 
     return Material(
       color: scheme.surface,
@@ -657,11 +781,24 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                         height: 1.15,
                       ),
                     ),
-                    if (dateLine.isNotEmpty) ...[
+                    if (regLine.isNotEmpty) ...[
                       const SizedBox(height: 6),
                       Text(
-                        dateLine,
-                        maxLines: 1,
+                        "신청: $regLine",
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: scheme.onSurfaceVariant,
+                          fontSize: 12,
+                          height: 1.1,
+                        ),
+                      ),
+                    ],
+                    if (eduLine.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        "교육: $eduLine",
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           color: scheme.onSurfaceVariant,
@@ -674,7 +811,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                 ),
               ),
               const SizedBox(width: 12),
-              ddayBadge(),
+              MpuDeadlineHomeStyleBadge(data: data),
             ],
           ),
         ),
@@ -1033,17 +1170,20 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
 class _HomeHeroHeaderDelegate extends SliverPersistentHeaderDelegate {
   _HomeHeroHeaderDelegate({
     required this.topPadding,
+    required this.heroBody,
+    required this.onMoreTap,
   });
 
   final double topPadding;
+  final double heroBody;
+  final VoidCallback onMoreTap;
 
-  static const double _heroBody = 240;
   static const double _collapsedBar = 52;
   static const String _heroImageUrl =
       "https://www.mjc.ac.kr/images/common/main_visual01.jpg";
 
   @override
-  double get maxExtent => topPadding + _heroBody;
+  double get maxExtent => topPadding + heroBody;
 
   @override
   double get minExtent => topPadding + _collapsedBar;
@@ -1120,6 +1260,18 @@ class _HomeHeroHeaderDelegate extends SliverPersistentHeaderDelegate {
                     clipBehavior: Clip.hardEdge,
                     children: [
                       Positioned(
+                        top: 6,
+                        right: 12,
+                        child: IconButton(
+                          tooltip: "더보기",
+                          onPressed: onMoreTap,
+                          icon: const Icon(
+                            Icons.menu_rounded,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                      Positioned(
                         left: titleLeft,
                         top: titleTop,
                         right: 16,
@@ -1144,7 +1296,7 @@ class _HomeHeroHeaderDelegate extends SliverPersistentHeaderDelegate {
                             child: Opacity(
                               opacity: subtitleOpacity,
                               child: const Text(
-                                "MJC 통합 정보 서비스",
+                                "MJC 통합 서비스 어플리케이션",
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
@@ -1169,7 +1321,7 @@ class _HomeHeroHeaderDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   bool shouldRebuild(covariant _HomeHeroHeaderDelegate oldDelegate) {
-    return topPadding != oldDelegate.topPadding;
+    return topPadding != oldDelegate.topPadding || heroBody != oldDelegate.heroBody;
   }
 }
 

@@ -85,15 +85,16 @@ class _MpuProfileImportScreenState extends State<MpuProfileImportScreen> {
       if (!mounted) return;
       setState(() => _isExtracting = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("로그인 후 대시보드가 보이면 다시 눌러주세요.")),
+        const SnackBar(content: Text("로그인 후 대시보드가 보이면 다시 눌러 주세요.")),
       );
       return;
     }
 
-    final profile = MpuProfile(
-      name: (payload["name"] ?? "").toString(),
-      grade: (payload["grade"] ?? "").toString(),
-      mileage: (payload["mileage"] ?? "").toString(),
+    final MpuProfile currentProfile = await loadMpuProfile();
+    final MpuProfile profile = currentProfile.copyWith(
+      name: (payload["name"] ?? currentProfile.name).toString(),
+      grade: (payload["grade"] ?? currentProfile.grade).toString(),
+      mileage: (payload["mileage"] ?? currentProfile.mileage).toString(),
     );
 
     if (!profile.hasAnyValue) {

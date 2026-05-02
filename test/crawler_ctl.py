@@ -7,6 +7,8 @@ from firebase_admin import credentials, firestore, messaging
 import os
 import json
 
+from notice_ai_tags import enrich_post_dict
+
 # ── Firebase 초기화 ──────────────────────────────────────────
 def init_firebase():
     if firebase_admin._apps:
@@ -218,6 +220,8 @@ def save_to_firestore(db, collection_name: str, records: list[dict]):
         # DB에 최신 id와 같다면 증분 업데이트 일 때 스킵할 수 있음 
         # (여기선 단순 1페이지 전체 업데이트/덮어쓰기로 구현)
         doc_ref = record_col.document(rec["id"])
+        board_key = "ctl_programs" if collection_name == "programs" else "ctl_notice"
+        enrich_post_dict(rec, board_key)
         batch.set(doc_ref, rec, merge=True)
         updated_count += 1
 

@@ -4,18 +4,91 @@ import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
 import "package:flutter_animate/flutter_animate.dart";
 import "package:mio_notice/screens/common_webview_screen.dart";
-import "package:mio_notice/screens/settings_screen.dart";
 import "package:mio_notice/services/notice_filter.dart";
 import "package:mio_notice/services/notice_manager.dart";
 import "package:mio_notice/services/user_data_repository.dart";
+import "package:mio_notice/theme/app_colors.dart";
 import "package:mio_notice/theme/app_theme.dart";
 import "package:mio_notice/perf_flags.dart";
 import "package:mio_notice/widgets/nested_scroll_refresh_indicator.dart";
-import "package:mio_notice/widgets/notice_filter_bar.dart";
 import "package:mio_notice/widgets/pin_favorite_buttons.dart";
+import "package:mio_notice/widgets/global_notice_search_sheet.dart";
+import "package:mio_notice/widgets/notice_filter_sheet.dart";
 import "package:mio_notice/widgets/scroll_to_top_scope.dart";
 import "package:shared_preferences/shared_preferences.dart";
 import "package:url_launcher/url_launcher.dart";
+
+List<String> _parseAiTagsForList(Map<String, dynamic> data) {
+  final Object? v = data["ai_tags"];
+  if (v is! List) return const <String>[];
+  return v
+      .map((e) => e.toString())
+      .where((s) => s.trim().isNotEmpty)
+      .take(2)
+      .toList();
+}
+
+/// `test/notice_ai_tags.py`의 ALLOWED_TAGS와 동일 순서(「전체」는 UI 전용).
+const List<String> kMainNoticeAiTagFilterChips = <String>[
+  "전체",
+  "학사/수업",
+  "장학/등록금",
+  "모집/신청",
+  "행사/대회/특강",
+  "취업/진로/창업",
+  "정책/지원사업/대외홍보",
+  "기타",
+];
+
+Widget _noticeCategoryAndAiTagsRow({
+  required BuildContext context,
+  required String categoryLabel,
+  required List<String> aiTags,
+  required Color primaryChipBackground,
+  required Color primaryChipForeground,
+}) {
+  final ColorScheme scheme = Theme.of(context).colorScheme;
+  return Wrap(
+    spacing: 6,
+    runSpacing: 6,
+    crossAxisAlignment: WrapCrossAlignment.center,
+    children: <Widget>[
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: primaryChipBackground,
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Text(
+          categoryLabel,
+          style: TextStyle(
+            color: primaryChipForeground,
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+      ...aiTags.map(
+        (String t) => Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+          decoration: BoxDecoration(
+            color: scheme.surfaceContainerHighest.withValues(alpha: 0.55),
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: scheme.outlineVariant),
+          ),
+          child: Text(
+            t,
+            style: TextStyle(
+              color: scheme.onSurfaceVariant,
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ),
+    ],
+  );
+}
 
 /// 스크롤/전환 중 jank를 줄이기 위해 entrance stagger는 앱 실행 동안 1회만 재생.
 class _MainWebsiteListEntrance {
@@ -51,11 +124,15 @@ class MainWebsiteScreen extends StatefulWidget {
 }
 
 class _MainWebsiteScreenState extends State<MainWebsiteScreen> {
+  final GlobalKey<NestedScrollViewState> _nestedScrollKey =
+      GlobalKey<NestedScrollViewState>();
   final ScrollController _outerScrollController = ScrollController();
   ScrollToTopCoordinator? _scrollToTopCoordinator;
   ValueNotifier<int>? _activeTabNotifier;
   bool _registeredMainTab = false;
   int _entryTick = 0;
+  bool _openingGlobalSearch = false;
+  final ValueNotifier<int> _filterReloadTick = ValueNotifier<int>(0);
   late final NestedScrollFabScrollReporter _nestedFabReporter =
       NestedScrollFabScrollReporter(
     tabIndex: MainNavTabIndex.notices,
@@ -125,6 +202,15 @@ class _MainWebsiteScreenState extends State<MainWebsiteScreen> {
   }
 
   void _scrollContentToTop() {
+    final NestedScrollViewState? nested = _nestedScrollKey.currentState;
+    final ScrollController? inner = nested?.innerController;
+    if (inner != null && inner.hasClients) {
+      inner.animateTo(
+        0,
+        duration: const Duration(milliseconds: 320),
+        curve: Curves.easeOutCubic,
+      );
+    }
     if (!_outerScrollController.hasClients) return;
     _outerScrollController.animateTo(
       0,
@@ -133,8 +219,84 @@ class _MainWebsiteScreenState extends State<MainWebsiteScreen> {
     );
   }
 
+  Future<void> _openNoticeFilterSheet() async {
+    await showNoticeFilterSheet(context);
+    if (mounted) {
+      _filterReloadTick.value++;
+    }
+  }
+
+  Future<void> _openGlobalSearch() async {
+    if (_openingGlobalSearch) return;
+    _openingGlobalSearch = true;
+    try {
+      final futures = <Future<List<Map<String, dynamic>>>>[
+        NoticeManager().getNotices(boardId: "main_notice"),
+        NoticeManager().getNotices(boardId: "main_academic"),
+        NoticeManager().getNotices(boardId: "main_scholarship"),
+      ];
+      final results = await Future.wait(futures);
+      if (!mounted) return;
+
+      final List<Map<String, dynamic>> items = [];
+      void addAll(List<Map<String, dynamic>> docs, String type) {
+        for (final d in docs) {
+          items.add({
+            ...d,
+            "_searchType": type,
+            "_searchSource": "메인 공지사항",
+          });
+        }
+      }
+
+      addAll(results[0], "공지사항");
+      addAll(results[1], "학사공지");
+      addAll(results[2], "장학공지");
+
+      await showGlobalNoticeSearchSheet(
+        context,
+        items: items,
+        accentColor: const Color(0xFF003FB4),
+        openItem: (item) async {
+          final String url =
+              (item["url"] ?? item["link"] ?? "").toString().trim();
+          final String title = (item["title"] ?? "공지사항").toString();
+          if (url.isEmpty) return;
+          if (kIsWeb) {
+            await launchUrl(Uri.parse(url), webOnlyWindowName: "_blank");
+          } else {
+            if (!context.mounted) return;
+            await Navigator.of(context).push<void>(
+              MaterialPageRoute<void>(
+                builder: (_) => CommonWebViewScreen(url: url, title: title),
+              ),
+            );
+          }
+        },
+        chipFor: (item) {
+          final String cat = (item["category"] ?? "").toString().trim();
+          if (cat.isNotEmpty) return cat;
+          return (item["_searchType"] ?? "공지").toString();
+        },
+        dateFor: (item) =>
+            (item["date"] ?? item["reg_date"] ?? "").toString().trim(),
+        searchTextFor: (item) {
+          final String title = (item["title"] ?? "").toString();
+          final String type = (item["_searchType"] ?? "").toString();
+          final String cat = (item["category"] ?? "").toString();
+          final String date =
+              (item["date"] ?? item["reg_date"] ?? "").toString();
+          return "$title $type $cat $date";
+        },
+      );
+    } finally {
+      _openingGlobalSearch = false;
+    }
+  }
+
   @override
   void dispose() {
+    _filterReloadTick.dispose();
     _outerScrollController.removeListener(_nestedFabReporter.reportOuterScroll);
     if (_registeredMainTab) {
       _scrollToTopCoordinator?.unregisterMainTab(MainNavTabIndex.notices);
@@ -148,12 +310,19 @@ class _MainWebsiteScreenState extends State<MainWebsiteScreen> {
   @override
   Widget build(BuildContext context) {
     final double topPad = MediaQuery.paddingOf(context).top;
+    final double viewportH = MediaQuery.sizeOf(context).height;
+    // 공지 리스트 화면에서 상단 여백(접히는 히어로)을 화면 크기에 맞춰 조절.
+    final double heroBody = (viewportH * 0.275).clamp(150.0, 225.0);
     final ColorScheme scheme = Theme.of(context).colorScheme;
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color tabAccent =
+        isDark ? AppColors.switchActiveDark : scheme.primary;
     return DefaultTabController(
       length: 3,
       child: Scaffold(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         body: NestedScrollView(
+          key: _nestedScrollKey,
           controller: _outerScrollController,
           headerSliverBuilder: (BuildContext context, bool innerBoxIsScrolled) {
             return <Widget>[
@@ -164,11 +333,14 @@ class _MainWebsiteScreenState extends State<MainWebsiteScreen> {
                   pinned: true,
                   delegate: _MainWebsiteCollapsingHeaderDelegate(
                     topPadding: topPad,
+                    heroBody: heroBody,
+                    onOpenFilter: _openNoticeFilterSheet,
+                    onSearch: _openGlobalSearch,
                     tabBar: TabBar(
                       controller: DefaultTabController.of(context),
-                      indicatorColor: scheme.primary,
+                      indicatorColor: tabAccent,
                       indicatorWeight: 3,
-                      labelColor: scheme.primary,
+                      labelColor: tabAccent,
                       unselectedLabelColor: scheme.onSurfaceVariant,
                       labelStyle: const TextStyle(
                         fontWeight: FontWeight.bold,
@@ -191,11 +363,21 @@ class _MainWebsiteScreenState extends State<MainWebsiteScreen> {
               reporter: _nestedFabReporter,
               child: TabBarView(
                 children: <Widget>[
-                  _NoticeListTab(boardId: "main_notice", entryTick: _entryTick),
                   _NoticeListTab(
-                      boardId: "main_academic", entryTick: _entryTick),
+                    boardId: "main_notice",
+                    entryTick: _entryTick,
+                    filterRevision: _filterReloadTick,
+                  ),
                   _NoticeListTab(
-                      boardId: "main_scholarship", entryTick: _entryTick),
+                    boardId: "main_academic",
+                    entryTick: _entryTick,
+                    filterRevision: _filterReloadTick,
+                  ),
+                  _NoticeListTab(
+                    boardId: "main_scholarship",
+                    entryTick: _entryTick,
+                    filterRevision: _filterReloadTick,
+                  ),
                 ],
               ),
             ),
@@ -211,19 +393,24 @@ class _MainWebsiteCollapsingHeaderDelegate
     extends SliverPersistentHeaderDelegate {
   _MainWebsiteCollapsingHeaderDelegate({
     required this.topPadding,
+    required this.heroBody,
     required this.tabBar,
+    required this.onOpenFilter,
+    required this.onSearch,
   });
 
   final double topPadding;
+  final double heroBody;
   final TabBar tabBar;
+  final VoidCallback onOpenFilter;
+  final VoidCallback onSearch;
 
-  static const double _heroBody = 200;
   static const double _collapsedBar = 52;
 
   double get _tabBarHeight => tabBar.preferredSize.height;
 
   @override
-  double get maxExtent => topPadding + _heroBody + _tabBarHeight;
+  double get maxExtent => topPadding + heroBody + _tabBarHeight;
 
   @override
   double get minExtent => topPadding + _collapsedBar + _tabBarHeight;
@@ -281,7 +468,7 @@ class _MainWebsiteCollapsingHeaderDelegate
                         Positioned(
                           left: titleLeft,
                           top: titleTop,
-                          right: 12,
+                          right: 104,
                           child: Text(
                             "메인 홈페이지",
                             maxLines: 1,
@@ -294,14 +481,35 @@ class _MainWebsiteCollapsingHeaderDelegate
                             ),
                           ),
                         ),
+                        Positioned(
+                          right: 4,
+                          top: 4,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                tooltip: "공지 목록 필터",
+                                onPressed: onOpenFilter,
+                                icon: const Icon(Icons.tune_rounded),
+                                color: Colors.white,
+                              ),
+                              IconButton(
+                                tooltip: "검색",
+                                onPressed: onSearch,
+                                icon: const Icon(Icons.search_rounded),
+                                color: Colors.white,
+                              ),
+                            ],
+                          ),
+                        ),
                         if (subtitleOpacity > 0.02)
                           Positioned(
                             left: 20,
                             top: titleTop + titleSize * 0.95 + 6,
-                            right: 16,
+                            right: 104,
                             child: IgnorePointer(
                               child: Text(
-                                "최신 공지사항을 확인하세요",
+                                "본교 홈페이지의 공지사항을 확인합니다.",
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
@@ -320,7 +528,7 @@ class _MainWebsiteCollapsingHeaderDelegate
               ),
             ),
             Material(
-              color: scheme.surface,
+              color: isDark ? scheme.surfaceContainer : scheme.surface,
               elevation: overlapsContent ? 0.5 : 0,
               shadowColor: Colors.black.withValues(alpha: isDark ? 0.45 : 0.12),
               child: SizedBox(
@@ -336,14 +544,25 @@ class _MainWebsiteCollapsingHeaderDelegate
 
   @override
   bool shouldRebuild(covariant _MainWebsiteCollapsingHeaderDelegate old) {
-    return topPadding != old.topPadding || tabBar != old.tabBar;
+    return topPadding != old.topPadding ||
+        heroBody != old.heroBody ||
+        tabBar != old.tabBar ||
+        onOpenFilter != old.onOpenFilter ||
+        onSearch != old.onSearch;
   }
 }
+
 
 class _NoticeListTab extends StatefulWidget {
   final String boardId;
   final int entryTick;
-  const _NoticeListTab({required this.boardId, required this.entryTick});
+  final ValueListenable<int> filterRevision;
+
+  const _NoticeListTab({
+    required this.boardId,
+    required this.entryTick,
+    required this.filterRevision,
+  });
 
   @override
   State<_NoticeListTab> createState() => _NoticeListTabState();
@@ -356,71 +575,22 @@ class _NoticeListTabState extends State<_NoticeListTab> {
   Set<String> _favoriteKeys = {};
   NoticeFilterState _noticeFilter = const NoticeFilterState();
   List<String> _noticeSharedKeywords = [];
-  String _noticeQuickQuery = "";
+  /// `main_notice` 탭만: 유튜브 스타일 주제 칩 필터.
+  String _mainNoticeAiTagChipSelection = "전체";
   late Future<List<Map<String, dynamic>>> _noticeFuture;
-  double _filterBarReveal = 0;
-  bool _refreshEnabledForDrag = false;
-
-  static const double _filterBarRevealDistance = 96;
-  bool get _filterBarFullyVisible => _filterBarReveal >= 1.0;
 
   bool _allowRefreshNotification(ScrollNotification n) {
-    if (!defaultScrollNotificationPredicate(n)) return false;
-    return _refreshEnabledForDrag ||
-        n is ScrollEndNotification ||
-        n is UserScrollNotification;
+    return defaultScrollNotificationPredicate(n);
   }
 
-  bool _handleScrollNotification(ScrollNotification n) {
-    if (n is ScrollStartNotification) {
-      _refreshEnabledForDrag = _filterBarFullyVisible;
-    } else if (n is OverscrollNotification) {
-      if (!_refreshEnabledForDrag &&
-          n.metrics.pixels <= n.metrics.minScrollExtent &&
-          n.overscroll < 0) {
-        final double next =
-            (_filterBarReveal + (-n.overscroll / _filterBarRevealDistance))
-                .clamp(0.0, 1.0);
-        if (next != _filterBarReveal) {
-          setState(() => _filterBarReveal = next);
-        }
-      }
-    } else if (n is ScrollUpdateNotification) {
-      if (n.metrics.pixels > 24 && _filterBarReveal > 0) {
-        setState(() => _filterBarReveal = 0);
-      }
-    } else if (n is ScrollEndNotification) {
-      if (_filterBarReveal > 0 && _filterBarReveal < 1) {
-        setState(() => _filterBarReveal = _filterBarReveal >= 0.35 ? 1 : 0);
-      }
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _refreshEnabledForDrag = false;
-      });
-    }
-    return false;
-  }
-
-  Widget _revealedFilterBar(Widget filterBar) {
-    return TweenAnimationBuilder<double>(
-      tween: Tween<double>(end: _filterBarReveal),
-      duration: const Duration(milliseconds: 90),
-      curve: Curves.easeOutCubic,
-      child: filterBar,
-      builder: (context, v, child) {
-        return ClipRect(
-          child: Align(
-            alignment: Alignment.topCenter,
-            heightFactor: v,
-            child: child,
-          ),
-        );
-      },
-    );
+  void _onFilterRevision() {
+    _loadNoticeFilter();
   }
 
   @override
   void initState() {
     super.initState();
+    widget.filterRevision.addListener(_onFilterRevision);
     _loadReadHistory();
     _loadPinsAndFavorites();
     _loadNoticeFilter();
@@ -430,9 +600,19 @@ class _NoticeListTabState extends State<_NoticeListTab> {
   @override
   void didUpdateWidget(covariant _NoticeListTab oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.filterRevision != widget.filterRevision) {
+      oldWidget.filterRevision.removeListener(_onFilterRevision);
+      widget.filterRevision.addListener(_onFilterRevision);
+    }
     if (widget.entryTick != oldWidget.entryTick) {
       _entrance.resetForEntry();
     }
+  }
+
+  @override
+  void dispose() {
+    widget.filterRevision.removeListener(_onFilterRevision);
+    super.dispose();
   }
 
   String _fallbackType() {
@@ -451,18 +631,9 @@ class _NoticeListTabState extends State<_NoticeListTab> {
     final List<String> keywords = await loadSharedNoticeKeywords();
     if (!mounted) return;
     setState(() {
-      _noticeFilter = filter.copyWith(quickQuery: _noticeQuickQuery);
+      _noticeFilter = filter.copyWith(quickQuery: "");
       _noticeSharedKeywords = keywords;
     });
-  }
-
-  Future<void> _openNoticeFilterSettings() async {
-    await Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(
-        builder: (context) => const SettingsScreen(),
-      ),
-    );
-    if (mounted) await _loadNoticeFilter();
   }
 
   Future<void> _loadReadHistory() async {
@@ -554,6 +725,91 @@ class _NoticeListTabState extends State<_NoticeListTab> {
         "read_notices_${widget.boardId}", _readNoticeIds.toList());
   }
 
+  List<Map<String, dynamic>> _applyMainNoticeAiTagChips(
+    List<Map<String, dynamic>> rows,
+  ) {
+    if (widget.boardId != "main_notice") return rows;
+    if (_mainNoticeAiTagChipSelection == "전체") return rows;
+    return rows.where((Map<String, dynamic> d) {
+      final Object? raw = d["ai_tags"];
+      if (raw is! List) {
+        return _mainNoticeAiTagChipSelection == "기타";
+      }
+      final List<String> tags = raw
+          .map((e) => e.toString().trim())
+          .where((s) => s.isNotEmpty)
+          .toList();
+      return tags.contains(_mainNoticeAiTagChipSelection);
+    }).toList();
+  }
+
+  Widget _buildMainNoticeAiTagChipBar(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    return Material(
+      color: scheme.surface,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(
+              color: scheme.outlineVariant.withValues(alpha: 0.35),
+            ),
+          ),
+        ),
+        child: SizedBox(
+          height: 48,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            itemCount: kMainNoticeAiTagFilterChips.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            itemBuilder: (BuildContext context, int index) {
+              final String label = kMainNoticeAiTagFilterChips[index];
+              final bool selected =
+                  _mainNoticeAiTagChipSelection == label;
+              final Color bg = selected
+                  ? (isDark ? scheme.primary : const Color(0xFF0F0F0F))
+                  : (isDark
+                      ? scheme.surfaceContainerHighest
+                      : const Color(0xFFF2F2F2));
+              final Color fg = selected
+                  ? (isDark ? scheme.onPrimary : Colors.white)
+                  : (isDark
+                      ? scheme.onSurface
+                      : const Color(0xFF0F0F0F));
+              return Material(
+                color: bg,
+                borderRadius: BorderRadius.circular(999),
+                child: InkWell(
+                  onTap: () {
+                    if (_mainNoticeAiTagChipSelection == label) return;
+                    setState(() => _mainNoticeAiTagChipSelection = label);
+                  },
+                  borderRadius: BorderRadius.circular(999),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 6,
+                    ),
+                    child: Text(
+                      label,
+                      style: TextStyle(
+                        color: fg,
+                        fontSize: 13,
+                        fontWeight:
+                            selected ? FontWeight.w600 : FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final ColorScheme scheme = Theme.of(context).colorScheme;
@@ -565,9 +821,7 @@ class _NoticeListTabState extends State<_NoticeListTab> {
       child: FutureBuilder<List<Map<String, dynamic>>>(
         future: _noticeFuture,
         builder: (context, snapshot) {
-          final Widget scrollable = NotificationListener<ScrollNotification>(
-            onNotification: _handleScrollNotification,
-            child: CustomScrollView(
+          final Widget scrollable = CustomScrollView(
               primary: true,
               physics: const AlwaysScrollableScrollPhysics(),
               slivers: [
@@ -584,8 +838,7 @@ class _NoticeListTabState extends State<_NoticeListTab> {
                 else
                   ..._buildNoticeSlivers(context, snapshot.data ?? []),
               ],
-            ),
-          );
+            );
 
           return scrollable;
         },
@@ -597,28 +850,27 @@ class _NoticeListTabState extends State<_NoticeListTab> {
     BuildContext context,
     List<Map<String, dynamic>> docs,
   ) {
-    final NoticeFilterState filter =
-        _noticeFilter.copyWith(quickQuery: _noticeQuickQuery);
+    final NoticeFilterState filter = _noticeFilter.copyWith(quickQuery: "");
     final List<Map<String, dynamic>> filteredDocs = filter.apply(
       docs,
       sharedKeywords: _noticeSharedKeywords,
       fallbackSource: "MJC",
       fallbackType: _fallbackType(),
     );
-    final Widget filterBar = NoticeFilterBar(
-      filter: filter,
-      keywordCount: _noticeSharedKeywords.length,
-      totalCount: docs.length,
-      filteredCount: filteredDocs.length,
-      onQueryChanged: (String value) {
-        setState(() => _noticeQuickQuery = value);
-      },
-      onOpenSettings: _openNoticeFilterSettings,
-    );
+    final List<Map<String, dynamic>> tagFilteredDocs =
+        _applyMainNoticeAiTagChips(filteredDocs);
+
+    final List<Widget> chipSliver = widget.boardId == "main_notice"
+        ? <Widget>[
+            SliverToBoxAdapter(
+              child: _buildMainNoticeAiTagChipBar(context),
+            ),
+          ]
+        : const <Widget>[];
 
     if (filteredDocs.isEmpty) {
       return [
-        SliverToBoxAdapter(child: _revealedFilterBar(filterBar)),
+        ...chipSliver,
         SliverFillRemaining(
           hasScrollBody: false,
           child: Column(
@@ -636,13 +888,34 @@ class _NoticeListTabState extends State<_NoticeListTab> {
       ];
     }
 
+    if (tagFilteredDocs.isEmpty) {
+      return [
+        ...chipSliver,
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const SizedBox(height: 48),
+              Text(
+                "선택한 주제에 맞는 공지가 없습니다.",
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ];
+    }
+
     final List<Map<String, dynamic>> ordered = [
-      ...filteredDocs.where((d) => _pinnedKeys.contains(_noticeKey(d))),
-      ...filteredDocs.where((d) => !_pinnedKeys.contains(_noticeKey(d))),
+      ...tagFilteredDocs.where((d) => _pinnedKeys.contains(_noticeKey(d))),
+      ...tagFilteredDocs.where((d) => !_pinnedKeys.contains(_noticeKey(d))),
     ];
 
     return [
-      SliverToBoxAdapter(child: _revealedFilterBar(filterBar)),
+      ...chipSliver,
       SliverPadding(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         sliver: SliverList(
@@ -662,6 +935,7 @@ class _NoticeListTabState extends State<_NoticeListTab> {
               final Widget tile = _ScaleFeedbackButton(
                 onTap: () async {
                   await _markAsRead(id);
+                  if (!context.mounted) return;
                   if (url.isEmpty) return;
                   if (kIsWeb) {
                     await launchUrl(Uri.parse(url),
@@ -683,12 +957,14 @@ class _NoticeListTabState extends State<_NoticeListTab> {
                   data,
                   id,
                   isRead,
+                  showAiTagChips: widget.boardId == "main_notice",
                   isPinned: isPinned,
                   isFavorite: isFavorite,
                   onTogglePinned: () => _togglePinned(key),
                   onToggleFavorite: () => _toggleFavorite(key),
                   () async {
                     await _markAsRead(id);
+                    if (!context.mounted) return;
                     if (url.isEmpty) return;
                     if (kIsWeb) {
                       await launchUrl(
@@ -734,6 +1010,8 @@ class _NoticeListTabState extends State<_NoticeListTab> {
     String id,
     bool isRead,
     VoidCallback onTap, {
+    /// 메인 홈페이지 공지 중 **「공지사항」탭(main_notice)** 에서만 주제 태그 칩을 노출합니다.
+    required bool showAiTagChips,
     required bool isPinned,
     required bool isFavorite,
     required VoidCallback onTogglePinned,
@@ -743,26 +1021,29 @@ class _NoticeListTabState extends State<_NoticeListTab> {
     final MjcSurfaceTokens tokens =
         Theme.of(context).extension<MjcSurfaceTokens>()!;
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color readTitlePurple =
+        isDark ? const Color(0xFFB39DDB) : const Color(0xFF7E57C2);
     final String title = data["title"] ?? "";
     final String dateStr = data["date"] ?? "";
     final String type = data["category"] ?? "공지";
+    final List<String> aiTags =
+        showAiTagChips ? _parseAiTagsForList(data) : const <String>[];
+    final bool showAiTagRow = showAiTagChips && aiTags.isNotEmpty;
+    // 읽음 표현은 과하지 않게: 좌측 스트립만 회색으로 낮추고, 제목 글씨만 앱의 메인 블루로 바꿈.
     final Color mainColor = isRead ? scheme.onSurfaceVariant : tokens.sourceMjc;
-    final Color chipBackground = isRead
-        ? tokens.surfaceContainer
-        : tokens.sourceMjc.withValues(alpha: isDark ? 0.18 : 0.12);
-    final Color chipForeground =
-        isRead ? scheme.onSurfaceVariant : tokens.sourceMjc;
-    final Color titleColor =
-        isRead ? scheme.onSurfaceVariant : scheme.onSurface;
+    final Color chipBackground =
+        tokens.sourceMjc.withValues(alpha: isDark ? 0.18 : 0.12);
+    final Color chipForeground = tokens.sourceMjc;
+    final Color titleColor = isRead ? readTitlePurple : scheme.onSurface;
     final Color dateColor = scheme.onSurfaceVariant;
     const bool lowRaster = kPerfLowRasterMode;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       child: Material(
-        color: isRead ? scheme.surfaceContainerLow : scheme.surface,
+        color: scheme.surface,
         borderRadius: BorderRadius.circular(12),
-        elevation: (isRead || lowRaster) ? 0 : 2,
+        elevation: lowRaster ? 0 : 2,
         shadowColor: lowRaster
             ? Colors.transparent
             : Colors.black.withValues(alpha: isDark ? 0.45 : 0.12),
@@ -793,22 +1074,31 @@ class _NoticeListTabState extends State<_NoticeListTab> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: chipBackground,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              type,
-                              style: TextStyle(
-                                color: chipForeground,
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
+                          if (showAiTagRow)
+                            _noticeCategoryAndAiTagsRow(
+                              context: context,
+                              categoryLabel: type,
+                              aiTags: aiTags,
+                              primaryChipBackground: chipBackground,
+                              primaryChipForeground: chipForeground,
+                            )
+                          else
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: chipBackground,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                type,
+                                style: TextStyle(
+                                  color: chipForeground,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ),
-                          ),
                           const SizedBox(height: 12),
                           Text(
                             title,
@@ -816,8 +1106,7 @@ class _NoticeListTabState extends State<_NoticeListTab> {
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               fontSize: 16,
-                              fontWeight:
-                                  isRead ? FontWeight.normal : FontWeight.bold,
+                              fontWeight: FontWeight.bold,
                               color: titleColor,
                               height: 1.4,
                             ),
@@ -880,22 +1169,31 @@ class _NoticeListTabState extends State<_NoticeListTab> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: chipBackground,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                type,
-                                style: TextStyle(
-                                  color: chipForeground,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
+                            if (showAiTagRow)
+                              _noticeCategoryAndAiTagsRow(
+                                context: context,
+                                categoryLabel: type,
+                                aiTags: aiTags,
+                                primaryChipBackground: chipBackground,
+                                primaryChipForeground: chipForeground,
+                              )
+                            else
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: chipBackground,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  type,
+                                  style: TextStyle(
+                                    color: chipForeground,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ),
-                            ),
                             const SizedBox(height: 12),
                             Text(
                               title,
@@ -903,9 +1201,7 @@ class _NoticeListTabState extends State<_NoticeListTab> {
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 fontSize: 16,
-                                fontWeight: isRead
-                                    ? FontWeight.normal
-                                    : FontWeight.bold,
+                                fontWeight: FontWeight.bold,
                                 color: titleColor,
                                 height: 1.4,
                               ),

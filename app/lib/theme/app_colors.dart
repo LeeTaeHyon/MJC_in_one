@@ -18,5 +18,8 @@ abstract final class AppColors {
   static const Color mutedForeground = Color(0xFF717182);
   static const Color mutedForegroundDark = Color(0xFFB5B6BC);
 
+  /// 다크 모드 스위치 ON — 칩·세그먼트 선택 등 밝은 파란 톤과 맞춤 (`primary`는 너무 어두움).
+  static const Color switchActiveDark = Color(0xFF82B1FF);
+
   static Color iconBackdrop(Color base) => base.withValues(alpha: 0.082);
 }

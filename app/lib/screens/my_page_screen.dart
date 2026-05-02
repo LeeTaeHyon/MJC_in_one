@@ -11,11 +11,16 @@ import "package:mio_notice/services/auth_service.dart";
 import "package:mio_notice/services/notice_manager.dart";
 import "package:mio_notice/services/user_data_repository.dart";
 import "package:mio_notice/theme/app_colors.dart";
+import "package:mio_notice/widgets/profile_form.dart";
+import "package:mio_notice/widgets/scroll_to_top_scope.dart";
 import "package:shared_preferences/shared_preferences.dart";
 import "package:url_launcher/url_launcher.dart";
 
 class MyPageScreen extends StatefulWidget {
-  const MyPageScreen({super.key});
+  const MyPageScreen({super.key, this.embedded = false});
+
+  /// `true`이면 [MainNavigationScreen] 하단 탭으로 들어온 경우입니다.
+  final bool embedded;
 
   @override
   State<MyPageScreen> createState() => _MyPageScreenState();
@@ -31,15 +36,95 @@ class _MyPageScreenState extends State<MyPageScreen> {
   List<_MyNotice> _favorites = const [];
   MpuProfile _mpuProfile = const MpuProfile(
     name: "",
+    department: "",
     grade: "",
+    studentId: "",
     mileage: "",
   );
+
+  final ScrollController _scrollController = ScrollController();
+  ScrollToTopCoordinator? _scrollToTopCoordinator;
+  bool _registeredScrollRoute = false;
+  bool _registeredMainTab = false;
+
+  void _onMyPageScrollOffset() {
+    if (!mounted) return;
+    final double viewportHeight =
+        ScrollFabMetrics.viewportHeightInScrollListener(_scrollController);
+    if (widget.embedded) {
+      _scrollToTopCoordinator?.reportMainTabScroll(
+        MainNavTabIndex.mypage,
+        _scrollController.offset,
+        viewportHeight,
+      );
+    } else {
+      _scrollToTopCoordinator?.reportRouteScroll(
+        _scrollController.offset,
+        viewportHeight,
+      );
+    }
+  }
+
+  void _scrollContentToTop() {
+    if (!_scrollController.hasClients) return;
+    _scrollController.animateTo(
+      0,
+      duration: const Duration(milliseconds: 320),
+      curve: Curves.easeOutCubic,
+    );
+  }
 
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_onMyPageScrollOffset);
     _loadPinnedAndFavorites();
     _loadMpuProfile();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_registeredScrollRoute || _registeredMainTab) return;
+    final ScrollToTopCoordinator? c = ScrollToTopScope.maybeOf(context);
+    if (c != null) {
+      _scrollToTopCoordinator = c;
+      if (widget.embedded) {
+        c.registerMainTab(MainNavTabIndex.mypage, _scrollContentToTop);
+        _registeredMainTab = true;
+      } else {
+        c.pushRouteHandler(_scrollContentToTop);
+        _registeredScrollRoute = true;
+      }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_scrollController.hasClients) return;
+        final double viewportHeight =
+            ScrollFabMetrics.viewportHeightForThreshold(
+                _scrollController, context);
+        if (widget.embedded) {
+          c.reportMainTabScroll(
+            MainNavTabIndex.mypage,
+            _scrollController.offset,
+            viewportHeight,
+          );
+        } else {
+          c.reportRouteScroll(_scrollController.offset, viewportHeight);
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onMyPageScrollOffset);
+    if (_registeredScrollRoute) {
+      _scrollToTopCoordinator?.popRouteHandler();
+    }
+    if (_registeredMainTab) {
+      _scrollToTopCoordinator?.unregisterMainTab(MainNavTabIndex.mypage);
+    }
+    _scrollController.dispose();
+    super.dispose();
   }
 
   String _boardLabel(String boardId) {
@@ -224,6 +309,71 @@ class _MyPageScreenState extends State<MyPageScreen> {
     }
   }
 
+  Future<void> _openProfileEditor() async {
+    final MpuProfile profile = await loadMpuProfile();
+    if (!mounted) return;
+    bool saved = false;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (BuildContext sheetContext) {
+        return Padding(
+          padding: EdgeInsets.fromLTRB(
+            20,
+            16,
+            20,
+            MediaQuery.viewInsetsOf(sheetContext).bottom + 20,
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        "프로필 편집",
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: "닫기",
+                      onPressed: () => Navigator.of(sheetContext).pop(),
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                ProfileForm(
+                  initialProfile: profile,
+                  submitLabel: "프로필 저장",
+                  onSaved: (_) async {
+                    saved = true;
+                    if (Navigator.of(sheetContext).canPop()) {
+                      Navigator.of(sheetContext).pop();
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+    await _loadMpuProfile();
+    if (!mounted) return;
+    if (saved) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("프로필 정보를 저장했습니다.")),
+      );
+    }
+  }
+
   Future<void> _signOut() async {
     await UserDataRepository.instance.pushSnapshotToCloud();
     await clearMpuProfile();
@@ -261,294 +411,423 @@ class _MyPageScreenState extends State<MyPageScreen> {
     );
   }
 
+  void _openLogin() {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final User? user = FirebaseAuth.instance.currentUser;
-    final String email = user?.email ?? "로그인이 필요합니다";
-    final bool hasMpuProfile = _mpuProfile.hasAnyValue;
-    final bool light = Theme.of(context).brightness == Brightness.light;
-    final Color pageBg = light
-        ? _pageBackground
-        : Theme.of(context).colorScheme.surfaceContainerLow;
+    return StreamBuilder<User?>(
+      stream: AuthService.instance.authStateChanges(),
+      initialData: AuthService.instance.currentUser,
+      builder: (BuildContext context, AsyncSnapshot<User?> authSnapshot) {
+        final User? user = authSnapshot.data;
+        final bool signedIn = user != null;
+        final String email = user?.email ?? "로그인이 필요합니다";
+        final bool hasMpuProfile = _mpuProfile.hasAnyValue;
+        final bool light = Theme.of(context).brightness == Brightness.light;
+        final Color pageBg = light
+            ? _pageBackground
+            : Theme.of(context).colorScheme.surfaceContainerLow;
 
-    return DefaultTabController(
-      length: 2,
-      child: Scaffold(
-        backgroundColor: pageBg,
-        appBar: AppBar(
-          title: const Text("마이페이지"),
-        ),
-        body: ListView(
-          padding: EdgeInsets.zero,
-          children: [
-            Container(
-              color: AppColors.primary,
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-              child: Column(
-                children: [
-                  _SoftCard(
-                    radius: 18,
-                    backgroundColor: const Color(0xFF0A43A8),
-                    borderColor: Colors.white.withValues(alpha: 0.10),
-                    shadow: false,
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          FilledButton.icon(
-                            style: FilledButton.styleFrom(
-                              backgroundColor:
-                                  Colors.white.withValues(alpha: 0.14),
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                            ),
-                            onPressed: _openMpuProfileImport,
-                            icon: const Icon(Icons.cloud_download_outlined),
-                            label: const Text(
-                              "마이페이지 가져오기",
-                              style: TextStyle(fontWeight: FontWeight.w800),
-                            ),
-                          ),
-                          const SizedBox(height: 14),
-                          Row(
+        return DefaultTabController(
+          length: 2,
+          child: Scaffold(
+            backgroundColor: pageBg,
+            appBar: AppBar(
+              title: const Text("마이페이지"),
+            ),
+            body: ListView(
+              controller: _scrollController,
+              padding: EdgeInsets.zero,
+              children: [
+                Container(
+                  color: AppColors.primary,
+                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+                  child: Column(
+                    children: [
+                      _SoftCard(
+                        radius: 18,
+                        backgroundColor: const Color(0xFF0A43A8),
+                        borderColor: Colors.white.withValues(alpha: 0.10),
+                        shadow: false,
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              Container(
-                                width: 54,
-                                height: 54,
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.18),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(
-                                  Icons.person_outline_rounded,
-                                  color: Colors.white,
-                                  size: 28,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    if (hasMpuProfile)
-                                      Text(
-                                        _mpuProfile.name.trim().isEmpty
-                                            ? "MPU 사용자"
-                                            : _mpuProfile.name.trim(),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.w900,
-                                          letterSpacing: -0.2,
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: FilledButton.icon(
+                                      style: FilledButton.styleFrom(
+                                        backgroundColor: Colors.white
+                                            .withValues(alpha: 0.14),
+                                        foregroundColor: Colors.white,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(14),
                                         ),
-                                      )
-                                    else ...[
-                                      const _BlurredProfilePlaceholder(
-                                        width: 86,
-                                        height: 20,
                                       ),
-                                      const SizedBox(height: 4),
-                                      const _BlurredProfilePlaceholder(
-                                        width: 112,
-                                        height: 16,
+                                      onPressed: _openMpuProfileImport,
+                                      icon: const Icon(
+                                          Icons.cloud_download_outlined),
+                                      label: const Text(
+                                        "가져오기",
+                                        style: TextStyle(
+                                            fontWeight: FontWeight.w800),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: OutlinedButton.icon(
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: Colors.white,
+                                        side: BorderSide(
+                                          color: Colors.white
+                                              .withValues(alpha: 0.42),
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(14),
+                                        ),
+                                      ),
+                                      onPressed: _openProfileEditor,
+                                      icon: const Icon(Icons.edit_outlined),
+                                      label: const Text(
+                                        "직접 입력",
+                                        style: TextStyle(
+                                            fontWeight: FontWeight.w800),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 14),
+                              Row(
+                                children: [
+                                  Container(
+                                    width: 54,
+                                    height: 54,
+                                    decoration: BoxDecoration(
+                                      color:
+                                          Colors.white.withValues(alpha: 0.18),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.person_outline_rounded,
+                                      color: Colors.white,
+                                      size: 28,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        if (hasMpuProfile)
+                                          Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                _mpuProfile.name.trim().isEmpty
+                                                    ? "프로필 사용자"
+                                                    : _mpuProfile.name.trim(),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 18,
+                                                  fontWeight: FontWeight.w900,
+                                                  letterSpacing: -0.2,
+                                                ),
+                                              ),
+                                              if (_mpuProfile.department
+                                                  .trim()
+                                                  .isNotEmpty) ...[
+                                                const SizedBox(height: 4),
+                                                Text(
+                                                  _mpuProfile.department.trim(),
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                  style: TextStyle(
+                                                    color: Colors.white
+                                                        .withValues(
+                                                            alpha: 0.78),
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.w700,
+                                                  ),
+                                                ),
+                                              ],
+                                            ],
+                                          )
+                                        else ...[
+                                          const _BlurredProfilePlaceholder(
+                                            width: 86,
+                                            height: 20,
+                                          ),
+                                          const SizedBox(height: 4),
+                                          const _BlurredProfilePlaceholder(
+                                            width: 112,
+                                            height: 16,
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 14),
+                              Column(
+                                children: [
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: _ProfileChip(
+                                          icon: Icons.badge_outlined,
+                                          label: "학년",
+                                          value: _mpuProfile.grade.trim(),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: _ProfileChip(
+                                          icon: Icons.school_outlined,
+                                          label: "학과",
+                                          value: _mpuProfile.department.trim(),
+                                        ),
                                       ),
                                     ],
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 14),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _ProfileChip(
-                                  icon: Icons.badge_outlined,
-                                  label: "학년",
-                                  value: _mpuProfile.grade.trim(),
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: _ProfileChip(
-                                  icon: Icons.stars_rounded,
-                                  label: "내 마일리지",
-                                  value: _mpuProfile.mileage.trim(),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Container(
-              color: pageBg,
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const _MyPageSectionHeader(
-                    title: "고정·즐겨찾기 공지",
-                    icon: Icons.bookmarks_outlined,
-                  ),
-                  _myPageCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        TabBar(
-                          indicatorColor: Theme.of(context).colorScheme.primary,
-                          indicatorWeight: 2,
-                          labelColor: Theme.of(context).colorScheme.primary,
-                          unselectedLabelColor: Theme.of(context)
-                              .colorScheme
-                              .onSurface
-                              .withValues(alpha: 0.45),
-                          labelStyle:
-                              const TextStyle(fontWeight: FontWeight.w800),
-                          unselectedLabelStyle:
-                              const TextStyle(fontWeight: FontWeight.w700),
-                          tabs: const [
-                            Tab(
-                              icon: Icon(Icons.push_pin_outlined),
-                              text: "고정 공지",
-                            ),
-                            Tab(
-                              icon: Icon(Icons.star_border_rounded),
-                              text: "즐겨찾기",
-                            ),
-                          ],
-                        ),
-                        Divider(
-                            height: 1,
-                            thickness: 1,
-                            color: _hairlineBorderColor()),
-                        SizedBox(
-                          height: 270,
-                          child: _loading
-                              ? const Center(
-                                  child: SizedBox(
-                                    width: 22,
-                                    height: 22,
-                                    child: CircularProgressIndicator(
-                                        strokeWidth: 2),
                                   ),
-                                )
-                              : TabBarView(
-                                  children: [
-                                    _NoticeList(
-                                      items: _pinned,
-                                      emptyText: "고정한 공지가 없습니다.",
-                                      leadingIcon: Icons.push_pin_rounded,
-                                      leadingColor: const Color(0xFFFFC107),
-                                      chipLabelFor: _chipLabel,
-                                      chipColorFor: _chipColor,
-                                      subtitleFor: _boardSubtitle,
-                                      formatDate: _formatDate,
-                                      onTap: _openNotice,
-                                      dividerColor: _hairlineBorderColor(),
-                                    ),
-                                    _NoticeList(
-                                      items: _favorites,
-                                      emptyText: "즐겨찾기한 공지가 없습니다.",
-                                      leadingIcon: Icons.star_rounded,
-                                      leadingColor: const Color(0xFFFFC107),
-                                      chipLabelFor: _chipLabel,
-                                      chipColorFor: _chipColor,
-                                      subtitleFor: _boardSubtitle,
-                                      formatDate: _formatDate,
-                                      onTap: _openNotice,
-                                      dividerColor: _hairlineBorderColor(),
-                                    ),
-                                  ],
-                                ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  const _MyPageSectionHeader(
-                    title: "계정 설정",
-                    icon: Icons.manage_accounts_outlined,
-                  ),
-                  _myPageCard(
-                    child: Column(
-                      children: [
-                        ListTile(
-                          leading: const Icon(Icons.mail_outline_rounded),
-                          title: const Text(
-                            "이메일 변경",
-                            style: TextStyle(fontWeight: FontWeight.w700),
-                          ),
-                          subtitle: Text(email),
-                          trailing: const Icon(Icons.chevron_right_rounded),
-                          onTap: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text("추후 연결 예정입니다.")),
-                            );
-                          },
-                        ),
-                        Divider(
-                            height: 1,
-                            thickness: 1,
-                            color: _hairlineBorderColor()),
-                        ListTile(
-                          leading: const Icon(Icons.lock_outline_rounded),
-                          title: const Text(
-                            "비밀번호 변경",
-                            style: TextStyle(fontWeight: FontWeight.w700),
-                          ),
-                          subtitle: Text("•" * 8),
-                          trailing: const Icon(Icons.chevron_right_rounded),
-                          onTap: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text("추후 연결 예정입니다.")),
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  _myPageCard(
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(12),
-                      onTap: _signOut,
-                      child: const SizedBox(
-                        height: 56,
-                        width: double.infinity,
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.logout_rounded,
-                                color: Color(0xFFD4183D)),
-                            SizedBox(width: 10),
-                            Text(
-                              "로그아웃",
-                              style: TextStyle(
-                                color: Color(0xFFD4183D),
-                                fontWeight: FontWeight.w900,
+                                  const SizedBox(height: 10),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: _ProfileChip(
+                                          icon: Icons.numbers_rounded,
+                                          label: "학번",
+                                          value: _mpuProfile.studentId.trim(),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: _ProfileChip(
+                                          icon: Icons.stars_rounded,
+                                          label: "내 마일리지",
+                                          value: _mpuProfile.mileage.trim(),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
                               ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  color: pageBg,
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const _MyPageSectionHeader(
+                        title: "고정·즐겨찾기 공지",
+                        icon: Icons.bookmarks_outlined,
+                      ),
+                      _myPageCard(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            TabBar(
+                              indicatorColor:
+                                  Theme.of(context).colorScheme.primary,
+                              indicatorWeight: 2,
+                              labelColor: Theme.of(context).colorScheme.primary,
+                              unselectedLabelColor: Theme.of(context)
+                                  .colorScheme
+                                  .onSurface
+                                  .withValues(alpha: 0.45),
+                              labelStyle:
+                                  const TextStyle(fontWeight: FontWeight.w800),
+                              unselectedLabelStyle:
+                                  const TextStyle(fontWeight: FontWeight.w700),
+                              tabs: const [
+                                Tab(
+                                  icon: Icon(Icons.push_pin_outlined),
+                                  text: "고정 공지",
+                                ),
+                                Tab(
+                                  icon: Icon(Icons.star_border_rounded),
+                                  text: "즐겨찾기",
+                                ),
+                              ],
+                            ),
+                            Divider(
+                                height: 1,
+                                thickness: 1,
+                                color: _hairlineBorderColor()),
+                            SizedBox(
+                              height: 270,
+                              child: _loading
+                                  ? const Center(
+                                      child: SizedBox(
+                                        width: 22,
+                                        height: 22,
+                                        child: CircularProgressIndicator(
+                                            strokeWidth: 2),
+                                      ),
+                                    )
+                                  : TabBarView(
+                                      children: [
+                                        _NoticeList(
+                                          items: _pinned,
+                                          emptyText: "고정한 공지가 없습니다.",
+                                          leadingIcon: Icons.push_pin_rounded,
+                                          leadingColor: const Color(0xFFFFC107),
+                                          chipLabelFor: _chipLabel,
+                                          chipColorFor: _chipColor,
+                                          subtitleFor: _boardSubtitle,
+                                          formatDate: _formatDate,
+                                          onTap: _openNotice,
+                                          dividerColor: _hairlineBorderColor(),
+                                        ),
+                                        _NoticeList(
+                                          items: _favorites,
+                                          emptyText: "즐겨찾기한 공지가 없습니다.",
+                                          leadingIcon: Icons.star_rounded,
+                                          leadingColor: const Color(0xFFFFC107),
+                                          chipLabelFor: _chipLabel,
+                                          chipColorFor: _chipColor,
+                                          subtitleFor: _boardSubtitle,
+                                          formatDate: _formatDate,
+                                          onTap: _openNotice,
+                                          dividerColor: _hairlineBorderColor(),
+                                        ),
+                                      ],
+                                    ),
                             ),
                           ],
                         ),
                       ),
-                    ),
+                      if (signedIn) ...[
+                        const SizedBox(height: 16),
+                        const _MyPageSectionHeader(
+                          title: "계정 설정",
+                          icon: Icons.manage_accounts_outlined,
+                        ),
+                        _myPageCard(
+                          child: Builder(
+                            builder: (BuildContext context) {
+                              final String profileSummary = [
+                                _mpuProfile.name.trim(),
+                                _mpuProfile.department.trim(),
+                                _mpuProfile.grade.trim(),
+                                _mpuProfile.studentId.trim(),
+                              ]
+                                  .where((String value) => value.isNotEmpty)
+                                  .join(" · ");
+                              return Column(
+                                children: [
+                                  ListTile(
+                                    titleAlignment:
+                                        ListTileTitleAlignment.center,
+                                    leading:
+                                        const Icon(Icons.mail_outline_rounded),
+                                    title: const Text(
+                                      "이메일 변경",
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.w700),
+                                    ),
+                                    subtitle: Text(email),
+                                    trailing:
+                                        const Icon(Icons.chevron_right_rounded),
+                                    onTap: () {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        const SnackBar(
+                                            content: Text("추후 연결 예정입니다.")),
+                                      );
+                                    },
+                                  ),
+                                  Divider(
+                                      height: 1,
+                                      thickness: 1,
+                                      color: _hairlineBorderColor()),
+                                  ListTile(
+                                    titleAlignment:
+                                        ListTileTitleAlignment.center,
+                                    leading: const Icon(
+                                        Icons.person_outline_rounded),
+                                    title: const Text(
+                                      "프로필 정보",
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.w700),
+                                    ),
+                                    subtitle: profileSummary.isEmpty
+                                        ? null
+                                        : Text(profileSummary),
+                                    trailing:
+                                        const Icon(Icons.chevron_right_rounded),
+                                    onTap: _openProfileEditor,
+                                  ),
+                                ],
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 16),
+                      _myPageCard(
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(12),
+                          onTap: signedIn ? _signOut : _openLogin,
+                          child: SizedBox(
+                            height: 56,
+                            width: double.infinity,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  signedIn
+                                      ? Icons.logout_rounded
+                                      : Icons.login_rounded,
+                                  color: signedIn
+                                      ? const Color(0xFFD4183D)
+                                      : AppColors.primary,
+                                ),
+                                const SizedBox(width: 10),
+                                Text(
+                                  signedIn ? "로그아웃" : "로그인",
+                                  style: TextStyle(
+                                    color: signedIn
+                                        ? const Color(0xFFD4183D)
+                                        : AppColors.primary,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }

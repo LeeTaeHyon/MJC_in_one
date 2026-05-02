@@ -77,19 +77,30 @@ class _NoticesTabScreenState extends State<NoticesTabScreen> {
     setState(() => _current = next);
   }
 
-  int get _currentIndex => NoticesSubTab.values.indexOf(_current);
+  Widget _buildCurrent() {
+    switch (_current) {
+      case NoticesSubTab.main:
+        return const MainWebsiteScreen(activeInNoticesTab: true);
+      case NoticesSubTab.ctl:
+        return const CtlScreen(activeInNoticesTab: true);
+      case NoticesSubTab.mpu:
+        return const MpuScreen(activeInNoticesTab: true);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return IndexedStack(
-      index: _currentIndex,
-      children: [
-        MainWebsiteScreen(
-          activeInNoticesTab: _current == NoticesSubTab.main,
-        ),
-        CtlScreen(activeInNoticesTab: _current == NoticesSubTab.ctl),
-        MpuScreen(activeInNoticesTab: _current == NoticesSubTab.mpu),
-      ],
+    // NOTE: `IndexedStack`는 각 화면 상태(스크롤/탭)를 유지합니다.
+    // 공지 플로팅 서브탭 전환 시마다 초기화되게 하려면, 선택된 화면만 빌드하고
+    // 전환 시 이전 화면이 dispose 되도록 구성합니다.
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 180),
+      switchInCurve: Curves.easeOutCubic,
+      switchOutCurve: Curves.easeInCubic,
+      child: KeyedSubtree(
+        key: ValueKey<NoticesSubTab>(_current),
+        child: _buildCurrent(),
+      ),
     );
   }
 }

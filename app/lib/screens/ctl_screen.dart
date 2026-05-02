@@ -4,15 +4,15 @@ import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
 import "package:flutter_animate/flutter_animate.dart";
 import "package:mio_notice/screens/common_webview_screen.dart";
-import "package:mio_notice/screens/settings_screen.dart";
 import "package:mio_notice/services/notice_filter.dart";
 import "package:mio_notice/services/notice_manager.dart";
 import "package:mio_notice/services/user_data_repository.dart";
 import "package:mio_notice/theme/app_theme.dart";
 import "package:mio_notice/perf_flags.dart";
 import "package:mio_notice/widgets/nested_scroll_refresh_indicator.dart";
-import "package:mio_notice/widgets/notice_filter_bar.dart";
 import "package:mio_notice/widgets/pin_favorite_buttons.dart";
+import "package:mio_notice/widgets/global_notice_search_sheet.dart";
+import "package:mio_notice/widgets/notice_filter_sheet.dart";
 import "package:mio_notice/widgets/scroll_to_top_scope.dart";
 import "package:shared_preferences/shared_preferences.dart";
 import "package:url_launcher/url_launcher.dart";
@@ -53,6 +53,8 @@ class _CtlScreenState extends State<CtlScreen> {
   ValueNotifier<int>? _activeTabNotifier;
   bool _registeredMainTab = false;
   int _entryTick = 0;
+  bool _openingGlobalSearch = false;
+  final ValueNotifier<int> _filterReloadTick = ValueNotifier<int>(0);
   late final NestedScrollFabScrollReporter _nestedFabReporter =
       NestedScrollFabScrollReporter(
     tabIndex: MainNavTabIndex.notices,
@@ -130,8 +132,91 @@ class _CtlScreenState extends State<CtlScreen> {
     );
   }
 
+  Future<void> _openNoticeFilterSheet() async {
+    await showNoticeFilterSheet(context);
+    if (mounted) {
+      _filterReloadTick.value++;
+    }
+  }
+
+  Future<void> _openGlobalSearch() async {
+    if (_openingGlobalSearch) return;
+    _openingGlobalSearch = true;
+    try {
+      final futures = <Future<List<Map<String, dynamic>>>>[
+        NoticeManager().getNotices(boardId: "ctl_programs"),
+        NoticeManager().getNotices(boardId: "ctl_notice"),
+      ];
+      final results = await Future.wait(futures);
+      if (!mounted) return;
+
+      final List<Map<String, dynamic>> items = [];
+      void addAll(List<Map<String, dynamic>> docs, String type) {
+        for (final d in docs) {
+          items.add({
+            ...d,
+            "_searchType": type,
+            "_searchSource": "CTL",
+          });
+        }
+      }
+
+      addAll(results[0], "학습 프로그램");
+      addAll(results[1], "센터 공지사항");
+
+      await showGlobalNoticeSearchSheet(
+        context,
+        items: items,
+        accentColor: const Color(0xFF2962FF),
+        openItem: (item) async {
+          final String url =
+              (item["link"] ?? item["url"] ?? "").toString().trim();
+          final String title = (item["title"] ?? "CTL").toString();
+          if (url.isEmpty) return;
+          if (kIsWeb) {
+            await launchUrl(Uri.parse(url), webOnlyWindowName: "_blank");
+          } else {
+            if (!context.mounted) return;
+            await Navigator.of(context).push<void>(
+              MaterialPageRoute<void>(
+                builder: (_) => CommonWebViewScreen(url: url, title: title),
+              ),
+            );
+          }
+        },
+        chipFor: (item) {
+          final String t = (item["_searchType"] ?? "").toString().trim();
+          return t.isEmpty ? "CTL" : t;
+        },
+        dateFor: (item) {
+          final String d =
+              (item["reg_date"] ?? item["date"] ?? "").toString().trim();
+          final String s = (item["status"] ?? "").toString().trim();
+          final String op = (item["op_period"] ?? "").toString().trim();
+          final List<String> parts = <String>[];
+          if (s.isNotEmpty) parts.add(s);
+          if (op.isNotEmpty) parts.add("진행: $op");
+          if (d.isNotEmpty) parts.add("신청: $d");
+          return parts.join(" · ");
+        },
+        searchTextFor: (item) {
+          final String title = (item["title"] ?? "").toString();
+          final String type = (item["_searchType"] ?? "").toString();
+          final String date =
+              (item["reg_date"] ?? item["date"] ?? "").toString();
+          final String status = (item["status"] ?? "").toString();
+          final String opPeriod = (item["op_period"] ?? "").toString();
+          return "$title $type $status $date $opPeriod";
+        },
+      );
+    } finally {
+      _openingGlobalSearch = false;
+    }
+  }
+
   @override
   void dispose() {
+    _filterReloadTick.dispose();
     _outerScrollController.removeListener(_nestedFabReporter.reportOuterScroll);
     if (_registeredMainTab) {
       _scrollToTopCoordinator?.unregisterMainTab(MainNavTabIndex.notices);
@@ -145,6 +230,9 @@ class _CtlScreenState extends State<CtlScreen> {
   @override
   Widget build(BuildContext context) {
     final double topPad = MediaQuery.paddingOf(context).top;
+    final double viewportH = MediaQuery.sizeOf(context).height;
+    // 작은 화면에서 히어로 여백이 과해지지 않도록 조절.
+    final double heroBody = (viewportH * 0.275).clamp(150.0, 225.0);
     final ColorScheme scheme = Theme.of(context).colorScheme;
     final MjcSurfaceTokens tokens =
         Theme.of(context).extension<MjcSurfaceTokens>()!;
@@ -163,6 +251,9 @@ class _CtlScreenState extends State<CtlScreen> {
                   pinned: true,
                   delegate: _CtlCollapsingHeaderDelegate(
                     topPadding: topPad,
+                    heroBody: heroBody,
+                    onOpenFilter: _openNoticeFilterSheet,
+                    onSearch: _openGlobalSearch,
                     tabBar: TabBar(
                       controller: DefaultTabController.of(context),
                       indicatorColor: tokens.sourceCtl,
@@ -189,8 +280,16 @@ class _CtlScreenState extends State<CtlScreen> {
               reporter: _nestedFabReporter,
               child: TabBarView(
                 children: [
-                  _CtlListTab(isProgram: true, entryTick: _entryTick),
-                  _CtlListTab(isProgram: false, entryTick: _entryTick),
+                  _CtlListTab(
+                    isProgram: true,
+                    entryTick: _entryTick,
+                    filterRevision: _filterReloadTick,
+                  ),
+                  _CtlListTab(
+                    isProgram: false,
+                    entryTick: _entryTick,
+                    filterRevision: _filterReloadTick,
+                  ),
                 ],
               ),
             ),
@@ -204,19 +303,24 @@ class _CtlScreenState extends State<CtlScreen> {
 class _CtlCollapsingHeaderDelegate extends SliverPersistentHeaderDelegate {
   _CtlCollapsingHeaderDelegate({
     required this.topPadding,
+    required this.heroBody,
     required this.tabBar,
+    required this.onOpenFilter,
+    required this.onSearch,
   });
 
   final double topPadding;
+  final double heroBody;
   final TabBar tabBar;
+  final VoidCallback onOpenFilter;
+  final VoidCallback onSearch;
 
-  static const double _heroBody = 200;
   static const double _collapsedBar = 52;
 
   double get _tabBarHeight => tabBar.preferredSize.height;
 
   @override
-  double get maxExtent => topPadding + _heroBody + _tabBarHeight;
+  double get maxExtent => topPadding + heroBody + _tabBarHeight;
 
   @override
   double get minExtent => topPadding + _collapsedBar + _tabBarHeight;
@@ -275,9 +379,9 @@ class _CtlCollapsingHeaderDelegate extends SliverPersistentHeaderDelegate {
                         Positioned(
                           left: titleLeft,
                           top: titleTop,
-                          right: 12,
+                          right: 104,
                           child: Text(
-                            "교수학습센터 (CTL)",
+                            "교수학습센터",
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
@@ -288,14 +392,35 @@ class _CtlCollapsingHeaderDelegate extends SliverPersistentHeaderDelegate {
                             ),
                           ),
                         ),
+                        Positioned(
+                          right: 4,
+                          top: 4,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                tooltip: "공지 목록 필터",
+                                onPressed: onOpenFilter,
+                                icon: const Icon(Icons.tune_rounded),
+                                color: Colors.white,
+                              ),
+                              IconButton(
+                                tooltip: "검색",
+                                onPressed: onSearch,
+                                icon: const Icon(Icons.search_rounded),
+                                color: Colors.white,
+                              ),
+                            ],
+                          ),
+                        ),
                         if (subtitleOpacity > 0.02)
                           Positioned(
                             left: 20,
                             top: titleTop + titleSize * 0.95 + 6,
-                            right: 16,
+                            right: 104,
                             child: IgnorePointer(
                               child: Text(
-                                "CTL의 다양한 학습 지원 프로그램을 만나보세요",
+                                "교수학습센터 프로그램을 확인합니다.",
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
@@ -330,14 +455,24 @@ class _CtlCollapsingHeaderDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   bool shouldRebuild(covariant _CtlCollapsingHeaderDelegate old) {
-    return topPadding != old.topPadding || tabBar != old.tabBar;
+    return topPadding != old.topPadding ||
+        heroBody != old.heroBody ||
+        tabBar != old.tabBar ||
+        onOpenFilter != old.onOpenFilter ||
+        onSearch != old.onSearch;
   }
 }
 
 class _CtlListTab extends StatefulWidget {
   final bool isProgram;
   final int entryTick;
-  const _CtlListTab({required this.isProgram, required this.entryTick});
+  final ValueListenable<int> filterRevision;
+
+  const _CtlListTab({
+    required this.isProgram,
+    required this.entryTick,
+    required this.filterRevision,
+  });
   @override
   State<_CtlListTab> createState() => _CtlListTabState();
 }
@@ -347,75 +482,26 @@ class _CtlListTabState extends State<_CtlListTab> {
   late Future<List<Map<String, dynamic>>> _ctlFuture;
   Set<String> _pinnedKeys = {};
   Set<String> _favoriteKeys = {};
+  Set<String> _readKeys = {};
   NoticeFilterState _noticeFilter = const NoticeFilterState();
   List<String> _noticeSharedKeywords = [];
-  String _noticeQuickQuery = "";
-  double _filterBarReveal = 0;
-  bool _refreshEnabledForDrag = false;
   bool get _lowRaster =>
       kPerfLowRasterMode || defaultTargetPlatform == TargetPlatform.android;
 
-  static const double _filterBarRevealDistance = 96;
-  bool get _filterBarFullyVisible => _filterBarReveal >= 1.0;
-
   bool _allowRefreshNotification(ScrollNotification n) {
-    if (!defaultScrollNotificationPredicate(n)) return false;
-    return _refreshEnabledForDrag ||
-        n is ScrollEndNotification ||
-        n is UserScrollNotification;
+    return defaultScrollNotificationPredicate(n);
   }
 
-  bool _handleScrollNotification(ScrollNotification n) {
-    if (n is ScrollStartNotification) {
-      _refreshEnabledForDrag = _filterBarFullyVisible;
-    } else if (n is OverscrollNotification) {
-      if (!_refreshEnabledForDrag &&
-          n.metrics.pixels <= n.metrics.minScrollExtent &&
-          n.overscroll < 0) {
-        final double next =
-            (_filterBarReveal + (-n.overscroll / _filterBarRevealDistance))
-                .clamp(0.0, 1.0);
-        if (next != _filterBarReveal) {
-          setState(() => _filterBarReveal = next);
-        }
-      }
-    } else if (n is ScrollUpdateNotification) {
-      if (n.metrics.pixels > 24 && _filterBarReveal > 0) {
-        setState(() => _filterBarReveal = 0);
-      }
-    } else if (n is ScrollEndNotification) {
-      if (_filterBarReveal > 0 && _filterBarReveal < 1) {
-        setState(() => _filterBarReveal = _filterBarReveal >= 0.35 ? 1 : 0);
-      }
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _refreshEnabledForDrag = false;
-      });
-    }
-    return false;
-  }
-
-  Widget _revealedFilterBar(Widget filterBar) {
-    return TweenAnimationBuilder<double>(
-      tween: Tween<double>(end: _filterBarReveal),
-      duration: const Duration(milliseconds: 90),
-      curve: Curves.easeOutCubic,
-      child: filterBar,
-      builder: (context, v, child) {
-        return ClipRect(
-          child: Align(
-            alignment: Alignment.topCenter,
-            heightFactor: v,
-            child: child,
-          ),
-        );
-      },
-    );
+  void _onFilterRevision() {
+    _loadNoticeFilter();
   }
 
   @override
   void initState() {
     super.initState();
+    widget.filterRevision.addListener(_onFilterRevision);
     _loadPinsAndFavorites();
+    _loadReadHistory();
     _loadNoticeFilter();
     _ctlFuture = NoticeManager()
         .getNotices(boardId: widget.isProgram ? "ctl_programs" : "ctl_notice");
@@ -424,9 +510,19 @@ class _CtlListTabState extends State<_CtlListTab> {
   @override
   void didUpdateWidget(covariant _CtlListTab oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.filterRevision != widget.filterRevision) {
+      oldWidget.filterRevision.removeListener(_onFilterRevision);
+      widget.filterRevision.addListener(_onFilterRevision);
+    }
     if (widget.entryTick != oldWidget.entryTick) {
       _entrance.resetForEntry();
     }
+  }
+
+  @override
+  void dispose() {
+    widget.filterRevision.removeListener(_onFilterRevision);
+    super.dispose();
   }
 
   Future<void> _loadNoticeFilter() async {
@@ -434,18 +530,9 @@ class _CtlListTabState extends State<_CtlListTab> {
     final List<String> keywords = await loadSharedNoticeKeywords();
     if (!mounted) return;
     setState(() {
-      _noticeFilter = filter.copyWith(quickQuery: _noticeQuickQuery);
+      _noticeFilter = filter.copyWith(quickQuery: "");
       _noticeSharedKeywords = keywords;
     });
-  }
-
-  Future<void> _openNoticeFilterSettings() async {
-    await Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(
-        builder: (context) => const SettingsScreen(),
-      ),
-    );
-    if (mounted) await _loadNoticeFilter();
   }
 
   String _boardId() => widget.isProgram ? "ctl_programs" : "ctl_notice";
@@ -456,6 +543,24 @@ class _CtlListTabState extends State<_CtlListTab> {
     final String date =
         (data["reg_date"] ?? data["date"] ?? "").toString().trim();
     return "$url|$title|$date";
+  }
+
+  Future<void> _loadReadHistory() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    final String b = _boardId();
+    setState(() {
+      _readKeys = (prefs.getStringList("read_notices_$b") ?? []).toSet();
+    });
+  }
+
+  Future<void> _markAsRead(String key) async {
+    if (_readKeys.contains(key)) return;
+    final prefs = await SharedPreferences.getInstance();
+    final String b = _boardId();
+    final Set<String> next = {..._readKeys, key};
+    if (mounted) setState(() => _readKeys = next);
+    await prefs.setStringList("read_notices_$b", next.toList());
   }
 
   Future<void> _loadPinsAndFavorites() async {
@@ -526,9 +631,7 @@ class _CtlListTabState extends State<_CtlListTab> {
       child: FutureBuilder<List<Map<String, dynamic>>>(
         future: _ctlFuture,
         builder: (context, snapshot) {
-          return NotificationListener<ScrollNotification>(
-            onNotification: _handleScrollNotification,
-            child: CustomScrollView(
+          return CustomScrollView(
               primary: true,
               physics: const AlwaysScrollableScrollPhysics(),
               slivers: [
@@ -545,8 +648,7 @@ class _CtlListTabState extends State<_CtlListTab> {
                 else
                   ..._buildCtlSlivers(context, snapshot.data ?? []),
               ],
-            ),
-          );
+            );
         },
       ),
     );
@@ -556,29 +658,16 @@ class _CtlListTabState extends State<_CtlListTab> {
     BuildContext context,
     List<Map<String, dynamic>> items,
   ) {
-    final NoticeFilterState filter =
-        _noticeFilter.copyWith(quickQuery: _noticeQuickQuery);
+    final NoticeFilterState filter = _noticeFilter.copyWith(quickQuery: "");
     final List<Map<String, dynamic>> filteredItems = filter.apply(
       items,
       sharedKeywords: _noticeSharedKeywords,
       fallbackSource: "CTL",
       fallbackType: widget.isProgram ? "CTL 프로그램" : "학습공지",
     );
-    final Widget filterBar = NoticeFilterBar(
-      filter: filter,
-      keywordCount: _noticeSharedKeywords.length,
-      totalCount: items.length,
-      filteredCount: filteredItems.length,
-      accentColor: const Color(0xFF2962FF),
-      onQueryChanged: (String value) {
-        setState(() => _noticeQuickQuery = value);
-      },
-      onOpenSettings: _openNoticeFilterSettings,
-    );
 
     if (filteredItems.isEmpty) {
       return [
-        SliverToBoxAdapter(child: _revealedFilterBar(filterBar)),
         SliverFillRemaining(
           hasScrollBody: false,
           child: Column(
@@ -602,7 +691,6 @@ class _CtlListTabState extends State<_CtlListTab> {
     ];
 
     return [
-      SliverToBoxAdapter(child: _revealedFilterBar(filterBar)),
       SliverPadding(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         sliver: SliverList(
@@ -655,6 +743,8 @@ class _CtlListTabState extends State<_CtlListTab> {
     final MjcSurfaceTokens tokens =
         Theme.of(context).extension<MjcSurfaceTokens>()!;
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color readTitlePurple =
+        isDark ? const Color(0xFFB39DDB) : const Color(0xFF7E57C2);
     final Color accent = tokens.sourceCtl;
     final Color chipBackground = accent.withValues(alpha: isDark ? 0.18 : 0.12);
     final Color secondaryText = scheme.onSurfaceVariant;
@@ -663,6 +753,10 @@ class _CtlListTabState extends State<_CtlListTab> {
     final String opPeriod = data["op_period"] ?? "";
     final String url = data["link"] ?? "";
     final String status = data["status"] ?? "진행중";
+    final String readKey = _itemKey(data);
+    final bool isRead = _readKeys.contains(readKey);
+    final Color stripColor = isRead ? scheme.onSurfaceVariant : accent;
+    final Color titleColor = isRead ? readTitlePurple : scheme.onSurface;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -678,6 +772,8 @@ class _CtlListTabState extends State<_CtlListTab> {
           borderRadius: BorderRadius.circular(12),
           onTap: () async {
             if (url.isEmpty) return;
+            await _markAsRead(readKey);
+            if (!context.mounted) return;
             if (kIsWeb) {
               await launchUrl(Uri.parse(url), webOnlyWindowName: "_blank");
             } else {
@@ -698,7 +794,7 @@ class _CtlListTabState extends State<_CtlListTab> {
                       child: Container(
                         width: 4,
                         decoration: BoxDecoration(
-                          color: accent,
+                          color: stripColor,
                           borderRadius: const BorderRadius.only(
                             topLeft: Radius.circular(12),
                             bottomLeft: Radius.circular(12),
@@ -749,7 +845,7 @@ class _CtlListTabState extends State<_CtlListTab> {
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
-                              color: scheme.onSurface,
+                              color: titleColor,
                               height: 1.4,
                             ),
                           ),
@@ -811,7 +907,7 @@ class _CtlListTabState extends State<_CtlListTab> {
                         child: Container(
                           width: 4,
                           decoration: BoxDecoration(
-                            color: accent,
+                            color: stripColor,
                             borderRadius: const BorderRadius.only(
                               topLeft: Radius.circular(12),
                               bottomLeft: Radius.circular(12),
@@ -862,7 +958,7 @@ class _CtlListTabState extends State<_CtlListTab> {
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
-                                color: scheme.onSurface,
+                                color: titleColor,
                                 height: 1.4,
                               ),
                             ),

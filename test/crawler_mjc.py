@@ -7,6 +7,8 @@ from firebase_admin import credentials, firestore, messaging
 import os
 import json
 
+from notice_ai_tags import enrich_post_dict
+
 # ── Firebase 초기화 ──────────────────────────────────────────
 # GitHub Actions에서는 환경변수로 주입
 # 로컬에서는 serviceAccountKey.json 파일 사용
@@ -199,6 +201,7 @@ def save_to_firestore(db, board: dict, posts: list[dict]):
             continue
 
         post["is_new"] = True
+        enrich_post_dict(post, board["id"])
         post_col.document(post["data_idx"]).set(post)
         
         # 기존 데이터가 존재하던 상태(latest_id 존재)에서 등록된 진짜 새 글일 때만 알람 발송 (초기화 폭탄 방지)
@@ -254,6 +257,7 @@ def full_crawl(db, board: dict, max_pages: int = 5):
     if all_posts:
         batch = db.batch()
         for post in all_posts:
+            enrich_post_dict(post, board["id"])
             batch.set(post_col.document(post["data_idx"]), post)
         batch.commit()
 

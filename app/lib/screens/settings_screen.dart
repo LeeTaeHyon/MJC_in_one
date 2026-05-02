@@ -1,4 +1,5 @@
 import "package:flutter/material.dart";
+import "package:mio_notice/home_dashboard_prefs.dart";
 import "package:mio_notice/notification_sources.dart";
 import "package:mio_notice/screens/common_webview_screen.dart";
 import "package:mio_notice/screens/open_source_licenses_screen.dart";
@@ -23,12 +24,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
   static const Color _pageBackground = Color(0xFFF5F7F9);
   static const Color _cardBorder = Color(0xFFEDEDED);
   static const String _privacyPolicyUrl = "https://mjcinone.web.app/privacy";
+  static const Duration _settingsNoticePanelDuration =
+      Duration(milliseconds: 400);
 
   bool _allNoticesEnabled = true;
   bool _keywordNoticesEnabled = true;
   List<String> _keywords = [];
   List<String> _enabledSources = List<String>.from(kNotificationSourceIds);
-  NoticeFilterState _noticeFilter = const NoticeFilterState();
+  Set<String> _homeDashboardEnabledSections =
+      defaultHomeDashboardEnabledSections().toSet();
+  List<String> _homeDashboardSectionOrder = defaultHomeDashboardSectionOrder();
   final ScrollController _scrollController = ScrollController();
   ScrollToTopCoordinator? _scrollRouteCoordinator;
   bool _registeredScrollRoute = false;
@@ -95,31 +100,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _allNoticesEnabled = prefs.getBool("allNoticesEnabled") ?? true;
       _keywordNoticesEnabled = prefs.getBool("keywordNoticesEnabled") ?? true;
       _keywords = prefs.getStringList("keywords") ?? [];
-      _noticeFilter = NoticeFilterState(
-        enabled: prefs.getBool(kNoticeFilterEnabledPrefKey) ?? false,
-        requireKeywordHit:
-            prefs.getBool(kNoticeFilterRequireKeywordPrefKey) ?? false,
-        sources: (prefs.getStringList(kNoticeFilterSourcesPrefKey) ??
-                kNoticeFilterSourceOptions)
-            .where(kNoticeFilterSourceOptions.contains)
-            .toList(),
-        types: (prefs.getStringList(kNoticeFilterTypesPrefKey) ??
-                kNoticeFilterTypeOptions)
-            .where(kNoticeFilterTypeOptions.contains)
-            .toList(),
-        excludes: prefs.getStringList(kNoticeFilterExcludesPrefKey) ?? const [],
-        includes: prefs.getStringList(kNoticeFilterIncludesPrefKey) ?? const [],
-      );
-      if (_noticeFilter.sources.isEmpty || _noticeFilter.types.isEmpty) {
-        _noticeFilter = _noticeFilter.copyWith(
-          sources: _noticeFilter.sources.isEmpty
-              ? kNoticeFilterSourceOptions
-              : _noticeFilter.sources,
-          types: _noticeFilter.types.isEmpty
-              ? kNoticeFilterTypeOptions
-              : _noticeFilter.types,
-        );
-      }
       final stored = prefs.getStringList(kNotificationSourcesPrefKey);
       if (stored == null || stored.isEmpty) {
         _enabledSources = defaultNotificationSources();
@@ -128,6 +108,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
             kNotificationSourceIds.where((id) => stored.contains(id)).toList();
         if (_enabledSources.isEmpty) {
           _enabledSources = defaultNotificationSources();
+        }
+      }
+
+      _homeDashboardEnabledSections = (prefs
+                  .getStringList(kHomeDashboardEnabledSectionsPrefKey) ??
+              defaultHomeDashboardEnabledSections())
+          .toSet();
+
+      _homeDashboardSectionOrder =
+          (prefs.getStringList(kHomeDashboardSectionOrderPrefKey) ??
+                  defaultHomeDashboardSectionOrder())
+              .where(allowedHomeDashboardSectionIds().contains)
+              .toList();
+      if (_homeDashboardSectionOrder.isEmpty) {
+        _homeDashboardSectionOrder = defaultHomeDashboardSectionOrder();
+      } else {
+        // 누락된 섹션은 뒤에 붙입니다.
+        final Set<String> seen = _homeDashboardSectionOrder.toSet();
+        for (final s in HomeDashboardSection.values) {
+          if (!seen.contains(s.id)) _homeDashboardSectionOrder.add(s.id);
         }
       }
     });
@@ -249,155 +249,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await UserDataRepository.instance.updateSources(ordered);
     if (!mounted) return;
     setState(() => _enabledSources = ordered);
-  }
-
-  /// 저장 전에 출처·유형이 비지 않게 보정합니다(깨진 저장값 복구). 칩은 `_toggleNoticeFilter*`에서 최소 1개를 유지합니다.
-  Future<void> _setNoticeFilter(NoticeFilterState next) async {
-    final NoticeFilterState safeNext = next.copyWith(
-      sources: next.sources.isEmpty ? kNoticeFilterSourceOptions : next.sources,
-      types: next.types.isEmpty ? kNoticeFilterTypeOptions : next.types,
-    );
-    await safeNext.save();
-    await UserDataRepository.instance.updateNoticeFilter(safeNext);
-    if (!mounted) return;
-    setState(() => _noticeFilter = safeNext);
-  }
-
-  Future<void> _toggleNoticeFilterSource(String source, bool selected) async {
-    final Set<String> next = Set<String>.from(_noticeFilter.sources);
-    if (selected) {
-      next.add(source);
-    } else {
-      next.remove(source);
-      if (next.isEmpty) {
-        if (mounted) {
-          SnackBarUtils.showUnique(
-            context,
-            key: "settings_filter_sources_min_one",
-            snackBar: SnackBar(
-              behavior: SnackBarBehavior.floating,
-              margin: _snackBarMargin(context),
-              content: const Text("화면 필터 출처는 최소 하나 선택해야 해요."),
-            ),
-          );
-        }
-        return;
-      }
-    }
-    await _setNoticeFilter(_noticeFilter.copyWith(sources: next.toList()));
-  }
-
-  Future<void> _toggleNoticeFilterType(String type, bool selected) async {
-    final Set<String> next = Set<String>.from(_noticeFilter.types);
-    if (selected) {
-      next.add(type);
-    } else {
-      next.remove(type);
-      if (next.isEmpty) {
-        if (mounted) {
-          SnackBarUtils.showUnique(
-            context,
-            key: "settings_filter_types_min_one",
-            snackBar: SnackBar(
-              behavior: SnackBarBehavior.floating,
-              margin: _snackBarMargin(context),
-              content: const Text("화면 필터 유형은 최소 하나 선택해야 해요."),
-            ),
-          );
-        }
-        return;
-      }
-    }
-    await _setNoticeFilter(_noticeFilter.copyWith(types: next.toList()));
-  }
-
-  void _showIncludeKeywordDialog() {
-    final TextEditingController controller = TextEditingController();
-    showDialog<void>(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              title: const Text("보고 싶은 키워드"),
-              content: SizedBox(
-                width: double.maxFinite,
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        "등록한 키워드 중 하나라도 제목·본문 등에 포함된 공지만 목록에 보입니다. 비워 두면 이 조건은 쓰지 않아요.",
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      TextField(
-                        controller: controller,
-                        decoration: InputDecoration(
-                          hintText: "예: 장학, 수강신청",
-                          suffixIcon: IconButton(
-                            icon: const Icon(Icons.add),
-                            onPressed: () async {
-                              final String text = controller.text.trim();
-                              if (text.isEmpty ||
-                                  _noticeFilter.includes.contains(text)) {
-                                return;
-                              }
-                              final List<String> next = [
-                                ..._noticeFilter.includes,
-                                text,
-                              ];
-                              await _setNoticeFilter(
-                                _noticeFilter.copyWith(includes: next),
-                              );
-                              if (!mounted) return;
-                              controller.clear();
-                              setDialogState(() {});
-                            },
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: _noticeFilter.includes.map((kw) {
-                            return Chip(
-                              label: Text(kw),
-                              onDeleted: () async {
-                                final List<String> next = _noticeFilter.includes
-                                    .where((item) => item != kw)
-                                    .toList();
-                                await _setNoticeFilter(
-                                  _noticeFilter.copyWith(includes: next),
-                                );
-                                if (!mounted) return;
-                                setDialogState(() {});
-                              },
-                            );
-                          }).toList(),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text("닫기"),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    ).whenComplete(controller.dispose);
   }
 
   /// 키워드 관리 다이얼로그
@@ -652,7 +503,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     style: TextStyle(color: Colors.white),
                     children: [
                   TextSpan(
-                      text: "메일 앱을 열 수 없어요. ",
+                      text: "메일 앱을 열 수 없습니다. ",
                       style: TextStyle(fontWeight: FontWeight.w700)),
                   TextSpan(
                       text: "메일 앱 설치/계정 설정 후 다시 시도해 주세요.",
@@ -719,114 +570,230 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildNoticeScreenFilterCard() {
-    final bool enabled = _noticeFilter.enabled;
-    final bool requireKeyword = _noticeFilter.requireKeywordHit;
-    final String includeSummary = _noticeFilter.includes.isEmpty
-        ? "등록된 보기 키워드 없음(출처·유형만 적용)"
-        : "${_noticeFilter.includes.length}개 키워드가 포함된 공지만 표시";
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const _SectionHeader(
-          title: "공지 화면 필터",
-          icon: Icons.tune_rounded,
-        ),
-        _settingsCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SwitchListTile(
-                title: const Text("공지 화면 필터 사용"),
-                subtitle: Text(
-                  enabled
-                      ? "홈·공지·CTL·MPU 목록에 필터를 적용 중입니다."
-                      : "끄면 목록은 필터 없이 표시됩니다. 켜면 아래에서 세부 조건을 설정할 수 있어요.",
-                ),
-                value: enabled,
-                onChanged: (bool value) =>
-                    _setNoticeFilter(_noticeFilter.copyWith(enabled: value)),
+  Future<void> _setHomeDashboardSectionEnabled(
+    HomeDashboardSection section,
+    bool enabled,
+  ) async {
+    final Set<String> next = {..._homeDashboardEnabledSections};
+    if (enabled) {
+      next.add(section.id);
+    } else {
+      next.remove(section.id);
+      if (next.isEmpty) {
+        if (mounted) {
+          SnackBarUtils.showUnique(
+            context,
+            key: "settings_home_dashboard_sections_min_one",
+            snackBar: SnackBar(
+              behavior: SnackBarBehavior.floating,
+              margin: _snackBarMargin(context),
+              content: const Text("홈 대시보드 요소는 최소 하나 선택해야 합니다."),
+            ),
+          );
+        }
+        return;
+      }
+    }
+
+    await saveHomeDashboardEnabledSections(next);
+    await UserDataRepository.instance.pushSnapshotToCloud();
+    if (!mounted) return;
+    setState(() => _homeDashboardEnabledSections = next);
+  }
+
+  Future<void> _setHomeDashboardSectionOrder(List<String> order) async {
+    await saveHomeDashboardSectionOrder(order);
+    await UserDataRepository.instance.pushSnapshotToCloud();
+    if (!mounted) return;
+    setState(() => _homeDashboardSectionOrder = order);
+  }
+
+  Future<void> _openHomeDashboardOrderEditor() async {
+    final List<String> base = List<String>.from(_homeDashboardSectionOrder);
+    final List<String>? result = await showModalBottomSheet<List<String>>(
+      context: context,
+      useSafeArea: true,
+      isScrollControlled: true,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setSheetState) {
+            return Padding(
+              padding: EdgeInsets.fromLTRB(
+                16,
+                12,
+                16,
+                MediaQuery.paddingOf(ctx).bottom + 12,
               ),
-              AnimatedCrossFade(
-                duration: const Duration(milliseconds: 220),
-                crossFadeState: enabled
-                    ? CrossFadeState.showSecond
-                    : CrossFadeState.showFirst,
-                firstChild: const SizedBox(width: double.infinity),
-                secondChild: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _hairlineDivider(),
-                    SwitchListTile(
-                      title: const Text("키워드 알람과 동일한 키워드만 표시"),
-                      subtitle: Text(
-                        _keywords.isEmpty
-                            ? "키워드가 없으면 필터 사용 시 목록이 비어 보일 수 있습니다."
-                            : "${_keywords.length}개 키워드를 화면 필터에도 사용",
-                      ),
-                      value: requireKeyword,
-                      onChanged: (bool value) => _setNoticeFilter(
-                        _noticeFilter.copyWith(requireKeywordHit: value),
-                      ),
-                    ),
-                    _hairlineDivider(),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
-                      child: Text(
-                        "출처",
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.primary,
-                          fontWeight: FontWeight.w700,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          "홈 대시보드 순서 편집",
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w900,
+                          ),
                         ),
                       ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                      child: _buildFilterChipGroup(
-                        options: kNoticeFilterSourceOptions,
-                        selected: _noticeFilter.sources,
-                        onEnabled: (value) =>
-                            _toggleNoticeFilterSource(value, true),
-                        onDisabled: (value) =>
-                            _toggleNoticeFilterSource(value, false),
+                      IconButton(
+                        tooltip: "닫기",
+                        onPressed: () => Navigator.of(ctx).pop(null),
+                        icon: const Icon(Icons.close_rounded),
                       ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    "드래그해서 순서를 바꿀 수 있어요. (꺼진 항목도 순서는 유지됩니다)",
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(ctx).colorScheme.onSurfaceVariant,
                     ),
-                    _hairlineDivider(),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
-                      child: Text(
-                        "유형",
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.primary,
-                          fontWeight: FontWeight.w700,
+                  ),
+                  const SizedBox(height: 12),
+                  Flexible(
+                    child: ReorderableListView.builder(
+                      shrinkWrap: true,
+                      buildDefaultDragHandles: false,
+                      itemCount: base.length,
+                      onReorder: (oldIndex, newIndex) {
+                        setSheetState(() {
+                          if (newIndex > oldIndex) newIndex -= 1;
+                          final String item = base.removeAt(oldIndex);
+                          base.insert(newIndex, item);
+                        });
+                      },
+                      itemBuilder: (ctx, index) {
+                        final String id = base[index];
+                        final HomeDashboardSection section =
+                            HomeDashboardSection.values.firstWhere(
+                          (s) => s.id == id,
+                          orElse: () => HomeDashboardSection.quickButtons,
+                        );
+                        final bool on =
+                            _homeDashboardEnabledSections.contains(section.id);
+                        return ListTile(
+                          key: ValueKey<String>("home_dash_order_$id"),
+                          leading: ReorderableDragStartListener(
+                            index: index,
+                            child: Icon(
+                              Icons.drag_handle_rounded,
+                              color: Theme.of(ctx)
+                                  .colorScheme
+                                  .onSurface
+                                  .withValues(alpha: 0.45),
+                            ),
+                          ),
+                          title: Opacity(
+                            opacity: on ? 1 : 0.55,
+                            child: Text(
+                              section.label,
+                              style: const TextStyle(fontWeight: FontWeight.w700),
+                            ),
+                          ),
+                          subtitle: on ? null : const Text("현재 숨김"),
+                          trailing: Icon(
+                            on
+                                ? Icons.visibility_outlined
+                                : Icons.visibility_off_outlined,
+                            color: Theme.of(ctx)
+                                .colorScheme
+                                .onSurfaceVariant
+                                .withValues(alpha: on ? 0.75 : 0.55),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.of(ctx).pop(null),
+                          child: const Text("취소"),
                         ),
                       ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                      child: _buildFilterChipGroup(
-                        options: kNoticeFilterTypeOptions,
-                        selected: _noticeFilter.types,
-                        onEnabled: (value) =>
-                            _toggleNoticeFilterType(value, true),
-                        onDisabled: (value) =>
-                            _toggleNoticeFilterType(value, false),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: FilledButton(
+                          onPressed: () => Navigator.of(ctx).pop(base),
+                          child: const Text("저장"),
+                        ),
                       ),
-                    ),
-                    _hairlineDivider(),
-                    ListTile(
-                      title: const Text("보고 싶은 키워드 추가/삭제"),
-                      subtitle: Text(includeSummary),
-                      trailing: const Icon(Icons.chevron_right_rounded),
-                      onTap: _showIncludeKeywordDialog,
-                    ),
-                  ],
+                    ],
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    if (result == null) return;
+    await _setHomeDashboardSectionOrder(result);
+  }
+
+  Widget _buildHomeDashboardSectionVisibilityCard() {
+    final Color subtitleColor = Theme.of(context)
+        .colorScheme
+        .onSurfaceVariant
+        .withValues(alpha: 0.92);
+    return _settingsCard(
+      child: Column(
+        children: [
+          ListTile(
+            title: const Text(
+              "홈에 표시할 요소 선택",
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 15,
+                height: 1.25,
+              ),
+            ),
+            subtitle: Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                "홈 화면에 표시할 카드/섹션을 선택할 수 있습니다.",
+                style: TextStyle(
+                  fontSize: 13,
+                  height: 1.35,
+                  fontWeight: FontWeight.w400,
+                  color: subtitleColor,
                 ),
               ),
-            ],
+            ),
+            trailing: OutlinedButton.icon(
+              onPressed: _openHomeDashboardOrderEditor,
+              icon: const Icon(Icons.swap_vert_rounded),
+              label: const Text("순서 편집"),
+              style: Theme.of(context).brightness == Brightness.dark
+                  ? OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                    )
+                  : null,
+            ),
           ),
-        ),
-      ],
+          _hairlineDivider(),
+          ...HomeDashboardSection.values.expand((section) {
+            final bool on = _homeDashboardEnabledSections.contains(section.id);
+            return [
+              SwitchListTile(
+                title: Text(section.label),
+                value: on,
+                onChanged: (value) =>
+                    _setHomeDashboardSectionEnabled(section, value),
+              ),
+              if (section != HomeDashboardSection.values.last)
+                _hairlineDivider(),
+            ];
+          }),
+        ],
+      ),
     );
   }
 
@@ -864,91 +831,121 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   title: const Text("전체 알람"),
                   subtitle: allNotices
                       ? const Text("모든 공지사항 새글 알림 받기")
-                      : const Text("꺼 두면 아래 알람·출처 설정이 접혀 있어요."),
+                      : const Text("꺼 두면 아래 알람·출처 설정이 접혀 있습니다."),
                   value: allNotices,
                   onChanged: _toggleAllNotices,
                 ),
-                if (allNotices) ...[
-                  _hairlineDivider(),
-                  SwitchListTile(
-                    title: const Text("키워드 알람"),
-                    subtitle: const Text("등록한 키워드가 포함된 공지사항만"),
-                    value: keywordNotices,
-                    onChanged: _toggleKeywordNotices,
-                  ),
-                  _hairlineDivider(),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
-                    child: Text(
-                      "알림 받을 출처",
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.primary,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
-                    child: Text(
-                      "푸시 알림을 받을 사이트를 고릅니다. 최소 한 곳은 선택해야 해요.",
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Theme.of(context)
-                            .colorScheme
-                            .onSurface
-                            .withValues(alpha: 0.65),
-                      ),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
-                    child: _buildFilterChipGroup(
-                      options: kNoticeFilterSourceOptions,
-                      selected: _selectedNotificationSourceChipLabels(),
-                      onEnabled: (value) =>
-                          _toggleNotificationSourceChip(value, true),
-                      onDisabled: (value) =>
-                          _toggleNotificationSourceChip(value, false),
-                    ),
-                  ),
-                  if (notificationsAllOff) ...[
-                    _hairlineDivider(),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.notifications_off_outlined,
-                            color: Theme.of(context)
-                                .colorScheme
-                                .onSurface
-                                .withValues(alpha: 0.72),
-                            size: 18,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              "알람이 꺼집니다.",
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onSurface
-                                    .withValues(alpha: 0.78),
-                                fontWeight: FontWeight.w600,
+                AnimatedSize(
+                  duration: _settingsNoticePanelDuration,
+                  curve: Curves.easeOutCubic,
+                  alignment: Alignment.topCenter,
+                  clipBehavior: Clip.hardEdge,
+                  child: allNotices
+                      ? Column(
+                          key: const ValueKey<String>(
+                              "settings_all_notices_expanded"),
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _hairlineDivider(),
+                            SwitchListTile(
+                              title: const Text("키워드 알람"),
+                              subtitle: const Text(
+                                  "등록한 키워드가 포함된 공지사항만"),
+                              value: keywordNotices,
+                              onChanged: _toggleKeywordNotices,
+                            ),
+                            _hairlineDivider(),
+                            Padding(
+                              padding:
+                                  const EdgeInsets.fromLTRB(16, 14, 16, 6),
+                              child: Text(
+                                "알림 받을 출처",
+                                style: TextStyle(
+                                  color: Theme.of(context).brightness ==
+                                          Brightness.dark
+                                      ? Colors.white
+                                      : Theme.of(context)
+                                          .colorScheme
+                                          .primary,
+                                  fontWeight: FontWeight.w700,
+                                ),
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ],
+                            Padding(
+                              padding:
+                                  const EdgeInsets.fromLTRB(16, 0, 16, 6),
+                              child: Text(
+                                "푸시 알림을 받을 사이트를 고릅니다. 최소 한 곳은 선택해야 합니다.",
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurface
+                                      .withValues(alpha: 0.65),
+                                ),
+                              ),
+                            ),
+                            Padding(
+                              padding:
+                                  const EdgeInsets.fromLTRB(16, 0, 16, 14),
+                              child: _buildFilterChipGroup(
+                                options: kNoticeFilterSourceOptions,
+                                selected:
+                                    _selectedNotificationSourceChipLabels(),
+                                onEnabled: (value) =>
+                                    _toggleNotificationSourceChip(
+                                        value, true),
+                                onDisabled: (value) =>
+                                    _toggleNotificationSourceChip(
+                                        value, false),
+                              ),
+                            ),
+                            if (notificationsAllOff) ...[
+                              _hairlineDivider(),
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                    16, 12, 16, 14),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.notifications_off_outlined,
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurface
+                                          .withValues(alpha: 0.72),
+                                      size: 18,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        "알람이 꺼집니다.",
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .onSurface
+                                              .withValues(alpha: 0.78),
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ],
+                        )
+                      : const SizedBox(
+                          width: double.infinity,
+                          height: 0,
+                        ),
+                ),
               ],
             ),
           ),
           AnimatedCrossFade(
-            duration: const Duration(milliseconds: 220),
+            duration: _settingsNoticePanelDuration,
             crossFadeState: (allNotices && keywordNotices)
                 ? CrossFadeState.showSecond
                 : CrossFadeState.showFirst,
@@ -989,12 +986,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          _buildNoticeScreenFilterCard(),
-          const SizedBox(height: 16),
           const _SectionHeader(
             title: "화면",
             icon: Icons.palette_outlined,
           ),
+          const SizedBox(height: 10),
+          _buildHomeDashboardSectionVisibilityCard(),
+          const SizedBox(height: 16),
           _settingsCard(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
@@ -1070,7 +1068,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 _hairlineDivider(),
                 ListTile(
                   title: const Text("개인정보처리방침"),
-                  subtitle: const Text("수집 항목과 이용 목적을 확인할 수 있어요."),
+                  subtitle: const Text("수집 항목과 이용 목적을 확인할 수 있습니다."),
                   trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: () {
                     Navigator.of(context).push<void>(
@@ -1100,25 +1098,51 @@ class _SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color accent = Theme.of(context).colorScheme.primary;
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme cs = theme.colorScheme;
+    final bool dark = theme.brightness == Brightness.dark;
+
+    final Color accent =
+        dark ? Colors.white : cs.primary;
+    final Color chipFill = dark
+        ? cs.onSurface.withValues(alpha: 0.09)
+        : cs.primary.withValues(alpha: 0.11);
+    final Color chipBorder = dark
+        ? Colors.white.withValues(alpha: 0.08)
+        : cs.outlineVariant.withValues(alpha: 0.45);
+
     return Padding(
-      padding: const EdgeInsets.fromLTRB(2, 4, 2, 8),
-      child: Row(
-        children: [
-          if (icon != null) ...[
-            Icon(icon, size: 20, color: accent),
-            const SizedBox(width: 8),
-          ],
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w800,
-              color: accent,
-              letterSpacing: -0.2,
+      padding: const EdgeInsets.fromLTRB(0, 4, 0, 8),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: chipFill,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: chipBorder, width: 1),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (icon != null) ...[
+                  Icon(icon, size: 20, color: accent),
+                  const SizedBox(width: 8),
+                ],
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: accent,
+                    letterSpacing: -0.2,
+                  ),
+                ),
+              ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }
