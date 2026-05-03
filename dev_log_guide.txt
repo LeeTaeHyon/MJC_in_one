@@ -1,0 +1,34 @@
+# 테스트 빌드 전용 개발 로그(Dev Log) 관련 안내
+
+## 현재 작업된 내용
+1. UI 추가 (inquiry_screen.dart)
+   - '개발자에게 문의' 화면(inquiry_screen) 최상단에 '개발 로그 (Test Build)' 섹션이 추가되었습니다.
+   - Flutter의 `!kReleaseMode` 조건과 `PREVIEW` 환경 변수를 사용하여, 릴리즈 모드가 아닐 때(디버그/프로필 모드) 또는 미리보기 빌드일 때만 노출되도록 처리했습니다.
+   
+2. Firestore 규칙 업데이트 (firestore.rules)
+   - `dev_logs` 컬렉션에 대한 읽기(read) 권한은 전체에게 허용하고, 쓰기(write/update/delete) 권한은 관리자(admin)로만 제한했습니다.
+   
+## Firestore 데이터 추가 방법
+앱 내에서 로그가 표시되려면, Firebase Console에 접속해 직접 데이터를 작성해 주셔야 합니다.
+- 컬렉션 이름: `dev_logs`
+- 문서 ID: 자동 생성 (Auto-ID)
+- 필드 구성:
+  - `title` (문자열) : 로그 제목 (예: "v1.2.0 테스트용 수정 사항")
+  - `content` (문자열) : 로그 내용
+  - `created_at` (타임스탬프) : 작성일 (내림차순 정렬에 사용됨)
+
+---
+
+## 🚀 정식 스토어 배포(Release) 시 조치 사항
+
+1. 코드 삭제 필요 없음 (자동 숨김)
+   - `kReleaseMode` 변수를 활용했기 때문에, 실제 스토어용으로 릴리즈 빌드(flutter build apk/appbundle 등)를 진행하면 앱 내에서 개발 로그 섹션은 완전히 숨겨집니다. 따라서 배포 때마다 코드를 주석 처리하거나 지우실 필요가 없습니다.
+   
+2. Firestore 보안 규칙 배포 (필수)
+   - 방금 수정된 `firestore.rules` 파일이 실제 서버에 반영되어야 권한 오류(permission-denied)가 발생하지 않습니다. 배포 전이나 테스트 전에 꼭 터미널에서 아래 명령어로 규칙을 배포해주세요.
+     > 명령어: `firebase deploy --only firestore:rules`
+
+3. (선택) 소스 코드에서 완전히 제거하고 싶을 경우
+   - 안 쓰는 코드를 남겨두기 싫으시거나 완전히 정리에 들어가실 경우, 다음 부분들만 지우시면 됩니다:
+     1) `app/lib/screens/inquiry_screen.dart`에서 `_buildDevLogSection` 관련 호출 및 메서드 통째로 삭제
+     2) `firestore.rules`에서 `match /dev_logs/{doc}` 부분 삭제

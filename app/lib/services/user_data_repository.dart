@@ -177,7 +177,11 @@ class UserDataRepository {
       payload["createdAt"] = FieldValue.serverTimestamp();
     }
 
-    await _userDoc(user).set(payload, SetOptions(merge: true));
+    try {
+      await _userDoc(user).set(payload, SetOptions(merge: true));
+    } catch (_) {
+      // Ignore cloud sync failures
+    }
   }
 
   Future<void> updateKeywords(List<String> keywords) async {
@@ -221,7 +225,11 @@ class UserDataRepository {
   Future<void> _updateSignedInUser(Map<String, dynamic> data) async {
     final User? user = _auth.currentUser;
     if (user == null) return;
-    await _userDoc(user).set(data, SetOptions(merge: true));
+    try {
+      await _userDoc(user).set(data, SetOptions(merge: true));
+    } catch (_) {
+      // Ignore cloud sync failures
+    }
   }
 
   Map<String, List<String>> _collectBookmarkPrefs(

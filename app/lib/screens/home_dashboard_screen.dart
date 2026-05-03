@@ -7,6 +7,7 @@ import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
 import "package:mio_notice/home_dashboard_prefs.dart";
 import "package:mio_notice/screens/academic_schedule_screen.dart";
+import "package:mio_notice/screens/campus_map_screen.dart";
 import "package:mio_notice/screens/common_webview_screen.dart";
 import "package:mio_notice/screens/foodcourt_menu_screen.dart";
 import "package:mio_notice/screens/library_screen.dart";
@@ -171,11 +172,13 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
 
   void _scrollContentToTop() {
     if (!_scrollController.hasClients) return;
-    _scrollController.animateTo(
-      0,
-      duration: const Duration(milliseconds: 320),
-      curve: Curves.easeOutCubic,
-    );
+    for (final position in _scrollController.positions) {
+      position.animateTo(
+        0,
+        duration: const Duration(milliseconds: 320),
+        curve: Curves.easeOutCubic,
+      );
+    }
   }
 
   @override
@@ -272,12 +275,20 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
               ),
             ),
             SliverToBoxAdapter(
-              child: Column(
-                children: [
-                  for (final s in _orderedEnabledSections())
-                    _buildSection(s, context),
-                  const SizedBox(height: 50),
-                ],
+              child: Builder(
+                builder: (context) {
+                  final sections = _orderedEnabledSections();
+                  return Column(
+                    children: [
+                      if (sections.isNotEmpty &&
+                          sections.first != HomeDashboardSection.quickButtons &&
+                          sections.first != HomeDashboardSection.recentNotices)
+                        const SizedBox(height: 16),
+                      for (final s in sections) _buildSection(s, context),
+                      const SizedBox(height: 50),
+                    ],
+                  );
+                },
               ),
             ),
           ],
@@ -286,12 +297,16 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     );
   }
 
-  void _openMore() {
-    Navigator.of(context).push<void>(
+  Future<void> _openMore() async {
+    await Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
         builder: (_) => const MoreTabScreen(),
       ),
     );
+    if (!mounted) return;
+    _loadEnabledDashboardSections();
+    _loadDashboardSectionOrder();
+    _loadNoticeFilter();
   }
 
   Widget _buildShuttleSection(BuildContext context) {
@@ -392,7 +407,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                 MainNavTabIndex.notices,
                 noticesSubTab: NoticesSubTab.main,
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 8),
               _expandedButton(
                 "교수학습",
                 "학습 지원",
@@ -401,25 +416,41 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                 MainNavTabIndex.notices,
                 noticesSubTab: NoticesSubTab.ctl,
               ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
+              const SizedBox(width: 8),
               _expandedButton(
                 "역량관리",
-                "프로그램 신청",
+                "프로그램",
                 Icons.emoji_events,
                 tokens.dashboardGradients[2],
                 MainNavTabIndex.notices,
                 noticesSubTab: NoticesSubTab.mpu,
               ),
-              const SizedBox(width: 12),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
               _expandedButton(
                 "도서관",
                 "자료 검색",
                 Icons.local_library,
                 tokens.dashboardGradients[3],
+                MainNavTabIndex.home,
+              ),
+              const SizedBox(width: 8),
+              _expandedButton(
+                "학사일정",
+                "일정 확인",
+                Icons.event_note,
+                [const Color(0xFF673AB7), const Color(0xFF512DA8)],
+                MainNavTabIndex.home,
+              ),
+              const SizedBox(width: 8),
+              _expandedButton(
+                "캠퍼스 약도",
+                "위치 안내",
+                Icons.map,
+                [const Color(0xFF00897B), const Color(0xFF00695C)],
                 MainNavTabIndex.home,
               ),
             ],
@@ -453,11 +484,27 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
             );
             return;
           }
+          if (title == "학사일정") {
+            Navigator.of(context).push<void>(
+              MaterialPageRoute<void>(
+                builder: (_) => const AcademicScheduleScreen(),
+              ),
+            );
+            return;
+          }
+          if (title == "캠퍼스 약도") {
+            Navigator.of(context).push<void>(
+              MaterialPageRoute<void>(
+                builder: (_) => const CampusMapScreen(),
+              ),
+            );
+            return;
+          }
           widget.onNavigate(tabIndex, noticesSubTab: noticesSubTab);
         },
         child: Container(
-          height: 110,
-          padding: const EdgeInsets.all(16),
+          height: 96,
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: isDark ? scheme.surface : null,
             gradient: isDark
@@ -493,14 +540,14 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                   color: isDark
                       ? accent.withValues(alpha: 0.16)
                       : Colors.white.withValues(alpha: 0.0),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Padding(
-                  padding: EdgeInsets.all(isDark ? 8 : 0),
+                  padding: EdgeInsets.all(isDark ? 6 : 0),
                   child: Icon(
                     icon,
                     color: isDark ? accent : Colors.white,
-                    size: isDark ? 24 : 26,
+                    size: isDark ? 20 : 24,
                   ),
                 ),
               ),
@@ -511,8 +558,9 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   color: isDark ? scheme.onSurface : Colors.white,
-                  fontSize: 15,
+                  fontSize: 13.5,
                   fontWeight: FontWeight.bold,
+                  letterSpacing: -0.3,
                 ),
               ),
               Text(
@@ -521,7 +569,8 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   color: isDark ? scheme.onSurfaceVariant : Colors.white70,
-                  fontSize: 10,
+                  fontSize: 9.5,
+                  letterSpacing: -0.2,
                 ),
               ),
             ],
@@ -677,7 +726,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           child: Row(
             children: [
               Text(
-                "MPU 신청 마감",
+                "MPU 프로그램 신청 마감 일정",
                 style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
               ),
             ],
@@ -946,7 +995,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                   child: Text(
                     dDay <= 0 ? "D-DAY" : "D-$dDay",
                     style: TextStyle(
-                      color: scheme.primary,
+                      color: isDark ? Colors.white : scheme.primary,
                       fontSize: 12,
                       fontWeight: FontWeight.w900,
                     ),

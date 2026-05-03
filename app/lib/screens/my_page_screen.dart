@@ -6,6 +6,7 @@ import "package:flutter/material.dart";
 import "package:mio_notice/mpu_profile_prefs.dart";
 import "package:mio_notice/screens/common_webview_screen.dart";
 import "package:mio_notice/screens/login_screen.dart";
+import "package:mio_notice/screens/settings_screen.dart";
 import "package:mio_notice/screens/mpu_profile_import_screen.dart";
 import "package:mio_notice/services/auth_service.dart";
 import "package:mio_notice/services/notice_manager.dart";
@@ -67,11 +68,13 @@ class _MyPageScreenState extends State<MyPageScreen> {
 
   void _scrollContentToTop() {
     if (!_scrollController.hasClients) return;
-    _scrollController.animateTo(
-      0,
-      duration: const Duration(milliseconds: 320),
-      curve: Curves.easeOutCubic,
-    );
+    for (final position in _scrollController.positions) {
+      position.animateTo(
+        0,
+        duration: const Duration(milliseconds: 320),
+        curve: Curves.easeOutCubic,
+      );
+    }
   }
 
   @override
@@ -438,6 +441,19 @@ class _MyPageScreenState extends State<MyPageScreen> {
             backgroundColor: pageBg,
             appBar: AppBar(
               title: const Text("마이페이지"),
+              actions: [
+                IconButton(
+                  tooltip: "설정",
+                  icon: const Icon(Icons.settings_outlined),
+                  onPressed: () {
+                    Navigator.of(context).push<void>(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const SettingsScreen(),
+                      ),
+                    );
+                  },
+                ),
+              ],
             ),
             body: ListView(
               controller: _scrollController,

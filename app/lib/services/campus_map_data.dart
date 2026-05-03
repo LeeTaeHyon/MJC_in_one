@@ -90,6 +90,7 @@ class CampusBuilding {
     required this.name,
     required this.prefixes,
     required this.floors,
+    required this.basementFloors,
     required this.description,
     required this.location,
   });
@@ -98,6 +99,7 @@ class CampusBuilding {
   final String name;
   final List<String> prefixes;
   final int floors;
+  final int basementFloors;
   final String description;
   final LatLng location;
 
@@ -111,6 +113,7 @@ class CampusBuilding {
           item.toString().trim(),
       ],
       floors: _toInt(json["floors"], fallback: 1),
+      basementFloors: _toInt(json["basementFloors"], fallback: 0),
       description: (json["description"] ?? "").toString(),
       location: _latLngFromJson(json),
     );

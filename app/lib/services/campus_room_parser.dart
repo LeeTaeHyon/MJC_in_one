@@ -17,11 +17,11 @@ class CampusRoomParser {
     }
 
     final RegExpMatch? match =
-        RegExp(r"^\s*([가-힣]+)\s*(\d{3,4})\s*$").firstMatch(query);
+        RegExp(r"^\s*([가-힣]+)\s*([Bb]?\d{3,4})\s*$").firstMatch(query);
     if (match == null) {
       return CampusLookupResult.failure(
         query,
-        "건물 약칭과 호실을 함께 입력해 주세요. 예: 공512, 사212, 본 512",
+        "건물 약칭과 호실을 함께 입력해 주세요. 예: 공512, 사212, 본B102",
       );
     }
 
@@ -35,21 +35,34 @@ class CampusRoomParser {
       );
     }
 
-    final int floor = int.parse(roomCode.substring(0, 1));
-    if (floor > building.floors) {
-      return CampusLookupResult.failure(
-        query,
-        "${building.name}은 현재 데이터 기준 ${building.floors}층까지 안내할 수 있습니다.",
-        building: building,
-      );
+    final bool isBasement = roomCode.toLowerCase().startsWith('b');
+    final String numericRoomCode = isBasement ? roomCode.substring(1) : roomCode;
+    final int floor = int.parse(numericRoomCode.substring(0, 1));
+    
+    if (isBasement) {
+      if (floor > building.basementFloors) {
+        return CampusLookupResult.failure(
+          query,
+          "${building.name}은 현재 데이터 기준 지하 ${building.basementFloors}층까지 안내할 수 있습니다.",
+          building: building,
+        );
+      }
+    } else {
+      if (floor > building.floors) {
+        return CampusLookupResult.failure(
+          query,
+          "${building.name}은 현재 데이터 기준 지상 ${building.floors}층까지 안내할 수 있습니다.",
+          building: building,
+        );
+      }
     }
 
     return CampusLookupResult.room(
       query: query,
       building: building,
-      floor: floor,
+      floor: isBasement ? -floor : floor,
       roomCode: roomCode,
-      roomSuffix: roomCode.substring(1),
+      roomSuffix: numericRoomCode.substring(1),
     );
   }
 }
@@ -81,7 +94,8 @@ class CampusLookupResult {
     final CampusBuilding? selected = building;
     if (selected == null) return "검색 안내";
     if (roomCode == null) return selected.name;
-    return "${selected.name} $floor층 $roomCode호";
+    final String floorString = floor! < 0 ? "지하 ${-floor!}" : "$floor";
+    return "${selected.name} $floorString층 $roomCode호";
   }
 
   String get guidance {
@@ -90,9 +104,11 @@ class CampusLookupResult {
     if (selected == null) return "";
     if (roomCode == null) {
       if (floor == null) return "${selected.name} 건물로 이동하세요.";
-      return "${selected.name} $floor층으로 이동하세요.";
+      final String floorString = floor! < 0 ? "지하 ${-floor!}" : "$floor";
+      return "${selected.name} $floorString층으로 이동하세요.";
     }
-    return "${selected.name} 건물로 이동한 뒤 $floor층 $roomCode호를 찾으세요.";
+    final String floorString = floor! < 0 ? "지하 ${-floor!}" : "$floor";
+    return "${selected.name} 건물로 이동한 뒤 $floorString층 $roomCode호를 찾으세요.";
   }
 
   factory CampusLookupResult.empty() {

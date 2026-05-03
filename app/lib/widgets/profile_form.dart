@@ -147,6 +147,7 @@ class _ProfileFormState extends State<ProfileForm> {
           DropdownButtonFormField<String>(
             key: ValueKey<String>(_selectedDepartment ?? "department_empty"),
             initialValue: _selectedDepartment,
+            isExpanded: true,
             decoration: InputDecoration(
               labelText: "학과",
               prefixIcon: const Icon(Icons.school_outlined),
@@ -185,6 +186,7 @@ class _ProfileFormState extends State<ProfileForm> {
           DropdownButtonFormField<String>(
             key: ValueKey<String>(_selectedGrade ?? "grade_empty"),
             initialValue: _selectedGrade,
+            isExpanded: true,
             decoration: const InputDecoration(
               labelText: "학년",
               prefixIcon: Icon(Icons.badge_outlined),

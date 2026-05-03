@@ -124,12 +124,15 @@ class _CtlScreenState extends State<CtlScreen> {
   }
 
   void _scrollContentToTop() {
-    if (!_outerScrollController.hasClients) return;
-    _outerScrollController.animateTo(
-      0,
-      duration: const Duration(milliseconds: 320),
-      curve: Curves.easeOutCubic,
-    );
+    if (_outerScrollController.hasClients) {
+      for (final position in _outerScrollController.positions) {
+        position.animateTo(
+          0,
+          duration: const Duration(milliseconds: 320),
+          curve: Curves.easeOutCubic,
+        );
+      }
+    }
   }
 
   Future<void> _openNoticeFilterSheet() async {
@@ -345,7 +348,7 @@ class _CtlCollapsingHeaderDelegate extends SliverPersistentHeaderDelegate {
     final double heroH = extent - _tabBarHeight;
     // LayoutBuilder removed: ih = heroH - topPadding (SafeArea subtracts status bar)
     final double ih = heroH - topPadding;
-    final double titleSize = lerpDouble(24, 17, u)!;
+    final double titleSize = lerpDouble(25, 18, u)!;
     const double titleLeft = 20;
     const double bottomBlock = 20 + 13 + 6 + 24;
     final double expandedTitleTop = (ih - bottomBlock).clamp(0.0, ih);

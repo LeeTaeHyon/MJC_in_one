@@ -37,6 +37,7 @@ class _InquiryScreenState extends State<InquiryScreen> {
   final FocusNode _messageFocus = FocusNode();
   InquiryType _type = InquiryType.general;
   bool _submitting = false;
+  bool _showAllLogs = false;
 
   @override
   void dispose() {
@@ -153,16 +154,10 @@ class _InquiryScreenState extends State<InquiryScreen> {
           "개발자에게 문의",
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
-        backgroundColor: scheme.surface,
-        foregroundColor: scheme.onSurface,
+        backgroundColor: scheme.primary,
+        foregroundColor: Colors.white,
         elevation: 0,
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(1.0),
-          child: Container(
-            color: scheme.outline.withValues(alpha: 0.4),
-            height: 1.0,
-          ),
-        ),
+        iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: SafeArea(
         child: Column(
@@ -173,6 +168,8 @@ class _InquiryScreenState extends State<InquiryScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    if (!kReleaseMode || const bool.fromEnvironment('PREVIEW', defaultValue: false))
+                      _buildDevLogSection(context),
                     Text(
                       "어떤 문의를 보내시겠습니까?",
                       style: theme.textTheme.titleMedium
@@ -279,6 +276,147 @@ class _InquiryScreenState extends State<InquiryScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildDevLogSection(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.bug_report, color: scheme.primary),
+              const SizedBox(width: 8),
+              const Text(
+                "개발 로그 (Test Build)",
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+            stream: FirebaseFirestore.instance
+                .collection("dev_logs")
+                .orderBy("created_at", descending: true)
+                .limit(10)
+                .snapshots(),
+            builder: (context, snapshot) {
+              if (snapshot.hasError) {
+                return const Text("로그를 불러오지 못했습니다.");
+              }
+              if (!snapshot.hasData) return const SizedBox();
+
+              final items = snapshot.data!.docs.map((d) => d.data()).toList();
+              if (items.isEmpty) {
+                return const Text("등록된 로그가 없습니다.");
+              }
+
+              final displayCount = _showAllLogs ? items.length : (items.isNotEmpty ? 1 : 0);
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  ListView.separated(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    padding: EdgeInsets.zero,
+                    itemCount: displayCount,
+                    separatorBuilder: (_, __) => const SizedBox(height: 10),
+                    itemBuilder: (context, index) {
+                      final data = items[index];
+                      final String title = (data["title"] ?? "제목 없음").toString();
+                      final String content = (data["content"] ?? "").toString();
+                      final String dateStr = data["created_at"] != null
+                          ? (data["created_at"] as Timestamp)
+                              .toDate()
+                              .toString()
+                              .split(".")
+                              .first
+                          : "";
+
+                      return Material(
+                        color: isDark
+                            ? const Color(0xFF2A2A35)
+                            : const Color(0xFFF0F4F8),
+                        borderRadius: BorderRadius.circular(14),
+                        elevation: 0,
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                title,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 15,
+                                  height: 1.2,
+                                ),
+                              ),
+                              if (content.isNotEmpty) ...[
+                                const SizedBox(height: 6),
+                                Text(
+                                  content,
+                                  style: TextStyle(
+                                    color: scheme.onSurfaceVariant,
+                                    fontSize: 13,
+                                    height: 1.3,
+                                  ),
+                                ),
+                              ],
+                              if (dateStr.isNotEmpty) ...[
+                                const SizedBox(height: 8),
+                                Text(
+                                  dateStr,
+                                  style: TextStyle(
+                                    color: scheme.primary.withValues(alpha: 0.8),
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  if (items.length > 1) ...[
+                    const SizedBox(height: 4),
+                    TextButton.icon(
+                      onPressed: () {
+                        setState(() {
+                          _showAllLogs = !_showAllLogs;
+                        });
+                      },
+                      icon: Icon(
+                        _showAllLogs ? Icons.expand_less : Icons.expand_more,
+                        size: 18,
+                      ),
+                      label: Text(
+                        _showAllLogs
+                            ? "접기"
+                            : "이전 개발 일지 보기 (${items.length - 1}개 더보기)",
+                      ),
+                      style: TextButton.styleFrom(
+                        foregroundColor: scheme.onSurfaceVariant,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ],
+                ],
+              );
+            },
+          ),
+          const SizedBox(height: 8),
+          Divider(color: scheme.outlineVariant),
+        ],
       ),
     );
   }

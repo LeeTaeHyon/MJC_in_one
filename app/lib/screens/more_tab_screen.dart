@@ -58,11 +58,13 @@ class _MoreTabScreenState extends State<MoreTabScreen> {
 
   void _scrollContentToTop() {
     if (!_scrollController.hasClients) return;
-    _scrollController.animateTo(
-      0,
-      duration: const Duration(milliseconds: 320),
-      curve: Curves.easeOutCubic,
-    );
+    for (final position in _scrollController.positions) {
+      position.animateTo(
+        0,
+        duration: const Duration(milliseconds: 320),
+        curve: Curves.easeOutCubic,
+      );
+    }
   }
 
   @override

@@ -6,6 +6,7 @@ import "package:mio_notice/firebase_options.dart";
 import "package:mio_notice/notification_history_prefs.dart";
 import "package:mio_notice/notification_sources.dart";
 import "package:mio_notice/screens/admin/admin_shell.dart";
+import "package:mio_notice/screens/inquiry_screen.dart";
 import "package:mio_notice/screens/intro_screen.dart";
 import "package:mio_notice/services/deep_link_handler.dart";
 import "package:mio_notice/services/user_data_repository.dart";
@@ -220,20 +221,45 @@ class _MioNoticeAppState extends State<MioNoticeApp>
                 final Widget body = child ?? const SizedBox.shrink();
                 final bool pushedRoute =
                     _navigatorKey.currentState?.canPop() ?? false;
-                if (!pushedRoute) {
-                  return body;
-                }
                 final double safeBottom = MediaQuery.paddingOf(context).bottom;
+
                 return Stack(
                   fit: StackFit.expand,
                   clipBehavior: Clip.none,
                   children: [
                     body,
+                    // [DEBUG] 앱 전역 피드백(버그 리포트) 버튼. 최종 배포 시 이 블록을 삭제하세요.
                     Positioned(
-                      right: 14,
-                      bottom: safeBottom + 16,
-                      child: const ScrollToTopFab(),
+                      left: 16,
+                      // 메인 탭바(BottomNavigationBar)를 가리지 않도록 위치 조정
+                      bottom: pushedRoute ? safeBottom + 16 : safeBottom + 90,
+                      child: SafeArea(
+                        child: FloatingActionButton.small(
+                          heroTag: 'global_feedback_btn',
+                          elevation: 4,
+                          backgroundColor: Colors.red,
+                          onPressed: () {
+                            _navigatorKey.currentState?.push(
+                              MaterialPageRoute<void>(
+                                builder: (_) => const InquiryScreen(),
+                              ),
+                            );
+                          },
+                          child: Icon(
+                            Icons.campaign_rounded,
+                            color: Theme.of(context).colorScheme.onPrimaryContainer,
+                          ),
+                        ),
+                      ),
                     ),
+                    // [DEBUG] 끝
+
+                    if (pushedRoute)
+                      Positioned(
+                        right: 14,
+                        bottom: safeBottom + 16,
+                        child: const ScrollToTopFab(),
+                      ),
                   ],
                 );
               },

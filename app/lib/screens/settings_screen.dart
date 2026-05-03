@@ -8,6 +8,7 @@ import "package:mio_notice/screens/inquiry_screen.dart";
 import "package:mio_notice/screens/open_source_licenses_screen.dart";
 import "package:mio_notice/services/notice_filter.dart";
 import "package:mio_notice/services/user_data_repository.dart";
+import "package:mio_notice/theme/app_theme.dart";
 import "package:mio_notice/theme/theme_mode_scope.dart";
 import "package:mio_notice/utils/snack_bar_utils.dart";
 import "package:mio_notice/widgets/scroll_to_top_scope.dart";
@@ -37,6 +38,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       defaultHomeDashboardEnabledSections().toSet();
   List<String> _homeDashboardSectionOrder = defaultHomeDashboardSectionOrder();
   final ScrollController _scrollController = ScrollController();
+  final TextEditingController _keywordController = TextEditingController();
   ScrollToTopCoordinator? _scrollRouteCoordinator;
   bool _registeredScrollRoute = false;
 
@@ -81,11 +83,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   void _scrollContentToTop() {
     if (!_scrollController.hasClients) return;
-    _scrollController.animateTo(
-      0,
-      duration: const Duration(milliseconds: 320),
-      curve: Curves.easeOutCubic,
-    );
+    for (final position in _scrollController.positions) {
+      position.animateTo(
+        0,
+        duration: const Duration(milliseconds: 320),
+        curve: Curves.easeOutCubic,
+      );
+    }
   }
 
   @override
@@ -96,6 +100,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _scrollRouteCoordinator?.popRouteHandler();
     }
     _scrollController.dispose();
+    _keywordController.dispose();
     super.dispose();
   }
 
@@ -165,7 +170,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _toggleAllNotices(bool value) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool("allNoticesEnabled", value);
-    await UserDataRepository.instance.pushSnapshotToCloud();
+    try {
+      await UserDataRepository.instance.pushSnapshotToCloud();
+    } catch (_) {}
     if (!mounted) return;
     setState(() {
       _allNoticesEnabled = value;
@@ -190,7 +197,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _toggleKeywordNotices(bool value) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool("keywordNoticesEnabled", value);
-    await UserDataRepository.instance.pushSnapshotToCloud();
+    try {
+      await UserDataRepository.instance.pushSnapshotToCloud();
+    } catch (_) {}
     if (!mounted) return;
     setState(() => _keywordNoticesEnabled = value);
 
@@ -273,232 +282,227 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   /// 키워드 관리 다이얼로그
   void _showKeywordDialog() {
-    final TextEditingController controller = TextEditingController();
+    _keywordController.clear();
     showDialog<void>(
       context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.45),
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
-            return AlertDialog(
-              title: const Text("맞춤 키워드 관리"),
-              content: SizedBox(
-                width: double.maxFinite,
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxHeight: MediaQuery.sizeOf(context).height * 0.6,
+            final ColorScheme scheme = Theme.of(context).colorScheme;
+            final bool isDark = Theme.of(context).brightness == Brightness.dark;
+            final MjcSurfaceTokens? tokens =
+                Theme.of(context).extension<MjcSurfaceTokens>();
+
+            final List<Color> headerGradient = isDark && tokens != null
+                ? tokens.dashboardGradients[0]
+                : const [Color(0xFF0D47A1), Color(0xFF1976D2)];
+
+            final Color fieldBg = isDark
+                ? (tokens?.surfaceContainer.withValues(alpha: 0.65) ?? scheme.surfaceContainerHigh)
+                : scheme.surfaceContainerLow;
+
+            return Dialog(
+              backgroundColor: Colors.transparent,
+              insetPadding: const EdgeInsets.symmetric(horizontal: 22, vertical: 28),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 400),
+                child: Material(
+                  color: scheme.surface,
+                  elevation: isDark ? 2 : 4,
+                  shadowColor: Colors.black.withValues(alpha: isDark ? 0.55 : 0.18),
+                  surfaceTintColor: Colors.transparent,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(22),
                   ),
-                  child: SingleChildScrollView(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          "등록한 키워드가 포함된 공지만 알림이 옵니다.",
-                          style: TextStyle(
-                            fontSize: 12,
-                            color:
-                                Theme.of(context).colorScheme.onSurfaceVariant,
+                  clipBehavior: Clip.antiAlias,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: headerGradient,
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
                           ),
                         ),
-                        const SizedBox(height: 16),
-                        TextField(
-                          controller: controller,
-                          decoration: InputDecoration(
-                            hintText: "예: 장학, 기숙사, 성적",
-                            suffixIcon: IconButton(
-                              icon: const Icon(Icons.add),
-                              onPressed: () async {
-                                final text = controller.text.trim();
-                                if (text.isEmpty || _keywords.contains(text)) {
-                                  return;
-                                }
-
-                                // #region agent log
-                                debugSessionNdjson(
-                                  hypothesisId: "H1",
-                                  location:
-                                      "settings_screen.dart:_showKeywordDialog:add:onPressed:start",
-                                  message: "Keyword add pressed",
-                                  data: <String, dynamic>{
-                                    "mounted": mounted,
-                                    "textLen": text.length,
-                                    "keywordsCountBefore": _keywords.length,
-                                  },
-                                );
-                                // #endregion
-
-                                try {
-                                  final prefs =
-                                      await SharedPreferences.getInstance();
-                                  // #region agent log
-                                  debugSessionNdjson(
-                                    hypothesisId: "H2",
-                                    location:
-                                        "settings_screen.dart:_showKeywordDialog:add:onPressed:afterPrefs",
-                                    message: "SharedPreferences obtained",
-                                    data: <String, dynamic>{
-                                      "mounted": mounted,
-                                    },
-                                  );
-                                  // #endregion
-
-                                  _keywords = [..._keywords, text];
-                                  await prefs.setStringList(
-                                      "keywords", _keywords);
-                                  await UserDataRepository.instance
-                                      .updateKeywords(_keywords);
-                                  // #region agent log
-                                  debugSessionNdjson(
-                                    hypothesisId: "H2",
-                                    location:
-                                        "settings_screen.dart:_showKeywordDialog:add:onPressed:afterSetStringList",
-                                    message: "keywords saved",
-                                    data: <String, dynamic>{
-                                      "mounted": mounted,
-                                      "keywordsCountAfter": _keywords.length,
-                                    },
-                                  );
-                                  // #endregion
-
-                                  if (!mounted) {
-                                    // #region agent log
-                                    debugSessionNdjson(
-                                      hypothesisId: "H1",
-                                      location:
-                                          "settings_screen.dart:_showKeywordDialog:add:onPressed:unmountedEarlyReturn",
-                                      message:
-                                          "State unmounted after await; return before setState",
-                                      data: <String, dynamic>{
-                                        "keywordsCount": _keywords.length,
-                                      },
-                                    );
-                                    // #endregion
-                                    return;
-                                  }
-
-                                  controller.clear();
-                                  setDialogState(() {}); // 다이얼로그 UI 갱신
-                                  setState(() {}); // 배경 설정창 UI 갱신
-                                } catch (e) {
-                                  // #region agent log
-                                  debugSessionNdjson(
-                                    hypothesisId: "HERR",
-                                    location:
-                                        "settings_screen.dart:_showKeywordDialog:add:onPressed:catch",
-                                    message: "Exception during keyword add",
-                                    data: <String, dynamic>{
-                                      "error": e.toString(),
-                                      "mounted": mounted,
-                                    },
-                                  );
-                                  // #endregion
-                                  rethrow;
-                                }
-                              },
-                            ),
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.18),
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                child: const Icon(
+                                  Icons.notifications_active_rounded,
+                                  size: 28,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      "맞춤 키워드 관리",
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: -0.2,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      "등록한 키워드가 포함된 공지만\n알림을 받습니다.",
+                                      style: TextStyle(
+                                        color: Colors.white.withValues(alpha: 0.9),
+                                        fontSize: 13,
+                                        height: 1.35,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(height: 16),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: _keywords.map((kw) {
-                              return Chip(
-                                label: Text(kw),
-                                onDeleted: () async {
-                                  // #region agent log
-                                  debugSessionNdjson(
-                                    hypothesisId: "H1",
-                                    location:
-                                        "settings_screen.dart:_showKeywordDialog:delete:onDeleted:start",
-                                    message: "Keyword delete pressed",
-                                    data: <String, dynamic>{
-                                      "mounted": mounted,
-                                      "kwLen": kw.length,
-                                      "keywordsCountBefore": _keywords.length,
-                                    },
-                                  );
-                                  // #endregion
+                      ),
+                      Flexible(
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              TextField(
+                                controller: _keywordController,
+                                decoration: InputDecoration(
+                                  hintText: "예: 장학, 기숙사, 성적",
+                                  filled: true,
+                                  fillColor: fieldBg,
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                  suffixIcon: IconButton(
+                                    icon: Icon(Icons.add_circle_rounded, color: scheme.primary),
+                                    onPressed: () async {
+                                      final text = _keywordController.text.trim();
+                                      if (text.isEmpty || _keywords.contains(text)) {
+                                        return;
+                                      }
 
-                                  try {
-                                    final prefs =
-                                        await SharedPreferences.getInstance();
-                                    _keywords = _keywords
-                                        .where((k) => k != kw)
-                                        .toList();
-                                    await prefs.setStringList(
-                                        "keywords", _keywords);
-                                    await UserDataRepository.instance
-                                        .updateKeywords(_keywords);
-                                    // #region agent log
-                                    debugSessionNdjson(
-                                      hypothesisId: "H2",
-                                      location:
-                                          "settings_screen.dart:_showKeywordDialog:delete:onDeleted:afterSetStringList",
-                                      message: "keywords saved after delete",
-                                      data: <String, dynamic>{
-                                        "mounted": mounted,
-                                        "keywordsCountAfter": _keywords.length,
-                                      },
-                                    );
-                                    // #endregion
-
-                                    if (!mounted) {
                                       // #region agent log
                                       debugSessionNdjson(
                                         hypothesisId: "H1",
-                                        location:
-                                            "settings_screen.dart:_showKeywordDialog:delete:onDeleted:unmountedEarlyReturn",
-                                        message:
-                                            "State unmounted after await; return before setState",
+                                        location: "settings_screen.dart:_showKeywordDialog:add:onPressed:start",
+                                        message: "Keyword add pressed",
                                         data: <String, dynamic>{
-                                          "keywordsCount": _keywords.length,
+                                          "mounted": mounted,
+                                          "textLen": text.length,
+                                          "keywordsCountBefore": _keywords.length,
                                         },
                                       );
                                       // #endregion
-                                      return;
-                                    }
 
-                                    setDialogState(() {});
-                                    setState(() {});
-                                  } catch (e) {
-                                    // #region agent log
-                                    debugSessionNdjson(
-                                      hypothesisId: "HERR",
-                                      location:
-                                          "settings_screen.dart:_showKeywordDialog:delete:onDeleted:catch",
-                                      message:
-                                          "Exception during keyword delete",
-                                      data: <String, dynamic>{
-                                        "error": e.toString(),
-                                        "mounted": mounted,
+                                      try {
+                                        final prefs = await SharedPreferences.getInstance();
+                                        _keywords = [..._keywords, text];
+                                        await prefs.setStringList("keywords", _keywords);
+                                        await UserDataRepository.instance.updateKeywords(_keywords);
+
+                                        if (!mounted) return;
+
+                                        _keywordController.clear();
+                                        setDialogState(() {});
+                                        setState(() {});
+                                      } catch (e) {
+                                        rethrow;
+                                      }
+                                    },
+                                  ),
+                                ),
+                              ),
+                              if (_keywords.isNotEmpty) ...[
+                                const SizedBox(height: 20),
+                                Text(
+                                  "등록된 키워드 (${_keywords.length})",
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: scheme.onSurfaceVariant,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: _keywords.map((kw) {
+                                    return Chip(
+                                      label: Text(kw),
+                                      backgroundColor: isDark 
+                                          ? fieldBg 
+                                          : Colors.white,
+                                      side: BorderSide(
+                                        color: isDark ? Colors.transparent : scheme.outlineVariant.withValues(alpha: 0.5),
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      onDeleted: () async {
+                                        try {
+                                          final prefs = await SharedPreferences.getInstance();
+                                          _keywords = _keywords.where((k) => k != kw).toList();
+                                          await prefs.setStringList("keywords", _keywords);
+                                          await UserDataRepository.instance.updateKeywords(_keywords);
+
+                                          if (!mounted) return;
+
+                                          setDialogState(() {});
+                                          setState(() {});
+                                        } catch (e) {
+                                          rethrow;
+                                        }
                                       },
                                     );
-                                    // #endregion
-                                    rethrow;
-                                  }
-                                },
-                              );
-                            }).toList(),
+                                  }).toList(),
+                                ),
+                              ],
+                            ],
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                        child: FilledButton(
+                          onPressed: () => Navigator.pop(context),
+                          style: FilledButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
+                          child: const Text("닫기"),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text("닫기"),
-                ),
-              ],
             );
           },
         );
       },
-    ).whenComplete(controller.dispose);
+    );
   }
 
   /// 개발자 문의 — Firestore `developer_inquiries` 컬렉션으로 직접 전송됩니다.
@@ -589,14 +593,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
 
     await saveHomeDashboardEnabledSections(next);
-    await UserDataRepository.instance.pushSnapshotToCloud();
+    try {
+      await UserDataRepository.instance.pushSnapshotToCloud();
+    } catch (_) {
+      // 클라우드 동기화 실패는 로컬 저장에 영향 없음 — 무시합니다.
+    }
     if (!mounted) return;
     setState(() => _homeDashboardEnabledSections = next);
   }
 
   Future<void> _setHomeDashboardSectionOrder(List<String> order) async {
     await saveHomeDashboardSectionOrder(order);
-    await UserDataRepository.instance.pushSnapshotToCloud();
+    try {
+      await UserDataRepository.instance.pushSnapshotToCloud();
+    } catch (_) {
+      // 클라우드 동기화 실패는 로컬 저장에 영향 없음 — 무시합니다.
+    }
     if (!mounted) return;
     setState(() => _homeDashboardSectionOrder = order);
   }

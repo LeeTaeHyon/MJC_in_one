@@ -206,18 +206,23 @@ class _MainWebsiteScreenState extends State<MainWebsiteScreen> {
     final NestedScrollViewState? nested = _nestedScrollKey.currentState;
     final ScrollController? inner = nested?.innerController;
     if (inner != null && inner.hasClients) {
-      inner.animateTo(
-        0,
-        duration: const Duration(milliseconds: 320),
-        curve: Curves.easeOutCubic,
-      );
+      for (final position in inner.positions) {
+        position.animateTo(
+          0,
+          duration: const Duration(milliseconds: 320),
+          curve: Curves.easeOutCubic,
+        );
+      }
     }
-    if (!_outerScrollController.hasClients) return;
-    _outerScrollController.animateTo(
-      0,
-      duration: const Duration(milliseconds: 320),
-      curve: Curves.easeOutCubic,
-    );
+    if (_outerScrollController.hasClients) {
+      for (final position in _outerScrollController.positions) {
+        position.animateTo(
+          0,
+          duration: const Duration(milliseconds: 320),
+          curve: Curves.easeOutCubic,
+        );
+      }
+    }
   }
 
   Future<void> _openNoticeFilterSheet() async {
@@ -436,9 +441,9 @@ class _MainWebsiteCollapsingHeaderDelegate
     final double heroH = extent - _tabBarHeight;
     // LayoutBuilder removed: c.maxHeight == heroH - topPadding (SafeArea subtracts status bar)
     final double ih = heroH - topPadding;
-    final double titleSize = lerpDouble(28, 19, u)!;
+    final double titleSize = lerpDouble(25, 18, u)!;
     const double titleLeft = 20;
-    const double bottomBlock = 20 + 14 + 6 + 28;
+    const double bottomBlock = 20 + 13 + 6 + 24;
     final double expandedTitleTop = (ih - bottomBlock).clamp(0.0, ih);
     final double collapsedTitleTop = (ih - titleSize * 1.15) / 2;
     final double titleTop = lerpDouble(expandedTitleTop, collapsedTitleTop, u)!;
@@ -471,7 +476,7 @@ class _MainWebsiteCollapsingHeaderDelegate
                           top: titleTop,
                           right: 104,
                           child: Text(
-                            "메인 홈페이지",
+                            "MJC 공지사항",
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
@@ -510,13 +515,13 @@ class _MainWebsiteCollapsingHeaderDelegate
                             right: 104,
                             child: IgnorePointer(
                               child: Text(
-                                "본교 홈페이지의 공지사항을 확인합니다.",
+                                "본교 공지사항을 확인합니다.",
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
                                   color: Colors.white
                                       .withValues(alpha: 0.7 * subtitleOpacity),
-                                  fontSize: 14,
+                                  fontSize: 13,
                                   height: 1.2,
                                 ),
                               ),

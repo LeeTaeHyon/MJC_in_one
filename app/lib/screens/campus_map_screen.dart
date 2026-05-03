@@ -302,7 +302,7 @@ class _CampusMapScreenState extends State<CampusMapScreen>
                           ),
                         ),
                         Text(
-                          "약칭 ${building.prefixes.join(", ")} · ${building.floors}층",
+                          "약칭 ${building.prefixes.join(", ")} · ${building.basementFloors > 0 ? "지하 ${building.basementFloors}층 ~ 지상 ${building.floors}층" : "지상 ${building.floors}층"}",
                           style: TextStyle(
                             color:
                                 Theme.of(context).colorScheme.onSurfaceVariant,

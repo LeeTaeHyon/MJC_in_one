@@ -130,18 +130,23 @@ class _MpuScreenState extends State<MpuScreen> {
     final NestedScrollViewState? nested = _nestedScrollKey.currentState;
     final ScrollController? inner = nested?.innerController;
     if (inner != null && inner.hasClients) {
-      inner.animateTo(
-        0,
-        duration: const Duration(milliseconds: 320),
-        curve: Curves.easeOutCubic,
-      );
+      for (final position in inner.positions) {
+        position.animateTo(
+          0,
+          duration: const Duration(milliseconds: 320),
+          curve: Curves.easeOutCubic,
+        );
+      }
     }
-    if (!_outerScrollController.hasClients) return;
-    _outerScrollController.animateTo(
-      0,
-      duration: const Duration(milliseconds: 320),
-      curve: Curves.easeOutCubic,
-    );
+    if (_outerScrollController.hasClients) {
+      for (final position in _outerScrollController.positions) {
+        position.animateTo(
+          0,
+          duration: const Duration(milliseconds: 320),
+          curve: Curves.easeOutCubic,
+        );
+      }
+    }
   }
 
   Future<void> _openNoticeFilterSheet() async {
@@ -352,7 +357,7 @@ class _MpuCollapsingHeaderDelegate extends SliverPersistentHeaderDelegate {
     final double heroH = extent - _tabBarHeight;
     // LayoutBuilder removed: ih = heroH - topPadding
     final double ih = heroH - topPadding;
-    final double titleSize = lerpDouble(24, 17, u)!;
+    final double titleSize = lerpDouble(25, 18, u)!;
     const double titleLeft = 20;
     const double bottomBlock = 20 + 13 + 6 + 24;
     final double expandedTitleTop = (ih - bottomBlock).clamp(0.0, ih);
@@ -427,7 +432,7 @@ class _MpuCollapsingHeaderDelegate extends SliverPersistentHeaderDelegate {
                             right: 104,
                             child: IgnorePointer(
                               child: Text(
-                                "다양한 프로그램을 확인합니다.",
+                                "마일리지 프로그램들을 확인합니다.",
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(

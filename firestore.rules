@@ -58,5 +58,11 @@ service cloud.firestore {
       allow read, update: if isAdmin();
       allow delete: if isAdmin();
     }
+
+    // 개발 로그 (테스트 빌드용): 누구나 읽기, 관리자만 쓰기.
+    match /dev_logs/{doc} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
   }
 }

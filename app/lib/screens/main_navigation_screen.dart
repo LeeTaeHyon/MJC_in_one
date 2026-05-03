@@ -16,6 +16,7 @@ import "package:mio_notice/widgets/scroll_to_top_fab.dart";
 import "package:mio_notice/widgets/scroll_to_top_scope.dart";
 import "package:mio_notice/theme/app_colors.dart";
 import "package:mio_notice/theme/app_theme.dart";
+import "package:shared_preferences/shared_preferences.dart";
 
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
@@ -60,6 +61,184 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       }
     });
     _syncScrollCoordinatorTab();
+
+    // 앱 첫 진입 시 테스트 빌드 안내 팝업 및 피드백 버튼 포커싱 띄우기
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkTestBuildWarning();
+    });
+  }
+
+  Future<void> _checkTestBuildWarning() async {
+    final prefs = await SharedPreferences.getInstance();
+    final bool shown = prefs.getBool("test_build_warning_shown") ?? false;
+    if (!shown) {
+      if (!mounted) return;
+
+      // 1. 테스트 빌드 안내 팝업 표시
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) {
+          final scheme = Theme.of(ctx).colorScheme;
+          return PopScope(
+            canPop: false,
+            child: Dialog(
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20)),
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.science_rounded,
+                        size: 48, color: scheme.primary),
+                    const SizedBox(height: 16),
+                    const Text(
+                      "테스트 빌드 안내",
+                      style: TextStyle(
+                          fontSize: 20, fontWeight: FontWeight.w800),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      "본 앱은 테스트 빌드이며, 오류나 오탈자가 발생할 수 있고 서비스 이용이 원활하지 않을 수 있습니다.",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 15,
+                        height: 1.4,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton(
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                        ),
+                        onPressed: () {
+                          Navigator.of(ctx).pop();
+                        },
+                        child: const Text("이해했습니다",
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 16)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      );
+      await prefs.setBool("test_build_warning_shown", true);
+
+      if (!mounted) return;
+
+      // 2. 팝업이 닫힌 후 배경 딤(Dim) 처리와 함께 피드백 버튼 포커싱 오버레이 표시
+      final overlay = Overlay.of(context);
+      bool isRemoved = false;
+      OverlayEntry? entry;
+
+      void removeEntry() {
+        if (!isRemoved) {
+          isRemoved = true;
+          entry?.remove();
+        }
+      }
+
+      entry = OverlayEntry(
+        builder: (context) {
+          final safeBottom = MediaQuery.paddingOf(context).bottom;
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              // 배경을 어둡게 처리하여 main.dart의 Positioned 버튼을 돋보이게 함
+              GestureDetector(
+                onTap: removeEntry,
+                child: Container(
+                  color: Colors.black.withValues(alpha: 0.75),
+                ),
+              ),
+              // 포커싱 설명 풍선
+              Positioned(
+                left: 16,
+                bottom: safeBottom + 145, // 90(버튼 띄움) + 40(버튼 크기) + 15(여백)
+                child: Material(
+                  color: Colors.transparent,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 18, vertical: 16),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.3),
+                          blurRadius: 12,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          "피드백이 필요하신가요?",
+                          style: TextStyle(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onPrimaryContainer,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 16,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          "문의사항은 어디서나\n해당 버튼을 눌러 가능합니다.",
+                          style: TextStyle(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onPrimaryContainer
+                                .withValues(alpha: 0.9),
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                            height: 1.35,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Icon(Icons.south_west_rounded,
+                                color: Theme.of(context).colorScheme.primary,
+                                size: 20),
+                            const SizedBox(width: 8),
+                            Text(
+                              "아래의 버튼을 눌러보세요",
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.primary,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      );
+      overlay.insert(entry!);
+
+      // 6초 뒤 자동 제거
+      Future.delayed(const Duration(seconds: 6), removeEntry);
+    }
   }
 
   Widget _buildMainTab(int index) {
