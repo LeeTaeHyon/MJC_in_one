@@ -30,6 +30,7 @@ class _MoreTabScreenState extends State<MoreTabScreen> {
   final ScrollController _scrollController = ScrollController();
   ScrollToTopCoordinator? _scrollToTopCoordinator;
   static const String _privacyPolicyUrl = "https://mjcinone.web.app/privacy";
+  bool _isListView = false;
 
   @override
   void initState() {
@@ -137,6 +138,18 @@ class _MoreTabScreenState extends State<MoreTabScreen> {
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text("더보기"),
+        actions: [
+          IconButton(
+            icon: Icon(_isListView ? Icons.grid_view_rounded : Icons.view_list_rounded),
+            tooltip: _isListView ? "그리드로 보기" : "리스트로 보기",
+            onPressed: () {
+              setState(() {
+                _isListView = !_isListView;
+              });
+            },
+          ),
+          const SizedBox(width: 8),
+        ],
       ),
       body: SafeArea(
         child: CustomScrollView(
@@ -157,119 +170,130 @@ class _MoreTabScreenState extends State<MoreTabScreen> {
                           onLogout: _signOut,
                         ),
                         const SizedBox(height: 18),
-                        _MenuGrid(
-                          items: [
-                            _MoreMenuItem(
-                              icon: Icons.menu_rounded,
-                              label: "전체 기능",
-                              color: const Color(0xFF263238),
-                              onTap: () => _push(const _AllFeaturesScreen()),
-                            ),
-                            _MoreMenuItem(
-                              icon: Icons.person_outline_rounded,
-                              label: "마이페이지",
-                              color: AppColors.primary,
-                              onTap: () => _push(const MyPageScreen()),
-                            ),
-                            _MoreMenuItem(
-                              icon: Icons.school_outlined,
-                              label: "본교 공지",
-                              color: const Color(0xFF1E88E5),
-                              onTap: () => _push(
-                                const _NoticesStandaloneScreen(
-                                  initial: NoticesSubTab.main,
-                                  title: "본교 공지",
+                        Builder(
+                          builder: (context) {
+                            final List<_MoreMenuItem> menuItems = [
+                              _MoreMenuItem(
+                                icon: Icons.person_outline_rounded,
+                                label: "마이페이지",
+                                color: AppColors.primary,
+                                isList: _isListView,
+                                onTap: () => _push(const MyPageScreen()),
+                              ),
+                              _MoreMenuItem(
+                                icon: Icons.school_outlined,
+                                label: "본교 공지",
+                                color: const Color(0xFF1E88E5),
+                                isList: _isListView,
+                                onTap: () => _push(
+                                  const _NoticesStandaloneScreen(
+                                    initial: NoticesSubTab.main,
+                                    title: "본교 공지",
+                                  ),
                                 ),
                               ),
-                            ),
-                            _MoreMenuItem(
-                              icon: Icons.menu_book_outlined,
-                              label: "교수학습",
-                              color: const Color(0xFF7B1FA2),
-                              onTap: () => _push(
-                                const _NoticesStandaloneScreen(
-                                  initial: NoticesSubTab.ctl,
-                                  title: "교수학습",
+                              _MoreMenuItem(
+                                icon: Icons.menu_book_outlined,
+                                label: "교수학습",
+                                color: const Color(0xFF7B1FA2),
+                                isList: _isListView,
+                                onTap: () => _push(
+                                  const _NoticesStandaloneScreen(
+                                    initial: NoticesSubTab.ctl,
+                                    title: "교수학습",
+                                  ),
                                 ),
                               ),
-                            ),
-                            _MoreMenuItem(
-                              icon: Icons.emoji_events_outlined,
-                              label: "역량관리",
-                              color: const Color(0xFFEF6C00),
-                              onTap: () => _push(
-                                const _NoticesStandaloneScreen(
-                                  initial: NoticesSubTab.mpu,
-                                  title: "역량관리",
+                              _MoreMenuItem(
+                                icon: Icons.emoji_events_outlined,
+                                label: "역량관리",
+                                color: const Color(0xFFEF6C00),
+                                isList: _isListView,
+                                onTap: () => _push(
+                                  const _NoticesStandaloneScreen(
+                                    initial: NoticesSubTab.mpu,
+                                    title: "역량관리",
+                                  ),
                                 ),
                               ),
-                            ),
-                            _MoreMenuItem(
-                              icon: Icons.local_library_outlined,
-                              label: "도서관",
-                              color: const Color(0xFF2E7D32),
-                              onTap: () => _push(const LibraryScreen()),
-                            ),
-                            _MoreMenuItem(
-                              icon: Icons.notifications_none_rounded,
-                              label: "알림 내역",
-                              color: const Color(0xFF3949AB),
-                              onTap: () => _push(
-                                const NotificationHistoryScreen(embedded: false),
+                              _MoreMenuItem(
+                                icon: Icons.local_library_outlined,
+                                label: "도서관",
+                                color: const Color(0xFF2E7D32),
+                                isList: _isListView,
+                                onTap: () => _push(const LibraryScreen()),
                               ),
-                            ),
-                            _MoreMenuItem(
-                              icon: Icons.restaurant_menu_rounded,
-                              label: "학식 메뉴",
-                              color: const Color(0xFFD84315),
-                              onTap: () => _push(const FoodcourtMenuScreen()),
-                            ),
-                            _MoreMenuItem(
-                              icon: Icons.event_note_outlined,
-                              label: "학사일정",
-                              color: const Color(0xFF5E35B1),
-                              onTap: () =>
-                                  _push(const AcademicScheduleScreen()),
-                            ),
-                            _MoreMenuItem(
-                              icon: Icons.map_outlined,
-                              label: "캠퍼스 약도",
-                              color: const Color(0xFF00897B),
-                              onTap: () => _push(const CampusMapScreen()),
-                            ),
-                            _MoreMenuItem(
-                              icon: Icons.settings_outlined,
-                              label: "설정",
-                              color: const Color(0xFF546E7A),
-                              onTap: () => _push(const SettingsScreen()),
-                            ),
-                            _MoreMenuItem(
-                              icon: Icons.person_add_alt_1_outlined,
-                              label: "프로필 설정",
-                              color: const Color(0xFF00838F),
-                              onTap: () =>
-                                  _push(const _ProfileSetupLoaderScreen()),
-                            ),
-                            _MoreMenuItem(
-                              icon: Icons.code_rounded,
-                              label: "오픈소스",
-                              color: const Color(0xFF455A64),
-                              onTap: () =>
-                                  _push(const OpenSourceLicensesScreen()),
-                            ),
-                            _MoreMenuItem(
-                              icon: Icons.info_outline_rounded,
-                              label: "앱 정보",
-                              color: const Color(0xFF6D4C41),
-                              onTap: _showAppInfo,
-                            ),
-                            _MoreMenuItem(
-                              icon: Icons.help_outline_rounded,
-                              label: "도움말",
-                              color: const Color(0xFFF57C00),
-                              onTap: _showHelp,
-                            ),
-                          ],
+                              _MoreMenuItem(
+                                icon: Icons.notifications_none_rounded,
+                                label: "알림 내역",
+                                color: const Color(0xFF3949AB),
+                                isList: _isListView,
+                                onTap: () => _push(
+                                  const NotificationHistoryScreen(embedded: false),
+                                ),
+                              ),
+                              _MoreMenuItem(
+                                icon: Icons.restaurant_menu_rounded,
+                                label: "학식 메뉴",
+                                color: const Color(0xFFD84315),
+                                isList: _isListView,
+                                onTap: () => _push(const FoodcourtMenuScreen()),
+                              ),
+                              _MoreMenuItem(
+                                icon: Icons.event_note_outlined,
+                                label: "학사일정",
+                                color: const Color(0xFF5E35B1),
+                                isList: _isListView,
+                                onTap: () => _push(const AcademicScheduleScreen()),
+                              ),
+                              _MoreMenuItem(
+                                icon: Icons.map_outlined,
+                                label: "캠퍼스 약도",
+                                color: const Color(0xFF00897B),
+                                isList: _isListView,
+                                onTap: () => _push(const CampusMapScreen()),
+                              ),
+                              _MoreMenuItem(
+                                icon: Icons.settings_outlined,
+                                label: "설정",
+                                color: const Color(0xFF546E7A),
+                                isList: _isListView,
+                                onTap: () => _push(const SettingsScreen()),
+                              ),
+                              _MoreMenuItem(
+                                icon: Icons.person_add_alt_1_outlined,
+                                label: "프로필 설정",
+                                color: const Color(0xFF00838F),
+                                isList: _isListView,
+                                onTap: () => _push(const _ProfileSetupLoaderScreen()),
+                              ),
+                              _MoreMenuItem(
+                                icon: Icons.code_rounded,
+                                label: "오픈소스",
+                                color: const Color(0xFF455A64),
+                                isList: _isListView,
+                                onTap: () => _push(const OpenSourceLicensesScreen()),
+                              ),
+                              _MoreMenuItem(
+                                icon: Icons.info_outline_rounded,
+                                label: "앱 정보",
+                                color: const Color(0xFF6D4C41),
+                                isList: _isListView,
+                                onTap: _showAppInfo,
+                              ),
+                              _MoreMenuItem(
+                                icon: Icons.help_outline_rounded,
+                                label: "도움말",
+                                color: const Color(0xFFF57C00),
+                                isList: _isListView,
+                                onTap: _showHelp,
+                              ),
+                            ];
+
+                            return _isListView
+                                ? _MenuList(items: menuItems)
+                                : _MenuGrid(items: menuItems);
+                          },
                         ),
                         const SizedBox(height: 24),
                         Center(
@@ -704,18 +728,37 @@ class _MenuGrid extends StatelessWidget {
   }
 }
 
+class _MenuList extends StatelessWidget {
+  const _MenuList({required this.items});
+
+  final List<_MoreMenuItem> items;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.separated(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: items.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 12),
+      itemBuilder: (context, index) => items[index],
+    );
+  }
+}
+
 class _MoreMenuItem extends StatelessWidget {
   const _MoreMenuItem({
     required this.icon,
     required this.label,
     required this.color,
     required this.onTap,
+    this.isList = false,
   });
 
   final IconData icon;
   final String label;
   final Color color;
   final VoidCallback onTap;
+  final bool isList;
 
   @override
   Widget build(BuildContext context) {
@@ -735,41 +778,72 @@ class _MoreMenuItem extends StatelessWidget {
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(9),
-                decoration: BoxDecoration(
-                  color: accent.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(icon, color: accent, size: 22),
-              ),
-              const Spacer(),
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                        color: scheme.onSurface,
+          child: isList
+              ? Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(9),
+                      decoration: BoxDecoration(
+                        color: accent.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(icon, color: accent, size: 22),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: scheme.onSurface,
+                        ),
                       ),
                     ),
-                  ),
-                  Icon(
-                    Icons.chevron_right_rounded,
-                    color: scheme.onSurfaceVariant,
-                    size: 20,
-                  ),
-                ],
-              ),
-            ],
-          ),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      color: scheme.onSurfaceVariant,
+                      size: 20,
+                    ),
+                  ],
+                )
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(9),
+                      decoration: BoxDecoration(
+                        color: accent.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(icon, color: accent, size: 22),
+                    ),
+                    const Spacer(),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                              color: scheme.onSurface,
+                            ),
+                          ),
+                        ),
+                        Icon(
+                          Icons.chevron_right_rounded,
+                          color: scheme.onSurfaceVariant,
+                          size: 20,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
         ),
       ),
     );
@@ -807,152 +881,6 @@ class _NoticesStandaloneScreenState extends State<_NoticesStandaloneScreen> {
       body: NoticesTabScreen(subTabNotifier: _subTabNotifier),
     );
   }
-}
-
-class _AllFeaturesScreen extends StatelessWidget {
-  const _AllFeaturesScreen();
-
-  void _push(BuildContext context, Widget screen) {
-    Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(builder: (_) => screen),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final ColorScheme scheme = Theme.of(context).colorScheme;
-    final List<_FeatureEntry> items = [
-      _FeatureEntry(
-        icon: Icons.school_outlined,
-        title: "본교 공지",
-        subtitle: "학교 공지/홈페이지",
-        onTap: () => _push(
-          context,
-          const _NoticesStandaloneScreen(
-            initial: NoticesSubTab.main,
-            title: "본교 공지",
-          ),
-        ),
-      ),
-      _FeatureEntry(
-        icon: Icons.menu_book_outlined,
-        title: "교수학습",
-        subtitle: "CTL 공지/자료",
-        onTap: () => _push(
-          context,
-          const _NoticesStandaloneScreen(
-            initial: NoticesSubTab.ctl,
-            title: "교수학습",
-          ),
-        ),
-      ),
-      _FeatureEntry(
-        icon: Icons.emoji_events_outlined,
-        title: "역량관리",
-        subtitle: "MPU 공지/프로그램",
-        onTap: () => _push(
-          context,
-          const _NoticesStandaloneScreen(
-            initial: NoticesSubTab.mpu,
-            title: "역량관리",
-          ),
-        ),
-      ),
-      _FeatureEntry(
-        icon: Icons.local_library_outlined,
-        title: "도서관",
-        subtitle: "자료 검색",
-        onTap: () => _push(context, const LibraryScreen()),
-      ),
-      _FeatureEntry(
-        icon: Icons.notifications_none_rounded,
-        title: "알림 내역",
-        subtitle: "수신 알림 기록",
-        onTap: () =>
-            _push(context, const NotificationHistoryScreen(embedded: false)),
-      ),
-      _FeatureEntry(
-        icon: Icons.restaurant_menu_rounded,
-        title: "학식 메뉴",
-        subtitle: "식단/가격",
-        onTap: () => _push(context, const FoodcourtMenuScreen()),
-      ),
-      _FeatureEntry(
-        icon: Icons.event_note_outlined,
-        title: "학사일정",
-        subtitle: "다가오는 일정",
-        onTap: () => _push(context, const AcademicScheduleScreen()),
-      ),
-      _FeatureEntry(
-        icon: Icons.map_outlined,
-        title: "캠퍼스 약도",
-        subtitle: "건물 위치",
-        onTap: () => _push(context, const CampusMapScreen()),
-      ),
-      _FeatureEntry(
-        icon: Icons.person_outline_rounded,
-        title: "마이페이지",
-        subtitle: "계정/개인 기능",
-        onTap: () => _push(context, const MyPageScreen()),
-      ),
-      _FeatureEntry(
-        icon: Icons.settings_outlined,
-        title: "설정",
-        subtitle: "앱 설정",
-        onTap: () => _push(context, const SettingsScreen()),
-      ),
-      _FeatureEntry(
-        icon: Icons.person_add_alt_1_outlined,
-        title: "프로필 설정",
-        subtitle: "초기 설정/동기화",
-        onTap: () => _push(context, const _ProfileSetupLoaderScreen()),
-      ),
-      _FeatureEntry(
-        icon: Icons.code_rounded,
-        title: "오픈소스 라이선스",
-        subtitle: "사용 라이브러리",
-        onTap: () => _push(context, const OpenSourceLicensesScreen()),
-      ),
-    ];
-
-    return Scaffold(
-      appBar: AppBar(title: const Text("앱 기능 전체")),
-      body: ListView.separated(
-        itemCount: items.length,
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        separatorBuilder: (_, __) =>
-            Divider(height: 1, color: scheme.outlineVariant.withValues(alpha: 0.6)),
-        itemBuilder: (context, index) {
-          final _FeatureEntry e = items[index];
-          return ListTile(
-            leading: CircleAvatar(
-              backgroundColor: scheme.primary.withValues(alpha: 0.10),
-              foregroundColor: scheme.primary,
-              child: Icon(e.icon),
-            ),
-            title: Text(e.title),
-            subtitle: Text(e.subtitle),
-            trailing: const Icon(Icons.chevron_right_rounded),
-            onTap: e.onTap,
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _FeatureEntry {
-  const _FeatureEntry({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final VoidCallback onTap;
 }
 
 class _ProfileSetupLoaderScreen extends StatelessWidget {

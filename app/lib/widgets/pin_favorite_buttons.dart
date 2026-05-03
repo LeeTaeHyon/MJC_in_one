@@ -22,8 +22,8 @@ class PinFavoriteButtons extends StatelessWidget {
   Widget build(BuildContext context) {
     final ColorScheme scheme = Theme.of(context).colorScheme;
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
-    final Color pinC = pinnedColor ?? const Color(0xFFFFC107);
     final Color favC = favoriteColor ?? const Color(0xFFFFC107);
+    final Color pinC = pinnedColor ?? const Color(0xFFE53935);
 
     Widget action({
       required IconData icon,

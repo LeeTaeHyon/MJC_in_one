@@ -658,8 +658,6 @@ class _MpuListTabState extends State<_MpuListTab> {
     BuildContext context,
     List<Map<String, dynamic>> allItems,
   ) {
-    final MjcSurfaceTokens tokens =
-        Theme.of(context).extension<MjcSurfaceTokens>()!;
     final NoticeFilterState filter = _noticeFilter.copyWith(quickQuery: "");
     final List<Map<String, dynamic>> noticeFilteredItems = filter.apply(
       allItems,
@@ -727,19 +725,31 @@ class _MpuListTabState extends State<_MpuListTab> {
               final Widget card = RepaintBoundary(
                 child: _buildMpuCard(context, data, itemKey: key),
               );
+              final Widget dDayBadge = widget.showCompleted
+                  ? Opacity(
+                      opacity: 0.55,
+                      child: MpuDeadlineHomeStyleBadge(data: data),
+                    )
+                  : MpuDeadlineHomeStyleBadge(data: data);
               final Widget overlaid = Stack(
                 children: [
                   card,
                   Positioned(
                     right: 16,
                     top: 10,
-                    child: PinFavoriteButtons(
-                      isPinned: isPinned,
-                      isFavorite: isFavorite,
-                      onTogglePinned: () => _togglePinned(key),
-                      onToggleFavorite: () => _toggleFavorite(key),
-                      pinnedColor: tokens.sourceMpu,
-                      favoriteColor: tokens.sourceMpu,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        PinFavoriteButtons(
+                          isPinned: isPinned,
+                          isFavorite: isFavorite,
+                          onTogglePinned: () => _togglePinned(key),
+                          onToggleFavorite: () => _toggleFavorite(key),
+                        ),
+                        const SizedBox(height: 8),
+                        dDayBadge,
+                      ],
                     ),
                   ),
                 ],
@@ -776,95 +786,82 @@ class _MpuListTabState extends State<_MpuListTab> {
         (data["reg_date"] ?? data["date"] ?? "").toString().trim();
     final String edu = (data["edu_date"] ?? "").toString().trim();
 
-    final Widget badge = MpuDeadlineHomeStyleBadge(data: data);
-    return Row(
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        Expanded(
-          child: Column(
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: chipBackground,
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Text(
+            branch.isEmpty ? "핵심역량" : branch,
+            style: TextStyle(
+              color: chipForeground,
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          title,
+          style: TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.bold,
+            color: titleColor,
+            height: 1.3,
+          ),
+        ),
+        if (reg.isNotEmpty) ...<Widget>[
+          const SizedBox(height: 10),
+          Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: chipBackground,
-                  borderRadius: BorderRadius.circular(6),
-                ),
+              Icon(
+                Icons.calendar_today_outlined,
+                size: 14,
+                color: secondaryText,
+              ),
+              const SizedBox(width: 6),
+              Expanded(
                 child: Text(
-                  branch.isEmpty ? "핵심역량" : branch,
+                  "신청: $reg",
                   style: TextStyle(
-                    color: chipForeground,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
+                    color: secondaryText,
+                    fontSize: 13,
+                    height: 1.35,
                   ),
                 ),
               ),
-              const SizedBox(height: 12),
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.bold,
-                  color: titleColor,
-                  height: 1.3,
-                ),
-              ),
-              if (reg.isNotEmpty) ...<Widget>[
-                const SizedBox(height: 10),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Icon(
-                      Icons.calendar_today_outlined,
-                      size: 14,
-                      color: secondaryText,
-                    ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        "신청: $reg",
-                        style: TextStyle(
-                          color: secondaryText,
-                          fontSize: 13,
-                          height: 1.35,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-              if (edu.isNotEmpty) ...<Widget>[
-                const SizedBox(height: 6),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Icon(
-                      Icons.school_outlined,
-                      size: 14,
-                      color: secondaryText,
-                    ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        "교육: $edu",
-                        style: TextStyle(
-                          color: secondaryText,
-                          fontSize: 13,
-                          height: 1.35,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
             ],
           ),
-        ),
-        const SizedBox(width: 10),
-        widget.showCompleted
-            ? Opacity(opacity: 0.55, child: badge)
-            : badge,
+        ],
+        if (edu.isNotEmpty) ...<Widget>[
+          const SizedBox(height: 6),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Icon(
+                Icons.school_outlined,
+                size: 14,
+                color: secondaryText,
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  "교육: $edu",
+                  style: TextStyle(
+                    color: secondaryText,
+                    fontSize: 13,
+                    height: 1.35,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ],
     );
   }

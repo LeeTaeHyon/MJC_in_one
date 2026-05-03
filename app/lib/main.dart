@@ -1,9 +1,11 @@
 import "dart:convert";
 import "package:firebase_core/firebase_core.dart";
+import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
 import "package:mio_notice/firebase_options.dart";
 import "package:mio_notice/notification_history_prefs.dart";
 import "package:mio_notice/notification_sources.dart";
+import "package:mio_notice/screens/admin/admin_shell.dart";
 import "package:mio_notice/screens/intro_screen.dart";
 import "package:mio_notice/services/deep_link_handler.dart";
 import "package:mio_notice/services/user_data_repository.dart";
@@ -156,11 +158,20 @@ class _MioNoticeAppState extends State<MioNoticeApp>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       DeepLinkHandler.instance.start(_navigatorKey);
+      _maybeOpenAdminFromUrl();
     });
     ThemeModeController.load().then((c) {
       if (!mounted) return;
       setState(() => _themeModeController = c);
     });
+  }
+
+  void _maybeOpenAdminFromUrl() {
+    if (!kIsWeb) return;
+    final String fragment = Uri.base.fragment;
+    if (fragment == "/admin" || fragment.startsWith("/admin")) {
+      _navigatorKey.currentState?.pushNamed("/admin");
+    }
   }
 
   @override
@@ -195,6 +206,16 @@ class _MioNoticeAppState extends State<MioNoticeApp>
               theme: buildMjcTheme(),
               darkTheme: buildMjcDarkTheme(),
               themeMode: mode,
+              onGenerateRoute: (RouteSettings settings) {
+                // 관리자 콘솔: 웹 URL `/#/admin` 또는 설정 > 앱 버전 표시 5회 탭
+                if (settings.name == "/admin") {
+                  return MaterialPageRoute<void>(
+                    builder: (_) => const AdminShell(),
+                    settings: settings,
+                  );
+                }
+                return null;
+              },
               builder: (BuildContext context, Widget? child) {
                 final Widget body = child ?? const SizedBox.shrink();
                 final bool pushedRoute =

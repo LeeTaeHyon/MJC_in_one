@@ -4,6 +4,7 @@ import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
 import "package:flutter_animate/flutter_animate.dart";
 import "package:mio_notice/screens/common_webview_screen.dart";
+import "package:mio_notice/screens/notice_detail_screen.dart";
 import "package:mio_notice/services/notice_filter.dart";
 import "package:mio_notice/services/notice_manager.dart";
 import "package:mio_notice/services/user_data_repository.dart";
@@ -927,31 +928,30 @@ class _NoticeListTabState extends State<_NoticeListTab> {
               final data = ordered[index];
               final String id = data["id"] ?? "";
               final bool isRead = _readNoticeIds.contains(id);
-              final String url = data["url"] ?? "";
               final String key = _noticeKey(data);
               final bool isPinned = _pinnedKeys.contains(key);
               final bool isFavorite = _favoriteKeys.contains(key);
 
+              Future<void> openDetail() async {
+                await _markAsRead(id);
+                if (!context.mounted) return;
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (_) => NoticeDetailScreen(
+                      notice: data,
+                      boardId: widget.boardId,
+                      isPinned: isPinned,
+                      isFavorite: isFavorite,
+                      onTogglePinned: () => _togglePinned(key),
+                      onToggleFavorite: () => _toggleFavorite(key),
+                    ),
+                  ),
+                );
+              }
+
               final Widget tile = _ScaleFeedbackButton(
-                onTap: () async {
-                  await _markAsRead(id);
-                  if (!context.mounted) return;
-                  if (url.isEmpty) return;
-                  if (kIsWeb) {
-                    await launchUrl(Uri.parse(url),
-                        webOnlyWindowName: "_blank");
-                  } else {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute<void>(
-                        builder: (_) => CommonWebViewScreen(
-                          url: url,
-                          title: data["title"] ?? "공지사항",
-                        ),
-                      ),
-                    );
-                  }
-                },
+                onTap: openDetail,
                 child: _buildNoticeListItem(
                   context,
                   data,
@@ -962,27 +962,7 @@ class _NoticeListTabState extends State<_NoticeListTab> {
                   isFavorite: isFavorite,
                   onTogglePinned: () => _togglePinned(key),
                   onToggleFavorite: () => _toggleFavorite(key),
-                  () async {
-                    await _markAsRead(id);
-                    if (!context.mounted) return;
-                    if (url.isEmpty) return;
-                    if (kIsWeb) {
-                      await launchUrl(
-                        Uri.parse(url),
-                        webOnlyWindowName: "_blank",
-                      );
-                    } else {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute<void>(
-                          builder: (_) => CommonWebViewScreen(
-                            url: url,
-                            title: data["title"] ?? "공지사항",
-                          ),
-                        ),
-                      );
-                    }
-                  },
+                  openDetail,
                 ),
               );
               final Widget paintIsolated = RepaintBoundary(child: tile);

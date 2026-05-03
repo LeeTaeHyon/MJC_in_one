@@ -1,5 +1,6 @@
 import requests
 import re
+import time
 from bs4 import BeautifulSoup
 from datetime import datetime
 import firebase_admin
@@ -8,6 +9,32 @@ import os
 import json
 
 from notice_ai_tags import enrich_post_dict
+from notice_body import enrich_with_body_and_summary
+
+# 본문 fetch HTTP 호출 간 대기(초) — 서버 부하 방지
+_BODY_FETCH_THROTTLE_S = float(os.environ.get("BODY_FETCH_THROTTLE_S", "1.0"))
+# LM Studio 사용 여부 (GitHub Actions 등 원격에서는 보통 OFF)
+_BODY_USE_LMSTUDIO = bool((os.environ.get("LMSTUDIO_BASE_URL") or "").strip())
+_BODY_LM_BASE = (os.environ.get("LMSTUDIO_BASE_URL") or "").strip()
+_BODY_LM_MODEL = os.environ.get("LMSTUDIO_MODEL", "qwen/qwen3.5-9b")
+
+
+def _enrich_body(post: dict, session: requests.Session | None = None) -> None:
+    """공통 enrich 호출 — 실패해도 글 자체 저장은 막지 않음."""
+    try:
+        enrich_with_body_and_summary(
+            post,
+            session=session,
+            use_lmstudio=_BODY_USE_LMSTUDIO,
+            lm_base=_BODY_LM_BASE,
+            lm_model=_BODY_LM_MODEL,
+        )
+    except Exception as e:
+        post.setdefault("body", "")
+        post["body_fetch_error"] = f"unexpected:{type(e).__name__}"
+        post.setdefault("summary", "")
+        post.setdefault("summary_version", "heuristic-v1")
+        post.setdefault("summary_generated_at", datetime.now().isoformat())
 
 # ── Firebase 초기화 ──────────────────────────────────────────
 # GitHub Actions에서는 환경변수로 주입
@@ -202,7 +229,10 @@ def save_to_firestore(db, board: dict, posts: list[dict]):
 
         post["is_new"] = True
         enrich_post_dict(post, board["id"])
+        _enrich_body(post)
         post_col.document(post["data_idx"]).set(post)
+        if _BODY_FETCH_THROTTLE_S > 0:
+            time.sleep(_BODY_FETCH_THROTTLE_S)
         
         # 기존 데이터가 존재하던 상태(latest_id 존재)에서 등록된 진짜 새 글일 때만 알람 발송 (초기화 폭탄 방지)
         if latest_id:
@@ -256,9 +286,13 @@ def full_crawl(db, board: dict, max_pages: int = 5):
 
     if all_posts:
         batch = db.batch()
+        sess = requests.Session()
         for post in all_posts:
             enrich_post_dict(post, board["id"])
+            _enrich_body(post, session=sess)
             batch.set(post_col.document(post["data_idx"]), post)
+            if _BODY_FETCH_THROTTLE_S > 0:
+                time.sleep(_BODY_FETCH_THROTTLE_S)
         batch.commit()
 
     # 증분 크롤과 동일하게, 앵커는 사이트 1페이지 맨 위(필터 전) 기준

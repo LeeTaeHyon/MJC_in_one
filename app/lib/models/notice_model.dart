@@ -10,6 +10,15 @@ class Notice {
   final String category;
   final bool isNew;
 
+  /// 본문 plain text (크롤러/백필이 채움. 누락 시 빈 문자열).
+  final String body;
+
+  /// AI 요약 (휴리스틱 또는 LLM). 누락 시 빈 문자열.
+  final String summary;
+
+  /// 요약 생성 방식: `heuristic-v1` / `lmstudio-v1` / `manual` / 빈 문자열.
+  final String summaryVersion;
+
   const Notice({
     required this.id,
     required this.title,
@@ -18,6 +27,9 @@ class Notice {
     required this.source,
     required this.category,
     required this.isNew,
+    this.body = "",
+    this.summary = "",
+    this.summaryVersion = "",
   });
 
   factory Notice.fromFirestore(String id, Map<String, dynamic> data) {
@@ -29,6 +41,9 @@ class Notice {
       source: data["source"] as String? ?? "",
       category: data["category"] as String? ?? "",
       isNew: data["is_new"] as bool? ?? false,
+      body: data["body"] as String? ?? "",
+      summary: data["summary"] as String? ?? "",
+      summaryVersion: data["summary_version"] as String? ?? "",
     );
   }
 

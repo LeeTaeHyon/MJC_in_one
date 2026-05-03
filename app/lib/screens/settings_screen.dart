@@ -1,7 +1,10 @@
+import "dart:async";
+
 import "package:flutter/material.dart";
 import "package:mio_notice/home_dashboard_prefs.dart";
 import "package:mio_notice/notification_sources.dart";
 import "package:mio_notice/screens/common_webview_screen.dart";
+import "package:mio_notice/screens/inquiry_screen.dart";
 import "package:mio_notice/screens/open_source_licenses_screen.dart";
 import "package:mio_notice/services/notice_filter.dart";
 import "package:mio_notice/services/user_data_repository.dart";
@@ -10,7 +13,6 @@ import "package:mio_notice/utils/snack_bar_utils.dart";
 import "package:mio_notice/widgets/scroll_to_top_scope.dart";
 import "package:mio_notice/debug_session_log.dart";
 import "package:shared_preferences/shared_preferences.dart";
-import "package:url_launcher/url_launcher.dart";
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -37,6 +39,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final ScrollController _scrollController = ScrollController();
   ScrollToTopCoordinator? _scrollRouteCoordinator;
   bool _registeredScrollRoute = false;
+
+  static const Duration _adminHiddenTapResetDelay = Duration(seconds: 2);
+  int _adminHiddenTapCount = 0;
+  Timer? _adminHiddenTapResetTimer;
 
   @override
   void initState() {
@@ -84,12 +90,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   void dispose() {
+    _adminHiddenTapResetTimer?.cancel();
     _scrollController.removeListener(_onSettingsScroll);
     if (_registeredScrollRoute) {
       _scrollRouteCoordinator?.popRouteHandler();
     }
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _onVersionTextTap() {
+    _adminHiddenTapResetTimer?.cancel();
+    _adminHiddenTapCount++;
+    if (_adminHiddenTapCount >= 5) {
+      _adminHiddenTapCount = 0;
+      Navigator.of(context).pushNamed("/admin");
+      return;
+    }
+    _adminHiddenTapResetTimer = Timer(_adminHiddenTapResetDelay, () {
+      _adminHiddenTapCount = 0;
+    });
   }
 
   /// 설정값 로드
@@ -481,38 +501,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     ).whenComplete(controller.dispose);
   }
 
-  /// 개발자 이메일 문의
+  /// 개발자 문의 — Firestore `developer_inquiries` 컬렉션으로 직접 전송됩니다.
   Future<void> _contactDeveloper() async {
-    final Uri emailLaunchUri = Uri(
-      scheme: "mailto",
-      path: "dlxogus0619@mjc.ac.kr",
-      queryParameters: {"subject": "[MJC In One] 앱 관련 문의"},
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(builder: (_) => const InquiryScreen()),
     );
-    if (await canLaunchUrl(emailLaunchUri)) {
-      await launchUrl(emailLaunchUri);
-    } else {
-      if (mounted) {
-        SnackBarUtils.showUnique(
-          context,
-          key: "settings_mail_app_unavailable",
-          snackBar: SnackBar(
-            behavior: SnackBarBehavior.floating,
-            margin: _snackBarMargin(context),
-            content: RichText(
-                text: const TextSpan(
-                    style: TextStyle(color: Colors.white),
-                    children: [
-                  TextSpan(
-                      text: "메일 앱을 열 수 없습니다. ",
-                      style: TextStyle(fontWeight: FontWeight.w700)),
-                  TextSpan(
-                      text: "메일 앱 설치/계정 설정 후 다시 시도해 주세요.",
-                      style: TextStyle(fontWeight: FontWeight.w400)),
-                ])),
-          ),
-        );
-      }
-    }
   }
 
   Widget _buildFilterChipGroup({
@@ -1042,9 +1035,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _settingsCard(
             child: Column(
               children: [
-                const ListTile(
-                  title: Text("앱 버전"),
-                  trailing: Text("1.0.0 (Build 1)"),
+                ListTile(
+                  title: const Text("앱 버전"),
+                  trailing: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: _onVersionTextTap,
+                    child: const Padding(
+                      padding: EdgeInsets.only(left: 8),
+                      child: Text("1.0.0 (Build 1)"),
+                    ),
+                  ),
                 ),
                 _hairlineDivider(),
                 ListTile(
@@ -1104,45 +1104,25 @@ class _SectionHeader extends StatelessWidget {
 
     final Color accent =
         dark ? Colors.white : cs.primary;
-    final Color chipFill = dark
-        ? cs.onSurface.withValues(alpha: 0.09)
-        : cs.primary.withValues(alpha: 0.11);
-    final Color chipBorder = dark
-        ? Colors.white.withValues(alpha: 0.08)
-        : cs.outlineVariant.withValues(alpha: 0.45);
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(0, 4, 0, 8),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: chipFill,
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: chipBorder, width: 1),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (icon != null) ...[
-                  Icon(icon, size: 20, color: accent),
-                  const SizedBox(width: 8),
-                ],
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                    color: accent,
-                    letterSpacing: -0.2,
-                  ),
-                ),
-              ],
+      padding: const EdgeInsets.fromLTRB(4, 4, 0, 8),
+      child: Row(
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 20, color: accent),
+            const SizedBox(width: 8),
+          ],
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+              color: accent,
+              letterSpacing: -0.2,
             ),
           ),
-        ),
+        ],
       ),
     );
   }

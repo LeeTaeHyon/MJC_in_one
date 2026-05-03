@@ -7,15 +7,56 @@ service cloud.firestore {
         && request.auth.token.email.lower().matches('.*@mjc[.]ac[.]kr$');
     }
 
+    function isAdmin() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/admin/users)
+        && get(/databases/$(database)/documents/admin/users)
+            .data.uids.hasAny([request.auth.uid]);
+    }
+
+    // 관리자 화이트리스트 (Firebase 콘솔에서만 직접 관리)
+    match /admin/{doc} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
     match /users/{uid} {
       allow read, write: if request.auth != null
         && request.auth.uid == uid
         && isMjcEmail();
     }
 
+    // 공지: 누구나 읽기. 사용자는 reports_count 증가만 허용. 그 외 필드(summary 등)는 관리자만.
+    match /notices/{board}/posts/{pid} {
+      allow read: if true;
+      allow update: if (
+        request.resource.data.diff(resource.data)
+          .affectedKeys()
+          .hasOnly(['reports_count'])
+      ) || isAdmin();
+      allow create, delete: if isAdmin();
+    }
+
+    // 공지/메타 등 그 외 notices/** 경로는 관리자만 쓰기 (서버 크롤러는 admin SDK 라 룰 무시)
     match /notices/{document=**} {
       allow read: if true;
-      allow write: if false;
+      allow write: if isAdmin();
+    }
+
+    // 사용자 신고: 누구나 create, 관리자만 read/update.
+    match /notice_reports/{rid} {
+      allow create: if request.resource.data.keys()
+        .hasAll(['board_id', 'post_id', 'reason', 'status']);
+      allow read, update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // 개발자 문의: 누구나 create, 관리자만 read/update.
+    match /developer_inquiries/{iid} {
+      allow create: if request.resource.data.keys()
+        .hasAll(['type', 'message', 'status']);
+      allow read, update: if isAdmin();
+      allow delete: if isAdmin();
     }
   }
 }
