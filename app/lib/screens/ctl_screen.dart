@@ -102,10 +102,14 @@ class _CtlScreenState extends State<CtlScreen> {
     final ScrollToTopCoordinator? c = _scrollToTopCoordinator;
     if (c == null) return;
     if (widget.activeInNoticesTab) {
-      c.registerMainTab(MainNavTabIndex.notices, _scrollContentToTop);
+      c.registerMainTab(
+        MainNavTabIndex.notices,
+        _scrollContentToTop,
+        owner: this,
+      );
       _registeredMainTab = true;
     } else if (_registeredMainTab) {
-      c.unregisterMainTab(MainNavTabIndex.notices);
+      c.unregisterMainTab(MainNavTabIndex.notices, owner: this);
       _registeredMainTab = false;
     }
   }
@@ -136,7 +140,11 @@ class _CtlScreenState extends State<CtlScreen> {
   }
 
   Future<void> _openNoticeFilterSheet() async {
-    await showNoticeFilterSheet(context);
+    await showNoticeFilterSheet(
+      context,
+      scopeId: "ctl",
+      scopeLabel: "CTL 공지/프로그램",
+    );
     if (mounted) {
       _filterReloadTick.value++;
     }
@@ -222,7 +230,10 @@ class _CtlScreenState extends State<CtlScreen> {
     _filterReloadTick.dispose();
     _outerScrollController.removeListener(_nestedFabReporter.reportOuterScroll);
     if (_registeredMainTab) {
-      _scrollToTopCoordinator?.unregisterMainTab(MainNavTabIndex.notices);
+      _scrollToTopCoordinator?.unregisterMainTab(
+        MainNavTabIndex.notices,
+        owner: this,
+      );
     }
     _activeTabNotifier?.removeListener(_handleMainTabChanged);
     _outerScrollController.dispose();
@@ -531,9 +542,19 @@ class _CtlListTabState extends State<_CtlListTab> {
   Future<void> _loadNoticeFilter() async {
     final NoticeFilterState filter = await NoticeFilterState.load();
     final List<String> keywords = await loadSharedNoticeKeywords();
+    final bool enabled = await loadScopedNoticeFilterEnabled("ctl");
+    final List<String> includes = await loadScopedNoticeFilterIncludes("ctl");
     if (!mounted) return;
     setState(() {
-      _noticeFilter = filter.copyWith(quickQuery: "");
+      _noticeFilter = filter.copyWith(
+        enabled: enabled,
+        quickQuery: "",
+        sources: const ["CTL"],
+        types: kNoticeFilterTypeOptions,
+        excludes: const [],
+        requireKeywordHit: false,
+        includes: includes,
+      );
       _noticeSharedKeywords = keywords;
     });
   }

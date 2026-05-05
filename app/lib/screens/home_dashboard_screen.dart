@@ -21,7 +21,6 @@ import "package:mio_notice/theme/app_theme.dart";
 import "package:mio_notice/utils/mpu_program_dday.dart";
 import "package:mio_notice/widgets/scroll_to_top_scope.dart";
 import "package:mio_notice/widgets/shuttle_status_card.dart";
-import "package:mio_notice/debug/agent_logger.dart";
 import "package:shared_preferences/shared_preferences.dart";
 import "package:url_launcher/url_launcher.dart";
 
@@ -159,7 +158,11 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     final ScrollToTopCoordinator? c = ScrollToTopScope.maybeOf(context);
     if (c != null) {
       _scrollToTopCoordinator = c;
-      c.registerMainTab(MainNavTabIndex.home, _scrollContentToTop);
+      c.registerMainTab(
+        MainNavTabIndex.home,
+        _scrollContentToTop,
+        owner: this,
+      );
     }
     if (_scrollController.hasClients) {
       _scrollToTopCoordinator?.reportMainTabScroll(
@@ -184,7 +187,10 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   @override
   void dispose() {
     _scrollController.removeListener(_onHomeScrollOffset);
-    _scrollToTopCoordinator?.unregisterMainTab(MainNavTabIndex.home);
+    _scrollToTopCoordinator?.unregisterMainTab(
+      MainNavTabIndex.home,
+      owner: this,
+    );
     _scrollController.dispose();
     super.dispose();
   }
@@ -241,16 +247,6 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // #region agent log
-    AgentLogger.log(
-      hypothesisId: "B",
-      location: "home_dashboard_screen.dart:build",
-      message: "HomeDashboardScreen build",
-      data: <String, Object?>{
-        "hasScrollClients": _scrollController.hasClients,
-      },
-    );
-    // #endregion
     final double topPad = MediaQuery.paddingOf(context).top;
     final double viewportH = MediaQuery.sizeOf(context).height;
     // 홈/공지 화면의 히어로 헤더 높이를 동일한 규칙으로 통일.
@@ -635,7 +631,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                             Text(
                               loading
                                   ? "메뉴를 불러오는 중입니다."
-                                  : "${items.length}개 메뉴 중 골라드리겠습니다.",
+                                  : "${items.length}개 메뉴 중 고민되시나요?",
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
@@ -659,7 +655,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                               ? null
                               : () => _recommendFoodcourtMenu(items),
                           icon: const Icon(Icons.casino_rounded),
-                          label: const Text("학식 추천"),
+                          label: const Text("오늘 뭐 먹지?"),
                         ),
                       ),
                       const SizedBox(width: 10),
@@ -677,7 +673,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                                 )
                               : null,
                           icon: const Icon(Icons.restaurant_menu_rounded),
-                          label: const Text("학식 메뉴"),
+                          label: const Text("전체 메뉴"),
                         ),
                       ),
                     ],
@@ -726,7 +722,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           child: Row(
             children: [
               Text(
-                "MPU 프로그램 신청 마감 일정",
+                "핵심역량 프로그램 신청 마감 일정",
                 style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
               ),
             ],
@@ -1293,6 +1289,9 @@ class _HomeHeroHeaderDelegate extends SliverPersistentHeaderDelegate {
               child: LayoutBuilder(
                 builder: (BuildContext context, BoxConstraints constraints) {
                   final double ih = constraints.maxHeight;
+                  // 펼침: 상단 고정. 접힘(높이 ~52): 6+48이 넘치지 않게 살짝 내림.
+                  final double menuTopInset =
+                      ih >= 54 ? 6.0 : max(0.0, (ih - 48) / 2);
                   final double titleSize = lerpDouble(34, 20, u)!;
                   const double titleLeft = 24;
                   const double bottomBlock =
@@ -1305,25 +1304,17 @@ class _HomeHeroHeaderDelegate extends SliverPersistentHeaderDelegate {
                   final double subtitleOpacity =
                       (1.0 - u * 1.35).clamp(0.0, 1.0);
 
+                  // Stack hit-test visits later children first. Keep the menu
+                  // button last so the full-width title cannot steal taps when
+                  // the header collapses and the title moves up beside the icon.
+                  const double moreButtonSlot = 52;
                   return Stack(
                     clipBehavior: Clip.hardEdge,
                     children: [
                       Positioned(
-                        top: 6,
-                        right: 12,
-                        child: IconButton(
-                          tooltip: "더보기",
-                          onPressed: onMoreTap,
-                          icon: const Icon(
-                            Icons.menu_rounded,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                      Positioned(
                         left: titleLeft,
                         top: titleTop,
-                        right: 16,
+                        right: moreButtonSlot,
                         child: Text(
                           "MJC in one",
                           maxLines: 1,
@@ -1340,7 +1331,7 @@ class _HomeHeroHeaderDelegate extends SliverPersistentHeaderDelegate {
                         Positioned(
                           left: 24,
                           top: titleTop + titleSize * 0.95 + 6,
-                          right: 16,
+                          right: moreButtonSlot,
                           child: IgnorePointer(
                             child: Opacity(
                               opacity: subtitleOpacity,
@@ -1357,6 +1348,26 @@ class _HomeHeroHeaderDelegate extends SliverPersistentHeaderDelegate {
                             ),
                           ),
                         ),
+                      Positioned(
+                        top: 0,
+                        right: 4,
+                        bottom: 0,
+                        width: moreButtonSlot,
+                        child: Align(
+                          alignment: Alignment.topCenter,
+                          child: Padding(
+                            padding: EdgeInsets.only(top: menuTopInset),
+                            child: IconButton(
+                              tooltip: "더보기",
+                              onPressed: onMoreTap,
+                              icon: const Icon(
+                                Icons.menu_rounded,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
                     ],
                   );
                 },

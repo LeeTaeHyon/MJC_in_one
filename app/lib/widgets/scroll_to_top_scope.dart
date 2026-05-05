@@ -198,7 +198,8 @@ class ScrollToTopCoordinator {
   /// `MainNavigationScreen`에서 탭 전환 시 프레임 끝에 갱신되며,
   /// Offstage로 상태를 유지하는 화면들도 "재진입" 이벤트를 감지할 수 있습니다.
   final ValueNotifier<int> activeMainTabNotifier = ValueNotifier<int>(0);
-  final Map<int, VoidCallback> _mainTabHandlers = <int, VoidCallback>{};
+  final Map<int, _MainTabScrollHandler> _mainTabHandlers =
+      <int, _MainTabScrollHandler>{};
   final Map<int, double> _lastMainScrollPixels = <int, double>{};
   final Map<int, double> _lastMainViewportHeight = <int, double>{};
   final List<VoidCallback> _routeHandlers = <VoidCallback>[];
@@ -301,11 +302,14 @@ class ScrollToTopCoordinator {
     _setFabVisible(pixels > _scrollRevealThreshold(viewportHeight));
   }
 
-  void registerMainTab(int tabIndex, VoidCallback handler) {
-    _mainTabHandlers[tabIndex] = handler;
+  void registerMainTab(int tabIndex, VoidCallback handler, {Object? owner}) {
+    _mainTabHandlers[tabIndex] = _MainTabScrollHandler(handler, owner);
   }
 
-  void unregisterMainTab(int tabIndex) {
+  void unregisterMainTab(int tabIndex, {Object? owner}) {
+    if (owner != null && _mainTabHandlers[tabIndex]?.owner != owner) {
+      return;
+    }
     _mainTabHandlers.remove(tabIndex);
     _lastMainScrollPixels.remove(tabIndex);
     _lastMainViewportHeight.remove(tabIndex);
@@ -326,9 +330,16 @@ class ScrollToTopCoordinator {
     if (_routeHandlers.isNotEmpty) {
       _routeHandlers.last();
     } else {
-      _mainTabHandlers[_activeMainTab]?.call();
+      _mainTabHandlers[_activeMainTab]?.handler.call();
     }
   }
+}
+
+final class _MainTabScrollHandler {
+  const _MainTabScrollHandler(this.handler, this.owner);
+
+  final VoidCallback handler;
+  final Object? owner;
 }
 
 class ScrollToTopScope extends InheritedWidget {

@@ -1,6 +1,7 @@
 import "package:cloud_firestore/cloud_firestore.dart";
 import "package:firebase_auth/firebase_auth.dart";
 import "package:mio_notice/home_dashboard_prefs.dart";
+import "package:mio_notice/main_website_prefs.dart";
 import "package:mio_notice/mpu_profile_prefs.dart";
 import "package:mio_notice/notification_sources.dart";
 import "package:mio_notice/services/notice_filter.dart";
@@ -94,6 +95,8 @@ class UserDataRepository {
       kHomeDashboardSectionOrderPrefKey,
       data["homeDashboardSectionOrder"],
     );
+    await _setString(prefs, kMainWebsiteNoticeViewModePrefKey,
+        data[kMainWebsiteNoticeViewModePrefKey]);
 
     final Map<String, dynamic> bookmarks =
         _asMap(data["bookmarks"]) ?? const {};
@@ -160,6 +163,9 @@ class UserDataRepository {
       "homeDashboardSectionOrder":
           prefs.getStringList(kHomeDashboardSectionOrderPrefKey) ??
               defaultHomeDashboardSectionOrder(),
+      kMainWebsiteNoticeViewModePrefKey:
+          prefs.getString(kMainWebsiteNoticeViewModePrefKey) ??
+              MainWebsiteNoticeViewMode.unified.name,
       "bookmarks": {
         "pinned": _collectBookmarkPrefs(prefs, _pinnedPrefix),
         "favorites": _collectBookmarkPrefs(prefs, _favoritePrefix),
@@ -280,6 +286,16 @@ class UserDataRepository {
   ) async {
     if (value is bool) {
       await prefs.setBool(key, value);
+    }
+  }
+
+  Future<void> _setString(
+    SharedPreferences prefs,
+    String key,
+    dynamic value,
+  ) async {
+    if (value is String) {
+      await prefs.setString(key, value);
     }
   }
 

@@ -11,7 +11,6 @@ import "package:mio_notice/screens/notices_tab_screen.dart";
 import "package:mio_notice/screens/profile_setup_screen.dart";
 import "package:mio_notice/services/auth_service.dart";
 import "package:mio_notice/services/user_data_repository.dart";
-import "package:mio_notice/debug/agent_logger.dart";
 import "package:mio_notice/widgets/scroll_to_top_fab.dart";
 import "package:mio_notice/widgets/scroll_to_top_scope.dart";
 import "package:mio_notice/theme/app_colors.dart";
@@ -234,7 +233,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           );
         },
       );
-      overlay.insert(entry!);
+      overlay.insert(entry);
 
       // 6초 뒤 자동 제거
       Future.delayed(const Duration(seconds: 6), removeEntry);
@@ -309,21 +308,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       _noticeSubTab.value = noticesSubTab;
     }
     final bool tabChanged = index != _index;
-    // #region agent log
-    AgentLogger.log(
-      hypothesisId: "A",
-      location: "main_navigation_screen.dart:_onMenuItemClick",
-      message: "Main tab navigate requested",
-      data: <String, Object?>{
-        "fromIndex": _index,
-        "toIndex": index,
-        "tabChanged": tabChanged,
-        "noticeSubTab": _noticeSubTab.value.name,
-        "noticeSubNavVisible_before": _noticeSubNavVisible,
-        "historyLen_before": _tabHistory.length,
-      },
-    );
-    // #endregion
     setState(() {
       if (tabChanged) {
         if (index == 0) {
@@ -362,18 +346,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   @override
   Widget build(BuildContext context) {
     final Color scaffoldBackground = Theme.of(context).scaffoldBackgroundColor;
-    // #region agent log
-    AgentLogger.log(
-      hypothesisId: "A",
-      location: "main_navigation_screen.dart:build",
-      message: "MainNavigationScreen build",
-      data: <String, Object?>{
-        "index": _index,
-        "noticeSubNavVisible": _noticeSubNavVisible,
-        "tabHistoryLen": _tabHistory.length,
-      },
-    );
-    // #endregion
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: _onSystemPopInvoked,
@@ -396,19 +368,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                         switchOutCurve: Curves.easeInCubic,
                         layoutBuilder: (Widget? currentChild,
                             List<Widget> previousChildren) {
-                          // #region agent log
-                          AgentLogger.log(
-                            hypothesisId: "A",
-                            location:
-                                "main_navigation_screen.dart:AnimatedSwitcher.layoutBuilder",
-                            message: "AnimatedSwitcher layout",
-                            data: <String, Object?>{
-                              "currentChildNull": currentChild == null,
-                              "previousChildrenCount": previousChildren.length,
-                              "index": _index,
-                            },
-                          );
-                          // #endregion
                           return Stack(
                             fit: StackFit.expand,
                             children: <Widget>[

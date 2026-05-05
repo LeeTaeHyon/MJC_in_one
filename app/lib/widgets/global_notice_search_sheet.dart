@@ -1,6 +1,16 @@
 import "package:flutter/material.dart";
 import "package:mio_notice/widgets/notice_search_result_card.dart";
 
+List<String> _parseAiTagsForSearchCard(Map<String, dynamic> data) {
+  final Object? v = data["ai_tags"];
+  if (v is! List) return const <String>[];
+  return v
+      .map((e) => e.toString().trim())
+      .where((s) => s.isNotEmpty)
+      .take(2)
+      .toList();
+}
+
 Future<void> showGlobalNoticeSearchSheet(
   BuildContext context, {
   required List<Map<String, dynamic>> items,
@@ -131,6 +141,7 @@ class _GlobalNoticeSearchSheetState extends State<_GlobalNoticeSearchSheet> {
                         return NoticeSearchResultCard(
                           title: title,
                           chipLabel: widget.chipFor(item),
+                          aiTags: _parseAiTagsForSearchCard(item),
                           dateLine: widget.dateFor(item),
                           accentColor: widget.accentColor,
                           onTap: () async {

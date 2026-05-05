@@ -7,6 +7,7 @@ class NoticeSearchResultCard extends StatelessWidget {
     super.key,
     required this.title,
     required this.chipLabel,
+    this.aiTags = const <String>[],
     required this.dateLine,
     required this.accentColor,
     required this.onTap,
@@ -15,6 +16,7 @@ class NoticeSearchResultCard extends StatelessWidget {
 
   final String title;
   final String chipLabel;
+  final List<String> aiTags;
   final String dateLine;
   final Color accentColor;
   final VoidCallback onTap;
@@ -70,9 +72,11 @@ class NoticeSearchResultCard extends StatelessWidget {
                     Padding(
                       padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
                       child: _cardBody(
+                        context: context,
                         chip: chip,
                         chipBackground: chipBackground,
                         chipForeground: chipForeground,
+                        aiTags: aiTags,
                         displayTitle: displayTitle,
                         titleColor: titleColor,
                         dateLine: dateLine,
@@ -104,9 +108,11 @@ class NoticeSearchResultCard extends StatelessWidget {
                       Padding(
                         padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
                         child: _cardBody(
+                          context: context,
                           chip: chip,
                           chipBackground: chipBackground,
                           chipForeground: chipForeground,
+                          aiTags: aiTags,
                           displayTitle: displayTitle,
                           titleColor: titleColor,
                           dateLine: dateLine,
@@ -122,31 +128,59 @@ class NoticeSearchResultCard extends StatelessWidget {
   }
 
   Widget _cardBody({
+    required BuildContext context,
     required String chip,
     required Color chipBackground,
     required Color chipForeground,
+    required List<String> aiTags,
     required String displayTitle,
     required Color titleColor,
     required String dateLine,
     required Color dateColor,
   }) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: chipBackground,
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: Text(
-            chip,
-            style: TextStyle(
-              color: chipForeground,
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: chipBackground,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                chip,
+                style: TextStyle(
+                  color: chipForeground,
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
-          ),
+            ...aiTags.map(
+              (t) => Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                decoration: BoxDecoration(
+                  color: scheme.surfaceContainerHighest.withValues(alpha: 0.55),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: scheme.outlineVariant),
+                ),
+                child: Text(
+                  t,
+                  style: TextStyle(
+                    color: scheme.onSurfaceVariant,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 12),
         Text(

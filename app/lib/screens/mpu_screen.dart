@@ -105,10 +105,14 @@ class _MpuScreenState extends State<MpuScreen> {
     final ScrollToTopCoordinator? c = _scrollToTopCoordinator;
     if (c == null) return;
     if (widget.activeInNoticesTab) {
-      c.registerMainTab(MainNavTabIndex.notices, _scrollContentToTop);
+      c.registerMainTab(
+        MainNavTabIndex.notices,
+        _scrollContentToTop,
+        owner: this,
+      );
       _registeredMainTab = true;
     } else if (_registeredMainTab) {
-      c.unregisterMainTab(MainNavTabIndex.notices);
+      c.unregisterMainTab(MainNavTabIndex.notices, owner: this);
       _registeredMainTab = false;
     }
   }
@@ -150,7 +154,11 @@ class _MpuScreenState extends State<MpuScreen> {
   }
 
   Future<void> _openNoticeFilterSheet() async {
-    await showNoticeFilterSheet(context);
+    await showNoticeFilterSheet(
+      context,
+      scopeId: "mpu",
+      scopeLabel: "MPU(핵심역량) 공지/프로그램",
+    );
     if (mounted) {
       _filterReloadTick.value++;
     }
@@ -230,7 +238,10 @@ class _MpuScreenState extends State<MpuScreen> {
     _filterReloadTick.dispose();
     _outerScrollController.removeListener(_nestedFabReporter.reportOuterScroll);
     if (_registeredMainTab) {
-      _scrollToTopCoordinator?.unregisterMainTab(MainNavTabIndex.notices);
+      _scrollToTopCoordinator?.unregisterMainTab(
+        MainNavTabIndex.notices,
+        owner: this,
+      );
     }
     _activeTabNotifier?.removeListener(_handleMainTabChanged);
     _outerScrollController.dispose();
@@ -539,9 +550,19 @@ class _MpuListTabState extends State<_MpuListTab> {
   Future<void> _loadNoticeFilter() async {
     final NoticeFilterState filter = await NoticeFilterState.load();
     final List<String> keywords = await loadSharedNoticeKeywords();
+    final bool enabled = await loadScopedNoticeFilterEnabled("mpu");
+    final List<String> includes = await loadScopedNoticeFilterIncludes("mpu");
     if (!mounted) return;
     setState(() {
-      _noticeFilter = filter.copyWith(quickQuery: "");
+      _noticeFilter = filter.copyWith(
+        enabled: enabled,
+        quickQuery: "",
+        sources: const ["MPU"],
+        types: kNoticeFilterTypeOptions,
+        excludes: const [],
+        requireKeywordHit: false,
+        includes: includes,
+      );
       _noticeSharedKeywords = keywords;
     });
   }
@@ -780,7 +801,7 @@ class _MpuListTabState extends State<_MpuListTab> {
     BuildContext context, {
     required Map<String, dynamic> data,
     required String title,
-    required String branch,
+    required String chipLabel,
     required Color titleColor,
     required Color chipBackground,
     required Color chipForeground,
@@ -801,7 +822,7 @@ class _MpuListTabState extends State<_MpuListTab> {
             borderRadius: BorderRadius.circular(6),
           ),
           child: Text(
-            branch.isEmpty ? "핵심역량" : branch,
+            chipLabel.isEmpty ? "핵심역량" : chipLabel,
             style: TextStyle(
               color: chipForeground,
               fontSize: 10,
@@ -897,6 +918,16 @@ class _MpuListTabState extends State<_MpuListTab> {
         : (isRead ? scheme.onSurfaceVariant : accent);
     final String title = data["title"] ?? "";
     final String branch = data["branch"] ?? "";
+    final List<String> tags = switch (data["tags"]) {
+      final List<dynamic> raw => raw.map((e) => e.toString().trim()).toList(),
+      _ => const <String>[],
+    };
+    final String tagsLabel = tags
+        .where((t) => t.isNotEmpty)
+        .take(3)
+        .map((t) => "#$t")
+        .join(" ");
+    final String chipLabel = tagsLabel.isNotEmpty ? tagsLabel : branch;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -949,7 +980,7 @@ class _MpuListTabState extends State<_MpuListTab> {
                         context,
                         data: data,
                         title: title,
-                        branch: branch,
+                        chipLabel: chipLabel,
                         titleColor: titleColor,
                         chipBackground: chipBackground,
                         chipForeground: chipForeground,
@@ -983,7 +1014,7 @@ class _MpuListTabState extends State<_MpuListTab> {
                           context,
                           data: data,
                           title: title,
-                          branch: branch,
+                          chipLabel: chipLabel,
                           titleColor: titleColor,
                           chipBackground: chipBackground,
                           chipForeground: chipForeground,

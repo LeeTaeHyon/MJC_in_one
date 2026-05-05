@@ -2,6 +2,7 @@ import "dart:async";
 
 import "package:flutter/material.dart";
 import "package:mio_notice/home_dashboard_prefs.dart";
+import "package:mio_notice/main_website_prefs.dart";
 import "package:mio_notice/notification_sources.dart";
 import "package:mio_notice/screens/common_webview_screen.dart";
 import "package:mio_notice/screens/inquiry_screen.dart";
@@ -12,7 +13,6 @@ import "package:mio_notice/theme/app_theme.dart";
 import "package:mio_notice/theme/theme_mode_scope.dart";
 import "package:mio_notice/utils/snack_bar_utils.dart";
 import "package:mio_notice/widgets/scroll_to_top_scope.dart";
-import "package:mio_notice/debug_session_log.dart";
 import "package:shared_preferences/shared_preferences.dart";
 
 class SettingsScreen extends StatefulWidget {
@@ -37,6 +37,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Set<String> _homeDashboardEnabledSections =
       defaultHomeDashboardEnabledSections().toSet();
   List<String> _homeDashboardSectionOrder = defaultHomeDashboardSectionOrder();
+  MainWebsiteNoticeViewMode _mainWebsiteNoticeViewMode =
+      MainWebsiteNoticeViewMode.unified;
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _keywordController = TextEditingController();
   ScrollToTopCoordinator? _scrollRouteCoordinator;
@@ -155,7 +157,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
           if (!seen.contains(s.id)) _homeDashboardSectionOrder.add(s.id);
         }
       }
+
+      _mainWebsiteNoticeViewMode = (() {
+        final String? raw = prefs.getString(kMainWebsiteNoticeViewModePrefKey);
+        if (raw == MainWebsiteNoticeViewMode.unified.name) {
+          return MainWebsiteNoticeViewMode.unified;
+        }
+        return MainWebsiteNoticeViewMode.unified;
+      })();
     });
+  }
+
+  Future<void> _setMainWebsiteNoticeViewMode(
+    MainWebsiteNoticeViewMode next,
+  ) async {
+    if (next == _mainWebsiteNoticeViewMode) return;
+    await MainWebsitePrefs.setNoticeViewMode(next);
+    try {
+      await UserDataRepository.instance.pushSnapshotToCloud();
+    } catch (_) {}
+    if (!mounted) return;
+    setState(() => _mainWebsiteNoticeViewMode = next);
   }
 
   /// 메인 탭의 [BottomAppBar] 높이와 맞춤. SnackBar가 라우트 아래로 남아도 네비를 가리지 않게 함.
@@ -400,19 +422,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                       if (text.isEmpty || _keywords.contains(text)) {
                                         return;
                                       }
-
-                                      // #region agent log
-                                      debugSessionNdjson(
-                                        hypothesisId: "H1",
-                                        location: "settings_screen.dart:_showKeywordDialog:add:onPressed:start",
-                                        message: "Keyword add pressed",
-                                        data: <String, dynamic>{
-                                          "mounted": mounted,
-                                          "textLen": text.length,
-                                          "keywordsCountBefore": _keywords.length,
-                                        },
-                                      );
-                                      // #endregion
 
                                       try {
                                         final prefs = await SharedPreferences.getInstance();
@@ -802,6 +811,58 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  Widget _buildMainWebsiteNoticeViewModeCard() {
+    final Color subtitleColor = Theme.of(context)
+        .colorScheme
+        .onSurfaceVariant
+        .withValues(alpha: 0.92);
+
+    return _settingsCard(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              "본교 공지사항 보기 방식",
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              "공지/학사/장학을 3탭으로 볼지, 한 게시판으로 통합해 볼지 선택합니다.",
+              style: TextStyle(
+                fontSize: 13,
+                height: 1.35,
+                color: subtitleColor,
+              ),
+            ),
+            const SizedBox(height: 12),
+            SegmentedButton<MainWebsiteNoticeViewMode>(
+              segments: const [
+                ButtonSegment<MainWebsiteNoticeViewMode>(
+                  value: MainWebsiteNoticeViewMode.tabs,
+                  label: Text("3탭"),
+                  icon: Icon(Icons.tab_rounded),
+                ),
+                ButtonSegment<MainWebsiteNoticeViewMode>(
+                  value: MainWebsiteNoticeViewMode.unified,
+                  label: Text("통합"),
+                  icon: Icon(Icons.view_agenda_outlined),
+                ),
+              ],
+              selected: {_mainWebsiteNoticeViewMode},
+              onSelectionChanged: (s) {
+                final next =
+                    s.isEmpty ? MainWebsiteNoticeViewMode.tabs : s.first;
+                _setMainWebsiteNoticeViewMode(next);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final ThemeModeController? themeController =
@@ -996,6 +1057,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             icon: Icons.palette_outlined,
           ),
           const SizedBox(height: 10),
+          _buildMainWebsiteNoticeViewModeCard(),
+          const SizedBox(height: 12),
           _buildHomeDashboardSectionVisibilityCard(),
           const SizedBox(height: 16),
           _settingsCard(

@@ -101,7 +101,11 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
     if (c != null) {
       _scrollRouteCoordinator = c;
       if (widget.embedded) {
-        c.registerMainTab(MainNavTabIndex.alerts, _scrollContentToTop);
+        c.registerMainTab(
+          MainNavTabIndex.alerts,
+          _scrollContentToTop,
+          owner: this,
+        );
         _registeredMainTab = true;
       } else {
         c.pushRouteHandler(_scrollContentToTop);
@@ -143,7 +147,10 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
       _scrollRouteCoordinator?.popRouteHandler();
     }
     if (_registeredMainTab) {
-      _scrollRouteCoordinator?.unregisterMainTab(MainNavTabIndex.alerts);
+      _scrollRouteCoordinator?.unregisterMainTab(
+        MainNavTabIndex.alerts,
+        owner: this,
+      );
     }
     _scrollController.dispose();
     super.dispose();

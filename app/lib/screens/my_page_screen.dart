@@ -93,7 +93,11 @@ class _MyPageScreenState extends State<MyPageScreen> {
     if (c != null) {
       _scrollToTopCoordinator = c;
       if (widget.embedded) {
-        c.registerMainTab(MainNavTabIndex.mypage, _scrollContentToTop);
+        c.registerMainTab(
+          MainNavTabIndex.mypage,
+          _scrollContentToTop,
+          owner: this,
+        );
         _registeredMainTab = true;
       } else {
         c.pushRouteHandler(_scrollContentToTop);
@@ -124,7 +128,10 @@ class _MyPageScreenState extends State<MyPageScreen> {
       _scrollToTopCoordinator?.popRouteHandler();
     }
     if (_registeredMainTab) {
-      _scrollToTopCoordinator?.unregisterMainTab(MainNavTabIndex.mypage);
+      _scrollToTopCoordinator?.unregisterMainTab(
+        MainNavTabIndex.mypage,
+        owner: this,
+      );
     }
     _scrollController.dispose();
     super.dispose();

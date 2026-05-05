@@ -8,6 +8,68 @@ const String kNoticeFilterExcludesPrefKey = "feed_filter_excludes";
 const String kNoticeFilterIncludesPrefKey = "feed_filter_includes";
 const String kNoticeKeywordsPrefKey = "keywords";
 
+String _scopedIncludesPrefKey(String scopeId) =>
+    "feed_filter_includes_scope_${scopeId.trim()}";
+
+String _scopedEnabledPrefKey(String scopeId) =>
+    "feed_filter_enabled_scope_${scopeId.trim()}";
+
+/// 화면(메인/CTL/MPU 등)별 필터 ON/OFF 상태를 불러옵니다.
+///
+/// 레거시(전역) `feed_filter_enabled` 값이 있으면 최초 1회 scope로 마이그레이션합니다.
+Future<bool> loadScopedNoticeFilterEnabled(String scopeId) async {
+  final SharedPreferences prefs = await SharedPreferences.getInstance();
+  final String key = _scopedEnabledPrefKey(scopeId);
+  final bool? scoped = prefs.getBool(key);
+  if (scoped != null) return scoped;
+
+  final bool legacy = prefs.getBool(kNoticeFilterEnabledPrefKey) ?? false;
+  await prefs.setBool(key, legacy);
+  return legacy;
+}
+
+/// 화면(메인/CTL/MPU 등)별 필터 ON/OFF 상태를 저장합니다.
+Future<void> saveScopedNoticeFilterEnabled(String scopeId, bool enabled) async {
+  final SharedPreferences prefs = await SharedPreferences.getInstance();
+  final String key = _scopedEnabledPrefKey(scopeId);
+  await prefs.setBool(key, enabled);
+}
+
+/// 화면(메인/CTL/MPU 등)별 "보고 싶은 키워드"를 불러옵니다.
+///
+/// - `scopeId` 예: `mjc_main`, `mpu`, `ctl`
+/// - 레거시(전역) 키 `feed_filter_includes`가 존재하면 최초 1회 scope로 마이그레이션합니다.
+Future<List<String>> loadScopedNoticeFilterIncludes(String scopeId) async {
+  final SharedPreferences prefs = await SharedPreferences.getInstance();
+  final String key = _scopedIncludesPrefKey(scopeId);
+  final List<String>? scoped = prefs.getStringList(key);
+  if (scoped != null) return scoped;
+
+  final List<String> legacy =
+      prefs.getStringList(kNoticeFilterIncludesPrefKey) ?? const [];
+  // 최초 1회 마이그레이션: 기존 값이 있으면 scope에 복사해 둡니다.
+  if (legacy.isNotEmpty) {
+    await prefs.setStringList(key, legacy);
+  } else {
+    await prefs.setStringList(key, const []);
+  }
+  return legacy;
+}
+
+/// 화면(메인/CTL/MPU 등)별 "보고 싶은 키워드"를 저장합니다.
+Future<void> saveScopedNoticeFilterIncludes(
+  String scopeId,
+  List<String> includes,
+) async {
+  final SharedPreferences prefs = await SharedPreferences.getInstance();
+  final String key = _scopedIncludesPrefKey(scopeId);
+  final List<String> next = includes
+      .map((s) => s.trim())
+      .where((s) => s.isNotEmpty)
+      .toList(growable: false);
+  await prefs.setStringList(key, next);
+}
+
 const List<String> kNoticeFilterSourceOptions = ["MJC", "CTL", "MPU"];
 const List<String> kNoticeFilterTypeOptions = [
   "공지사항",
