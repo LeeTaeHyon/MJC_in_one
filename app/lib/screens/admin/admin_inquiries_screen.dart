@@ -1,6 +1,7 @@
 import "package:cloud_firestore/cloud_firestore.dart";
 import "package:flutter/material.dart";
 import "package:mio_notice/screens/admin/admin_auth_service.dart";
+import "package:mio_notice/services/admin_moderation_service.dart";
 import "package:mio_notice/utils/snack_bar_utils.dart";
 
 /// 사용자가 보낸 개발자 문의를 관리하는 화면.
@@ -12,17 +13,11 @@ class AdminInquiriesScreen extends StatefulWidget {
 }
 
 class _AdminInquiriesScreenState extends State<AdminInquiriesScreen> {
+  final AdminModerationService _svc = AdminModerationService();
   String _statusFilter = "open";
 
   Query<Map<String, dynamic>> _query() {
-    Query<Map<String, dynamic>> q = FirebaseFirestore.instance
-        .collection("developer_inquiries")
-        .orderBy("created_at", descending: true)
-        .limit(200);
-    if (_statusFilter != "all") {
-      q = q.where("status", isEqualTo: _statusFilter);
-    }
-    return q;
+    return _svc.inquiryQuery(statusFilter: _statusFilter);
   }
 
   Future<void> _setStatus(
@@ -32,11 +27,11 @@ class _AdminInquiriesScreenState extends State<AdminInquiriesScreen> {
     final user = AdminAuthService.instance.currentUser;
     if (user == null) return;
     try {
-      await doc.reference.set(<String, dynamic>{
-        "status": status,
-        "resolved_by": user.uid,
-        "resolved_at": FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+      await _svc.setInquiryStatus(
+        ref: doc.reference,
+        status: status,
+        resolverUid: user.uid,
+      );
     } catch (e) {
       debugPrint("admin set status error: $e");
       if (!mounted) return;
@@ -56,9 +51,7 @@ class _AdminInquiriesScreenState extends State<AdminInquiriesScreen> {
     String memo,
   ) async {
     try {
-      await doc.reference.set(<String, dynamic>{
-        "admin_memo": memo,
-      }, SetOptions(merge: true));
+      await _svc.saveInquiryMemo(ref: doc.reference, memo: memo);
     } catch (e) {
       debugPrint("admin memo save error: $e");
     }

@@ -1,6 +1,6 @@
-import "package:cloud_firestore/cloud_firestore.dart";
 import "package:flutter/material.dart";
 import "package:mio_notice/screens/admin/admin_auth_service.dart";
+import "package:mio_notice/services/admin_moderation_service.dart";
 import "package:mio_notice/utils/snack_bar_utils.dart";
 
 /// 관리자 페이지에서 신고된 공지의 요약을 인라인 편집하기 위한 다이얼로그.
@@ -35,6 +35,7 @@ class AdminPostEditorDialog extends StatefulWidget {
 }
 
 class _AdminPostEditorDialogState extends State<AdminPostEditorDialog> {
+  final AdminModerationService _svc = AdminModerationService();
   late final TextEditingController _summaryCtrl;
   bool _saving = false;
 
@@ -66,31 +67,13 @@ class _AdminPostEditorDialogState extends State<AdminPostEditorDialog> {
     }
     setState(() => _saving = true);
     try {
-      final firestore = FirebaseFirestore.instance;
-      final batch = firestore.batch();
-      final postRef = firestore
-          .collection("notices")
-          .doc(widget.boardId)
-          .collection("posts")
-          .doc(widget.postId);
-      batch.set(postRef, <String, dynamic>{
-        "summary": _summaryCtrl.text.trim(),
-        "summary_version": "manual",
-        "summary_generated_at": DateTime.now().toIso8601String(),
-        "needs_resummary": false,
-      }, SetOptions(merge: true));
-      if (widget.relatedReportId != null &&
-          widget.relatedReportId!.isNotEmpty) {
-        final reportRef = firestore
-            .collection("notice_reports")
-            .doc(widget.relatedReportId);
-        batch.set(reportRef, <String, dynamic>{
-          "status": "resolved",
-          "resolved_by": user.uid,
-          "resolved_at": FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
-      }
-      await batch.commit();
+      await _svc.saveManualSummary(
+        boardId: widget.boardId,
+        postId: widget.postId,
+        summary: _summaryCtrl.text.trim(),
+        editorUid: user.uid,
+        relatedReportId: widget.relatedReportId,
+      );
       if (!mounted) return;
       Navigator.of(context).pop(true);
     } catch (e) {

@@ -66,6 +66,7 @@ class _FoodcourtMenuScreenState extends State<FoodcourtMenuScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
     return FutureBuilder<List<FoodcourtMenuItem>>(
       future: _menuFuture,
       builder: (context, snapshot) {
@@ -85,7 +86,7 @@ class _FoodcourtMenuScreenState extends State<FoodcourtMenuScreen> {
               appBar: AppBar(
                 title: const Text("학식 메뉴"),
                 backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
-                foregroundColor: Colors.white,
+                foregroundColor: scheme.onPrimary,
                 surfaceTintColor: Colors.transparent,
                 elevation: 0,
                 scrolledUnderElevation: 0,
@@ -94,11 +95,11 @@ class _FoodcourtMenuScreenState extends State<FoodcourtMenuScreen> {
                 bottom: TabBar(
                   isScrollable: true,
                   tabAlignment: TabAlignment.start,
-                  labelColor: Colors.white,
-                  unselectedLabelColor: Colors.white70,
-                  indicatorColor: Colors.white,
+                  labelColor: scheme.onPrimary,
+                  unselectedLabelColor: scheme.onPrimary.withValues(alpha: 0.75),
+                  indicatorColor: scheme.onPrimary,
                   indicatorWeight: 3,
-                  dividerColor: Colors.white24,
+                  dividerColor: scheme.onPrimary.withValues(alpha: 0.18),
                   tabs: [for (final s in shops) Tab(text: s)],
                 ),
               ),
@@ -120,7 +121,7 @@ class _FoodcourtMenuScreenState extends State<FoodcourtMenuScreen> {
           appBar: AppBar(
             title: const Text("학식 메뉴"),
             backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
-            foregroundColor: Colors.white,
+            foregroundColor: scheme.onPrimary,
             surfaceTintColor: Colors.transparent,
             elevation: 0,
             scrolledUnderElevation: 0,

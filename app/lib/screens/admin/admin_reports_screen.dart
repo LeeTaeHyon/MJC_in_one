@@ -2,6 +2,7 @@ import "package:cloud_firestore/cloud_firestore.dart";
 import "package:flutter/material.dart";
 import "package:mio_notice/screens/admin/admin_auth_service.dart";
 import "package:mio_notice/screens/admin/admin_post_editor_dialog.dart";
+import "package:mio_notice/services/admin_moderation_service.dart";
 import "package:mio_notice/utils/snack_bar_utils.dart";
 import "package:url_launcher/url_launcher.dart";
 
@@ -14,17 +15,11 @@ class AdminReportsScreen extends StatefulWidget {
 }
 
 class _AdminReportsScreenState extends State<AdminReportsScreen> {
+  final AdminModerationService _svc = AdminModerationService();
   String _statusFilter = "open";
 
   Query<Map<String, dynamic>> _query() {
-    Query<Map<String, dynamic>> q = FirebaseFirestore.instance
-        .collection("notice_reports")
-        .orderBy("created_at", descending: true)
-        .limit(200);
-    if (_statusFilter != "all") {
-      q = q.where("status", isEqualTo: _statusFilter);
-    }
-    return q;
+    return _svc.reportQuery(statusFilter: _statusFilter);
   }
 
   Future<void> _resolve(
@@ -34,11 +29,11 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
     final user = AdminAuthService.instance.currentUser;
     if (user == null) return;
     try {
-      await doc.reference.set(<String, dynamic>{
-        "status": newStatus,
-        "resolved_by": user.uid,
-        "resolved_at": FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+      await _svc.setReportStatus(
+        ref: doc.reference,
+        status: newStatus,
+        resolverUid: user.uid,
+      );
     } catch (e) {
       debugPrint("admin resolve error: $e");
       if (!mounted) return;
@@ -61,13 +56,7 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
     final String postId = (data["post_id"] as String?) ?? "";
     if (boardId.isEmpty || postId.isEmpty) return;
     try {
-      await FirebaseFirestore.instance
-          .collection("notices")
-          .doc(boardId)
-          .collection("posts")
-          .doc(postId)
-          .set(<String, dynamic>{"needs_resummary": true},
-              SetOptions(merge: true));
+      await _svc.flagPostForResummary(boardId: boardId, postId: postId);
       if (!mounted) return;
       SnackBarUtils.showUnique(
         context,
@@ -89,14 +78,9 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
     final String boardId = (data["board_id"] as String?) ?? "";
     final String postId = (data["post_id"] as String?) ?? "";
     if (boardId.isEmpty || postId.isEmpty) return;
-    final postRef = FirebaseFirestore.instance
-        .collection("notices")
-        .doc(boardId)
-        .collection("posts")
-        .doc(postId);
     DocumentSnapshot<Map<String, dynamic>> postSnap;
     try {
-      postSnap = await postRef.get();
+      postSnap = await _svc.getNoticePost(boardId: boardId, postId: postId);
     } catch (e) {
       if (!mounted) return;
       SnackBarUtils.showUnique(

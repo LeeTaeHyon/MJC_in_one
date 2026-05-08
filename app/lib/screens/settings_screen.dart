@@ -12,6 +12,7 @@ import "package:mio_notice/services/user_data_repository.dart";
 import "package:mio_notice/theme/app_theme.dart";
 import "package:mio_notice/theme/theme_mode_scope.dart";
 import "package:mio_notice/utils/snack_bar_utils.dart";
+import "package:mio_notice/widgets/safe_tooltip.dart";
 import "package:mio_notice/widgets/scroll_to_top_scope.dart";
 import "package:shared_preferences/shared_preferences.dart";
 
@@ -653,9 +654,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                       ),
                       IconButton(
-                        tooltip: "닫기",
                         onPressed: () => Navigator.of(ctx).pop(null),
-                        icon: const Icon(Icons.close_rounded),
+                        icon: SafeTooltip(
+                          message: "닫기",
+                          child: const Icon(Icons.close_rounded),
+                        ),
                       ),
                     ],
                   ),

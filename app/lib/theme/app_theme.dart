@@ -3,6 +3,88 @@ import "package:google_fonts/google_fonts.dart";
 
 import "app_colors.dart";
 
+// Theme owns the final “source of truth” for UI tokens used across screens.
+// Keep concrete values here and consume them via Theme/Extensions.
+
+// ---- Color tokens (light) ----
+const Color _kCardBorderLight = Color(0xFFEDEDED);
+const Color _kSurfaceContainerLowLight = Color(0xFFF5F5F5);
+const Color _kSurfaceContainerLight = Color(0xFFF0F1F4);
+const Color _kSurfaceContainerHighLight = Color(0xFFE9ECF1);
+const Color _kOnSurfaceLight = Color(0xDE000000);
+const Color _kErrorLight = Color(0xFFD4183D);
+
+const Color _kSourceMjcLight = Color(0xFF1976D2);
+const Color _kSourceMpuLight = Color(0xFF7986CB);
+const Color _kSourceCtlLight = Color(0xFF2962FF);
+const Color _kFoodAccentLight = Color(0xFFE65100);
+const Color _kDeadlineBadgeLight = Color(0xFF0D47A1);
+
+const List<List<Color>> _kDashboardGradientsLight = [
+  [Color(0xFF0D47A1), Color(0xFF1976D2)],
+  [Color(0xFF2962FF), Color(0xFF448AFF)],
+  [Color(0xFF7986CB), Color(0xFF90A4AE)],
+  [Color(0xFF0288D1), Color(0xFF26C6DA)],
+];
+
+// ---- Color tokens (dark) ----
+const Color _kSourceMjcDark = AppColors.switchActiveDark;
+const Color _kSourceMpuDark = Color(0xFFB0B6E0);
+const Color _kSourceCtlDark = Color(0xFF82AEFF);
+const Color _kFoodAccentDark = Color(0xFFFFAB91);
+const Color _kDeadlineBadgeDark = Color(0xFF1F4F9A);
+
+const List<List<Color>> _kDashboardGradientsDark = [
+  [Color(0xFF15366B), Color(0xFF1B4787)],
+  [Color(0xFF1A3D88), Color(0xFF2C5BB5)],
+  [Color(0xFF3D4574), Color(0xFF5A6285)],
+  [Color(0xFF0B5E80), Color(0xFF1A8AA0)],
+];
+
+const Color _kBottomNavUnselectedDark = Color(0xFF9AA4B2);
+const Color _kSubNavShadowLight = Color(0x33000000); // ~20% black
+const Color _kSubNavShadowDark = Color(0x8A000000); // ~54% black
+
+const Color _kSwitchTrackOffLight = Color(0xFFD8DCE5);
+const Color _kSwitchOutlineOffLight = Color(0xFF9AA3B2);
+const Color _kSwitchTrackOffDark = Color(0xFF3E434C);
+const Color _kSwitchOutlineOffDark = Color(0xFF6A717D);
+
+const Color _kSurfaceContainerHighDark = Color(0xFF303035);
+const Color _kOnSurfaceDark = Color(0xE6FFFFFF);
+const Color _kErrorDark = Color(0xFFFF6B7A);
+const Color _kCardDarkAlt = Color(0xFF101826);
+@immutable
+class MjcTextTokens extends ThemeExtension<MjcTextTokens> {
+  const MjcTextTokens({
+    required this.appBarTitle,
+    required this.navLabel,
+  });
+
+  final TextStyle appBarTitle;
+  final TextStyle navLabel;
+
+  @override
+  MjcTextTokens copyWith({
+    TextStyle? appBarTitle,
+    TextStyle? navLabel,
+  }) {
+    return MjcTextTokens(
+      appBarTitle: appBarTitle ?? this.appBarTitle,
+      navLabel: navLabel ?? this.navLabel,
+    );
+  }
+
+  @override
+  MjcTextTokens lerp(ThemeExtension<MjcTextTokens>? other, double t) {
+    if (other is! MjcTextTokens) return this;
+    return MjcTextTokens(
+      appBarTitle: TextStyle.lerp(appBarTitle, other.appBarTitle, t)!,
+      navLabel: TextStyle.lerp(navLabel, other.navLabel, t)!,
+    );
+  }
+}
+
 @immutable
 class MjcSurfaceTokens extends ThemeExtension<MjcSurfaceTokens> {
   const MjcSurfaceTokens({
@@ -88,38 +170,88 @@ class MjcSurfaceTokens extends ThemeExtension<MjcSurfaceTokens> {
   }
 }
 
+@immutable
+class MjcComponentTokens extends ThemeExtension<MjcComponentTokens> {
+  const MjcComponentTokens({
+    required this.bottomNavSelected,
+    required this.bottomNavUnselected,
+    required this.noticeSubNavShadow,
+  });
+
+  /// Bottom navigation selected icon/label.
+  final Color bottomNavSelected;
+
+  /// Bottom navigation unselected icon/label.
+  final Color bottomNavUnselected;
+
+  /// Shadow color used by floating sub-navigation pills/cards.
+  final Color noticeSubNavShadow;
+
+  @override
+  MjcComponentTokens copyWith({
+    Color? bottomNavSelected,
+    Color? bottomNavUnselected,
+    Color? noticeSubNavShadow,
+  }) {
+    return MjcComponentTokens(
+      bottomNavSelected: bottomNavSelected ?? this.bottomNavSelected,
+      bottomNavUnselected: bottomNavUnselected ?? this.bottomNavUnselected,
+      noticeSubNavShadow: noticeSubNavShadow ?? this.noticeSubNavShadow,
+    );
+  }
+
+  @override
+  MjcComponentTokens lerp(
+    ThemeExtension<MjcComponentTokens>? other,
+    double t,
+  ) {
+    if (other is! MjcComponentTokens) return this;
+    return MjcComponentTokens(
+      bottomNavSelected:
+          Color.lerp(bottomNavSelected, other.bottomNavSelected, t)!,
+      bottomNavUnselected:
+          Color.lerp(bottomNavUnselected, other.bottomNavUnselected, t)!,
+      noticeSubNavShadow:
+          Color.lerp(noticeSubNavShadow, other.noticeSubNavShadow, t)!,
+    );
+  }
+}
+
 const MjcSurfaceTokens _lightSurfaceTokens = MjcSurfaceTokens(
-  cardBorder: Color(0xFFEDEDED),
-  hairline: Color(0xFFEDEDED),
-  surfaceContainer: Color(0xFFF0F1F4),
-  sourceMjc: Color(0xFF1976D2),
-  sourceMpu: Color(0xFF7986CB),
-  sourceCtl: Color(0xFF2962FF),
-  foodAccent: Color(0xFFE65100),
-  deadlineBadge: Color(0xFF0D47A1),
-  dashboardGradients: [
-    [Color(0xFF0D47A1), Color(0xFF1976D2)],
-    [Color(0xFF2962FF), Color(0xFF448AFF)],
-    [Color(0xFF7986CB), Color(0xFF90A4AE)],
-    [Color(0xFF0288D1), Color(0xFF26C6DA)],
-  ],
+  cardBorder: _kCardBorderLight,
+  hairline: _kCardBorderLight,
+  surfaceContainer: _kSurfaceContainerLight,
+  sourceMjc: _kSourceMjcLight,
+  sourceMpu: _kSourceMpuLight,
+  sourceCtl: _kSourceCtlLight,
+  foodAccent: _kFoodAccentLight,
+  deadlineBadge: _kDeadlineBadgeLight,
+  dashboardGradients: _kDashboardGradientsLight,
 );
 
 const MjcSurfaceTokens _darkSurfaceTokens = MjcSurfaceTokens(
   cardBorder: AppColors.cardBorderDark,
   hairline: AppColors.cardBorderDark,
   surfaceContainer: AppColors.surfaceContainerDark,
-  sourceMjc: Color(0xFF82B1FF),
-  sourceMpu: Color(0xFFB0B6E0),
-  sourceCtl: Color(0xFF82AEFF),
-  foodAccent: Color(0xFFFFAB91),
-  deadlineBadge: Color(0xFF1F4F9A),
-  dashboardGradients: [
-    [Color(0xFF15366B), Color(0xFF1B4787)],
-    [Color(0xFF1A3D88), Color(0xFF2C5BB5)],
-    [Color(0xFF3D4574), Color(0xFF5A6285)],
-    [Color(0xFF0B5E80), Color(0xFF1A8AA0)],
-  ],
+  sourceMjc: _kSourceMjcDark,
+  sourceMpu: _kSourceMpuDark,
+  sourceCtl: _kSourceCtlDark,
+  foodAccent: _kFoodAccentDark,
+  deadlineBadge: _kDeadlineBadgeDark,
+  dashboardGradients: _kDashboardGradientsDark,
+);
+
+const MjcComponentTokens _lightComponentTokens = MjcComponentTokens(
+  bottomNavSelected: AppColors.primary,
+  bottomNavUnselected: AppColors.mutedForeground,
+  noticeSubNavShadow: _kSubNavShadowLight,
+);
+
+const MjcComponentTokens _darkComponentTokens = MjcComponentTokens(
+  // Dark ColorScheme.primary is too dim on bottom bar; match toggle ON color.
+  bottomNavSelected: AppColors.switchActiveDark,
+  bottomNavUnselected: _kBottomNavUnselectedDark,
+  noticeSubNavShadow: _kSubNavShadowDark,
 );
 
 ThemeData buildMjcTheme() {
@@ -127,6 +259,17 @@ ThemeData buildMjcTheme() {
 
   final base = ThemeData.light(useMaterial3: true);
   final textTheme = GoogleFonts.notoSansKrTextTheme(base.textTheme);
+  const textTokens = MjcTextTokens(
+    appBarTitle: TextStyle(
+      color: Colors.white,
+      fontSize: 20,
+      fontWeight: FontWeight.w600,
+    ),
+    navLabel: TextStyle(
+      fontSize: 12,
+      fontWeight: FontWeight.w500,
+    ),
+  );
 
   return ThemeData(
     useMaterial3: true,
@@ -138,28 +281,26 @@ ThemeData buildMjcTheme() {
       secondary: AppColors.secondary,
       onSecondary: Colors.white,
       surface: Colors.white,
-      surfaceContainerLow: Color(0xFFF5F5F5),
-      surfaceContainer: Color(0xFFF0F1F4),
-      surfaceContainerHigh: Color(0xFFE9ECF1),
-      onSurface: Color(0xDE000000),
+      surfaceContainerLow: _kSurfaceContainerLowLight,
+      surfaceContainer: _kSurfaceContainerLight,
+      surfaceContainerHigh: _kSurfaceContainerHighLight,
+      onSurface: _kOnSurfaceLight,
       onSurfaceVariant: AppColors.mutedForeground,
-      outline: Color(0xFFEDEDED),
-      error: Color(0xFFD4183D),
+      outline: _kCardBorderLight,
+      error: _kErrorLight,
       onError: Colors.white,
     ),
-    extensions: const <ThemeExtension<dynamic>>[
+    extensions: <ThemeExtension<dynamic>>[
       _lightSurfaceTokens,
+      _lightComponentTokens,
+      textTokens,
     ],
-    appBarTheme: const AppBarTheme(
+    appBarTheme: AppBarTheme(
       backgroundColor: primary,
       foregroundColor: Colors.white,
       elevation: 0,
       centerTitle: false,
-      titleTextStyle: TextStyle(
-        color: Colors.white,
-        fontSize: 20,
-        fontWeight: FontWeight.w600,
-      ),
+      titleTextStyle: textTokens.appBarTitle,
     ),
     navigationBarTheme: NavigationBarThemeData(
       backgroundColor: Colors.white,
@@ -170,8 +311,8 @@ ThemeData buildMjcTheme() {
       labelTextStyle: WidgetStateProperty.resolveWith((states) {
         final selected = states.contains(WidgetState.selected);
         return TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w500,
+          fontSize: textTokens.navLabel.fontSize,
+          fontWeight: textTokens.navLabel.fontWeight,
           color: selected ? primary : AppColors.mutedForeground,
         );
       }),
@@ -181,6 +322,13 @@ ThemeData buildMjcTheme() {
           color: selected ? primary : AppColors.mutedForeground,
         );
       }),
+    ),
+    tabBarTheme: const TabBarThemeData(
+      labelColor: primary,
+      unselectedLabelColor: AppColors.mutedForeground,
+      indicatorColor: primary,
+      indicatorSize: TabBarIndicatorSize.tab,
+      dividerColor: _kCardBorderLight,
     ),
     switchTheme: SwitchThemeData(
       thumbColor: WidgetStateProperty.resolveWith((states) {
@@ -194,14 +342,14 @@ ThemeData buildMjcTheme() {
         if (states.contains(WidgetState.selected)) {
           return primary.withValues(alpha: 0.45);
         }
-        return const Color(0xFFD8DCE5);
+        return _kSwitchTrackOffLight;
       }),
       trackOutlineColor: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.disabled)) return null;
         if (states.contains(WidgetState.selected)) {
           return Colors.transparent;
         }
-        return const Color(0xFF9AA3B2);
+        return _kSwitchOutlineOffLight;
       }),
     ),
     cardTheme: CardThemeData(
@@ -228,6 +376,17 @@ ThemeData buildMjcDarkTheme() {
 
   final base = ThemeData.dark(useMaterial3: true);
   final textTheme = GoogleFonts.notoSansKrTextTheme(base.textTheme);
+  const textTokens = MjcTextTokens(
+    appBarTitle: TextStyle(
+      color: Colors.white,
+      fontSize: 20,
+      fontWeight: FontWeight.w600,
+    ),
+    navLabel: TextStyle(
+      fontSize: 12,
+      fontWeight: FontWeight.w500,
+    ),
+  );
 
   return ThemeData(
     useMaterial3: true,
@@ -242,26 +401,24 @@ ThemeData buildMjcDarkTheme() {
       surface: AppColors.cardDark,
       surfaceContainerLow: AppColors.scaffoldMutedDark,
       surfaceContainer: AppColors.surfaceContainerDark,
-      surfaceContainerHigh: Color(0xFF303035),
-      onSurface: Color(0xE6FFFFFF),
+      surfaceContainerHigh: _kSurfaceContainerHighDark,
+      onSurface: _kOnSurfaceDark,
       onSurfaceVariant: AppColors.mutedForegroundDark,
       outline: AppColors.cardBorderDark,
-      error: Color(0xFFFF6B7A),
+      error: _kErrorDark,
       onError: Colors.white,
     ),
-    extensions: const <ThemeExtension<dynamic>>[
+    extensions: <ThemeExtension<dynamic>>[
       _darkSurfaceTokens,
+      _darkComponentTokens,
+      textTokens,
     ],
-    appBarTheme: const AppBarTheme(
+    appBarTheme: AppBarTheme(
       backgroundColor: AppColors.cardDark,
       foregroundColor: Colors.white,
       elevation: 0,
       centerTitle: false,
-      titleTextStyle: TextStyle(
-        color: Colors.white,
-        fontSize: 20,
-        fontWeight: FontWeight.w600,
-      ),
+      titleTextStyle: textTokens.appBarTitle,
     ),
     navigationBarTheme: NavigationBarThemeData(
       backgroundColor: AppColors.cardDark,
@@ -272,11 +429,11 @@ ThemeData buildMjcDarkTheme() {
       labelTextStyle: WidgetStateProperty.resolveWith((states) {
         final selected = states.contains(WidgetState.selected);
         return TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w500,
+          fontSize: textTokens.navLabel.fontSize,
+          fontWeight: textTokens.navLabel.fontWeight,
           color: selected
               ? AppColors.switchActiveDark
-              : const Color(0xFF9AA4B2),
+              : _kBottomNavUnselectedDark,
         );
       }),
       iconTheme: WidgetStateProperty.resolveWith((states) {
@@ -284,9 +441,16 @@ ThemeData buildMjcDarkTheme() {
         return IconThemeData(
           color: selected
               ? AppColors.switchActiveDark
-              : const Color(0xFF9AA4B2),
+              : _kBottomNavUnselectedDark,
         );
       }),
+    ),
+    tabBarTheme: const TabBarThemeData(
+      labelColor: AppColors.switchActiveDark,
+      unselectedLabelColor: _kBottomNavUnselectedDark,
+      indicatorColor: AppColors.switchActiveDark,
+      indicatorSize: TabBarIndicatorSize.tab,
+      dividerColor: AppColors.cardBorderDark,
     ),
     switchTheme: SwitchThemeData(
       thumbColor: WidgetStateProperty.resolveWith((states) {
@@ -302,18 +466,18 @@ ThemeData buildMjcDarkTheme() {
         if (states.contains(WidgetState.selected)) {
           return AppColors.switchActiveDark.withValues(alpha: 0.48);
         }
-        return const Color(0xFF3E434C);
+        return _kSwitchTrackOffDark;
       }),
       trackOutlineColor: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.disabled)) return null;
         if (states.contains(WidgetState.selected)) {
           return Colors.transparent;
         }
-        return const Color(0xFF6A717D);
+        return _kSwitchOutlineOffDark;
       }),
     ),
     cardTheme: CardThemeData(
-      color: const Color(0xFF101826),
+      color: _kCardDarkAlt,
       surfaceTintColor: Colors.transparent,
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),

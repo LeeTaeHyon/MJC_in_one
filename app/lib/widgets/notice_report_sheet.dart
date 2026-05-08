@@ -1,6 +1,6 @@
-import "package:cloud_firestore/cloud_firestore.dart";
 import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
+import "package:mio_notice/services/notice_report_service.dart";
 import "package:mio_notice/utils/snack_bar_utils.dart";
 import "package:shared_preferences/shared_preferences.dart";
 
@@ -79,6 +79,7 @@ class _NoticeReportSheetBody extends StatefulWidget {
 }
 
 class _NoticeReportSheetBodyState extends State<_NoticeReportSheetBody> {
+  final NoticeReportService _svc = NoticeReportService();
   NoticeReportReason _reason = NoticeReportReason.summaryWrong;
   final TextEditingController _commentCtrl = TextEditingController();
   bool _alreadyReported = false;
@@ -110,47 +111,16 @@ class _NoticeReportSheetBodyState extends State<_NoticeReportSheetBody> {
     if (_submitting || _alreadyReported) return;
     setState(() => _submitting = true);
     try {
-      final firestore = FirebaseFirestore.instance;
-      final reportRef = firestore.collection("notice_reports").doc();
-      final postRef = firestore
-          .collection("notices")
-          .doc(widget.boardId)
-          .collection("posts")
-          .doc(widget.postId);
-
-      bool reportSuccess = false;
-      bool updateSuccess = false;
-
-      try {
-        await reportRef.set(<String, dynamic>{
-          "board_id": widget.boardId,
-          "post_id": widget.postId,
-          "post_title": widget.postTitle,
-          "post_url": widget.postUrl,
-          "reason": _reason.value,
-          "reason_label": _reason.label,
-          "comment": _commentCtrl.text.trim(),
-          "platform": _platformLabel(),
-          "created_at": FieldValue.serverTimestamp(),
-          "status": "open",
-        });
-        reportSuccess = true;
-      } catch (e) {
-        debugPrint("NoticeReport set error: $e");
-      }
-
-      try {
-        await postRef.update(
-          <String, dynamic>{"reports_count": FieldValue.increment(1)},
-        );
-        updateSuccess = true;
-      } catch (e) {
-        debugPrint("NoticeReport update post error: $e");
-      }
-
-      if (!reportSuccess && !updateSuccess) {
-        throw Exception("Both operations failed.");
-      }
+      await _svc.submitReport(
+        boardId: widget.boardId,
+        postId: widget.postId,
+        postTitle: widget.postTitle,
+        postUrl: widget.postUrl,
+        reason: _reason.value,
+        reasonLabel: _reason.label,
+        comment: _commentCtrl.text.trim(),
+        platform: _platformLabel(),
+      );
 
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(

@@ -202,13 +202,9 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        iconTheme: const IconThemeData(color: Colors.white),
         backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
         elevation: 0,
-        title: const Text(
-          "알림 내역",
-          style: TextStyle(fontWeight: FontWeight.w600, color: Colors.white),
-        ),
+        title: const Text("알림 내역"),
         actions: [
           if (_history.isNotEmpty)
             IconButton(
@@ -228,8 +224,10 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
                           _clearHistory();
                           Navigator.pop(context);
                         },
-                        child: const Text("지우기",
-                            style: TextStyle(color: Colors.red)),
+                        child: Text(
+                          "지우기",
+                          style: TextStyle(color: scheme.error),
+                        ),
                       ),
                     ],
                   ),

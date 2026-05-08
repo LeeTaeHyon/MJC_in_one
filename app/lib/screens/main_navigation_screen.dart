@@ -13,7 +13,6 @@ import "package:mio_notice/services/auth_service.dart";
 import "package:mio_notice/services/user_data_repository.dart";
 import "package:mio_notice/widgets/scroll_to_top_fab.dart";
 import "package:mio_notice/widgets/scroll_to_top_scope.dart";
-import "package:mio_notice/theme/app_colors.dart";
 import "package:mio_notice/theme/app_theme.dart";
 import "package:shared_preferences/shared_preferences.dart";
 
@@ -30,12 +29,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   static const double _noticeSubNavBottomGap = 8;
   static const double _noticeSubNavFabGap = 16;
 
-  /// Dark `ColorScheme.primary` is too dim on the bottom bar; match toggle ON color.
-  Color _bottomNavSelectedColor(ColorScheme scheme) {
-    return Theme.of(context).brightness == Brightness.dark
-        ? AppColors.switchActiveDark
-        : scheme.primary;
-  }
+  MjcComponentTokens get _components =>
+      Theme.of(context).extension<MjcComponentTokens>()!;
 
   int _index = 0;
   bool _noticeSubNavVisible = true;
@@ -136,7 +131,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       if (!mounted) return;
 
       // 2. 팝업이 닫힌 후 배경 딤(Dim) 처리와 함께 피드백 버튼 포커싱 오버레이 표시
-      final overlay = Overlay.of(context);
+      final overlay = Overlay.maybeOf(context, rootOverlay: true);
+      if (overlay == null) return;
       bool isRemoved = false;
       OverlayEntry? entry;
 
@@ -519,7 +515,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   Widget _buildNoticeSubNav() {
     final ColorScheme scheme = Theme.of(context).colorScheme;
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
-    final Color subNavAccent = _bottomNavSelectedColor(scheme);
+    final Color subNavAccent = _components.bottomNavSelected;
     return Align(
       key: const ValueKey<String>("notice_sub_nav"),
       alignment: Alignment.center,
@@ -533,8 +529,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
               return Material(
                 color: scheme.surface.withValues(alpha: isDark ? 0.98 : 0.96),
                 elevation: 10,
-                shadowColor:
-                    Colors.black.withValues(alpha: isDark ? 0.45 : 0.20),
+                shadowColor: _components.noticeSubNavShadow,
                 borderRadius: BorderRadius.circular(28),
                 clipBehavior: Clip.antiAlias,
                 child: Padding(
@@ -623,8 +618,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     int badgeCount = 0,
   }) {
     final bool isSelected = _index == index;
-    final ColorScheme scheme = Theme.of(context).colorScheme;
-    final Color rippleAccent = _bottomNavSelectedColor(scheme);
+    final Color rippleAccent = _components.bottomNavSelected;
     return Center(
       child: FractionallySizedBox(
         widthFactor: _navTabHitWidthFactor,
@@ -661,7 +655,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     int badgeCount,
   ) {
     final ColorScheme scheme = Theme.of(context).colorScheme;
-    final Color selectedColor = _bottomNavSelectedColor(scheme);
+    final Color selectedColor = _components.bottomNavSelected;
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 4),
@@ -689,7 +683,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                         vertical: 1,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFE53935),
+                        color: scheme.error,
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text(
@@ -709,7 +703,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
               style: TextStyle(
                 fontSize: 12,
                 height: 1.05,
-                color: isSelected ? selectedColor : scheme.onSurfaceVariant,
+                color: isSelected
+                    ? selectedColor
+                    : _components.bottomNavUnselected,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
               ),
             ),

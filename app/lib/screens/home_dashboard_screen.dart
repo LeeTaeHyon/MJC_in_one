@@ -2,7 +2,6 @@ import "dart:async";
 import "dart:math";
 import "dart:ui" show lerpDouble;
 
-import "package:cloud_firestore/cloud_firestore.dart";
 import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
 import "package:mio_notice/home_dashboard_prefs.dart";
@@ -16,6 +15,7 @@ import "package:mio_notice/screens/notices_tab_screen.dart";
 import "package:mio_notice/services/foodcourt_menu.dart";
 import "package:mio_notice/services/notice_filter.dart";
 import "package:mio_notice/services/notice_manager.dart";
+import "package:mio_notice/services/mpu_service.dart";
 import "package:mio_notice/theme/app_colors.dart";
 import "package:mio_notice/theme/app_theme.dart";
 import "package:mio_notice/utils/mpu_program_dday.dart";
@@ -46,6 +46,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   final String _noticeQuickQuery = "";
   final ScrollController _scrollController = ScrollController();
   final FoodcourtMenuService _foodcourtMenuService = FoodcourtMenuService();
+  final MpuService _mpuService = MpuService();
   final Random _foodRandom = Random();
   ScrollToTopCoordinator? _scrollToTopCoordinator;
   Set<String> _enabledDashboardSections =
@@ -70,8 +71,13 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     // 첫 진입 시 히어로 이미지 디코드/업로드 비용이 스크롤/전환 jank로 튀는 걸 줄이기 위해 프리캐시.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      // Web/네트워크 환경에 따라 precache가 실패할 수 있으므로(예: statusCode 0),
+      // 화면 렌더링에는 영향 없게 조용히 무시합니다.
+      if (kIsWeb) return;
       precacheImage(
-          const NetworkImage(_HomeHeroHeaderDelegate._heroImageUrl), context);
+        const NetworkImage(_HomeHeroHeaderDelegate._heroImageUrl),
+        context,
+      ).catchError((_) {});
     });
   }
 
@@ -469,6 +475,8 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
         Theme.of(context).extension<MjcSurfaceTokens>()!;
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
     final Color accent = colors.last;
+    final Color lightOnGradientTitle = scheme.onPrimary;
+    final Color lightOnGradientSub = scheme.onPrimary.withValues(alpha: 0.75);
     return Expanded(
       child: _HoverFeedback(
         onTap: () {
@@ -542,7 +550,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                   padding: EdgeInsets.all(isDark ? 6 : 0),
                   child: Icon(
                     icon,
-                    color: isDark ? accent : Colors.white,
+                    color: isDark ? accent : scheme.onPrimary,
                     size: isDark ? 20 : 24,
                   ),
                 ),
@@ -553,7 +561,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: isDark ? scheme.onSurface : Colors.white,
+                  color: isDark ? scheme.onSurface : lightOnGradientTitle,
                   fontSize: 13.5,
                   fontWeight: FontWeight.bold,
                   letterSpacing: -0.3,
@@ -564,7 +572,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: isDark ? scheme.onSurfaceVariant : Colors.white70,
+                  color: isDark ? scheme.onSurfaceVariant : lightOnGradientSub,
                   fontSize: 9.5,
                   letterSpacing: -0.2,
                 ),
@@ -728,17 +736,12 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
             ],
           ),
         ),
-        StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-          stream: FirebaseFirestore.instance
-              .collection("core_competencies")
-              .doc("all")
-              .collection("programs")
-              .snapshots(),
+        StreamBuilder<List<Map<String, dynamic>>>(
+          stream: _mpuService.streamPrograms(),
           builder: (context, snapshot) {
             if (!snapshot.hasData) return const SizedBox();
 
-            final List<Map<String, dynamic>> items = snapshot.data!.docs
-                .map((d) => d.data())
+            final List<Map<String, dynamic>> items = snapshot.data!
                 .where(mpuIncludeInHomeDeadlineList)
                 .toList()
               ..sort((a, b) {
@@ -1458,7 +1461,7 @@ class _FoodcourtSlotMachineDialogState
         Theme.of(context).extension<MjcSurfaceTokens>()!;
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
     return AlertDialog(
-      title: const Text("학식 뭐먹지?"),
+      title: const Text("오늘 뭐 먹지?"),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [

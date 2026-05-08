@@ -1,8 +1,8 @@
 import "dart:io" show Platform;
 
-import "package:cloud_firestore/cloud_firestore.dart";
 import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
+import "package:mio_notice/services/developer_support_service.dart";
 import "package:mio_notice/utils/snack_bar_utils.dart";
 import "package:shared_preferences/shared_preferences.dart";
 
@@ -32,6 +32,7 @@ class InquiryScreen extends StatefulWidget {
 }
 
 class _InquiryScreenState extends State<InquiryScreen> {
+  final DeveloperSupportService _support = DeveloperSupportService();
   final TextEditingController _messageCtrl = TextEditingController();
   final TextEditingController _contactCtrl = TextEditingController();
   final FocusNode _messageFocus = FocusNode();
@@ -97,21 +98,13 @@ class _InquiryScreenState extends State<InquiryScreen> {
 
     setState(() => _submitting = true);
     try {
-      final firestore = FirebaseFirestore.instance;
-      await firestore.collection("developer_inquiries").add(<String, dynamic>{
-        "type": _type.value,
-        "type_label": _type.label,
-        "message": msg,
-        "contact": _contactCtrl.text.trim(),
-        "device_info": <String, dynamic>{
-          "platform": _platformLabel(),
-        },
-        "created_at": FieldValue.serverTimestamp(),
-        "status": "open",
-        "admin_memo": "",
-        "resolved_by": null,
-        "resolved_at": null,
-      });
+      await _support.submitInquiry(
+        type: _type.value,
+        typeLabel: _type.label,
+        message: msg,
+        contact: _contactCtrl.text.trim(),
+        platform: _platformLabel(),
+      );
       final prefs = await SharedPreferences.getInstance();
       await prefs.setInt(
         _kInquiryCooldownKey,
@@ -300,19 +293,15 @@ class _InquiryScreenState extends State<InquiryScreen> {
             ],
           ),
           const SizedBox(height: 12),
-          StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-            stream: FirebaseFirestore.instance
-                .collection("dev_logs")
-                .orderBy("created_at", descending: true)
-                .limit(10)
-                .snapshots(),
+          StreamBuilder<List<Map<String, dynamic>>>(
+            stream: _support.streamDevLogs(limit: 10),
             builder: (context, snapshot) {
               if (snapshot.hasError) {
                 return const Text("로그를 불러오지 못했습니다.");
               }
               if (!snapshot.hasData) return const SizedBox();
 
-              final items = snapshot.data!.docs.map((d) => d.data()).toList();
+              final items = snapshot.data!;
               if (items.isEmpty) {
                 return const Text("등록된 로그가 없습니다.");
               }
@@ -332,13 +321,11 @@ class _InquiryScreenState extends State<InquiryScreen> {
                       final data = items[index];
                       final String title = (data["title"] ?? "제목 없음").toString();
                       final String content = (data["content"] ?? "").toString();
-                      final String dateStr = data["created_at"] != null
-                          ? (data["created_at"] as Timestamp)
-                              .toDate()
-                              .toString()
-                              .split(".")
-                              .first
-                          : "";
+                      final String dateStr = () {
+                        final v = data["created_at"];
+                        if (v is DateTime) return v.toString().split(".").first;
+                        return "";
+                      }();
 
                       return Material(
                         color: isDark
