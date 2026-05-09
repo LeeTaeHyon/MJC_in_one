@@ -12,6 +12,7 @@ import "package:mio_notice/services/auth_service.dart";
 import "package:mio_notice/services/notice_manager.dart";
 import "package:mio_notice/services/user_data_repository.dart";
 import "package:mio_notice/theme/app_colors.dart";
+import "package:mio_notice/theme/app_theme.dart";
 import "package:mio_notice/widgets/profile_form.dart";
 import "package:mio_notice/widgets/scroll_to_top_scope.dart";
 import "package:shared_preferences/shared_preferences.dart";
@@ -441,6 +442,23 @@ class _MyPageScreenState extends State<MyPageScreen> {
         final Color pageBg = light
             ? _pageBackground
             : Theme.of(context).colorScheme.surfaceContainerLow;
+        final Color profileStripBg =
+            light ? AppColors.primary : AppColors.cardDark;
+        final Color profileCardBg = light
+            ? const Color(0xFF0A43A8)
+            : AppColors.surfaceContainerDark;
+        final Color profileCardBorder = light
+            ? Colors.white.withValues(alpha: 0.10)
+            : AppColors.cardBorderDark;
+        final MjcComponentTokens mjcComponents =
+            Theme.of(context).extension<MjcComponentTokens>()!;
+        final ColorScheme colorScheme = Theme.of(context).colorScheme;
+        final Color bookmarkTabSelected = light
+            ? colorScheme.primary
+            : mjcComponents.myPageBookmarkTabSelected;
+        final Color bookmarkTabUnselected = light
+            ? colorScheme.onSurface.withValues(alpha: 0.45)
+            : mjcComponents.myPageBookmarkTabUnselected;
 
         return DefaultTabController(
           length: 2,
@@ -467,14 +485,14 @@ class _MyPageScreenState extends State<MyPageScreen> {
               padding: EdgeInsets.zero,
               children: [
                 Container(
-                  color: AppColors.primary,
+                  color: profileStripBg,
                   padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
                   child: Column(
                     children: [
                       _SoftCard(
                         radius: 18,
-                        backgroundColor: const Color(0xFF0A43A8),
-                        borderColor: Colors.white.withValues(alpha: 0.10),
+                        backgroundColor: profileCardBg,
+                        borderColor: profileCardBorder,
                         shadow: false,
                         child: Padding(
                           padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
@@ -672,14 +690,10 @@ class _MyPageScreenState extends State<MyPageScreen> {
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             TabBar(
-                              indicatorColor:
-                                  Theme.of(context).colorScheme.primary,
+                              indicatorColor: bookmarkTabSelected,
                               indicatorWeight: 2,
-                              labelColor: Theme.of(context).colorScheme.primary,
-                              unselectedLabelColor: Theme.of(context)
-                                  .colorScheme
-                                  .onSurface
-                                  .withValues(alpha: 0.45),
+                              labelColor: bookmarkTabSelected,
+                              unselectedLabelColor: bookmarkTabUnselected,
                               labelStyle:
                                   const TextStyle(fontWeight: FontWeight.w800),
                               unselectedLabelStyle:
@@ -826,7 +840,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
                                       : Icons.login_rounded,
                                   color: signedIn
                                       ? const Color(0xFFD4183D)
-                                      : AppColors.primary,
+                                      : mjcComponents.myPageBookmarkTabSelected,
                                 ),
                                 const SizedBox(width: 10),
                                 Text(
@@ -834,7 +848,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
                                   style: TextStyle(
                                     color: signedIn
                                         ? const Color(0xFFD4183D)
-                                        : AppColors.primary,
+                                        : mjcComponents.myPageBookmarkTabSelected,
                                     fontWeight: FontWeight.w900,
                                   ),
                                 ),
@@ -1221,7 +1235,9 @@ class _MyPageSectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color accent = Theme.of(context).colorScheme.primary;
+    final Color accent = Theme.of(context)
+        .extension<MjcComponentTokens>()!
+        .myPageBookmarkTabSelected;
     return Padding(
       padding: const EdgeInsets.fromLTRB(2, 0, 2, 8),
       child: Row(

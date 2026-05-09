@@ -1,3 +1,4 @@
+import "dart:math" show max;
 import "dart:ui" show lerpDouble;
 
 import "package:flutter/foundation.dart";
@@ -7,6 +8,7 @@ import "package:mio_notice/screens/common_webview_screen.dart";
 import "package:mio_notice/services/notice_filter.dart";
 import "package:mio_notice/services/notice_manager.dart";
 import "package:mio_notice/services/user_data_repository.dart";
+import "package:mio_notice/theme/app_colors.dart";
 import "package:mio_notice/theme/app_theme.dart";
 import "package:mio_notice/utils/mpu_program_dday.dart";
 import "package:mio_notice/perf_flags.dart";
@@ -252,9 +254,9 @@ class _MpuScreenState extends State<MpuScreen> {
   @override
   Widget build(BuildContext context) {
     final double topPad = MediaQuery.paddingOf(context).top;
-    final double viewportH = MediaQuery.sizeOf(context).height;
-    // 작은 화면에서 히어로 여백이 과해지지 않도록 조절.
-    final double heroBody = (viewportH * 0.275).clamp(150.0, 225.0);
+    final double viewportW = MediaQuery.sizeOf(context).width;
+    final double bannerHeight16x9 = viewportW * 9 / 16;
+    final double heroBody = max(120.0, bannerHeight16x9 - topPad);
     final ColorScheme scheme = Theme.of(context).colorScheme;
     final MjcSurfaceTokens tokens =
         Theme.of(context).extension<MjcSurfaceTokens>()!;
@@ -348,12 +350,6 @@ class _MpuCollapsingHeaderDelegate extends SliverPersistentHeaderDelegate {
   @override
   double get minExtent => topPadding + _collapsedBar + _tabBarHeight;
 
-  static const LinearGradient _headerGradient = LinearGradient(
-    colors: [Color(0xFF7986CB), Color(0xFF90A4AE)],
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-  );
-
   @override
   Widget build(
     BuildContext context,
@@ -366,17 +362,9 @@ class _MpuCollapsingHeaderDelegate extends SliverPersistentHeaderDelegate {
     final double t = range > 0 ? (shrinkOffset / range).clamp(0.0, 1.0) : 0.0;
     final double u = Curves.easeInOut.transform(t);
     final double heroH = extent - _tabBarHeight;
-    // LayoutBuilder removed: ih = heroH - topPadding
-    final double ih = heroH - topPadding;
-    final double titleSize = lerpDouble(25, 18, u)!;
-    const double titleLeft = 20;
-    const double bottomBlock = 20 + 13 + 6 + 24;
-    final double expandedTitleTop = (ih - bottomBlock).clamp(0.0, ih);
-    final double collapsedTitleTop = (ih - titleSize * 1.15) / 2;
-    final double titleTop = lerpDouble(expandedTitleTop, collapsedTitleTop, u)!;
-    final double subtitleOpacity = (1.0 - u * 1.35).clamp(0.0, 1.0);
-    final ColorScheme scheme = Theme.of(context).colorScheme;
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final double bannerImageOpacity = (1.0 - u).clamp(0.0, 1.0);
+    final ColorScheme scheme = Theme.of(context).colorScheme;
 
     return SizedBox(
       height: extent,
@@ -390,72 +378,122 @@ class _MpuCollapsingHeaderDelegate extends SliverPersistentHeaderDelegate {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  const DecoratedBox(
-                    decoration: BoxDecoration(gradient: _headerGradient),
+                  ColoredBox(
+                    color: isDark ? const Color(0xFF073A8C) : AppColors.primary,
+                  ),
+                  Positioned.fill(
+                    child: Builder(
+                      builder: (BuildContext context) {
+                        final double dpr =
+                            MediaQuery.devicePixelRatioOf(context);
+                        final Size size = MediaQuery.sizeOf(context);
+                        final int cw =
+                            (size.width * dpr).round().clamp(1, 4096);
+                        final int ch = ((topPadding + heroBody) * dpr)
+                            .round()
+                            .clamp(1, 4096);
+                        return Opacity(
+                          opacity: bannerImageOpacity,
+                          child: Image.asset(
+                            "assets/images/mpu.png",
+                            fit: BoxFit.cover,
+                            alignment: Alignment.center,
+                            width: double.infinity,
+                            height: double.infinity,
+                            cacheWidth: cw,
+                            cacheHeight: ch,
+                            filterQuality: FilterQuality.medium,
+                            gaplessPlayback: true,
+                          ),
+                        );
+                      },
+                    ),
                   ),
                   SafeArea(
                     bottom: false,
                     minimum: EdgeInsets.zero,
-                    child: Stack(
-                      clipBehavior: Clip.hardEdge,
-                      children: [
-                        Positioned(
-                          left: titleLeft,
-                          top: titleTop,
-                          right: 104,
-                          child: Text(
-                            "핵심 역량 이력관리 시스템",
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: titleSize,
-                              fontWeight: FontWeight.w800,
-                              height: 1.1,
-                            ),
-                          ),
-                        ),
-                        Positioned(
-                          right: 4,
-                          top: 4,
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                tooltip: "공지 목록 필터",
-                                onPressed: onOpenFilter,
-                                icon: const Icon(Icons.tune_rounded),
-                                color: Colors.white,
-                              ),
-                              IconButton(
-                                tooltip: "검색",
-                                onPressed: onSearch,
-                                icon: const Icon(Icons.search_rounded),
-                                color: Colors.white,
-                              ),
-                            ],
-                          ),
-                        ),
-                        if (subtitleOpacity > 0.02)
-                          Positioned(
-                            left: 20,
-                            top: titleTop + titleSize * 0.95 + 6,
-                            right: 104,
-                            child: IgnorePointer(
-                              child: Text(
-                                "마일리지 프로그램들을 확인합니다.",
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: Colors.white
-                                      .withValues(alpha: 0.7 * subtitleOpacity),
-                                  fontSize: 13,
-                                  height: 1.2,
+                    child: LayoutBuilder(
+                      builder:
+                          (BuildContext context, BoxConstraints constraints) {
+                        final double ih = constraints.maxHeight;
+                        final double menuTopInset = ih >= 54
+                            ? 6.0
+                            : max(0.0, (ih - 48) / 2);
+                        final double titleSize =
+                            lerpDouble(34, 20, u)!;
+                        const double titleLeft = 24;
+                        const double toolbarSlot = 104;
+                        final double collapsedTitleTop =
+                            (ih - titleSize * 1.15) / 2;
+                        final double titleReveal =
+                            ((u - 0.70) / 0.30).clamp(0.0, 1.0);
+                        final double titleOpacity = Curves.easeOutCubic
+                            .transform(titleReveal);
+                        return Stack(
+                          clipBehavior: Clip.hardEdge,
+                          children: [
+                            Positioned(
+                              left: titleLeft,
+                              top: collapsedTitleTop,
+                              right: toolbarSlot,
+                              child: IgnorePointer(
+                                ignoring: titleOpacity < 0.02,
+                                child: Opacity(
+                                  opacity: titleOpacity,
+                                  child: const Text(
+                                    "핵심역량관리",
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.w900,
+                                      height: 1.1,
+                                      shadows: <Shadow>[
+                                        Shadow(
+                                          blurRadius: 6,
+                                          color: Color(0x66000000),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                      ],
+                            Positioned(
+                              top: 0,
+                              right: 4,
+                              bottom: 0,
+                              width: toolbarSlot,
+                              child: Align(
+                                alignment: Alignment.topCenter,
+                                child: Padding(
+                                  padding:
+                                      EdgeInsets.only(top: menuTopInset),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      IconButton(
+                                        tooltip: "공지 목록 필터",
+                                        onPressed: onOpenFilter,
+                                        icon: const Icon(Icons.tune_rounded),
+                                        color: Colors.white,
+                                      ),
+                                      IconButton(
+                                        tooltip: "검색",
+                                        onPressed: onSearch,
+                                        icon:
+                                            const Icon(Icons.search_rounded),
+                                        color: Colors.white,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
                     ),
                   ),
                 ],

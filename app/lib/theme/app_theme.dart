@@ -22,11 +22,11 @@ const Color _kDeadlineBadgeLight = Color(0xFF0D47A1);
 
 const List<List<Color>> _kDashboardGradientsLight = [
   [Color(0xFF005EB8)],
-  [Color(0xFF0083B8)],
+  [Color(0xFF0587dd)],
   [Color(0xFF0039B8)],
   [Color(0xFF0288D1)],
-  [Color(0xFF7E57C2)],
-  [Color(0xFF00ACC1)],
+  [Color(0xFF673AB7)],
+  [Color(0xFF00897B)]
 ];
 
 // ---- Color tokens (dark) ----
@@ -37,15 +37,22 @@ const Color _kFoodAccentDark = Color(0xFFFFAB91);
 const Color _kDeadlineBadgeDark = Color(0xFF1F4F9A);
 
 const List<List<Color>> _kDashboardGradientsDark = [
-  [Color(0xFF15366B)],
-  [Color(0xFF1A3D88)],
-  [Color(0xFF3D4574)],
-  [Color(0xFF0B5E80)],
+  [Color(0xFF005EB8)],
+  [Color(0xFF0587dd)],
+  [Color(0xFF0039B8)],
+  [Color(0xFF0288D1)],
   [Color(0xFF673AB7)],
   [Color(0xFF00897B)]
 ];
 
 const Color _kBottomNavUnselectedDark = Color(0xFF9AA4B2);
+
+/// 마이페이지 «고정·즐겨찾기 공지» `TabBar` — 다크 모드 미선택 라벨·아이콘.
+const Color kMjcMyPageBookmarkTabUnselectedDark = Color(0xFF9AA4B2);
+
+/// 마이페이지 «고정·즐겨찾기 공지» `TabBar` — 다크 모드 선택 탭·인디케이터.
+const Color kMjcMyPageBookmarkTabSelectedDark = Color(0xFF82B1FF);
+
 const Color _kSubNavShadowLight = Color(0x33000000); // ~20% black
 const Color _kSubNavShadowDark = Color(0x8A000000); // ~54% black
 
@@ -180,6 +187,8 @@ class MjcComponentTokens extends ThemeExtension<MjcComponentTokens> {
     required this.bottomNavSelected,
     required this.bottomNavUnselected,
     required this.noticeSubNavShadow,
+    required this.myPageBookmarkTabSelected,
+    required this.myPageBookmarkTabUnselected,
   });
 
   /// Bottom navigation selected icon/label.
@@ -191,16 +200,28 @@ class MjcComponentTokens extends ThemeExtension<MjcComponentTokens> {
   /// Shadow color used by floating sub-navigation pills/cards.
   final Color noticeSubNavShadow;
 
+  /// 마이페이지 고정·즐겨찾기 공지 `TabBar` — 선택 탭·인디케이터.
+  final Color myPageBookmarkTabSelected;
+
+  /// 마이페이지 고정·즐겨찾기 공지 `TabBar` — 미선택 라벨·아이콘.
+  final Color myPageBookmarkTabUnselected;
+
   @override
   MjcComponentTokens copyWith({
     Color? bottomNavSelected,
     Color? bottomNavUnselected,
     Color? noticeSubNavShadow,
+    Color? myPageBookmarkTabSelected,
+    Color? myPageBookmarkTabUnselected,
   }) {
     return MjcComponentTokens(
       bottomNavSelected: bottomNavSelected ?? this.bottomNavSelected,
       bottomNavUnselected: bottomNavUnselected ?? this.bottomNavUnselected,
       noticeSubNavShadow: noticeSubNavShadow ?? this.noticeSubNavShadow,
+      myPageBookmarkTabSelected:
+          myPageBookmarkTabSelected ?? this.myPageBookmarkTabSelected,
+      myPageBookmarkTabUnselected:
+          myPageBookmarkTabUnselected ?? this.myPageBookmarkTabUnselected,
     );
   }
 
@@ -217,6 +238,16 @@ class MjcComponentTokens extends ThemeExtension<MjcComponentTokens> {
           Color.lerp(bottomNavUnselected, other.bottomNavUnselected, t)!,
       noticeSubNavShadow:
           Color.lerp(noticeSubNavShadow, other.noticeSubNavShadow, t)!,
+      myPageBookmarkTabSelected: Color.lerp(
+        myPageBookmarkTabSelected,
+        other.myPageBookmarkTabSelected,
+        t,
+      )!,
+      myPageBookmarkTabUnselected: Color.lerp(
+        myPageBookmarkTabUnselected,
+        other.myPageBookmarkTabUnselected,
+        t,
+      )!,
     );
   }
 }
@@ -249,6 +280,8 @@ const MjcComponentTokens _lightComponentTokens = MjcComponentTokens(
   bottomNavSelected: AppColors.primary,
   bottomNavUnselected: AppColors.mutedForeground,
   noticeSubNavShadow: _kSubNavShadowLight,
+  myPageBookmarkTabSelected: AppColors.primary,
+  myPageBookmarkTabUnselected: AppColors.mutedForeground,
 );
 
 const MjcComponentTokens _darkComponentTokens = MjcComponentTokens(
@@ -256,6 +289,8 @@ const MjcComponentTokens _darkComponentTokens = MjcComponentTokens(
   bottomNavSelected: AppColors.switchActiveDark,
   bottomNavUnselected: _kBottomNavUnselectedDark,
   noticeSubNavShadow: _kSubNavShadowDark,
+  myPageBookmarkTabSelected: kMjcMyPageBookmarkTabSelectedDark,
+  myPageBookmarkTabUnselected: kMjcMyPageBookmarkTabUnselectedDark,
 );
 
 ThemeData buildMjcTheme() {

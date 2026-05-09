@@ -11,8 +11,7 @@ class IntroScreen extends StatefulWidget {
   State<IntroScreen> createState() => _IntroScreenState();
 }
 
-class _IntroScreenState extends State<IntroScreen>
-    with SingleTickerProviderStateMixin {
+class _IntroScreenState extends State<IntroScreen> {
   bool _navigated = false;
 
   void _goNext() {
@@ -47,72 +46,66 @@ class _IntroScreenState extends State<IntroScreen>
           color: Colors.white,
         );
 
-    final subtitleStyle = Theme.of(context).textTheme.titleMedium?.copyWith(
-          fontSize: 14,
-          fontWeight: FontWeight.w300,
-          height: 1.25,
-          color: Colors.white70,
+    final subtitleStyle = Theme.of(context).textTheme.titleSmall?.copyWith(
+          fontSize: 13,
+          fontWeight: FontWeight.w400,
+          height: 1.3,
+          color: Colors.white.withValues(alpha: 0.85),
         ) ??
-        const TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w300,
-          height: 1.25,
-          color: Colors.white70,
+        TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w400,
+          height: 1.3,
+          color: Colors.white.withValues(alpha: 0.85),
         );
 
     return PopScope(
       canPop: false,
       child: Scaffold(
-        backgroundColor: AppColors.primary,
+        backgroundColor: AppColors.introBackground,
         body: SafeArea(
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  AppColors.primary,
-                  AppColors.secondary.withValues(alpha: 0.92),
-                  const Color(0xFF0B1B3A),
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 28),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Text(
+                    "MJC ONE",
+                    textAlign: TextAlign.center,
+                    style: titleStyle,
+                  )
+                      .animate(
+                        onComplete: (controller) => _goNext(),
+                      )
+                      .fadeIn(duration: 520.ms, curve: Curves.easeOut)
+                      .slideX(
+                        begin: -0.55,
+                        end: 0,
+                        duration: 700.ms,
+                        curve: Curves.easeOutCubic,
+                      ),
+                  const SizedBox(height: 12),
+                  Text(
+                    "명지전문대학 통합 서비스",
+                    textAlign: TextAlign.center,
+                    style: subtitleStyle,
+                  )
+                      .animate()
+                      .fadeIn(
+                        delay: 240.ms,
+                        duration: 520.ms,
+                        curve: Curves.easeOut,
+                      )
+                      .slideX(
+                        begin: -0.45,
+                        end: 0,
+                        delay: 240.ms,
+                        duration: 680.ms,
+                        curve: Curves.easeOutCubic,
+                      ),
                 ],
-                stops: const [0.0, 0.55, 1.0],
-              ),
-            ),
-            child: Center(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 28),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text("MJC in one", style: titleStyle)
-                        .animate(
-                          onComplete: (controller) => _goNext(),
-                        )
-                        .fadeIn(duration: 520.ms, curve: Curves.easeOut)
-                        .slideX(
-                          begin: -0.12,
-                          end: 0,
-                          duration: 650.ms,
-                          curve: Curves.easeOutCubic,
-                        ),
-                    const SizedBox(height: 10),
-                    Text("명지전문대학 통합 플랫폼", style: subtitleStyle)
-                        .animate()
-                        .fadeIn(
-                          delay: 220.ms,
-                          duration: 520.ms,
-                          curve: Curves.easeOut,
-                        )
-                        .slideX(
-                          begin: -0.10,
-                          end: 0,
-                          delay: 220.ms,
-                          duration: 650.ms,
-                          curve: Curves.easeOutCubic,
-                        ),
-                  ],
-                ),
               ),
             ),
           ),

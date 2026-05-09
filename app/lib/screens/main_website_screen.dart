@@ -1,3 +1,4 @@
+import "dart:math" show max;
 import "dart:ui" show lerpDouble;
 
 import "package:flutter/foundation.dart";
@@ -9,6 +10,7 @@ import "package:mio_notice/screens/notice_detail_screen.dart";
 import "package:mio_notice/services/notice_filter.dart";
 import "package:mio_notice/services/notice_manager.dart";
 import "package:mio_notice/services/user_data_repository.dart";
+import "package:mio_notice/theme/app_colors.dart";
 import "package:mio_notice/theme/app_theme.dart";
 import "package:mio_notice/perf_flags.dart";
 import "package:mio_notice/widgets/nested_scroll_refresh_indicator.dart";
@@ -344,9 +346,10 @@ class _MainWebsiteScreenState extends State<MainWebsiteScreen> {
   @override
   Widget build(BuildContext context) {
     final double topPad = MediaQuery.paddingOf(context).top;
-    final double viewportH = MediaQuery.sizeOf(context).height;
-    // 공지 리스트 화면에서 상단 여백(접히는 히어로)을 화면 크기에 맞춰 조절.
-    final double heroBody = (viewportH * 0.275).clamp(150.0, 225.0);
+    final double viewportW = MediaQuery.sizeOf(context).width;
+    // 홈 대시보드와 동일: 헤더 히어로(상태바 제외 본문)가 너비 대비 16:9.
+    final double bannerHeight16x9 = viewportW * 9 / 16;
+    final double heroBody = max(120.0, bannerHeight16x9 - topPad);
     return ValueListenableBuilder<MainWebsiteNoticeViewMode>(
       valueListenable: MainWebsitePrefs.noticeViewMode,
       builder: (context, mode, _) {
@@ -476,15 +479,8 @@ class _MainWebsiteCollapsingHeaderDelegate
     final double t = range > 0 ? (shrinkOffset / range).clamp(0.0, 1.0) : 0.0;
     final double u = Curves.easeInOut.transform(t);
     final double heroH = extent - _bottomHeight;
-    // LayoutBuilder removed: c.maxHeight == heroH - topPadding (SafeArea subtracts status bar)
-    final double ih = heroH - topPadding;
-    final double titleSize = lerpDouble(25, 18, u)!;
-    const double titleLeft = 20;
-    const double bottomBlock = 20 + 13 + 6 + 24;
-    final double expandedTitleTop = (ih - bottomBlock).clamp(0.0, ih);
-    final double collapsedTitleTop = (ih - titleSize * 1.15) / 2;
-    final double titleTop = lerpDouble(expandedTitleTop, collapsedTitleTop, u)!;
-    final double subtitleOpacity = (1.0 - u * 1.35).clamp(0.0, 1.0);
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final double bannerImageOpacity = (1.0 - u).clamp(0.0, 1.0);
 
     return SizedBox(
       height: extent,
@@ -498,72 +494,122 @@ class _MainWebsiteCollapsingHeaderDelegate
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  const DecoratedBox(
-                    decoration: BoxDecoration(color: Color(0xFF005EB8)),
+                  ColoredBox(
+                    color: isDark ? const Color(0xFF073A8C) : AppColors.primary,
+                  ),
+                  Positioned.fill(
+                    child: Builder(
+                      builder: (BuildContext context) {
+                        final double dpr =
+                            MediaQuery.devicePixelRatioOf(context);
+                        final Size size = MediaQuery.sizeOf(context);
+                        final int cw =
+                            (size.width * dpr).round().clamp(1, 4096);
+                        final int ch = ((topPadding + heroBody) * dpr)
+                            .round()
+                            .clamp(1, 4096);
+                        return Opacity(
+                          opacity: bannerImageOpacity,
+                          child: Image.asset(
+                            "assets/images/mjc.png",
+                            fit: BoxFit.cover,
+                            alignment: Alignment.center,
+                            width: double.infinity,
+                            height: double.infinity,
+                            cacheWidth: cw,
+                            cacheHeight: ch,
+                            filterQuality: FilterQuality.medium,
+                            gaplessPlayback: true,
+                          ),
+                        );
+                      },
+                    ),
                   ),
                   SafeArea(
                     bottom: false,
                     minimum: EdgeInsets.zero,
-                    child: Stack(
-                      clipBehavior: Clip.hardEdge,
-                      children: [
-                        Positioned(
-                          left: titleLeft,
-                          top: titleTop,
-                          right: 104,
-                          child: Text(
-                            "MJC 공지사항",
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: titleSize,
-                              fontWeight: FontWeight.w800,
-                              height: 1.1,
-                            ),
-                          ),
-                        ),
-                        Positioned(
-                          right: 4,
-                          top: 4,
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                tooltip: "공지 목록 필터",
-                                onPressed: onOpenFilter,
-                                icon: const Icon(Icons.tune_rounded),
-                                color: Colors.white,
-                              ),
-                              IconButton(
-                                tooltip: "검색",
-                                onPressed: onSearch,
-                                icon: const Icon(Icons.search_rounded),
-                                color: Colors.white,
-                              ),
-                            ],
-                          ),
-                        ),
-                        if (subtitleOpacity > 0.02)
-                          Positioned(
-                            left: 20,
-                            top: titleTop + titleSize * 0.95 + 6,
-                            right: 104,
-                            child: IgnorePointer(
-                              child: Text(
-                                "본교 공지사항을 확인합니다.",
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: Colors.white
-                                      .withValues(alpha: 0.7 * subtitleOpacity),
-                                  fontSize: 13,
-                                  height: 1.2,
+                    child: LayoutBuilder(
+                      builder:
+                          (BuildContext context, BoxConstraints constraints) {
+                        final double ih = constraints.maxHeight;
+                        final double menuTopInset = ih >= 54
+                            ? 6.0
+                            : max(0.0, (ih - 48) / 2);
+                        final double titleSize =
+                            lerpDouble(34, 20, u)!;
+                        const double titleLeft = 24;
+                        const double toolbarSlot = 104;
+                        final double collapsedTitleTop =
+                            (ih - titleSize * 1.15) / 2;
+                        final double titleReveal =
+                            ((u - 0.70) / 0.30).clamp(0.0, 1.0);
+                        final double titleOpacity = Curves.easeOutCubic
+                            .transform(titleReveal);
+                        return Stack(
+                          clipBehavior: Clip.hardEdge,
+                          children: [
+                            Positioned(
+                              left: titleLeft,
+                              top: collapsedTitleTop,
+                              right: toolbarSlot,
+                              child: IgnorePointer(
+                                ignoring: titleOpacity < 0.02,
+                                child: Opacity(
+                                  opacity: titleOpacity,
+                                  child: const Text(
+                                    "본교 공지",
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.w900,
+                                      height: 1.1,
+                                      shadows: <Shadow>[
+                                        Shadow(
+                                          blurRadius: 6,
+                                          color: Color(0x66000000),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                      ],
+                            Positioned(
+                              top: 0,
+                              right: 4,
+                              bottom: 0,
+                              width: toolbarSlot,
+                              child: Align(
+                                alignment: Alignment.topCenter,
+                                child: Padding(
+                                  padding:
+                                      EdgeInsets.only(top: menuTopInset),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      IconButton(
+                                        tooltip: "공지 목록 필터",
+                                        onPressed: onOpenFilter,
+                                        icon: const Icon(Icons.tune_rounded),
+                                        color: Colors.white,
+                                      ),
+                                      IconButton(
+                                        tooltip: "검색",
+                                        onPressed: onSearch,
+                                        icon:
+                                            const Icon(Icons.search_rounded),
+                                        color: Colors.white,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
                     ),
                   ),
                 ],

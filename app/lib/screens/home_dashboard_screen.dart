@@ -253,9 +253,10 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final double topPad = MediaQuery.paddingOf(context).top;
-    final double viewportH = MediaQuery.sizeOf(context).height;
-    // 홈/공지 화면의 히어로 헤더 높이를 동일한 규칙으로 통일.
-    final double heroBody = (viewportH * 0.275).clamp(150.0, 225.0);
+    final double viewportW = MediaQuery.sizeOf(context).width;
+    // 헤더 전체 높이(topPadding 포함)가 화면 너비 대비 16:9가 되도록 맞춤 → cover 크롭이 16:9 원본과 맞습니다.
+    final double bannerHeight16x9 = viewportW * 9 / 16;
+    final double heroBody = max(120.0, bannerHeight16x9 - topPad);
     // Home tab must always be visually opaque during transitions, otherwise
     // AnimatedSwitcher fade can reveal the previous tab underneath.
     return ColoredBox(
@@ -273,6 +274,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                 topPadding: topPad,
                 heroBody: heroBody,
                 onMoreTap: _openMore,
+                onBannerTapIndex: _handleBannerTapIndex,
               ),
             ),
             SliverToBoxAdapter(
@@ -308,6 +310,22 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     _loadEnabledDashboardSections();
     _loadDashboardSectionOrder();
     _loadNoticeFilter();
+  }
+
+  void _handleBannerTapIndex(int index) {
+    switch (index) {
+      case 0:
+        widget.onNavigate(MainNavTabIndex.notices, noticesSubTab: NoticesSubTab.main);
+        return;
+      case 1:
+        widget.onNavigate(MainNavTabIndex.notices, noticesSubTab: NoticesSubTab.ctl);
+        return;
+      case 2:
+        widget.onNavigate(MainNavTabIndex.notices, noticesSubTab: NoticesSubTab.mpu);
+        return;
+      default:
+        return;
+    }
   }
 
   Widget _buildShuttleSection(BuildContext context) {
@@ -1216,18 +1234,20 @@ class _HomeHeroHeaderDelegate extends SliverPersistentHeaderDelegate {
     required this.topPadding,
     required this.heroBody,
     required this.onMoreTap,
+    required this.onBannerTapIndex,
   });
 
   final double topPadding;
   final double heroBody;
   final VoidCallback onMoreTap;
+  final void Function(int index) onBannerTapIndex;
 
   static const double _collapsedBar = 52;
   // 홈 상단 롤링 배너 이미지(에셋). `app/assets/images/`에 넣고 pubspec.yaml에 포함되어 있어야 합니다.
   static const List<String> _bannerAssetImages = <String>[
-    "assets/images/home_banner_01.jpg",
-    "assets/images/home_banner_02.jpg",
-    "assets/images/home_banner_03.jpg",
+    "assets/images/mjc_go.png",
+    "assets/images/ctl_go.png",
+    "assets/images/mpu_go.png",
   ];
 
   @override
@@ -1248,6 +1268,9 @@ class _HomeHeroHeaderDelegate extends SliverPersistentHeaderDelegate {
     final double t = range > 0 ? (shrinkOffset / range).clamp(0.0, 1.0) : 0.0;
     final double u = Curves.easeInOut.transform(t);
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    // 펼침 시 이미지 불투명 100%면 아래 배경색은 비치지 않음(어두워 보였던 건 검정 톤 오버레이였음).
+    // 접힘: 이미지만 페이드아웃 → 뒤 배경색이 드러남.
+    final double bannerImageOpacity = (1.0 - u).clamp(0.0, 1.0);
 
     return SizedBox(
       height: extent,
@@ -1265,14 +1288,18 @@ class _HomeHeroHeaderDelegate extends SliverPersistentHeaderDelegate {
                   final double dpr = MediaQuery.devicePixelRatioOf(context);
                   final Size size = MediaQuery.sizeOf(context);
                   // 이미지 원본이 큰 편이라, 화면 크기에 맞춰 디코드해 raster 튐을 줄입니다.
+                  // NOTE: `extent`는 스크롤 중 매 프레임 변하므로 cacheHeight를 extent 기반으로 잡으면
+                  // 디코드 크기가 계속 바뀌어 페이드 구간에서 깜빡임처럼 보일 수 있습니다.
+                  // 따라서 home 배너는 maxExtent 기준으로 디코드 크기를 고정합니다.
                   final int cw = (size.width * dpr).round().clamp(1, 4096);
-                  final int ch = (extent * dpr).round().clamp(1, 4096);
+                  final int ch = (maxExtent * dpr).round().clamp(1, 4096);
                   return _HomeRollingBanner(
                     assetImages: _bannerAssetImages,
                     cacheWidth: cw,
                     cacheHeight: ch,
-                    overlayAlpha:
-                        ((isDark ? 0.50 : 0.35) * (1.0 - u)).clamp(0.0, 1.0),
+                    overlayAlpha: 0,
+                    imageOpacity: bannerImageOpacity,
+                    onTapIndex: (int index) async => onBannerTapIndex(index),
                   );
                 },
               ),
@@ -1288,15 +1315,12 @@ class _HomeHeroHeaderDelegate extends SliverPersistentHeaderDelegate {
                       ih >= 54 ? 6.0 : max(0.0, (ih - 48) / 2);
                   final double titleSize = lerpDouble(34, 20, u)!;
                   const double titleLeft = 24;
-                  const double bottomBlock =
-                      24 + 16 + 6 + 34; // 여백 + 부제 + 간격 + 큰 타이틀
-                  final double expandedTitleTop =
-                      (ih - bottomBlock).clamp(0.0, ih);
                   final double collapsedTitleTop = (ih - titleSize * 1.15) / 2;
-                  final double titleTop =
-                      lerpDouble(expandedTitleTop, collapsedTitleTop, u)!;
-                  final double subtitleOpacity =
-                      (1.0 - u * 1.35).clamp(0.0, 1.0);
+                  // 약 70% 이상 접힌 뒤(u 0.7→1)에만 타이틀 페이드 인.
+                  final double titleReveal =
+                      ((u - 0.70) / 0.30).clamp(0.0, 1.0);
+                  final double titleOpacity =
+                      Curves.easeOutCubic.transform(titleReveal);
 
                   // Stack hit-test visits later children first. Keep the menu
                   // button last so the full-width title cannot steal taps when
@@ -1307,41 +1331,32 @@ class _HomeHeroHeaderDelegate extends SliverPersistentHeaderDelegate {
                     children: [
                       Positioned(
                         left: titleLeft,
-                        top: titleTop,
+                        top: collapsedTitleTop,
                         right: moreButtonSlot,
-                        child: Text(
-                          "MJC in one",
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: titleSize,
-                            fontWeight: FontWeight.w900,
-                            height: 1.1,
-                          ),
-                        ),
-                      ),
-                      if (subtitleOpacity > 0.02)
-                        Positioned(
-                          left: 24,
-                          top: titleTop + titleSize * 0.95 + 6,
-                          right: moreButtonSlot,
-                          child: IgnorePointer(
-                            child: Opacity(
-                              opacity: subtitleOpacity,
-                              child: const Text(
-                                "MJC 통합 서비스 어플리케이션",
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 16,
-                                  height: 1.2,
-                                ),
+                        child: IgnorePointer(
+                          ignoring: titleOpacity < 0.02,
+                          child: Opacity(
+                            opacity: titleOpacity,
+                            child: const Text(
+                              "MJC ONE",
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 20,
+                                fontWeight: FontWeight.w900,
+                                height: 1.1,
+                                shadows: <Shadow>[
+                                  Shadow(
+                                    blurRadius: 6,
+                                    color: Color(0x66000000),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
                         ),
+                      ),
                       Positioned(
                         top: 0,
                         right: 4,
@@ -1385,12 +1400,16 @@ class _HomeRollingBanner extends StatefulWidget {
     required this.cacheWidth,
     required this.cacheHeight,
     required this.overlayAlpha,
+    required this.imageOpacity,
+    this.onTapIndex,
   });
 
   final List<String> assetImages;
   final int cacheWidth;
   final int cacheHeight;
   final double overlayAlpha;
+  final double imageOpacity;
+  final Future<void> Function(int index)? onTapIndex;
 
   @override
   State<_HomeRollingBanner> createState() => _HomeRollingBannerState();
@@ -1441,57 +1460,87 @@ class _HomeRollingBannerState extends State<_HomeRollingBanner> {
   Widget build(BuildContext context) {
     if (widget.assetImages.isEmpty) return const SizedBox.shrink();
 
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        PageView.builder(
-          controller: _controller,
-          onPageChanged: (i) => setState(() => _index = i),
-          itemCount: widget.assetImages.length,
-          itemBuilder: (context, i) {
-            return Image.asset(
-              widget.assetImages[i],
-              fit: BoxFit.cover,
-              width: double.infinity,
-              height: double.infinity,
-              alignment: Alignment.center,
-              cacheWidth: widget.cacheWidth,
-              cacheHeight: widget.cacheHeight,
-              // Opacity(saveLayer) 대신 colorFilter로 블렌딩해서 raster 비용을 줄입니다.
-              color: Colors.black.withValues(alpha: widget.overlayAlpha),
-              colorBlendMode: BlendMode.srcOver,
-              errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-            );
-          },
-        ),
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 10,
-          child: IgnorePointer(
-            child: AnimatedOpacity(
-              duration: const Duration(milliseconds: 220),
-              opacity: widget.assetImages.length <= 1 ? 0 : 1,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(widget.assetImages.length, (i) {
-                  final bool active = i == _index;
-                  return AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    margin: const EdgeInsets.symmetric(horizontal: 3),
-                    width: active ? 16 : 6,
-                    height: 6,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: active ? 0.95 : 0.55),
-                      borderRadius: BorderRadius.circular(99),
-                    ),
-                  );
-                }),
+    // 배너 영역 밖으로 이미지가 삐져나오지 않게(=cover 크롭) 강제 클립합니다.
+    final double imgOpacity = widget.imageOpacity.clamp(0.0, 1.0);
+    return ClipRect(
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          PageView.builder(
+            controller: _controller,
+            onPageChanged: (i) => setState(() => _index = i),
+            itemCount: widget.assetImages.length,
+            itemBuilder: (context, i) {
+              // "중앙 정렬 후 크롭(센터 크롭)" = BoxFit.cover + Alignment.center.
+              // 드래그는 PageView가 처리하고, 탭만 InkWell로 처리합니다.
+              return Material(
+                color: Colors.transparent,
+                clipBehavior: Clip.hardEdge,
+                child: InkWell(
+                  onTap: (imgOpacity < 0.05 || widget.onTapIndex == null)
+                      ? null
+                      : () => widget.onTapIndex!(i),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      Opacity(
+                        opacity: imgOpacity,
+                        child: Image.asset(
+                          widget.assetImages[i],
+                          fit: BoxFit.cover,
+                          alignment: Alignment.center,
+                          width: double.infinity,
+                          height: double.infinity,
+                          cacheWidth: widget.cacheWidth,
+                          cacheHeight: widget.cacheHeight,
+                          filterQuality: FilterQuality.medium,
+                          gaplessPlayback: true,
+                          errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                        ),
+                      ),
+                      // 기존 헤더의 어두운 블렌딩 톤은 유지 (이미지 위에 올리는 방식).
+                      if (widget.overlayAlpha > 0.001)
+                        ColoredBox(
+                          color: Colors.black.withValues(alpha: widget.overlayAlpha),
+                        ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 10,
+            child: IgnorePointer(
+              child: Opacity(
+                opacity: widget.assetImages.length <= 1
+                    ? 0.0
+                    : imgOpacity.clamp(0.0, 1.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(widget.assetImages.length, (i) {
+                    final bool active = i == _index;
+                    return AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      margin: const EdgeInsets.symmetric(horizontal: 3),
+                      width: active ? 16 : 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(
+                          alpha: active ? 0.95 : 0.55,
+                        ),
+                        borderRadius: BorderRadius.circular(99),
+                      ),
+                    );
+                  }),
+                ),
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

@@ -1,6 +1,9 @@
 /// FCM data `source` 값과 설정에 저장하는 출처 id (mjc / ctl / mpu).
 const String kNotificationSourcesPrefKey = "notification_sources";
 
+/// MPU 화면·푸시에서 공통으로 여는 포털 주소 (`mpu_screen` 카드 탭과 동일).
+const String kMpuPortalWebUrl = "https://mpu.mjc.ac.kr/Main/default.aspx";
+
 const List<String> kNotificationSourceIds = ["mjc", "ctl", "mpu"];
 
 List<String> defaultNotificationSources() =>

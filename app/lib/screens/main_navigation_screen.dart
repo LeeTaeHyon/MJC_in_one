@@ -514,6 +514,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
   Widget _buildNoticeSubNav() {
     final ColorScheme scheme = Theme.of(context).colorScheme;
+    final MjcSurfaceTokens surfaceTokens =
+        Theme.of(context).extension<MjcSurfaceTokens>()!;
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
     final Color subNavAccent = _components.bottomNavSelected;
     return Align(
@@ -530,7 +532,10 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                 color: scheme.surface.withValues(alpha: isDark ? 0.98 : 0.96),
                 elevation: 10,
                 shadowColor: _components.noticeSubNavShadow,
-                borderRadius: BorderRadius.circular(28),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(28),
+                  side: BorderSide(color: surfaceTokens.hairline, width: 1),
+                ),
                 clipBehavior: Clip.antiAlias,
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
