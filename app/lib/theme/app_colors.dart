@@ -8,6 +8,9 @@ abstract final class AppColors {
   static const Color competency = Color(0xFF2196F3);
   static const Color library = Color(0xFF42A5F5);
 
+  /// 바로가기 카드 텍스트 (라이트 모드).
+  static const Color quickCardText = Color(0xFF343A40);
+
   static const Color scaffoldMuted = Color(0xFFF5F5F5);
   static const Color scaffoldMutedDark = Color(0xFF0F0F10);
   static const Color cardDark = Color(0xFF1C1C1E);

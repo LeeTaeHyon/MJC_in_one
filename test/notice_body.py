@@ -91,25 +91,27 @@ def fetch_mjc_view_body(
     *,
     timeout: float = 15.0,
     session: requests.Session | None = None,
-) -> tuple[str, str | None]:
+) -> tuple[str, str, str | None]:
     """MJC view.do 본문 plain text 추출.
 
     Returns:
-        (body_text, error_message)  — error 가 None 이면 성공.
+        (body_text, view_title, error_message)  — error 가 None 이면 성공.
     """
     if not view_url:
-        return "", "empty_url"
+        return "", "", "empty_url"
     sess = session or requests
     try:
         res = sess.get(view_url, headers=_DEFAULT_HEADERS, timeout=timeout)
     except requests.RequestException as exc:  # 네트워크/타임아웃
-        return "", f"http_error:{type(exc).__name__}"
+        return "", "", f"http_error:{type(exc).__name__}"
     if res.status_code != 200:
-        return "", f"status:{res.status_code}"
+        return "", "", f"status:{res.status_code}"
 
     # MJC 페이지는 charset 메타 기반 자동 추론이 잘 안 될 때가 있어 명시적으로 본다.
     res.encoding = res.apparent_encoding or "utf-8"
     soup = BeautifulSoup(res.text, "html.parser")
+
+    view_title = _extract_mjc_view_title(soup)
 
     node = None
     for sel in _BODY_SELECTORS:
@@ -122,15 +124,82 @@ def fetch_mjc_view_body(
         node = _largest_text_container(soup)
 
     if node is None:
-        return "", "no_body_node"
+        return "", view_title, "no_body_node"
 
     # 이미지 전용 글: 추출 텍스트는 비었지만 본문 영역에 <img> 가 있는 경우
     has_image = bool(node.find("img"))
     text = clean_body_text(node)
     if has_image and not text.strip():
-        return _BODY_IMAGE_ONLY_PLACEHOLDER, None
+        return _BODY_IMAGE_ONLY_PLACEHOLDER, view_title, None
 
-    return text, None
+    return text, view_title, None
+
+
+def _extract_mjc_view_title(soup: BeautifulSoup) -> str:
+    """MJC view.do HTML에서 원본 제목 추출 (가능한 경우)."""
+    if soup is None:
+        return ""
+
+    # 1) OG title (가장 신뢰도 높음)
+    meta = soup.select_one('meta[property="og:title"]')
+    if meta is not None:
+        content = (meta.get("content") or "").strip()
+        if content:
+            return _normalize_view_title(content)
+
+    # 2) 일반 <title>
+    if soup.title and soup.title.string:
+        t = soup.title.string.strip()
+        if t:
+            return _normalize_view_title(t)
+
+    # 3) 화면 내 헤더 텍스트 후보들
+    for sel in (
+        ".view_tit",
+        ".viewTit",
+        ".bbs_view .tit",
+        ".bbs_view .title",
+        ".board_view .tit",
+        ".board_view .title",
+        "h3",
+        "h4",
+    ):
+        node = soup.select_one(sel)
+        if node is None:
+            continue
+        t = node.get_text(" ", strip=True)
+        if t and len(t) >= 6:
+            return _normalize_view_title(t)
+
+    return ""
+
+
+def _normalize_view_title(raw: str) -> str:
+    """사이트 suffix 제거 등 최소 정규화."""
+    s = (raw or "").strip().replace("\u00a0", " ")
+    if not s:
+        return ""
+
+    # og:title 등에 breadcrumb 가 포함되는 경우가 있어 마지막 토큰만 남김
+    # 예: "명지전문대학 > 공지사항: [혁신] ... 안내" → "[혁신] ... 안내"
+    if " > " in s:
+        s = s.split(" > ")[-1].strip()
+    if ":" in s:
+        # "공지사항: 제목" 형태면 제목만
+        left, right = s.split(":", 1)
+        if left.strip() and right.strip():
+            s = right.strip()
+
+    # <title>에서 자주 붙는 suffix 제거
+    for sep in (" | ", " - ", " :: "):
+        if sep in s:
+            # 너무 공격적으로 자르지 않도록, 우측 토큰이 사이트명일 때만 제거
+            left, right = s.rsplit(sep, 1)
+            r = right.strip()
+            if any(k in r for k in ("명지", "MJC", "mjc.ac.kr")) and left.strip():
+                s = left.strip()
+            break
+    return s
 
 
 def _largest_text_container(soup: BeautifulSoup) -> Any:
@@ -381,7 +450,11 @@ def enrich_with_body_and_summary(
     크롤러/백필 양쪽에서 같이 쓸 수 있도록 in-place 패턴.
     """
     url = str(post.get("url") or "")
-    body, err = fetch_mjc_view_body(url, timeout=fetch_timeout, session=session)
+    body, view_title, err = fetch_mjc_view_body(
+        url,
+        timeout=fetch_timeout,
+        session=session,
+    )
     now_iso = datetime.now().isoformat()
 
     post["body"] = body
@@ -395,6 +468,15 @@ def enrich_with_body_and_summary(
     summary: str = ""
     summary_version = SUMMARY_HEURISTIC_VERSION
     post.pop("_lm_summarize_fail_reason", None)
+
+    # 리스트에서 이미 .../… 로 잘린 제목이면 상세 페이지 제목으로 교체
+    list_title = str(post.get("title") or "").strip()
+    if view_title:
+        vt = view_title.strip()
+        if list_title.endswith("...") or list_title.endswith("…"):
+            if len(vt) > len(list_title) and not vt.endswith("...") and not vt.endswith("…"):
+                post["title"] = vt
+
     if body:
         if use_lmstudio and lm_base:
             lm, lm_fail = lmstudio_summarize(

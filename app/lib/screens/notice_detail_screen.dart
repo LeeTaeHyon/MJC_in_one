@@ -42,7 +42,12 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
   late bool _isFavorite;
 
   String get _id => (widget.notice["id"] as String?) ?? "";
-  String get _title => (widget.notice["title"] as String?) ?? "공지사항";
+  String get _title {
+    final Object? raw = widget.notice["title"];
+    if (raw == null) return "공지사항";
+    final String s = raw.toString().trim();
+    return s.isEmpty ? "공지사항" : s;
+  }
   String get _date => (widget.notice["date"] as String?) ?? "";
   String get _category => (widget.notice["category"] as String?) ?? "공지";
   String get _source => (widget.notice["source"] as String?) ?? "";
@@ -268,8 +273,11 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
             ],
           ),
           const SizedBox(height: 12),
+          // 리스트에서는 maxLines로 잘리므로 상세(요약) 화면에서는 줄바꿈으로 전체 제목 표시.
           Text(
             _title,
+            softWrap: true,
+            overflow: TextOverflow.visible,
             style: theme.textTheme.titleLarge?.copyWith(
               fontWeight: FontWeight.w800,
               height: 1.35,

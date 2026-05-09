@@ -21,10 +21,12 @@ const Color _kFoodAccentLight = Color(0xFFE65100);
 const Color _kDeadlineBadgeLight = Color(0xFF0D47A1);
 
 const List<List<Color>> _kDashboardGradientsLight = [
-  [Color(0xFF0D47A1), Color(0xFF1976D2)],
-  [Color(0xFF2962FF), Color(0xFF448AFF)],
-  [Color(0xFF7986CB), Color(0xFF90A4AE)],
-  [Color(0xFF0288D1), Color(0xFF26C6DA)],
+  [Color(0xFF005EB8)],
+  [Color(0xFF0083B8)],
+  [Color(0xFF0039B8)],
+  [Color(0xFF0288D1)],
+  [Color(0xFF7E57C2)],
+  [Color(0xFF00ACC1)],
 ];
 
 // ---- Color tokens (dark) ----
@@ -35,10 +37,12 @@ const Color _kFoodAccentDark = Color(0xFFFFAB91);
 const Color _kDeadlineBadgeDark = Color(0xFF1F4F9A);
 
 const List<List<Color>> _kDashboardGradientsDark = [
-  [Color(0xFF15366B), Color(0xFF1B4787)],
-  [Color(0xFF1A3D88), Color(0xFF2C5BB5)],
-  [Color(0xFF3D4574), Color(0xFF5A6285)],
-  [Color(0xFF0B5E80), Color(0xFF1A8AA0)],
+  [Color(0xFF15366B)],
+  [Color(0xFF1A3D88)],
+  [Color(0xFF3D4574)],
+  [Color(0xFF0B5E80)],
+  [Color(0xFF673AB7)],
+  [Color(0xFF00897B)]
 ];
 
 const Color _kBottomNavUnselectedDark = Color(0xFF9AA4B2);

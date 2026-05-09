@@ -5,6 +5,13 @@ class CampusRoomParser {
 
   final CampusMapData data;
 
+  static final RegExp roomQueryPattern =
+      RegExp(r"^\s*([가-힣]+)\s*([Bb]?\d{3,4})\s*$");
+
+  static bool looksLikeRoomQuery(String raw) {
+    return roomQueryPattern.hasMatch(raw.trim());
+  }
+
   CampusLookupResult resolve(String rawQuery) {
     final String query = rawQuery.trim();
     if (query.isEmpty) {
@@ -16,8 +23,7 @@ class CampusRoomParser {
       return CampusLookupResult.alias(alias);
     }
 
-    final RegExpMatch? match =
-        RegExp(r"^\s*([가-힣]+)\s*([Bb]?\d{3,4})\s*$").firstMatch(query);
+    final RegExpMatch? match = roomQueryPattern.firstMatch(query);
     if (match == null) {
       return CampusLookupResult.failure(
         query,
@@ -77,6 +83,7 @@ class CampusLookupResult {
     required this.message,
     required this.isError,
     required this.isEmpty,
+    this.facility,
   });
 
   final String query;
@@ -87,11 +94,14 @@ class CampusLookupResult {
   final String message;
   final bool isError;
   final bool isEmpty;
+  final CampusBuildingFacility? facility;
 
   bool get hasBuilding => building != null;
 
   String get title {
+    final CampusBuildingFacility? fac = facility;
     final CampusBuilding? selected = building;
+    if (fac != null && selected != null) return fac.name;
     if (selected == null) return "검색 안내";
     if (roomCode == null) return selected.name;
     final String floorString = floor! < 0 ? "지하 ${-floor!}" : "$floor";
@@ -100,7 +110,15 @@ class CampusLookupResult {
 
   String get guidance {
     if (message.isNotEmpty) return message;
+    final CampusBuildingFacility? fac = facility;
     final CampusBuilding? selected = building;
+    if (fac != null && selected != null) {
+      final String floorString =
+          fac.floor < 0 ? "지하 ${-fac.floor}" : "${fac.floor}";
+      final String base = "${selected.name} $floorString층";
+      if (fac.note.isNotEmpty) return "$base. ${fac.note}";
+      return "$base으로 이동하세요.";
+    }
     if (selected == null) return "";
     if (roomCode == null) {
       if (floor == null) return "${selected.name} 건물로 이동하세요.";
@@ -121,6 +139,7 @@ class CampusLookupResult {
       message: "",
       isError: false,
       isEmpty: true,
+      facility: null,
     );
   }
 
@@ -138,6 +157,7 @@ class CampusLookupResult {
       message: message,
       isError: true,
       isEmpty: false,
+      facility: null,
     );
   }
 
@@ -157,6 +177,7 @@ class CampusLookupResult {
       message: "",
       isError: false,
       isEmpty: false,
+      facility: null,
     );
   }
 
@@ -170,6 +191,25 @@ class CampusLookupResult {
       message: alias.message,
       isError: false,
       isEmpty: false,
+      facility: null,
+    );
+  }
+
+  factory CampusLookupResult.facilityPick({
+    required String query,
+    required CampusBuilding building,
+    required CampusBuildingFacility facility,
+  }) {
+    return CampusLookupResult._(
+      query: query,
+      building: building,
+      floor: facility.floor,
+      roomCode: null,
+      roomSuffix: null,
+      message: "",
+      isError: false,
+      isEmpty: false,
+      facility: facility,
     );
   }
 }

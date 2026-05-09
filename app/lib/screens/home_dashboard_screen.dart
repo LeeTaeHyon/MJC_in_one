@@ -74,10 +74,9 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
       // Web/네트워크 환경에 따라 precache가 실패할 수 있으므로(예: statusCode 0),
       // 화면 렌더링에는 영향 없게 조용히 무시합니다.
       if (kIsWeb) return;
-      precacheImage(
-        const NetworkImage(_HomeHeroHeaderDelegate._heroImageUrl),
-        context,
-      ).catchError((_) {});
+      for (final String p in _HomeHeroHeaderDelegate._bannerAssetImages) {
+        precacheImage(AssetImage(p), context).catchError((_) {});
+      }
     });
   }
 
@@ -444,7 +443,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                 "학사일정",
                 "일정 확인",
                 Icons.event_note,
-                [const Color(0xFF673AB7), const Color(0xFF512DA8)],
+                tokens.dashboardGradients[4],
                 MainNavTabIndex.home,
               ),
               const SizedBox(width: 8),
@@ -452,7 +451,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                 "캠퍼스 약도",
                 "위치 안내",
                 Icons.map,
-                [const Color(0xFF00897B), const Color(0xFF00695C)],
+              tokens.dashboardGradients[5],
                 MainNavTabIndex.home,
               ),
             ],
@@ -474,9 +473,10 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     final MjcSurfaceTokens tokens =
         Theme.of(context).extension<MjcSurfaceTokens>()!;
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
-    final Color accent = colors.last;
-    final Color lightOnGradientTitle = scheme.onPrimary;
-    final Color lightOnGradientSub = scheme.onPrimary.withValues(alpha: 0.75);
+    final Color accent = colors[0];
+    final Color lightTitle = AppColors.quickCardText;
+    final Color lightSub = AppColors.quickCardText.withValues(alpha: 0.72);
+    final Color lightCardBg = scheme.surface;
     return Expanded(
       child: _HoverFeedback(
         onTap: () {
@@ -506,78 +506,74 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           }
           widget.onNavigate(tabIndex, noticesSubTab: noticesSubTab);
         },
-        child: Container(
+        child: SizedBox(
           height: 96,
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: isDark ? scheme.surface : null,
-            gradient: isDark
-                ? null
-                : LinearGradient(
-                    colors: colors,
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-            borderRadius: BorderRadius.circular(16),
-            border: isDark
-                ? Border.all(color: tokens.cardBorder.withValues(alpha: 0.85))
-                : null,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: isDark ? 0.36 : 0.0),
-                blurRadius: isDark ? 14 : 0,
-                offset: const Offset(0, 6),
+          child: Material(
+            color: isDark ? scheme.surface : lightCardBg,
+            elevation: 1.5,
+            shadowColor: Colors.black.withValues(
+              alpha: isDark ? 0.45 : 0.12,
+            ),
+            clipBehavior: Clip.antiAlias,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(
+                color: (isDark ? tokens.cardBorder : scheme.outline)
+                    .withValues(alpha: isDark ? 0.85 : 0.55),
               ),
-              if (!isDark)
-                BoxShadow(
-                  color: colors.first.withValues(alpha: 0.30),
-                  blurRadius: 10,
-                  offset: const Offset(0, 5),
-                ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  color: isDark
-                      ? accent.withValues(alpha: 0.16)
-                      : Colors.white.withValues(alpha: 0.0),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Padding(
-                  padding: EdgeInsets.all(isDark ? 6 : 0),
-                  child: Icon(
-                    icon,
-                    color: isDark ? accent : scheme.onPrimary,
-                    size: isDark ? 20 : 24,
+            ),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                Positioned(
+                  top: 0,
+                  right: 0,
+                  child: ClipPath(
+                    clipper: const _TopRightDiagonalClipper(),
+                    child: Container(
+                      width: 42,
+                      height: 42,
+                      color: accent,
+                    ),
                   ),
                 ),
-              ),
-              const Spacer(),
-              Text(
-                title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: isDark ? scheme.onSurface : lightOnGradientTitle,
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: -0.3,
+                Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        icon,
+                        color: accent,
+                        size: isDark ? 20 : 24,
+                      ),
+                      const Spacer(),
+                      Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: isDark ? scheme.onSurface : lightTitle,
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: -0.3,
+                        ),
+                      ),
+                      Text(
+                        sub,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: isDark ? scheme.onSurfaceVariant : lightSub,
+                          fontSize: 9.5,
+                          letterSpacing: -0.2,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              Text(
-                sub,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: isDark ? scheme.onSurfaceVariant : lightOnGradientSub,
-                  fontSize: 9.5,
-                  letterSpacing: -0.2,
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -1227,8 +1223,12 @@ class _HomeHeroHeaderDelegate extends SliverPersistentHeaderDelegate {
   final VoidCallback onMoreTap;
 
   static const double _collapsedBar = 52;
-  static const String _heroImageUrl =
-      "https://www.mjc.ac.kr/images/common/main_visual01.jpg";
+  // 홈 상단 롤링 배너 이미지(에셋). `app/assets/images/`에 넣고 pubspec.yaml에 포함되어 있어야 합니다.
+  static const List<String> _bannerAssetImages = <String>[
+    "assets/images/home_banner_01.jpg",
+    "assets/images/home_banner_02.jpg",
+    "assets/images/home_banner_03.jpg",
+  ];
 
   @override
   double get maxExtent => topPadding + heroBody;
@@ -1267,21 +1267,12 @@ class _HomeHeroHeaderDelegate extends SliverPersistentHeaderDelegate {
                   // 이미지 원본이 큰 편이라, 화면 크기에 맞춰 디코드해 raster 튐을 줄입니다.
                   final int cw = (size.width * dpr).round().clamp(1, 4096);
                   final int ch = (extent * dpr).round().clamp(1, 4096);
-                  return Image.network(
-                    _heroImageUrl,
-                    fit: BoxFit.cover,
-                    width: double.infinity,
-                    height: double.infinity,
-                    alignment: Alignment.center,
+                  return _HomeRollingBanner(
+                    assetImages: _bannerAssetImages,
                     cacheWidth: cw,
                     cacheHeight: ch,
-                    // Opacity(saveLayer) 대신 colorFilter로 블렌딩해서 raster 비용을 줄입니다.
-                    color: Colors.black.withValues(
-                      alpha:
-                          ((isDark ? 0.50 : 0.35) * (1.0 - u)).clamp(0.0, 1.0),
-                    ),
-                    colorBlendMode: BlendMode.srcOver,
-                    errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                    overlayAlpha:
+                        ((isDark ? 0.50 : 0.35) * (1.0 - u)).clamp(0.0, 1.0),
                   );
                 },
               ),
@@ -1385,6 +1376,123 @@ class _HomeHeroHeaderDelegate extends SliverPersistentHeaderDelegate {
   @override
   bool shouldRebuild(covariant _HomeHeroHeaderDelegate oldDelegate) {
     return topPadding != oldDelegate.topPadding || heroBody != oldDelegate.heroBody;
+  }
+}
+
+class _HomeRollingBanner extends StatefulWidget {
+  const _HomeRollingBanner({
+    required this.assetImages,
+    required this.cacheWidth,
+    required this.cacheHeight,
+    required this.overlayAlpha,
+  });
+
+  final List<String> assetImages;
+  final int cacheWidth;
+  final int cacheHeight;
+  final double overlayAlpha;
+
+  @override
+  State<_HomeRollingBanner> createState() => _HomeRollingBannerState();
+}
+
+class _HomeRollingBannerState extends State<_HomeRollingBanner> {
+  final PageController _controller = PageController();
+  Timer? _timer;
+  int _index = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _startAutoRoll();
+  }
+
+  @override
+  void didUpdateWidget(covariant _HomeRollingBanner oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.assetImages.length != widget.assetImages.length) {
+      _index = _index.clamp(0, max(0, widget.assetImages.length - 1));
+      _startAutoRoll();
+    }
+  }
+
+  void _startAutoRoll() {
+    _timer?.cancel();
+    if (widget.assetImages.length <= 1) return;
+    _timer = Timer.periodic(const Duration(seconds: 4), (_) {
+      if (!mounted) return;
+      final int next = (_index + 1) % widget.assetImages.length;
+      _controller.animateToPage(
+        next,
+        duration: const Duration(milliseconds: 420),
+        curve: Curves.easeOutCubic,
+      );
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.assetImages.isEmpty) return const SizedBox.shrink();
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        PageView.builder(
+          controller: _controller,
+          onPageChanged: (i) => setState(() => _index = i),
+          itemCount: widget.assetImages.length,
+          itemBuilder: (context, i) {
+            return Image.asset(
+              widget.assetImages[i],
+              fit: BoxFit.cover,
+              width: double.infinity,
+              height: double.infinity,
+              alignment: Alignment.center,
+              cacheWidth: widget.cacheWidth,
+              cacheHeight: widget.cacheHeight,
+              // Opacity(saveLayer) 대신 colorFilter로 블렌딩해서 raster 비용을 줄입니다.
+              color: Colors.black.withValues(alpha: widget.overlayAlpha),
+              colorBlendMode: BlendMode.srcOver,
+              errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+            );
+          },
+        ),
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 10,
+          child: IgnorePointer(
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 220),
+              opacity: widget.assetImages.length <= 1 ? 0 : 1,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(widget.assetImages.length, (i) {
+                  final bool active = i == _index;
+                  return AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    margin: const EdgeInsets.symmetric(horizontal: 3),
+                    width: active ? 16 : 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: active ? 0.95 : 0.55),
+                      borderRadius: BorderRadius.circular(99),
+                    ),
+                  );
+                }),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }
 
@@ -1573,4 +1681,20 @@ class _HoverFeedbackState extends State<_HoverFeedback> {
       ),
     );
   }
+}
+
+class _TopRightDiagonalClipper extends CustomClipper<Path> {
+  const _TopRightDiagonalClipper();
+
+  @override
+  Path getClip(Size size) {
+    return Path()
+      ..moveTo(size.width, 0)
+      ..lineTo(size.width, size.height)
+      ..lineTo(0, 0)
+      ..close();
+  }
+
+  @override
+  bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
 }

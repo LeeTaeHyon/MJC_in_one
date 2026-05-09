@@ -82,6 +82,60 @@ class CampusMapData {
     if (normalized.isEmpty) return null;
     return aliases[normalized];
   }
+
+  List<CampusFacilityMatch> matchFacilities(String rawQuery, {int limit = 20}) {
+    final String q = rawQuery.trim();
+    if (q.isEmpty) return <CampusFacilityMatch>[];
+
+    final List<CampusFacilityMatch> out = <CampusFacilityMatch>[];
+    for (final CampusBuilding b in buildings) {
+      for (final CampusBuildingFacility f in b.facilities) {
+        if (_campusFacilityMatchesQuery(f, q)) {
+          out.add(CampusFacilityMatch(building: b, facility: f));
+          if (out.length >= limit) return out;
+        }
+      }
+    }
+    return out;
+  }
+}
+
+class CampusFacilityMatch {
+  const CampusFacilityMatch({
+    required this.building,
+    required this.facility,
+  });
+
+  final CampusBuilding building;
+  final CampusBuildingFacility facility;
+}
+
+/// 단일 위치 시설. [floor]는 지상 양수, 지하는 -1·-2·… (호실 검색과 동일 규칙).
+class CampusBuildingFacility {
+  const CampusBuildingFacility({
+    required this.name,
+    required this.floor,
+    this.keywords = const <String>[],
+    this.note = "",
+  });
+
+  final String name;
+  final int floor;
+  final List<String> keywords;
+  final String note;
+
+  factory CampusBuildingFacility.fromJson(Map<String, dynamic> json) {
+    return CampusBuildingFacility(
+      name: (json["name"] ?? "").toString().trim(),
+      floor: _toInt(json["floor"], fallback: 1),
+      keywords: [
+        for (final dynamic item
+            in (json["keywords"] as List<dynamic>? ?? const <dynamic>[]))
+          item.toString().trim(),
+      ].where((String s) => s.isNotEmpty).toList(),
+      note: (json["note"] ?? "").toString(),
+    );
+  }
 }
 
 class CampusBuilding {
@@ -93,6 +147,7 @@ class CampusBuilding {
     required this.basementFloors,
     required this.description,
     required this.location,
+    this.facilities = const <CampusBuildingFacility>[],
   });
 
   final String id;
@@ -102,6 +157,7 @@ class CampusBuilding {
   final int basementFloors;
   final String description;
   final LatLng location;
+  final List<CampusBuildingFacility> facilities;
 
   factory CampusBuilding.fromJson(Map<String, dynamic> json) {
     return CampusBuilding(
@@ -116,6 +172,14 @@ class CampusBuilding {
       basementFloors: _toInt(json["basementFloors"], fallback: 0),
       description: (json["description"] ?? "").toString(),
       location: _latLngFromJson(json),
+      facilities: [
+        for (final dynamic item
+            in (json["facilities"] as List<dynamic>? ?? const <dynamic>[]))
+          if (item is Map)
+            CampusBuildingFacility.fromJson(
+              Map<String, dynamic>.from(item),
+            ),
+      ].where((CampusBuildingFacility f) => f.name.isNotEmpty).toList(),
     );
   }
 }
@@ -167,4 +231,27 @@ int _toInt(Object? value, {int fallback = 0}) {
   if (value is num) return value.toInt();
   if (value is String) return int.tryParse(value) ?? fallback;
   return fallback;
+}
+
+String _compactSearchWhitespace(String s) => s.replaceAll(RegExp(r"\s+"), "");
+
+bool _campusFacilityTextMatches(String haystack, String needle) {
+  if (needle.isEmpty) return false;
+  if (haystack.contains(needle)) return true;
+  final String n = needle.toLowerCase();
+  if (haystack.toLowerCase().contains(n)) return true;
+  final String hc = _compactSearchWhitespace(haystack);
+  final String nc = _compactSearchWhitespace(needle);
+  if (nc.isEmpty) return false;
+  if (hc.contains(nc)) return true;
+  return hc.toLowerCase().contains(nc.toLowerCase());
+}
+
+bool _campusFacilityMatchesQuery(CampusBuildingFacility f, String q) {
+  if (_campusFacilityTextMatches(f.name, q)) return true;
+  if (f.note.isNotEmpty && _campusFacilityTextMatches(f.note, q)) return true;
+  for (final String k in f.keywords) {
+    if (_campusFacilityTextMatches(k, q)) return true;
+  }
+  return false;
 }

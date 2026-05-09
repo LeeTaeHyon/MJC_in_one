@@ -19,6 +19,7 @@ class _CampusMapScreenState extends State<CampusMapScreen>
     with SingleTickerProviderStateMixin {
   final GlobalKey<CampusMapViewState> _mapKey = GlobalKey<CampusMapViewState>();
   final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocus = FocusNode();
   late final Future<CampusMapData> _dataFuture = CampusMapData.load();
   late final AnimationController _pulseController;
 
@@ -37,12 +38,21 @@ class _CampusMapScreenState extends State<CampusMapScreen>
       vsync: this,
       duration: const Duration(milliseconds: 1800),
     )..repeat(reverse: true);
+    _searchController.addListener(_onSearchFieldChanged);
+    _searchFocus.addListener(_onSearchFieldChanged);
     _dataFuture.then((CampusMapData data) => _loadCurrentLocation(data));
+  }
+
+  void _onSearchFieldChanged() {
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
+    _searchController.removeListener(_onSearchFieldChanged);
+    _searchFocus.removeListener(_onSearchFieldChanged);
     _searchController.dispose();
+    _searchFocus.dispose();
     _pulseController.dispose();
     super.dispose();
   }
@@ -127,6 +137,18 @@ class _CampusMapScreenState extends State<CampusMapScreen>
   }
 
   void _submitSearch(CampusMapData data, String query) {
+    final String trimmed = query.trim();
+    final bool tryFacilities = trimmed.isNotEmpty &&
+        !CampusRoomParser.looksLikeRoomQuery(trimmed);
+    final List<CampusFacilityMatch> facilityHits = tryFacilities
+        ? data.matchFacilities(trimmed)
+        : <CampusFacilityMatch>[];
+
+    if (facilityHits.isNotEmpty) {
+      _selectFacilityMatch(facilityHits.first);
+      return;
+    }
+
     final CampusLookupResult result = CampusRoomParser(data).resolve(query);
     setState(() {
       _lookupResult = result;
@@ -139,6 +161,25 @@ class _CampusMapScreenState extends State<CampusMapScreen>
         _mapKey.currentState?.focusOn(building.location);
       });
     }
+  }
+
+  void _selectFacilityMatch(CampusFacilityMatch match) {
+    setState(() {
+      _lookupResult = CampusLookupResult.facilityPick(
+        query: match.facility.name,
+        building: match.building,
+        facility: match.facility,
+      );
+      _selectedBuilding = match.building;
+      _searchController.text = match.facility.name;
+      _searchController.selection = TextSelection.collapsed(
+        offset: _searchController.text.length,
+      );
+    });
+    _searchFocus.unfocus();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _mapKey.currentState?.focusOn(match.building.location);
+    });
   }
 
   void _selectBuilding(CampusBuilding building) {
@@ -370,43 +411,68 @@ class _CampusMapScreenState extends State<CampusMapScreen>
           }
 
           final CampusMapData data = snapshot.data!;
-          return AnimatedBuilder(
-            animation: _pulseController,
-            builder: (context, child) {
-              return SizedBox.expand(
-                child: Stack(
-                  children: [
-                    Positioned.fill(
-                      top: 166,
-                      left: 16,
-                      right: 16,
-                      bottom: 16,
-                      child: CampusMapView(
-                        key: _mapKey,
-                        data: data,
-                        selectedBuilding: _selectedBuilding,
-                        lookupResult: _lookupResult,
-                        currentLocation: _currentLocation,
-                        locationPulse: _pulseController.value,
-                        onBuildingTap: _selectBuilding,
-                      ),
+          return ValueListenableBuilder<TextEditingValue>(
+            valueListenable: _searchController,
+            builder: (context, value, _) {
+              final String typedQuery = value.text.trim();
+              final List<CampusFacilityMatch> facilitySuggestions =
+                  typedQuery.isNotEmpty
+                      ? data.matchFacilities(typedQuery)
+                      : <CampusFacilityMatch>[];
+              final double suggestionBlockHeight =
+                  facilitySuggestions.isEmpty
+                      ? 0.0
+                      : 8 +
+                          (facilitySuggestions.length * 52.0 + 28)
+                              .clamp(72, 220);
+              final double mapTopInset = facilitySuggestions.isNotEmpty
+                  ? 166 + suggestionBlockHeight
+                  : 166;
+
+              return AnimatedBuilder(
+                animation: _pulseController,
+                builder: (context, __) {
+                  return SizedBox.expand(
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        Positioned.fill(
+                          top: mapTopInset,
+                          left: 16,
+                          right: 16,
+                          bottom: 16,
+                          child: CampusMapView(
+                            key: _mapKey,
+                            data: data,
+                            selectedBuilding: _selectedBuilding,
+                            lookupResult: _lookupResult,
+                            currentLocation: _currentLocation,
+                            locationPulse: _pulseController.value,
+                            onBuildingTap: _selectBuilding,
+                          ),
+                        ),
+                        Positioned(
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          child: _TopControls(
+                            controller: _searchController,
+                            searchFocus: _searchFocus,
+                            facilitySuggestions: facilitySuggestions,
+                            lookupResult: _lookupResult,
+                            locationStatus: _locationStatus,
+                            loadingLocation: _loadingLocation,
+                            onSubmitted: (query) => _submitSearch(data, query),
+                            onSearchTextChanged: _onSearchFieldChanged,
+                            onFacilitySelected: _selectFacilityMatch,
+                            onLocate: () => _loadCurrentLocation(data),
+                            onMockLocation: () => _showMockLocationSheet(data),
+                          ),
+                        ),
+                      ],
                     ),
-                    Positioned(
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      child: _TopControls(
-                        controller: _searchController,
-                        lookupResult: _lookupResult,
-                        locationStatus: _locationStatus,
-                        loadingLocation: _loadingLocation,
-                        onSubmitted: (query) => _submitSearch(data, query),
-                        onLocate: () => _loadCurrentLocation(data),
-                        onMockLocation: () => _showMockLocationSheet(data),
-                      ),
-                    ),
-                  ],
-                ),
+                  );
+                },
               );
             },
           );
@@ -419,21 +485,33 @@ class _CampusMapScreenState extends State<CampusMapScreen>
 class _TopControls extends StatelessWidget {
   const _TopControls({
     required this.controller,
+    required this.searchFocus,
+    required this.facilitySuggestions,
     required this.lookupResult,
     required this.locationStatus,
     required this.loadingLocation,
     required this.onSubmitted,
+    required this.onSearchTextChanged,
+    required this.onFacilitySelected,
     required this.onLocate,
     required this.onMockLocation,
   });
 
   final TextEditingController controller;
+  final FocusNode searchFocus;
+  final List<CampusFacilityMatch> facilitySuggestions;
   final CampusLookupResult? lookupResult;
   final String locationStatus;
   final bool loadingLocation;
   final ValueChanged<String> onSubmitted;
+  final VoidCallback onSearchTextChanged;
+  final ValueChanged<CampusFacilityMatch> onFacilitySelected;
   final VoidCallback onLocate;
   final VoidCallback onMockLocation;
+
+  String _floorLabel(int floor) {
+    return floor < 0 ? "지하 ${-floor}" : "$floor";
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -453,12 +531,15 @@ class _TopControls extends StatelessWidget {
               elevation: 3,
               shadowColor: Colors.black.withValues(alpha: isDark ? 0.45 : 0.12),
               borderRadius: BorderRadius.circular(18),
+              clipBehavior: Clip.none,
               child: TextField(
                 controller: controller,
+                focusNode: searchFocus,
                 textInputAction: TextInputAction.search,
+                onChanged: (_) => onSearchTextChanged(),
                 onSubmitted: onSubmitted,
                 decoration: InputDecoration(
-                  hintText: "위치를 모르는 강의실 검색",
+                  hintText: "강의실(예: 공512) · 시설 이름 검색",
                   hintStyle: TextStyle(
                     color: scheme.onSurfaceVariant,
                     fontWeight: FontWeight.w600,
@@ -474,6 +555,100 @@ class _TopControls extends StatelessWidget {
                 ),
               ),
             ),
+            if (facilitySuggestions.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Material(
+                color: scheme.surfaceContainerHighest,
+                elevation: 2,
+                shadowColor:
+                    Colors.black.withValues(alpha: isDark ? 0.35 : 0.08),
+                borderRadius: BorderRadius.circular(18),
+                clipBehavior: Clip.antiAlias,
+                child: ExcludeFocus(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxHeight: 220),
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(14, 8, 14, 4),
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                "시설 자동완성 · ${facilitySuggestions.length}건",
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w800,
+                                  color: scheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ),
+                          ),
+                          for (int i = 0;
+                              i < facilitySuggestions.length;
+                              i++) ...[
+                            if (i > 0) const SizedBox(height: 2),
+                            InkWell(
+                              onTap: () =>
+                                  onFacilitySelected(facilitySuggestions[i]),
+                              child: Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  14,
+                                  10,
+                                  14,
+                                  10,
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.place_outlined,
+                                      size: 22,
+                                      color: AppColors.primary,
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            facilitySuggestions[i]
+                                                .facility
+                                                .name,
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w800,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            "${facilitySuggestions[i].building.name} · ${_floorLabel(facilitySuggestions[i].facility.floor)}층",
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: scheme.onSurfaceVariant,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
             const SizedBox(height: 10),
             _StatusCard(
               result: result,

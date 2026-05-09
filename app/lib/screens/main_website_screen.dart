@@ -464,12 +464,6 @@ class _MainWebsiteCollapsingHeaderDelegate
   @override
   double get minExtent => topPadding + _collapsedBar + _bottomHeight;
 
-  static const LinearGradient _headerGradient = LinearGradient(
-    colors: [Color(0xFF003FB4), Color(0xFF0056D2)],
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-  );
-
   @override
   Widget build(
     BuildContext context,
@@ -505,7 +499,8 @@ class _MainWebsiteCollapsingHeaderDelegate
                 fit: StackFit.expand,
                 children: [
                   const DecoratedBox(
-                      decoration: BoxDecoration(gradient: _headerGradient)),
+                    decoration: BoxDecoration(color: Color(0xFF005EB8)),
+                  ),
                   SafeArea(
                     bottom: false,
                     minimum: EdgeInsets.zero,
