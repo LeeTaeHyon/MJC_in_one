@@ -27,6 +27,7 @@ dependencies:
   latlong2: ^0.9.1
   excel: ^4.0.6
   file_picker: ^8.1.7
+  lottie: ^3.3.0
 
 dev_dependencies:
   flutter_test:
@@ -53,3 +54,4 @@ flutter:
     - assets/images/
     - assets/licenses/
     - assets/data/
+    - assets/lottie/

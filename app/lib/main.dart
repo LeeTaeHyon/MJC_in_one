@@ -9,6 +9,7 @@ import "package:mio_notice/screens/admin/admin_shell.dart";
 import "package:mio_notice/screens/inquiry_screen.dart";
 import "package:mio_notice/screens/intro_screen.dart";
 import "package:mio_notice/services/deep_link_handler.dart";
+import "package:mio_notice/services/firebase_app_startup.dart";
 import "package:mio_notice/services/user_data_repository.dart";
 import "package:mio_notice/theme/app_theme.dart";
 import "package:mio_notice/theme/theme_mode_scope.dart";
@@ -108,32 +109,17 @@ Future<void> _processAndShowNotification(RemoteMessage message) async {
   }
 }
 
-Future<void> main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 웹(Chrome)에서 Firebase 설정이 안되어 있어서 흰 화면이 뜨는 것을 막기 위해 try-catch 처리
-  try {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
+  // 백그라운드 메시지 핸들러는 [runApp] 전에 등록해야 한다.
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
-    // 알림 권한 요청 (안드로이드 13+, iOS 용)
-    final messaging = FirebaseMessaging.instance;
-    await messaging.requestPermission();
-
-    // 백그라운드 핸들러 등록
-    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-
-    // 포그라운드(앱이 켜져 있을 때) 핸들러 등록
-    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      _processAndShowNotification(message);
-    });
-
-    // 토픽 기본 구독 (전체 알람 발송용)
-    await messaging.subscribeToTopic("all_notices");
-  } catch (e) {
-    debugPrint("Firebase 초기화 에러 (웹 테스트 등): $e");
-  }
+  // Firebase는 await하지 않는다. 그렇지 않으면 네이티브 스플래시에서 오래 멈춘 뒤
+  // Flutter 인트로가 한 프레임만 보이거나 건너뛴 것처럼 느껴진다.
+  startFirebaseAppServices(
+    onForegroundMessage: _processAndShowNotification,
+  );
 
   runApp(const MioNoticeApp());
 }

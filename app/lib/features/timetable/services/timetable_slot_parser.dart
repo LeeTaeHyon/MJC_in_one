@@ -1,9 +1,13 @@
 import "package:mio_notice/features/timetable/models/timetable_models.dart";
 
-/// Parses lines like: `수 10:00 - 10:50 ( 공701 )`
+/// Parses timetable cell text, e.g. `수 10:00 - 10:50 ( 공701 )` per slot.
+///
+/// MJC «전체 강의시간표» xlsx often puts **several slots in one line** separated
+/// only by spaces (`)  수 11:00…`) with no newline — we scan with [allMatches].
 abstract final class TimetableSlotParser {
-  static final RegExp _linePattern = RegExp(
-    r"^\s*(월|화|수|목|금|토)\s*(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})\s*\(\s*([^)]*)\s*\)\s*$",
+  /// One period: weekday + times + room in parentheses.
+  static final RegExp _slotPattern = RegExp(
+    r"(월|화|수|목|금|토)\s*(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})\s*\(\s*([^)]*)\s*\)",
   );
 
   static int weekdayFromChar(String c) {
@@ -27,7 +31,7 @@ abstract final class TimetableSlotParser {
     return h * 60 + min;
   }
 
-  /// Splits [raw] on newlines and returns parsed slots (invalid lines skipped).
+  /// Returns all slots found in [raw] (newlines optional between slots).
   static List<TimetableSlot> parseTimetableCell({
     required String raw,
     required String courseName,
@@ -35,11 +39,7 @@ abstract final class TimetableSlotParser {
     required String colorKey,
   }) {
     final List<TimetableSlot> out = <TimetableSlot>[];
-    for (final String line in raw.split(RegExp(r"\r\n|\n|\r"))) {
-      final String t = line.trim();
-      if (t.isEmpty) continue;
-      final RegExpMatch? m = _linePattern.firstMatch(t);
-      if (m == null) continue;
+    for (final RegExpMatch m in _slotPattern.allMatches(raw)) {
       final int wd = weekdayFromChar(m.group(1)!);
       final int? start = _parseHm(m.group(2)!);
       final int? end = _parseHm(m.group(3)!);

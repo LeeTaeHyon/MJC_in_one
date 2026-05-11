@@ -2,8 +2,8 @@ import "package:flutter/material.dart";
 
 /// figma_design (MUI) 화면과 동일한 브랜드 색상.
 abstract final class AppColors {
-  /// 인트로(앱 시작) 화면 배경.
-  static const Color introBackground = Color(0xFF005EB8);
+  /// 인트로(앱 시작) 스플래시 배경.
+  static const Color introBackground = Color(0xFFFFFFFF);
 
   static const Color primary = Color(0xFF0047BB);
   static const Color secondary = Color(0xFF1976D2);

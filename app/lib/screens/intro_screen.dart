@@ -1,8 +1,8 @@
 import "package:flutter/material.dart";
-import "package:flutter_animate/flutter_animate.dart";
+import "package:lottie/lottie.dart";
 import "package:mio_notice/screens/main_navigation_screen.dart";
+import "package:mio_notice/services/firebase_app_startup.dart";
 import "package:mio_notice/theme/app_colors.dart";
-import "package:mio_notice/theme/app_theme.dart";
 
 class IntroScreen extends StatefulWidget {
   const IntroScreen({super.key});
@@ -11,10 +11,36 @@ class IntroScreen extends StatefulWidget {
   State<IntroScreen> createState() => _IntroScreenState();
 }
 
-class _IntroScreenState extends State<IntroScreen> {
-  bool _navigated = false;
+class _IntroScreenState extends State<IntroScreen>
+    with SingleTickerProviderStateMixin {
+  static const String _kLottieAsset = "assets/lottie/MJC ONE App intro.json";
 
-  void _goNext() {
+  /// Lottie 재생 시작 전·종료 후 각각 이 만큼 멈춤.
+  static const Duration _kIntroEdgeDelay = Duration(milliseconds: 500);
+
+  bool _navigated = false;
+  bool _lottiePlaybackStarted = false;
+  Future<void>? _exitFuture;
+  late final AnimationController _lottieController;
+
+  @override
+  void initState() {
+    super.initState();
+    _lottieController = AnimationController(vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _lottieController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _goNextAfterFirebase() {
+    return _exitFuture ??= _exitAfterFirebaseImpl();
+  }
+
+  Future<void> _exitAfterFirebaseImpl() async {
+    await waitForFirebaseStartup();
     if (_navigated || !mounted) return;
     _navigated = true;
 
@@ -31,83 +57,42 @@ class _IntroScreenState extends State<IntroScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final titleStyle = Theme.of(context).textTheme.displaySmall?.copyWith(
-          fontWeight: FontWeight.w900,
-          letterSpacing: 0.3,
-          height: 1.0,
-          color: Colors.white,
-          fontSize: 52,
-        ) ??
-        const TextStyle(
-          fontFamily: kPretendardFontFamily,
-          fontSize: 52,
-          fontWeight: FontWeight.w900,
-          letterSpacing: 0.3,
-          height: 1.0,
-          color: Colors.white,
-        );
-
-    final subtitleStyle = Theme.of(context).textTheme.titleSmall?.copyWith(
-          fontSize: 13,
-          fontWeight: FontWeight.w400,
-          height: 1.3,
-          color: Colors.white.withValues(alpha: 0.85),
-        ) ??
-        TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w400,
-          height: 1.3,
-          color: Colors.white.withValues(alpha: 0.85),
-        );
+    final media = MediaQuery.sizeOf(context);
+    final double lottieSide = media.shortestSide * 0.72;
 
     return PopScope(
       canPop: false,
       child: Scaffold(
         backgroundColor: AppColors.introBackground,
-        body: SafeArea(
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 28),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Text(
-                    "MJC ONE",
-                    textAlign: TextAlign.center,
-                    style: titleStyle,
-                  )
-                      .animate(
-                        onComplete: (controller) => _goNext(),
-                      )
-                      .fadeIn(duration: 520.ms, curve: Curves.easeOut)
-                      .slideX(
-                        begin: -0.55,
-                        end: 0,
-                        duration: 700.ms,
-                        curve: Curves.easeOutCubic,
-                      ),
-                  const SizedBox(height: 12),
-                  Text(
-                    "명지전문대학 통합 서비스",
-                    textAlign: TextAlign.center,
-                    style: subtitleStyle,
-                  )
-                      .animate()
-                      .fadeIn(
-                        delay: 240.ms,
-                        duration: 520.ms,
-                        curve: Curves.easeOut,
-                      )
-                      .slideX(
-                        begin: -0.45,
-                        end: 0,
-                        delay: 240.ms,
-                        duration: 680.ms,
-                        curve: Curves.easeOutCubic,
-                      ),
-                ],
-              ),
+        body: Center(
+          child: SizedBox(
+            width: lottieSide,
+            height: lottieSide,
+            child: Lottie.asset(
+              _kLottieAsset,
+              controller: _lottieController,
+              fit: BoxFit.contain,
+              filterQuality: FilterQuality.high,
+              onLoaded: (composition) {
+                if (_lottiePlaybackStarted) return;
+                _lottiePlaybackStarted = true;
+                _lottieController.duration = composition.duration;
+                Future<void>.delayed(_kIntroEdgeDelay, () {
+                  if (!mounted) return;
+                  _lottieController.forward().whenComplete(() {
+                    if (!mounted) return;
+                    Future<void>.delayed(_kIntroEdgeDelay, () {
+                      if (mounted) _goNextAfterFirebase();
+                    });
+                  });
+                });
+              },
+              errorBuilder: (context, error, stackTrace) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) _goNextAfterFirebase();
+                });
+                return const SizedBox.shrink();
+              },
             ),
           ),
         ),
@@ -115,4 +100,3 @@ class _IntroScreenState extends State<IntroScreen> {
     );
   }
 }
-
