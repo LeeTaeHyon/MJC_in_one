@@ -1,6 +1,10 @@
 import "dart:convert";
 import "dart:io";
 
+// Writes `assets/licenses/licenses.json` from Flutter NOTICES.
+// 번들 전용 고지(예: Pretendard)는 `assets/licenses/licenses_supplement.json`에
+// 두며, 앱은 `OpenSourceLicensesScreen`에서 본 JSON과 병합해 표시합니다.
+
 String _normalizeBody(String s) => s.replaceAll(RegExp(r"\s+"), " ").trim();
 
 void main(List<String> args) {

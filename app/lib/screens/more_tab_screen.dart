@@ -2,6 +2,7 @@ import "package:firebase_auth/firebase_auth.dart";
 import "package:flutter/material.dart";
 import "package:mio_notice/mpu_profile_prefs.dart";
 import "package:mio_notice/screens/academic_schedule_screen.dart";
+import "package:mio_notice/screens/app_intro_screen.dart";
 import "package:mio_notice/screens/campus_map_screen.dart";
 import "package:mio_notice/screens/foodcourt_menu_screen.dart";
 import "package:mio_notice/screens/library_screen.dart";
@@ -85,24 +86,6 @@ class _MoreTabScreenState extends State<MoreTabScreen> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text("로그아웃되었습니다.")),
-    );
-  }
-
-  void _showHelp() {
-    showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text("도움말"),
-        content: const Text(
-          "앱 사용 중 불편한 점은 설정 화면의「개발자에게 문의하기」로 보내 주세요.",
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text("확인"),
-          ),
-        ],
-      ),
     );
   }
 
@@ -234,7 +217,8 @@ class _MoreTabScreenState extends State<MoreTabScreen> {
                                 color: const Color(0xFF00838F),
                                 isList: _isListView,
                                 onTap: () => _push(const _ProfileSetupLoaderScreen()),
-                              ),_MoreMenuItem(
+                              ),
+                              _MoreMenuItem(
                                 icon: Icons.settings_outlined,
                                 label: "설정",
                                 color: const Color(0xFF546E7A),
@@ -246,7 +230,7 @@ class _MoreTabScreenState extends State<MoreTabScreen> {
                                 label: "도움말",
                                 color: const Color(0xFFF57C00),
                                 isList: _isListView,
-                                onTap: _showHelp,
+                                onTap: () => _push(const AppIntroScreen()),
                               ),
                             ];
 

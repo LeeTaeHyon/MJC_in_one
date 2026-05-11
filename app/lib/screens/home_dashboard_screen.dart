@@ -6,6 +6,7 @@ import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
 import "package:mio_notice/home_dashboard_prefs.dart";
 import "package:mio_notice/screens/academic_schedule_screen.dart";
+import "package:mio_notice/screens/app_intro_screen.dart";
 import "package:mio_notice/screens/campus_map_screen.dart";
 import "package:mio_notice/screens/common_webview_screen.dart";
 import "package:mio_notice/screens/foodcourt_menu_screen.dart";
@@ -315,7 +316,11 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   void _handleBannerTapIndex(int index) {
     switch (index) {
       case 0:
-        widget.onNavigate(MainNavTabIndex.notices, noticesSubTab: NoticesSubTab.main);
+        Navigator.of(context).push<void>(
+          MaterialPageRoute<void>(
+            builder: (_) => const AppIntroScreen(),
+          ),
+        );
         return;
       case 1:
         widget.onNavigate(MainNavTabIndex.notices, noticesSubTab: NoticesSubTab.ctl);
@@ -1245,6 +1250,7 @@ class _HomeHeroHeaderDelegate extends SliverPersistentHeaderDelegate {
   static const double _collapsedBar = 52;
   // 홈 상단 롤링 배너 이미지(에셋). `app/assets/images/`에 넣고 pubspec.yaml에 포함되어 있어야 합니다.
   static const List<String> _bannerAssetImages = <String>[
+    "assets/images/banner1.png",
     "assets/images/mjc_go.png",
     "assets/images/ctl_go.png",
     "assets/images/mpu_go.png",
@@ -1337,22 +1343,34 @@ class _HomeHeroHeaderDelegate extends SliverPersistentHeaderDelegate {
                           ignoring: titleOpacity < 0.02,
                           child: Opacity(
                             opacity: titleOpacity,
-                            child: const Text(
-                              "MJC ONE",
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 20,
-                                fontWeight: FontWeight.w900,
-                                height: 1.1,
-                                shadows: <Shadow>[
-                                  Shadow(
-                                    blurRadius: 6,
-                                    color: Color(0x66000000),
+                            child: Text.rich(
+                              TextSpan(
+                                children: <InlineSpan>[
+                                  TextSpan(
+                                    text: "MJC",
+                                    style: MjcAppTypography
+                                        .homeHeroCollapsedTitleMjc(
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  TextSpan(
+                                    text: " ",
+                                    style: MjcAppTypography
+                                        .homeHeroCollapsedTitleMid(
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  TextSpan(
+                                    text: "ONE",
+                                    style: MjcAppTypography
+                                        .homeHeroCollapsedTitleOne(
+                                      color: Colors.white,
+                                    ),
                                   ),
                                 ],
                               ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ),

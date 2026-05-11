@@ -114,6 +114,38 @@ List<_MergedLicense> _finalizeMerged(List<_MergedLicense> merged) {
   return merged;
 }
 
+/// 동일 라이선스 본문 키로 [LicenseRegistry]·JSON·보조 목록을 합칩니다.
+List<_MergedLicense> _mergeLicenseListsByBody(
+  List<_MergedLicense> a,
+  List<_MergedLicense> b,
+) {
+  final byBody =
+      <String, ({List<_LicenseParagraph> paragraphs, Set<String> names})>{};
+  for (final m in [...a, ...b]) {
+    final key = _bodyKeyFromParagraphs(m.paragraphs);
+    final cur = byBody[key];
+    if (cur == null) {
+      byBody[key] = (
+        paragraphs: m.paragraphs
+            .map(
+              (p) => _LicenseParagraph(indent: p.indent, text: p.text),
+            )
+            .toList(growable: false),
+        names: {...m.sortedNames},
+      );
+    } else {
+      cur.names.addAll(m.sortedNames);
+    }
+  }
+  return _finalizeMerged(byBody.values.map((v) {
+    return _MergedLicense(
+      paragraphs: v.paragraphs,
+      sortedNames: (v.names.toList()
+        ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()))),
+    );
+  }).toList());
+}
+
 List<_LicenseTile> _toTiles(List<_MergedLicense> mergedBodies) {
   // 핵심: 같은 패키지명이 여러 라이선스 본문(서로 다른 chunk)으로 반복 등장할 수 있어
   // 단일 패키지 항목은 "패키지명 기준"으로 한 번 더 묶어서 타일 1개로 보여줍니다.
@@ -187,21 +219,38 @@ class _OpenSourceLicensesScreenState extends State<OpenSourceLicensesScreen> {
   bool _registeredScrollRoute = false;
 
   Future<List<_LicenseTile>> _loadMergedLicenses() async {
-    // 1) JSON 에셋(정제본) 우선. (비워져있거나 없으면 2)로 폴백)
+    List<_MergedLicense> primary = const [];
     try {
       final s = await rootBundle.loadString("assets/licenses/licenses.json");
       final decoded = jsonDecode(s);
-      if (decoded is List) {
-        final mergedBodies = _mergeDuplicateLicenseBodiesFromJson(decoded);
-        if (mergedBodies.isNotEmpty) return _toTiles(mergedBodies);
+      if (decoded is List && decoded.isNotEmpty) {
+        primary = _mergeDuplicateLicenseBodiesFromJson(decoded);
       }
     } catch (_) {
-      // ignore: fall back to registry
+      primary = const [];
     }
 
-    // 2) Flutter LicenseRegistry에서 동적 수집(기본 폴백)
-    final raw = await LicenseRegistry.licenses.toList();
-    return _toTiles(_mergeDuplicateLicenseBodiesFromRegistry(raw));
+    if (primary.isEmpty) {
+      final raw = await LicenseRegistry.licenses.toList();
+      primary = _mergeDuplicateLicenseBodiesFromRegistry(raw);
+    }
+
+    List<_MergedLicense> supplement = const [];
+    try {
+      final s =
+          await rootBundle.loadString("assets/licenses/licenses_supplement.json");
+      final decoded = jsonDecode(s);
+      if (decoded is List && decoded.isNotEmpty) {
+        supplement = _mergeDuplicateLicenseBodiesFromJson(decoded);
+      }
+    } catch (_) {
+      supplement = const [];
+    }
+
+    final merged = supplement.isEmpty
+        ? primary
+        : _mergeLicenseListsByBody(primary, supplement);
+    return _toTiles(merged);
   }
 
   @override
@@ -310,7 +359,7 @@ class _OpenSourceLicensesScreenState extends State<OpenSourceLicensesScreen> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
                 child: Text(
-                  "Flutter·플러그인·기타 구성요소의 라이선스입니다. "
+                  "Flutter·플러그인·번들 리소스(폰트 등)의 라이선스입니다. "
                   "항목을 펼치면 전문을 볼 수 있습니다.",
                   style: TextStyle(
                     fontSize: 13,

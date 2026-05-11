@@ -1,7 +1,49 @@
 import "package:flutter/material.dart";
-import "package:google_fonts/google_fonts.dart";
 
 import "app_colors.dart";
+
+/// Bundled [Pretendard](https://github.com/orioncactus/pretendard) (SIL OFL).
+const String kPretendardFontFamily = "Pretendard";
+
+/// Text styles that must stay centralized per project rules.
+abstract final class MjcAppTypography {
+  static const List<Shadow> homeHeroCollapsedTitleShadows = <Shadow>[
+    Shadow(blurRadius: 6, color: Color(0x66000000)),
+  ];
+
+  /// Collapsed home hero title — «MJC».
+  static TextStyle homeHeroCollapsedTitleMjc({required Color color}) =>
+      TextStyle(
+        fontFamily: kPretendardFontFamily,
+        color: color,
+        fontSize: 20,
+        fontWeight: FontWeight.w900,
+        height: 1.1,
+        shadows: homeHeroCollapsedTitleShadows,
+      );
+
+  /// Collapsed home hero title — space or other middle segments.
+  static TextStyle homeHeroCollapsedTitleMid({required Color color}) =>
+      TextStyle(
+        fontFamily: kPretendardFontFamily,
+        color: color,
+        fontSize: 20,
+        fontWeight: FontWeight.w500,
+        height: 1.1,
+        shadows: homeHeroCollapsedTitleShadows,
+      );
+
+  /// Collapsed home hero title — «ONE».
+  static TextStyle homeHeroCollapsedTitleOne({required Color color}) =>
+      TextStyle(
+        fontFamily: kPretendardFontFamily,
+        color: color,
+        fontSize: 20,
+        fontWeight: FontWeight.w300,
+        height: 1.1,
+        shadows: homeHeroCollapsedTitleShadows,
+      );
+}
 
 // Theme owns the final “source of truth” for UI tokens used across screens.
 // Keep concrete values here and consume them via Theme/Extensions.
@@ -297,14 +339,16 @@ ThemeData buildMjcTheme() {
   const primary = AppColors.primary;
 
   final base = ThemeData.light(useMaterial3: true);
-  final textTheme = GoogleFonts.notoSansKrTextTheme(base.textTheme);
+  final textTheme = base.textTheme.apply(fontFamily: kPretendardFontFamily);
   const textTokens = MjcTextTokens(
     appBarTitle: TextStyle(
+      fontFamily: kPretendardFontFamily,
       color: Colors.white,
       fontSize: 20,
       fontWeight: FontWeight.w600,
     ),
     navLabel: TextStyle(
+      fontFamily: kPretendardFontFamily,
       fontSize: 12,
       fontWeight: FontWeight.w500,
     ),
@@ -312,6 +356,7 @@ ThemeData buildMjcTheme() {
 
   return ThemeData(
     useMaterial3: true,
+    fontFamily: kPretendardFontFamily,
     scaffoldBackgroundColor: AppColors.scaffoldMuted,
     textTheme: textTheme,
     colorScheme: const ColorScheme.light(
@@ -350,6 +395,7 @@ ThemeData buildMjcTheme() {
       labelTextStyle: WidgetStateProperty.resolveWith((states) {
         final selected = states.contains(WidgetState.selected);
         return TextStyle(
+          fontFamily: kPretendardFontFamily,
           fontSize: textTokens.navLabel.fontSize,
           fontWeight: textTokens.navLabel.fontWeight,
           color: selected ? primary : AppColors.mutedForeground,
@@ -414,14 +460,16 @@ ThemeData buildMjcDarkTheme() {
   const secondary = AppColors.secondary;
 
   final base = ThemeData.dark(useMaterial3: true);
-  final textTheme = GoogleFonts.notoSansKrTextTheme(base.textTheme);
+  final textTheme = base.textTheme.apply(fontFamily: kPretendardFontFamily);
   const textTokens = MjcTextTokens(
     appBarTitle: TextStyle(
+      fontFamily: kPretendardFontFamily,
       color: Colors.white,
       fontSize: 20,
       fontWeight: FontWeight.w600,
     ),
     navLabel: TextStyle(
+      fontFamily: kPretendardFontFamily,
       fontSize: 12,
       fontWeight: FontWeight.w500,
     ),
@@ -429,6 +477,7 @@ ThemeData buildMjcDarkTheme() {
 
   return ThemeData(
     useMaterial3: true,
+    fontFamily: kPretendardFontFamily,
     brightness: Brightness.dark,
     scaffoldBackgroundColor: AppColors.scaffoldMutedDark,
     textTheme: textTheme,
@@ -468,6 +517,7 @@ ThemeData buildMjcDarkTheme() {
       labelTextStyle: WidgetStateProperty.resolveWith((states) {
         final selected = states.contains(WidgetState.selected);
         return TextStyle(
+          fontFamily: kPretendardFontFamily,
           fontSize: textTokens.navLabel.fontSize,
           fontWeight: textTokens.navLabel.fontWeight,
           color: selected

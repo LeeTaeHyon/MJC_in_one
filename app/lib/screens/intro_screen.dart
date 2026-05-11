@@ -2,7 +2,7 @@ import "package:flutter/material.dart";
 import "package:flutter_animate/flutter_animate.dart";
 import "package:mio_notice/screens/main_navigation_screen.dart";
 import "package:mio_notice/theme/app_colors.dart";
-import "package:google_fonts/google_fonts.dart";
+import "package:mio_notice/theme/app_theme.dart";
 
 class IntroScreen extends StatefulWidget {
   const IntroScreen({super.key});
@@ -38,7 +38,8 @@ class _IntroScreenState extends State<IntroScreen> {
           color: Colors.white,
           fontSize: 52,
         ) ??
-        GoogleFonts.notoSansKr(
+        const TextStyle(
+          fontFamily: kPretendardFontFamily,
           fontSize: 52,
           fontWeight: FontWeight.w900,
           letterSpacing: 0.3,
