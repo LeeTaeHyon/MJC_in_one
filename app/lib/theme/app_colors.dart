@@ -28,4 +28,22 @@ abstract final class AppColors {
   static const Color switchActiveDark = Color(0xFF82B1FF);
 
   static Color iconBackdrop(Color base) => base.withValues(alpha: 0.082);
+
+  /// Colored timetable blocks (subject); text uses [timetableSlotOnColor].
+  static const List<Color> timetableCoursePalette = <Color>[
+    Color(0xFFE65100),
+    Color(0xFF00897B),
+    Color(0xFF3949AB),
+    Color(0xFF7B1FA2),
+    Color(0xFFC62828),
+    Color(0xFF2E7D32),
+    Color(0xFFAD1457),
+    Color(0xFF00695C),
+    Color(0xFF283593),
+    Color(0xFFF9A825),
+    Color(0xFF5D4037),
+    Color(0xFF0277BD),
+  ];
+
+  static const Color timetableSlotOnColor = Color(0xFFFFFFFF);
 }

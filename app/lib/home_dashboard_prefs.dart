@@ -10,6 +10,7 @@ const String kHomeDashboardEnabledSectionsPrefKey =
 const String kHomeDashboardSectionOrderPrefKey = "home_dashboard_section_order";
 
 enum HomeDashboardSection {
+  lectureReminder,
   quickButtons,
   shuttle,
   foodcourt,
@@ -20,6 +21,7 @@ enum HomeDashboardSection {
 
 extension HomeDashboardSectionMeta on HomeDashboardSection {
   String get id => switch (this) {
+        HomeDashboardSection.lectureReminder => "lecture_reminder",
         HomeDashboardSection.quickButtons => "quick_buttons",
         HomeDashboardSection.shuttle => "shuttle",
         HomeDashboardSection.foodcourt => "foodcourt",
@@ -29,6 +31,7 @@ extension HomeDashboardSectionMeta on HomeDashboardSection {
       };
 
   String get label => switch (this) {
+        HomeDashboardSection.lectureReminder => "강의 알림",
         HomeDashboardSection.quickButtons => "바로가기 버튼",
         HomeDashboardSection.shuttle => "셔틀버스",
         HomeDashboardSection.foodcourt => "오늘의 학식",
@@ -43,7 +46,15 @@ List<String> defaultHomeDashboardEnabledSections() {
 }
 
 List<String> defaultHomeDashboardSectionOrder() {
-  return HomeDashboardSection.values.map((s) => s.id).toList();
+  return <String>[
+    HomeDashboardSection.lectureReminder.id,
+    HomeDashboardSection.quickButtons.id,
+    HomeDashboardSection.shuttle.id,
+    HomeDashboardSection.foodcourt.id,
+    HomeDashboardSection.mpuDeadline.id,
+    HomeDashboardSection.academicSchedule.id,
+    HomeDashboardSection.recentNotices.id,
+  ];
 }
 
 Set<String> allowedHomeDashboardSectionIds() {
@@ -81,6 +92,16 @@ Future<List<String>> loadHomeDashboardSectionOrder() async {
     if (!seen.contains(s.id)) out.add(s.id);
   }
   if (out.isEmpty) return defaultHomeDashboardSectionOrder();
+  // 신규 «강의 알림» 섹션: 저장된 순서에 없으면 바로가기 앞에 삽입
+  const String lr = "lecture_reminder";
+  if (!out.contains(lr)) {
+    final int qb = out.indexOf("quick_buttons");
+    if (qb >= 0) {
+      out.insert(qb, lr);
+    } else {
+      out.insert(0, lr);
+    }
+  }
   return out;
 }
 

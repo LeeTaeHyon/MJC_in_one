@@ -11,6 +11,7 @@ import "package:mio_notice/screens/my_page_screen.dart";
 import "package:mio_notice/screens/notices_tab_screen.dart";
 import "package:mio_notice/screens/notification_history_screen.dart";
 import "package:mio_notice/screens/profile_setup_screen.dart";
+import "package:mio_notice/features/timetable/screens/timetable_main_screen.dart";
 import "package:mio_notice/screens/settings_screen.dart";
 import "package:mio_notice/services/auth_service.dart";
 import "package:mio_notice/services/user_data_repository.dart";
@@ -203,6 +204,13 @@ class _MoreTabScreenState extends State<MoreTabScreen> {
                                 color: const Color(0xFF5E35B1),
                                 isList: _isListView,
                                 onTap: () => _push(const AcademicScheduleScreen()),
+                              ),
+                              _MoreMenuItem(
+                                icon: Icons.calendar_month_rounded,
+                                label: "시간표",
+                                color: AppColors.primary,
+                                isList: _isListView,
+                                onTap: () => _push(const TimetableMainScreen()),
                               ),
                               _MoreMenuItem(
                                 icon: Icons.map_outlined,

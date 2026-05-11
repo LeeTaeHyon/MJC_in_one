@@ -4,6 +4,10 @@ import "dart:ui" show lerpDouble;
 
 import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
+import "package:mio_notice/features/timetable/models/timetable_models.dart";
+import "package:mio_notice/features/timetable/screens/timetable_main_screen.dart";
+import "package:mio_notice/features/timetable/services/timetable_storage_service.dart";
+import "package:mio_notice/features/timetable/utils/timetable_next_lecture.dart";
 import "package:mio_notice/home_dashboard_prefs.dart";
 import "package:mio_notice/screens/academic_schedule_screen.dart";
 import "package:mio_notice/screens/app_intro_screen.dart";
@@ -127,6 +131,8 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
 
   Widget _buildSection(HomeDashboardSection section, BuildContext context) {
     switch (section) {
+      case HomeDashboardSection.lectureReminder:
+        return _buildLectureReminderSection(context);
       case HomeDashboardSection.quickButtons:
         return _buildGridButtons(context);
       case HomeDashboardSection.shuttle:
@@ -285,6 +291,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                   return Column(
                     children: [
                       if (sections.isNotEmpty &&
+                          sections.first != HomeDashboardSection.lectureReminder &&
                           sections.first != HomeDashboardSection.quickButtons &&
                           sections.first != HomeDashboardSection.recentNotices)
                         const SizedBox(height: 16),
@@ -414,6 +421,84 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     );
   }
 
+  Widget _buildLectureReminderSection(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final MjcSurfaceTokens tokens =
+        Theme.of(context).extension<MjcSurfaceTokens>()!;
+    return FutureBuilder<List<ParsedCourseOffering>>(
+      future: TimetableStorageService.loadEnrolled(),
+      builder: (
+        BuildContext context,
+        AsyncSnapshot<List<ParsedCourseOffering>> snapshot,
+      ) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const SizedBox.shrink();
+        }
+        final List<ParsedCourseOffering> enrolled =
+            snapshot.data ?? const <ParsedCourseOffering>[];
+        final TimetableSlot? slot =
+            TimetableNextLecture.nextUpcomingSlotToday(enrolled);
+        if (slot == null) return const SizedBox.shrink();
+        final DateTime now = DateTime.now();
+        final int nowMin = now.hour * 60 + now.minute;
+        final int untilMin = slot.startMinute - nowMin;
+        final String label =
+            TimetableNextLecture.formatCountdownKo(untilMin);
+        final bool isDark = Theme.of(context).brightness == Brightness.dark;
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+          child: Material(
+            color: scheme.surface,
+            elevation: 1,
+            shadowColor: scheme.shadow.withValues(alpha: isDark ? 0.45 : 0.12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(
+                color: (isDark ? tokens.cardBorder : scheme.outline)
+                    .withValues(alpha: isDark ? 0.85 : 0.55),
+              ),
+            ),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () {
+                Navigator.of(context).push<void>(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const TimetableMainScreen(),
+                  ),
+                );
+              },
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: <Widget>[
+                    Icon(Icons.schedule_rounded, color: AppColors.primary),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        "$label 뒤 ${slot.courseName} 수업이 있습니다.",
+                        style: TextStyle(
+                          fontFamily: kPretendardFontFamily,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: scheme.onSurface,
+                          height: 1.25,
+                        ),
+                      ),
+                    ),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildGridButtons(BuildContext context) {
     final MjcSurfaceTokens tokens =
         Theme.of(context).extension<MjcSurfaceTokens>()!;
@@ -479,6 +564,21 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
               ),
             ],
           ),
+          const SizedBox(height: 8),
+          Row(
+            children: <Widget>[
+              _expandedButton(
+                "시간표",
+                "내 강의",
+                Icons.calendar_month_rounded,
+                <Color>[
+                  tokens.dashboardGradients[2].first,
+                  tokens.dashboardGradients[2].first,
+                ],
+                MainNavTabIndex.home,
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -523,6 +623,14 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
             Navigator.of(context).push<void>(
               MaterialPageRoute<void>(
                 builder: (_) => const CampusMapScreen(),
+              ),
+            );
+            return;
+          }
+          if (title == "시간표") {
+            Navigator.of(context).push<void>(
+              MaterialPageRoute<void>(
+                builder: (_) => const TimetableMainScreen(),
               ),
             );
             return;
