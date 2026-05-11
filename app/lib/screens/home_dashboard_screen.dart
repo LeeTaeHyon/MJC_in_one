@@ -1,6 +1,5 @@
 import "dart:async";
 import "dart:math";
-import "dart:ui" show lerpDouble;
 
 import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
@@ -10,7 +9,6 @@ import "package:mio_notice/features/timetable/services/timetable_storage_service
 import "package:mio_notice/features/timetable/utils/timetable_next_lecture.dart";
 import "package:mio_notice/home_dashboard_prefs.dart";
 import "package:mio_notice/screens/academic_schedule_screen.dart";
-import "package:mio_notice/screens/app_intro_screen.dart";
 import "package:mio_notice/screens/campus_map_screen.dart";
 import "package:mio_notice/screens/common_webview_screen.dart";
 import "package:mio_notice/screens/foodcourt_menu_screen.dart";
@@ -19,6 +17,7 @@ import "package:mio_notice/screens/more_tab_screen.dart";
 import "package:mio_notice/screens/notices_tab_screen.dart";
 import "package:mio_notice/services/foodcourt_menu.dart";
 import "package:mio_notice/services/notice_filter.dart";
+import "package:mio_notice/services/auth_service.dart";
 import "package:mio_notice/services/notice_manager.dart";
 import "package:mio_notice/services/mpu_service.dart";
 import "package:mio_notice/theme/app_colors.dart";
@@ -26,8 +25,36 @@ import "package:mio_notice/theme/app_theme.dart";
 import "package:mio_notice/utils/mpu_program_dday.dart";
 import "package:mio_notice/widgets/scroll_to_top_scope.dart";
 import "package:mio_notice/widgets/shuttle_status_card.dart";
+import "package:firebase_auth/firebase_auth.dart";
 import "package:shared_preferences/shared_preferences.dart";
 import "package:url_launcher/url_launcher.dart";
+
+const double _kHomeHeaderBottomRadius = 30;
+const double _kHomeBlueOverlapPull = 22;
+
+/// 파란 헤더 위로 올라오는 바로가기 배경의 상단 라운드.
+const double _kQuickShortcutsBackgroundTopRadius = 24;
+
+/// 바로가기 카드 위 여백(파란 헤더와 첫 카드 사이, 회색 패널 안).
+const double _kQuickShortcutsTopInset = 10;
+
+/// 회색 바로가기 패널 바깥 좌우 여백. 0이면 패널이 스크롤 영역 가로로 꽉 참.
+const double _kQuickShortcutsPanelHorizontalMargin = 12;
+
+/// 회색 패널 안에서 카드 그리드만 줄일 때(셔틀 등 `padding: 20` 카드와 열 맞춤).
+/// (패널 바깥 여백 + 이 값)이 화면 기준 다른 카드 좌우 inset과 같게 맞추면 됩니다.
+const double _kQuickShortcutsGridHorizontalPadding = 8;
+
+/// MJC ONE 행 위·아래 여백(동일).
+const double _kPinnedBrandVerticalInset = 5;
+
+/// 아이콘 행(햄버거) 기준 높이.
+const double _kPinnedBrandIconRowHeight = 48;
+
+/// [_buildDashboardPinnedBrandRow] 본문 세로 합. SafeArea 상단 inset은 별도.
+const double _kPinnedBrandRowContentHeight = _kPinnedBrandVerticalInset +
+    _kPinnedBrandIconRowHeight +
+    _kPinnedBrandVerticalInset;
 
 class HomeDashboardScreen extends StatefulWidget {
   final void Function(int, {NoticesSubTab? noticesSubTab}) onNavigate;
@@ -73,16 +100,6 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     _loadEnabledDashboardSections();
     _loadDashboardSectionOrder();
     _scrollController.addListener(_onHomeScrollOffset);
-    // 첫 진입 시 히어로 이미지 디코드/업로드 비용이 스크롤/전환 jank로 튀는 걸 줄이기 위해 프리캐시.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      // Web/네트워크 환경에 따라 precache가 실패할 수 있으므로(예: statusCode 0),
-      // 화면 렌더링에는 영향 없게 조용히 무시합니다.
-      if (kIsWeb) return;
-      for (final String p in _HomeHeroHeaderDelegate._bannerAssetImages) {
-        precacheImage(AssetImage(p), context).catchError((_) {});
-      }
-    });
   }
 
   Future<void> _loadNoticeFilter() async {
@@ -259,51 +276,49 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final double topPad = MediaQuery.paddingOf(context).top;
-    final double viewportW = MediaQuery.sizeOf(context).width;
-    // 헤더 전체 높이(topPadding 포함)가 화면 너비 대비 16:9가 되도록 맞춤 → cover 크롭이 16:9 원본과 맞습니다.
-    final double bannerHeight16x9 = viewportW * 9 / 16;
-    final double heroBody = max(120.0, bannerHeight16x9 - topPad);
     // Home tab must always be visually opaque during transitions, otherwise
     // AnimatedSwitcher fade can reveal the previous tab underneath.
+    final double pinnedBrandExtent =
+        MediaQuery.paddingOf(context).top + _kPinnedBrandRowContentHeight;
+    final bool homeLight = Theme.of(context).brightness == Brightness.light;
     return ColoredBox(
-      color: Theme.of(context).scaffoldBackgroundColor,
-      child: RefreshIndicator(
-        onRefresh: _handleRefresh,
-        color: AppColors.primary,
-        child: CustomScrollView(
-          controller: _scrollController,
-          physics: const AlwaysScrollableScrollPhysics(),
-          slivers: [
-            SliverPersistentHeader(
-              pinned: true,
-              delegate: _HomeHeroHeaderDelegate(
-                topPadding: topPad,
-                heroBody: heroBody,
-                onMoreTap: _openMore,
-                onBannerTapIndex: _handleBannerTapIndex,
+      color: homeLight
+          ? AppColors.scaffoldMuted
+          : Theme.of(context).scaffoldBackgroundColor,
+      child: Stack(
+        fit: StackFit.expand,
+        clipBehavior: Clip.none,
+        children: <Widget>[
+          Positioned.fill(
+            child: Padding(
+              padding: EdgeInsets.only(top: pinnedBrandExtent),
+              child: RefreshIndicator(
+                onRefresh: _handleRefresh,
+                color: AppColors.primary,
+                child: CustomScrollView(
+                  controller: _scrollController,
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  clipBehavior: Clip.none,
+                  slivers: <Widget>[
+                    SliverToBoxAdapter(
+                      child: _buildDashboardScrollableHomeBody(context),
+                    ),
+                  ],
+                ),
               ),
             ),
-            SliverToBoxAdapter(
-              child: Builder(
-                builder: (context) {
-                  final sections = _orderedEnabledSections();
-                  return Column(
-                    children: [
-                      if (sections.isNotEmpty &&
-                          sections.first != HomeDashboardSection.lectureReminder &&
-                          sections.first != HomeDashboardSection.quickButtons &&
-                          sections.first != HomeDashboardSection.recentNotices)
-                        const SizedBox(height: 16),
-                      for (final s in sections) _buildSection(s, context),
-                      const SizedBox(height: 50),
-                    ],
-                  );
-                },
-              ),
+          ),
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: pinnedBrandExtent,
+            child: Material(
+              type: MaterialType.transparency,
+              child: _buildDashboardPinnedBrandRow(context),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -320,24 +335,146 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     _loadNoticeFilter();
   }
 
-  void _handleBannerTapIndex(int index) {
-    switch (index) {
-      case 0:
-        Navigator.of(context).push<void>(
-          MaterialPageRoute<void>(
-            builder: (_) => const AppIntroScreen(),
+  /// 스크롤해도 고정되는 최상단 브랜드 행(MJC ONE + 더보기).
+  Widget _buildDashboardPinnedBrandRow(BuildContext context) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color blue = isDark ? const Color(0xFF073A8C) : AppColors.primary;
+    return ColoredBox(
+      color: blue,
+      child: SafeArea(
+        bottom: false,
+        minimum: EdgeInsets.zero,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            24,
+            _kPinnedBrandVerticalInset,
+            4,
+            _kPinnedBrandVerticalInset,
           ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: <Widget>[
+              Expanded(
+                child: Text.rich(
+                  TextSpan(
+                    children: <InlineSpan>[
+                      TextSpan(
+                        text: "MJC",
+                        style: MjcAppTypography.homeHeroCollapsedTitleMjc(
+                          color: Colors.white,
+                        ),
+                      ),
+                      TextSpan(
+                        text: " ",
+                        style: MjcAppTypography.homeHeroCollapsedTitleMid(
+                          color: Colors.white,
+                        ),
+                      ),
+                      TextSpan(
+                        text: "ONE",
+                        style: MjcAppTypography.homeHeroCollapsedTitleOne(
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              IconButton(
+                tooltip: "더보기",
+                onPressed: _openMore,
+                icon: const Icon(
+                  Icons.menu_rounded,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 인삿말·대시보드 섹션만 스크롤. 파란 배경은 [Stack] 뒤 레이어, 카드는 앞 레이어.
+  Widget _buildDashboardScrollableHomeBody(BuildContext context) {
+    return StreamBuilder<User?>(
+      stream: AuthService.instance.authStateChanges(),
+      initialData: AuthService.instance.currentUser,
+      builder: (BuildContext context, AsyncSnapshot<User?> snapshot) {
+        final User? user = snapshot.data;
+        final bool isDark = Theme.of(context).brightness == Brightness.dark;
+        final Color blue = isDark ? const Color(0xFF073A8C) : AppColors.primary;
+        final String name = _homeGreetingDisplayName(user);
+        final List<HomeDashboardSection> sections = _orderedEnabledSections();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Stack(
+              clipBehavior: Clip.none,
+              children: <Widget>[
+                Positioned.fill(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: blue,
+                      borderRadius: const BorderRadius.vertical(
+                        bottom: Radius.circular(_kHomeHeaderBottomRadius),
+                      ),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 0, 4, 28),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      const SizedBox(height: 12),
+                      Text(
+                        "$name님,\n오늘도 좋은 하루 되세요.",
+                        style: MjcAppTypography.homeDashboardGreeting(
+                          color: Colors.white.withValues(alpha: 0.94),
+                        ),
+                      ),
+                      SizedBox(height: _kHomeBlueOverlapPull + 8),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            Transform.translate(
+              offset: const Offset(0, -_kHomeBlueOverlapPull),
+              child: Column(
+                children: <Widget>[
+                  if (sections.isNotEmpty &&
+                      sections.first != HomeDashboardSection.lectureReminder &&
+                      sections.first != HomeDashboardSection.quickButtons &&
+                      sections.first != HomeDashboardSection.recentNotices)
+                    const SizedBox(height: 16),
+                  for (final HomeDashboardSection s in sections)
+                    _buildSection(s, context),
+                  const SizedBox(height: 50),
+                ],
+              ),
+            ),
+          ],
         );
-        return;
-      case 1:
-        widget.onNavigate(MainNavTabIndex.notices, noticesSubTab: NoticesSubTab.ctl);
-        return;
-      case 2:
-        widget.onNavigate(MainNavTabIndex.notices, noticesSubTab: NoticesSubTab.mpu);
-        return;
-      default:
-        return;
+      },
+    );
+  }
+
+  String _homeGreetingDisplayName(User? user) {
+    if (user == null) return "사용자";
+    final String display = (user.displayName ?? "").trim();
+    if (display.isNotEmpty) return display;
+    final String email = (user.email ?? "").trim();
+    if (email.contains("@")) {
+      return email.split("@").first.trim();
     }
+    if (email.isNotEmpty) return email;
+    return "사용자";
   }
 
   Widget _buildShuttleSection(BuildContext context) {
@@ -442,11 +579,10 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
         final DateTime now = DateTime.now();
         final int nowMin = now.hour * 60 + now.minute;
         final int untilMin = slot.startMinute - nowMin;
-        final String label =
-            TimetableNextLecture.formatCountdownKo(untilMin);
+        final String label = TimetableNextLecture.formatCountdownKo(untilMin);
         final bool isDark = Theme.of(context).brightness == Brightness.dark;
         return Padding(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+          padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
           child: Material(
             color: scheme.surface,
             elevation: 1,
@@ -502,84 +638,113 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   Widget _buildGridButtons(BuildContext context) {
     final MjcSurfaceTokens tokens =
         Theme.of(context).extension<MjcSurfaceTokens>()!;
-    return Padding(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              _expandedButton(
-                "본교 공지",
-                "최신 소식",
-                Icons.school,
-                tokens.dashboardGradients[0],
-                MainNavTabIndex.notices,
-                noticesSubTab: NoticesSubTab.main,
-              ),
-              const SizedBox(width: 8),
-              _expandedButton(
-                "교수학습",
-                "학습 지원",
-                Icons.menu_book,
-                tokens.dashboardGradients[1],
-                MainNavTabIndex.notices,
-                noticesSubTab: NoticesSubTab.ctl,
-              ),
-              const SizedBox(width: 8),
-              _expandedButton(
-                "역량관리",
-                "프로그램",
-                Icons.emoji_events,
-                tokens.dashboardGradients[2],
-                MainNavTabIndex.notices,
-                noticesSubTab: NoticesSubTab.mpu,
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              _expandedButton(
-                "도서관",
-                "자료 검색",
-                Icons.local_library,
-                tokens.dashboardGradients[3],
-                MainNavTabIndex.home,
-              ),
-              const SizedBox(width: 8),
-              _expandedButton(
-                "학사일정",
-                "일정 확인",
-                Icons.event_note,
-                tokens.dashboardGradients[4],
-                MainNavTabIndex.home,
-              ),
-              const SizedBox(width: 8),
-              _expandedButton(
-                "캠퍼스 약도",
-                "위치 안내",
-                Icons.map,
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color homeMutedBg =
+        isDark ? AppColors.scaffoldMutedDark : AppColors.scaffoldMuted;
+    final Widget cardRows = Column(
+      children: [
+        Row(
+          children: [
+            _expandedButton(
+              "본교 공지",
+              "최신 소식",
+              Icons.school,
+              tokens.dashboardGradients[0],
+              MainNavTabIndex.notices,
+              noticesSubTab: NoticesSubTab.main,
+            ),
+            const SizedBox(width: 8),
+            _expandedButton(
+              "교수학습",
+              "학습 지원",
+              Icons.menu_book,
+              tokens.dashboardGradients[1],
+              MainNavTabIndex.notices,
+              noticesSubTab: NoticesSubTab.ctl,
+            ),
+            const SizedBox(width: 8),
+            _expandedButton(
+              "역량관리",
+              "프로그램",
+              Icons.emoji_events,
+              tokens.dashboardGradients[2],
+              MainNavTabIndex.notices,
+              noticesSubTab: NoticesSubTab.mpu,
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            _expandedButton(
+              "도서관",
+              "자료 검색",
+              Icons.local_library,
+              tokens.dashboardGradients[3],
+              MainNavTabIndex.home,
+            ),
+            const SizedBox(width: 8),
+            _expandedButton(
+              "학사일정",
+              "일정 확인",
+              Icons.event_note,
+              tokens.dashboardGradients[4],
+              MainNavTabIndex.home,
+            ),
+            const SizedBox(width: 8),
+            _expandedButton(
+              "캠퍼스 약도",
+              "위치 안내",
+              Icons.map,
               tokens.dashboardGradients[5],
-                MainNavTabIndex.home,
-              ),
-            ],
+              MainNavTabIndex.home,
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: <Widget>[
+            _expandedButton(
+              "시간표",
+              "내 강의",
+              Icons.calendar_month_rounded,
+              <Color>[
+                tokens.dashboardGradients[2].first,
+                tokens.dashboardGradients[2].first,
+              ],
+              MainNavTabIndex.home,
+            ),
+          ],
+        ),
+      ],
+    );
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        _kQuickShortcutsPanelHorizontalMargin,
+        0,
+        _kQuickShortcutsPanelHorizontalMargin,
+        20,
+      ),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: homeMutedBg,
+          borderRadius: const BorderRadius.vertical(
+            top: Radius.circular(_kQuickShortcutsBackgroundTopRadius),
           ),
-          const SizedBox(height: 8),
-          Row(
-            children: <Widget>[
-              _expandedButton(
-                "시간표",
-                "내 강의",
-                Icons.calendar_month_rounded,
-                <Color>[
-                  tokens.dashboardGradients[2].first,
-                  tokens.dashboardGradients[2].first,
-                ],
-                MainNavTabIndex.home,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            const SizedBox(height: _kQuickShortcutsTopInset),
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: _kQuickShortcutsGridHorizontalPadding,
               ),
-            ],
-          ),
-        ],
+              child: cardRows,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -799,8 +964,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                           onPressed: _openFoodcourtMenuScreen,
                           style: isDark
                               ? OutlinedButton.styleFrom(
-                                  foregroundColor:
-                                      AppColors.switchActiveDark,
+                                  foregroundColor: AppColors.switchActiveDark,
                                   side: BorderSide(
                                     color: AppColors.switchActiveDark
                                         .withValues(alpha: 0.55),
@@ -868,14 +1032,13 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           builder: (context, snapshot) {
             if (!snapshot.hasData) return const SizedBox();
 
-            final List<Map<String, dynamic>> items = snapshot.data!
-                .where(mpuIncludeInHomeDeadlineList)
-                .toList()
-              ..sort((a, b) {
-                final int ad = mpuEffectiveDaysUntilDeadline(a) ?? 999999;
-                final int bd = mpuEffectiveDaysUntilDeadline(b) ?? 999999;
-                return ad.compareTo(bd);
-              });
+            final List<Map<String, dynamic>> items =
+                snapshot.data!.where(mpuIncludeInHomeDeadlineList).toList()
+                  ..sort((a, b) {
+                    final int ad = mpuEffectiveDaysUntilDeadline(a) ?? 999999;
+                    final int bd = mpuEffectiveDaysUntilDeadline(b) ?? 999999;
+                    return ad.compareTo(bd);
+                  });
 
             if (items.isEmpty) {
               return const Padding(
@@ -1336,336 +1499,6 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-/// 스크롤에 따라 히어로가 접히고, 학교명 한 줄이 햄버거 옆으로 밀려 들어갑니다.
-class _HomeHeroHeaderDelegate extends SliverPersistentHeaderDelegate {
-  _HomeHeroHeaderDelegate({
-    required this.topPadding,
-    required this.heroBody,
-    required this.onMoreTap,
-    required this.onBannerTapIndex,
-  });
-
-  final double topPadding;
-  final double heroBody;
-  final VoidCallback onMoreTap;
-  final void Function(int index) onBannerTapIndex;
-
-  static const double _collapsedBar = 52;
-  // 홈 상단 롤링 배너 이미지(에셋). `app/assets/images/`에 넣고 pubspec.yaml에 포함되어 있어야 합니다.
-  static const List<String> _bannerAssetImages = <String>[
-    "assets/images/banner1.png",
-    "assets/images/mjc_go.png",
-    "assets/images/ctl_go.png",
-    "assets/images/mpu_go.png",
-  ];
-
-  @override
-  double get maxExtent => topPadding + heroBody;
-
-  @override
-  double get minExtent => topPadding + _collapsedBar;
-
-  @override
-  Widget build(
-    BuildContext context,
-    double shrinkOffset,
-    bool overlapsContent,
-  ) {
-    final double extent =
-        (maxExtent - shrinkOffset).clamp(minExtent, maxExtent);
-    final double range = maxExtent - minExtent;
-    final double t = range > 0 ? (shrinkOffset / range).clamp(0.0, 1.0) : 0.0;
-    final double u = Curves.easeInOut.transform(t);
-    final bool isDark = Theme.of(context).brightness == Brightness.dark;
-    // 펼침 시 이미지 불투명 100%면 아래 배경색은 비치지 않음(어두워 보였던 건 검정 톤 오버레이였음).
-    // 접힘: 이미지만 페이드아웃 → 뒤 배경색이 드러남.
-    final double bannerImageOpacity = (1.0 - u).clamp(0.0, 1.0);
-
-    return SizedBox(
-      height: extent,
-      width: double.infinity,
-      child: ClipRect(
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            ColoredBox(
-              color: isDark ? const Color(0xFF073A8C) : AppColors.primary,
-            ),
-            Positioned.fill(
-              child: Builder(
-                builder: (BuildContext context) {
-                  final double dpr = MediaQuery.devicePixelRatioOf(context);
-                  final Size size = MediaQuery.sizeOf(context);
-                  // 이미지 원본이 큰 편이라, 화면 크기에 맞춰 디코드해 raster 튐을 줄입니다.
-                  // NOTE: `extent`는 스크롤 중 매 프레임 변하므로 cacheHeight를 extent 기반으로 잡으면
-                  // 디코드 크기가 계속 바뀌어 페이드 구간에서 깜빡임처럼 보일 수 있습니다.
-                  // 따라서 home 배너는 maxExtent 기준으로 디코드 크기를 고정합니다.
-                  final int cw = (size.width * dpr).round().clamp(1, 4096);
-                  final int ch = (maxExtent * dpr).round().clamp(1, 4096);
-                  return _HomeRollingBanner(
-                    assetImages: _bannerAssetImages,
-                    cacheWidth: cw,
-                    cacheHeight: ch,
-                    overlayAlpha: 0,
-                    imageOpacity: bannerImageOpacity,
-                    onTapIndex: (int index) async => onBannerTapIndex(index),
-                  );
-                },
-              ),
-            ),
-            SafeArea(
-              bottom: false,
-              minimum: EdgeInsets.zero,
-              child: LayoutBuilder(
-                builder: (BuildContext context, BoxConstraints constraints) {
-                  final double ih = constraints.maxHeight;
-                  // 펼침: 상단 고정. 접힘(높이 ~52): 6+48이 넘치지 않게 살짝 내림.
-                  final double menuTopInset =
-                      ih >= 54 ? 6.0 : max(0.0, (ih - 48) / 2);
-                  final double titleSize = lerpDouble(34, 20, u)!;
-                  const double titleLeft = 24;
-                  final double collapsedTitleTop = (ih - titleSize * 1.15) / 2;
-                  // 약 70% 이상 접힌 뒤(u 0.7→1)에만 타이틀 페이드 인.
-                  final double titleReveal =
-                      ((u - 0.70) / 0.30).clamp(0.0, 1.0);
-                  final double titleOpacity =
-                      Curves.easeOutCubic.transform(titleReveal);
-
-                  // Stack hit-test visits later children first. Keep the menu
-                  // button last so the full-width title cannot steal taps when
-                  // the header collapses and the title moves up beside the icon.
-                  const double moreButtonSlot = 52;
-                  return Stack(
-                    clipBehavior: Clip.hardEdge,
-                    children: [
-                      Positioned(
-                        left: titleLeft,
-                        top: collapsedTitleTop,
-                        right: moreButtonSlot,
-                        child: IgnorePointer(
-                          ignoring: titleOpacity < 0.02,
-                          child: Opacity(
-                            opacity: titleOpacity,
-                            child: Text.rich(
-                              TextSpan(
-                                children: <InlineSpan>[
-                                  TextSpan(
-                                    text: "MJC",
-                                    style: MjcAppTypography
-                                        .homeHeroCollapsedTitleMjc(
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                  TextSpan(
-                                    text: " ",
-                                    style: MjcAppTypography
-                                        .homeHeroCollapsedTitleMid(
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                  TextSpan(
-                                    text: "ONE",
-                                    style: MjcAppTypography
-                                        .homeHeroCollapsedTitleOne(
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ),
-                      ),
-                      Positioned(
-                        top: 0,
-                        right: 4,
-                        bottom: 0,
-                        width: moreButtonSlot,
-                        child: Align(
-                          alignment: Alignment.topCenter,
-                          child: Padding(
-                            padding: EdgeInsets.only(top: menuTopInset),
-                            child: IconButton(
-                              tooltip: "더보기",
-                              onPressed: onMoreTap,
-                              icon: const Icon(
-                                Icons.menu_rounded,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  @override
-  bool shouldRebuild(covariant _HomeHeroHeaderDelegate oldDelegate) {
-    return topPadding != oldDelegate.topPadding || heroBody != oldDelegate.heroBody;
-  }
-}
-
-class _HomeRollingBanner extends StatefulWidget {
-  const _HomeRollingBanner({
-    required this.assetImages,
-    required this.cacheWidth,
-    required this.cacheHeight,
-    required this.overlayAlpha,
-    required this.imageOpacity,
-    this.onTapIndex,
-  });
-
-  final List<String> assetImages;
-  final int cacheWidth;
-  final int cacheHeight;
-  final double overlayAlpha;
-  final double imageOpacity;
-  final Future<void> Function(int index)? onTapIndex;
-
-  @override
-  State<_HomeRollingBanner> createState() => _HomeRollingBannerState();
-}
-
-class _HomeRollingBannerState extends State<_HomeRollingBanner> {
-  final PageController _controller = PageController();
-  Timer? _timer;
-  int _index = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _startAutoRoll();
-  }
-
-  @override
-  void didUpdateWidget(covariant _HomeRollingBanner oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.assetImages.length != widget.assetImages.length) {
-      _index = _index.clamp(0, max(0, widget.assetImages.length - 1));
-      _startAutoRoll();
-    }
-  }
-
-  void _startAutoRoll() {
-    _timer?.cancel();
-    if (widget.assetImages.length <= 1) return;
-    _timer = Timer.periodic(const Duration(seconds: 4), (_) {
-      if (!mounted) return;
-      final int next = (_index + 1) % widget.assetImages.length;
-      _controller.animateToPage(
-        next,
-        duration: const Duration(milliseconds: 420),
-        curve: Curves.easeOutCubic,
-      );
-    });
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (widget.assetImages.isEmpty) return const SizedBox.shrink();
-
-    // 배너 영역 밖으로 이미지가 삐져나오지 않게(=cover 크롭) 강제 클립합니다.
-    final double imgOpacity = widget.imageOpacity.clamp(0.0, 1.0);
-    return ClipRect(
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          PageView.builder(
-            controller: _controller,
-            onPageChanged: (i) => setState(() => _index = i),
-            itemCount: widget.assetImages.length,
-            itemBuilder: (context, i) {
-              // "중앙 정렬 후 크롭(센터 크롭)" = BoxFit.cover + Alignment.center.
-              // 드래그는 PageView가 처리하고, 탭만 InkWell로 처리합니다.
-              return Material(
-                color: Colors.transparent,
-                clipBehavior: Clip.hardEdge,
-                child: InkWell(
-                  onTap: (imgOpacity < 0.05 || widget.onTapIndex == null)
-                      ? null
-                      : () => widget.onTapIndex!(i),
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      Opacity(
-                        opacity: imgOpacity,
-                        child: Image.asset(
-                          widget.assetImages[i],
-                          fit: BoxFit.cover,
-                          alignment: Alignment.center,
-                          width: double.infinity,
-                          height: double.infinity,
-                          cacheWidth: widget.cacheWidth,
-                          cacheHeight: widget.cacheHeight,
-                          filterQuality: FilterQuality.medium,
-                          gaplessPlayback: true,
-                          errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-                        ),
-                      ),
-                      // 기존 헤더의 어두운 블렌딩 톤은 유지 (이미지 위에 올리는 방식).
-                      if (widget.overlayAlpha > 0.001)
-                        ColoredBox(
-                          color: Colors.black.withValues(alpha: widget.overlayAlpha),
-                        ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 10,
-            child: IgnorePointer(
-              child: Opacity(
-                opacity: widget.assetImages.length <= 1
-                    ? 0.0
-                    : imgOpacity.clamp(0.0, 1.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: List.generate(widget.assetImages.length, (i) {
-                    final bool active = i == _index;
-                    return AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      margin: const EdgeInsets.symmetric(horizontal: 3),
-                      width: active ? 16 : 6,
-                      height: 6,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(
-                          alpha: active ? 0.95 : 0.55,
-                        ),
-                        borderRadius: BorderRadius.circular(99),
-                      ),
-                    );
-                  }),
-                ),
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }

@@ -43,6 +43,17 @@ abstract final class MjcAppTypography {
         height: 1.1,
         shadows: homeHeroCollapsedTitleShadows,
       );
+
+  /// Home dashboard greeting under the brand row (solid blue header).
+  static TextStyle homeDashboardGreeting({required Color color}) =>
+      TextStyle(
+        fontFamily: kPretendardFontFamily,
+        color: color,
+        fontSize: 17,
+        fontWeight: FontWeight.w600,
+        height: 1.4,
+        letterSpacing: -0.18,
+      );
 }
 
 // Theme owns the final “source of truth” for UI tokens used across screens.
