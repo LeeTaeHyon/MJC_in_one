@@ -1,0 +1,66 @@
+# Flutter Project Rules
+
+## 색상 관리
+- 모든 색상은 반드시 lib/core/theme/app_theme.dart에 정의된 상수만 사용
+- 코드 내 HEX, Color(0xFF...), Colors.XXX 직접 사용 금지
+- 예시:
+  // ❌ 금지
+  color: Color(0xFF1A3FBB)
+  // ✅ 허용
+  color: AppColors.primary
+
+## 텍스트 스타일 관리
+- 모든 텍스트 스타일은 lib/core/theme/app_theme.dart에 정의
+- fontSize, fontWeight 인라인 지정 금지
+- 예시:
+  // ❌ 금지
+  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)
+  // ✅ 허용
+  style: AppTextStyles.bodyBold
+
+## 여백/크기 관리
+- 모든 spacing, padding, radius 값은 lib/core/theme/app_dimensions.dart에 정의
+- 숫자 하드코딩 금지 (SizedBox(height: 16) → SizedBox(height: AppDimensions.md))
+
+## 폴더 구조
+lib/
+├── core/
+│   ├── theme/
+│   │   ├── app_theme.dart
+│   │   └── app_dimensions.dart
+│   └── constants/
+├── features/
+│   ├── notice/
+│   │   ├── screens/
+│   │   ├── widgets/
+│   │   └── services/
+│   ├── bookmark/
+│   └── auth/
+└── shared/
+    └── widgets/
+
+## 컴포넌트 분리
+- 위젯 높이 100줄 초과 시 반드시 별도 파일로 분리
+- 반복되는 UI는 shared/widgets/에 공통 컴포넌트로 추출
+- 한 파일에 여러 클래스 선언 금지
+
+## Firebase 서비스
+- Firestore 직접 호출은 services/ 폴더 내에서만 허용
+- 화면(screen), 위젯에서 직접 Firebase 호출 금지
+- 예시:
+  // ❌ 금지 (screen에서 직접 호출)
+  FirebaseFirestore.instance.collection('notices').get()
+  // ✅ 허용
+  NoticeService().getNotices()
+
+## 네이밍 규칙
+- 파일명: snake_case (notice_card.dart)
+- 클래스명: PascalCase (NoticeCard)
+- 변수/함수명: camelCase (getNoticeList)
+- 상수: UPPER_SNAKE_CASE → AppColors.PRIMARY_BLUE
+
+## 코드 생성 시 주의사항
+- 새 색상 필요 시 app_theme.dart에 먼저 추가 후 참조
+- 새 스타일 필요 시 app_theme.dart에 먼저 추가 후 참조
+- TODO 주석으로 미완성 부분 명시
+- 함수 하나당 단일 책임 원칙 준수

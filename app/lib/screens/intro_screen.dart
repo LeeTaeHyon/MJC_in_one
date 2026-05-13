@@ -16,7 +16,7 @@ class _IntroScreenState extends State<IntroScreen>
   static const String _kLottieAsset = "assets/lottie/MJC ONE App intro.json";
 
   /// Lottie 재생 시작 전·종료 후 각각 이 만큼 멈춤.
-  static const Duration _kIntroEdgeDelay = Duration(milliseconds: 500);
+  static const Duration _kIntroEdgeDelay = Duration(milliseconds: 200);
 
   bool _navigated = false;
   bool _lottiePlaybackStarted = false;

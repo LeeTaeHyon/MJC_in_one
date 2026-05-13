@@ -1,5 +1,8 @@
 import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
+import "package:mio_notice/features/academic_schedule/domain/academic_schedule_classifier.dart";
+import "package:mio_notice/features/academic_schedule/domain/academic_schedule_kind.dart";
+import "package:mio_notice/features/academic_schedule/presentation/academic_schedule_visuals.dart";
 import "package:mio_notice/screens/common_webview_screen.dart";
 import "package:mio_notice/services/notice_manager.dart";
 import "package:mio_notice/theme/app_colors.dart";
@@ -262,6 +265,12 @@ class ScheduleTile extends StatelessWidget {
 
   final Map<String, dynamic> item;
 
+  AcademicScheduleKind _kindOf() {
+    final AcademicScheduleKind? fromTag =
+        AcademicScheduleKind.tryParse(item["schedule_kind"]?.toString());
+    return fromTag ?? AcademicScheduleClassifier.kindOf(item);
+  }
+
   @override
   Widget build(BuildContext context) {
     final ColorScheme scheme = Theme.of(context).colorScheme;
@@ -270,6 +279,11 @@ class ScheduleTile extends StatelessWidget {
     final String start = (item["start_date"] ?? item["date"] ?? "").toString();
     final String end = (item["end_date"] ?? start).toString();
     final String url = (item["url"] ?? "").toString();
+    final AcademicScheduleKind kind = _kindOf();
+    final AcademicScheduleVisuals visuals = AcademicScheduleVisuals.of(
+      context,
+      kind,
+    );
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Material(
@@ -306,12 +320,12 @@ class ScheduleTile extends StatelessWidget {
                   width: 44,
                   height: 44,
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.10),
+                    color: visuals.backgroundColor,
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(
-                    Icons.event_note_rounded,
-                    color: AppColors.primary,
+                  child: Icon(
+                    visuals.icon,
+                    color: visuals.iconColor,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -562,9 +576,10 @@ class _CalendarGrid extends StatelessWidget {
   final VoidCallback onNext;
   final ValueChanged<DateTime> onDateTap;
 
-  bool _isImportant(Map<String, dynamic> item) {
-    final String title = (item["title"] ?? "").toString();
-    return RegExp(r"(시험|중간고사|기말고사|고사)").hasMatch(title);
+  AcademicScheduleKind _kindOf(Map<String, dynamic> item) {
+    final AcademicScheduleKind? fromTag =
+        AcademicScheduleKind.tryParse(item["schedule_kind"]?.toString());
+    return fromTag ?? AcademicScheduleClassifier.kindOf(item);
   }
 
   @override
@@ -670,21 +685,26 @@ class _CalendarGrid extends StatelessWidget {
                       .toList();
               final bool hasEvent = hits.isNotEmpty;
               final bool isSelected = selDay != null && selDay == date;
-              final List<Map<String, dynamic>> hitItems = hits.map((h) => h.item).toList();
-              hitItems.sort((a, b) {
-                final bool ai = _isImportant(a);
-                final bool bi = _isImportant(b);
-                if (ai == bi) return 0;
-                return ai ? -1 : 1; // important first
-              });
-              final List<Color> dotColors = hitItems
-                  .take(3)
-                  .map((item) {
-                    final bool important = _isImportant(item);
-                    if (important) return Colors.redAccent;
-                    return isSelected ? Colors.white : AppColors.primary;
-                  })
-                  .toList();
+              final List<Map<String, dynamic>> hitItems =
+                  hits.map((h) => h.item).toList();
+              final List<AcademicScheduleKind> kinds = hitItems
+                  .map(_kindOf)
+                  .toList()
+                ..sort((a, b) => AcademicScheduleVisuals.priority(a)
+                    .compareTo(AcademicScheduleVisuals.priority(b)));
+
+              final List<AcademicScheduleKind> uniqueKinds = <AcademicScheduleKind>[];
+              for (final k in kinds) {
+                if (!uniqueKinds.contains(k)) uniqueKinds.add(k);
+                if (uniqueKinds.length >= 3) break;
+              }
+
+              final bool hasImportant =
+                  uniqueKinds.any(AcademicScheduleVisuals.isImportant);
+              final List<Color> dotColors = uniqueKinds.map((k) {
+                if (isSelected) return Colors.white;
+                return AcademicScheduleVisuals.of(context, k).dotColor;
+              }).toList();
               final bool isToday = date == today;
               final int weekday = index % 7;
               final Color textColor = isSelected
@@ -704,8 +724,11 @@ class _CalendarGrid extends StatelessWidget {
                       color: isSelected
                           ? AppColors.primary
                           : (hasEvent
-                              ? AppColors.primary.withValues(
-                                  alpha: isDark ? 0.18 : 0.10)
+                              ? AcademicScheduleVisuals.calendarDayBackground(
+                                  context: context,
+                                  hasEvent: hasEvent,
+                                  hasImportant: hasImportant,
+                                )
                               : Colors.transparent),
                       borderRadius: BorderRadius.circular(10),
                       border: isToday && !isSelected

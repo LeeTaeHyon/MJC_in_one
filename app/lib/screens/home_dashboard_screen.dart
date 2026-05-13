@@ -8,12 +8,15 @@ import "package:mio_notice/features/timetable/screens/timetable_main_screen.dart
 import "package:mio_notice/features/timetable/services/timetable_storage_service.dart";
 import "package:mio_notice/features/timetable/utils/timetable_next_lecture.dart";
 import "package:mio_notice/home_dashboard_prefs.dart";
+import "package:mio_notice/mpu_profile_prefs.dart";
+import "package:mio_notice/notification_history_prefs.dart";
 import "package:mio_notice/screens/academic_schedule_screen.dart";
 import "package:mio_notice/screens/campus_map_screen.dart";
 import "package:mio_notice/screens/common_webview_screen.dart";
 import "package:mio_notice/screens/foodcourt_menu_screen.dart";
 import "package:mio_notice/screens/library_screen.dart";
 import "package:mio_notice/screens/more_tab_screen.dart";
+import "package:mio_notice/screens/notification_history_screen.dart";
 import "package:mio_notice/screens/notices_tab_screen.dart";
 import "package:mio_notice/services/foodcourt_menu.dart";
 import "package:mio_notice/services/notice_filter.dart";
@@ -72,6 +75,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   late Future<List<Map<String, dynamic>>> _combinedNoticeFuture;
   late Future<List<Map<String, dynamic>>> _academicScheduleFuture;
   late Future<List<FoodcourtMenuItem>> _foodcourtMenuFuture;
+  late Future<MpuProfile> _mpuProfileFuture;
   Set<String> _readDashboardNoticeKeys = {};
   NoticeFilterState _noticeFilter = const NoticeFilterState();
   List<String> _noticeSharedKeywords = [];
@@ -84,6 +88,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   Set<String> _enabledDashboardSections =
       defaultHomeDashboardEnabledSections().toSet();
   List<String> _dashboardSectionOrder = defaultHomeDashboardSectionOrder();
+  int _notifBadgeCount = 0;
 
   static const String _prefsReadDashboard = "read_notices_combined_dashboard";
   static const String _mpuWebBaseUrl =
@@ -96,10 +101,35 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     _academicScheduleFuture =
         NoticeManager().getNotices(boardId: "main_schedule");
     _foodcourtMenuFuture = _foodcourtMenuService.loadFromAsset();
+    _mpuProfileFuture = loadMpuProfile();
     _loadNoticeFilter();
     _loadEnabledDashboardSections();
     _loadDashboardSectionOrder();
     _scrollController.addListener(_onHomeScrollOffset);
+    _loadNotifBadge();
+  }
+
+  Future<void> _loadNotifBadge() async {
+    final List<Map<String, dynamic>> list =
+        await loadNotificationHistoryNewestFirst();
+    final Set<String> readKeys = await loadNotificationReadKeys();
+    int unread = 0;
+    for (final item in list) {
+      final String key = notificationHistoryItemKey(item);
+      if (key.isEmpty) continue;
+      if (!readKeys.contains(key)) unread++;
+    }
+    if (!mounted) return;
+    setState(() => _notifBadgeCount = unread);
+  }
+
+  Future<void> _openNotificationHistory() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => const NotificationHistoryScreen(embedded: false),
+      ),
+    );
+    await _loadNotifBadge();
   }
 
   Future<void> _loadNoticeFilter() async {
@@ -266,6 +296,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
         forceRefresh: true,
       );
       _foodcourtMenuFuture = _foodcourtMenuService.loadFromAsset();
+      _mpuProfileFuture = loadMpuProfile();
     });
     await Future.wait([
       _combinedNoticeFuture,
@@ -333,9 +364,11 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     _loadEnabledDashboardSections();
     _loadDashboardSectionOrder();
     _loadNoticeFilter();
+    await _loadNotifBadge();
+    setState(() => _mpuProfileFuture = loadMpuProfile());
   }
 
-  /// 스크롤해도 고정되는 최상단 브랜드 행(MJC ONE + 더보기).
+  /// 스크롤해도 고정되는 최상단 브랜드 행(MJC ONE + 알림 + 더보기).
   Widget _buildDashboardPinnedBrandRow(BuildContext context) {
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
     final Color blue = isDark ? const Color(0xFF073A8C) : AppColors.primary;
@@ -383,6 +416,44 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                 ),
               ),
               IconButton(
+                tooltip: "알림 내역",
+                onPressed: _openNotificationHistory,
+                icon: Stack(
+                  clipBehavior: Clip.none,
+                  children: <Widget>[
+                    const Icon(
+                      Icons.notifications_rounded,
+                      color: Colors.white,
+                    ),
+                    if (_notifBadgeCount > 0)
+                      Positioned(
+                        right: -6,
+                        top: -4,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 1,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.error,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            _notifBadgeCount > 99
+                                ? "99+"
+                                : "$_notifBadgeCount",
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 8,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              IconButton(
                 tooltip: "더보기",
                 onPressed: _openMore,
                 icon: const Icon(
@@ -399,81 +470,96 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
 
   /// 인삿말·대시보드 섹션만 스크롤. 파란 배경은 [Stack] 뒤 레이어, 카드는 앞 레이어.
   Widget _buildDashboardScrollableHomeBody(BuildContext context) {
-    return StreamBuilder<User?>(
-      stream: AuthService.instance.authStateChanges(),
-      initialData: AuthService.instance.currentUser,
-      builder: (BuildContext context, AsyncSnapshot<User?> snapshot) {
-        final User? user = snapshot.data;
-        final bool isDark = Theme.of(context).brightness == Brightness.dark;
-        final Color blue = isDark ? const Color(0xFF073A8C) : AppColors.primary;
-        final String name = _homeGreetingDisplayName(user);
-        final List<HomeDashboardSection> sections = _orderedEnabledSections();
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Stack(
-              clipBehavior: Clip.none,
+    return FutureBuilder<MpuProfile>(
+      future: _mpuProfileFuture,
+      builder: (context, profileSnapshot) {
+        final MpuProfile? profile = profileSnapshot.data;
+        return StreamBuilder<User?>(
+          stream: AuthService.instance.authStateChanges(),
+          initialData: AuthService.instance.currentUser,
+          builder: (BuildContext context, AsyncSnapshot<User?> snapshot) {
+            final User? user = snapshot.data;
+            final bool isDark = Theme.of(context).brightness == Brightness.dark;
+            final Color blue =
+                isDark ? const Color(0xFF073A8C) : AppColors.primary;
+            final String name = _homeGreetingDisplayName(
+              user,
+              profileName: profile?.name,
+            );
+            final List<HomeDashboardSection> sections = _orderedEnabledSections();
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
               children: <Widget>[
-                Positioned.fill(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: blue,
-                      borderRadius: const BorderRadius.vertical(
-                        bottom: Radius.circular(_kHomeHeaderBottomRadius),
-                      ),
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 0, 4, 28),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      const SizedBox(height: 12),
-                      Text(
-                        "$name님,\n오늘도 좋은 하루 되세요.",
-                        style: MjcAppTypography.homeDashboardGreeting(
-                          color: Colors.white.withValues(alpha: 0.94),
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: <Widget>[
+                    Positioned.fill(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: blue,
+                          borderRadius: const BorderRadius.vertical(
+                            bottom: Radius.circular(_kHomeHeaderBottomRadius),
+                          ),
                         ),
                       ),
-                      SizedBox(height: _kHomeBlueOverlapPull + 8),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(24, 0, 4, 28),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          const SizedBox(height: 12),
+                          Text(
+                            "$name님,\n오늘도 좋은 하루 되세요.",
+                            style: MjcAppTypography.homeDashboardGreeting(
+                              color: Colors.white.withValues(alpha: 0.94),
+                            ),
+                          ),
+                          const SizedBox(height: _kHomeBlueOverlapPull + 8),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                Transform.translate(
+                  offset: const Offset(0, -_kHomeBlueOverlapPull),
+                  child: Column(
+                    children: <Widget>[
+                      if (sections.isNotEmpty &&
+                          sections.first != HomeDashboardSection.lectureReminder &&
+                          sections.first != HomeDashboardSection.quickButtons &&
+                          sections.first != HomeDashboardSection.recentNotices)
+                        const SizedBox(height: 16),
+                      for (final HomeDashboardSection s in sections)
+                        _buildSection(s, context),
+                      const SizedBox(height: 50),
                     ],
                   ),
                 ),
               ],
-            ),
-            Transform.translate(
-              offset: const Offset(0, -_kHomeBlueOverlapPull),
-              child: Column(
-                children: <Widget>[
-                  if (sections.isNotEmpty &&
-                      sections.first != HomeDashboardSection.lectureReminder &&
-                      sections.first != HomeDashboardSection.quickButtons &&
-                      sections.first != HomeDashboardSection.recentNotices)
-                    const SizedBox(height: 16),
-                  for (final HomeDashboardSection s in sections)
-                    _buildSection(s, context),
-                  const SizedBox(height: 50),
-                ],
-              ),
-            ),
-          ],
+            );
+          },
         );
       },
     );
   }
 
-  String _homeGreetingDisplayName(User? user) {
+  String _homeGreetingDisplayName(User? user, {String? profileName}) {
+    final String profile = (profileName ?? "").trim();
+    if (profile.isNotEmpty) return profile;
+
     if (user == null) return "사용자";
     final String display = (user.displayName ?? "").trim();
     if (display.isNotEmpty) return display;
+
     final String email = (user.email ?? "").trim();
     if (email.contains("@")) {
       return email.split("@").first.trim();
     }
     if (email.isNotEmpty) return email;
+
     return "사용자";
   }
 
@@ -607,7 +693,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                 padding: const EdgeInsets.all(16),
                 child: Row(
                   children: <Widget>[
-                    Icon(Icons.schedule_rounded, color: AppColors.primary),
+                    const Icon(Icons.schedule_rounded, color: AppColors.primary),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
@@ -702,25 +788,11 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           ],
         ),
         const SizedBox(height: 8),
-        Row(
-          children: <Widget>[
-            _expandedButton(
-              "시간표",
-              "내 강의",
-              Icons.calendar_month_rounded,
-              <Color>[
-                tokens.dashboardGradients[2].first,
-                tokens.dashboardGradients[2].first,
-              ],
-              MainNavTabIndex.home,
-            ),
-          ],
-        ),
       ],
     );
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(
+      padding: const EdgeInsets.fromLTRB(
         _kQuickShortcutsPanelHorizontalMargin,
         0,
         _kQuickShortcutsPanelHorizontalMargin,
@@ -762,7 +834,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
         Theme.of(context).extension<MjcSurfaceTokens>()!;
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
     final Color accent = colors[0];
-    final Color lightTitle = AppColors.quickCardText;
+    const Color lightTitle = AppColors.quickCardText;
     final Color lightSub = AppColors.quickCardText.withValues(alpha: 0.72);
     final Color lightCardBg = scheme.surface;
     return Expanded(

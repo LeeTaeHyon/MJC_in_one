@@ -178,10 +178,12 @@ class _NestedScrollFabTabBindingState extends State<NestedScrollFabTabBinding> {
 abstract final class MainNavTabIndex {
   static const int home = 0;
   static const int notices = 1;
-  static const int alerts = 2;
+  static const int timetable = 2;
   static const int mypage = 3;
+  /// [NotificationHistoryScreen] 등에서 쓰는 논리 인덱스(하단 탭 아님).
+  static const int alerts = 4;
   /// 푸시된 [MoreTabScreen] 등 보조 화면용 (하단 탭 아님).
-  static const int more = 4;
+  static const int more = 5;
 }
 
 /// 메인 탭·푸시 라우트에서 등록한 스크롤/웹뷰 맨 위로 동작을 한곳에서 호출합니다.

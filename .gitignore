@@ -5,7 +5,9 @@ Thumbs.db
 .idea/
 
 # --- Cursor ---
-.cursor/
+**/.cursor/*
+!/.cursor/rules/
+!/.cursor/rules/**
 
 # --- Flutter / Dart ---
 **/build/

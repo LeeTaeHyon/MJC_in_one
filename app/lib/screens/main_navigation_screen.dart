@@ -3,10 +3,9 @@ import "dart:async";
 import "package:firebase_auth/firebase_auth.dart";
 import "package:flutter/material.dart";
 import "package:flutter/services.dart";
-import "package:mio_notice/notification_history_prefs.dart";
+import "package:mio_notice/features/timetable/screens/timetable_main_screen.dart";
 import "package:mio_notice/screens/home_dashboard_screen.dart";
 import "package:mio_notice/screens/my_page_screen.dart";
-import "package:mio_notice/screens/notification_history_screen.dart";
 import "package:mio_notice/screens/notices_tab_screen.dart";
 import "package:mio_notice/screens/profile_setup_screen.dart";
 import "package:mio_notice/services/auth_service.dart";
@@ -244,8 +243,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         );
       case MainNavTabIndex.notices:
         return NoticesTabScreen(subTabNotifier: _noticeSubTab);
-      case MainNavTabIndex.alerts:
-        return const NotificationHistoryScreen(embedded: true);
+      case MainNavTabIndex.timetable:
+        return const TimetableMainScreen();
       case MainNavTabIndex.mypage:
         return const MyPageScreen(embedded: true);
       default:
@@ -480,18 +479,11 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                       ),
                     ),
                     Expanded(
-                      child: FutureBuilder<List<Map<String, dynamic>>>(
-                        future: loadNotificationHistoryNewestFirst(),
-                        builder: (context, snapshot) {
-                          final int count = snapshot.data?.length ?? 0;
-                          return _buildNavTab(
-                            MainNavTabIndex.alerts,
-                            Icons.notifications_none_rounded,
-                            Icons.notifications_rounded,
-                            "알림",
-                            badgeCount: count,
-                          );
-                        },
+                      child: _buildNavTab(
+                        MainNavTabIndex.timetable,
+                        Icons.calendar_month_outlined,
+                        Icons.calendar_month_rounded,
+                        "시간표",
                       ),
                     ),
                     Expanded(

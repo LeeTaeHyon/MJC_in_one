@@ -16,6 +16,7 @@ SCHEDULE_URL = f"{BASE_URL}/collegeService/schedule.do?menu_idx=104"
 BOARD_ID = "main_schedule"
 BOARD_NAME = "학사일정"
 SEND_FCM = False
+SCHEDULE_KIND_VERSION = "v1"
 HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -54,6 +55,34 @@ def _to_iso(date_text: str) -> str:
 def _stable_id(start_date: str, end_date: str, title: str) -> str:
     raw = f"{start_date}|{end_date}|{title}".encode("utf-8")
     return hashlib.md5(raw).hexdigest()[:12]
+
+
+def _classify_schedule_kind(title: str) -> str:
+    """
+    학사일정 전용 kind 분류 (v1).
+    - exam / registration / grades / scholarship / general
+    """
+    t = (title or "").strip()
+    if not t:
+        return "general"
+
+    # 우선순위: exam > registration > grades > scholarship > general
+    if re.search(r"(시험|중간고사|기말고사|고사|재시험|추가시험|보강시험|평가)", t):
+        return "exam"
+    if re.search(
+        r"(수강신청|수강\s*정정|수강정정|수강\s*철회|수강철회|수강\s*변경|수강변경|"
+        r"수강꾸러미|장바구니|예비\s*수강신청|재수강|분반\s*변경|폐강|증원)",
+        t,
+    ):
+        return "registration"
+    if re.search(r"(성적|강의평가|평가\s*입력|성적\s*입력|성적열람|성적\s*열람|성적정정|정정\s*기간)", t):
+        return "grades"
+    if re.search(
+        r"(장학|장학금|국가장학|근로장학|학자금|대출|등록금|등록|분납|납부|고지서|추가\s*등록)",
+        t,
+    ):
+        return "scholarship"
+    return "general"
 
 
 def send_fcm_notice(post: dict):
@@ -198,6 +227,8 @@ def save_to_firestore(db, records: list[dict]):
     batch = db.batch()
     new_posts: list[dict] = []
     for post in records:
+        post["schedule_kind"] = _classify_schedule_kind(post.get("title", ""))
+        post["schedule_kind_version"] = SCHEDULE_KIND_VERSION
         enrich_post_dict(post, BOARD_ID)
         batch.set(post_col.document(post["id"]), post, merge=True)
         if post["id"] not in known_ids:
@@ -222,10 +253,61 @@ def save_to_firestore(db, records: list[dict]):
     print(f"[학사일정] 총 {len(records)}건 저장 완료, 신규 {len(new_posts)}건")
 
 
+def backfill_schedule_kind(db, *, limit: int | None = None, dry_run: bool = False) -> int:
+    """
+    기존 main_schedule 문서에 schedule_kind 필드를 채웁니다.
+    - schedule_kind가 없는 문서만 대상으로 합니다.
+    - merge 업데이트(부분 업데이트)로 안전하게 동작합니다.
+    """
+    post_col = (
+        db.collection("notices")
+        .document(BOARD_ID)
+        .collection("posts")
+    )
+
+    updated = 0
+    batch = db.batch()
+    ops = 0
+
+    for doc in post_col.stream():
+        data = doc.to_dict() or {}
+        if data.get("schedule_kind"):
+            continue
+
+        title = str(data.get("title") or "")
+        kind = _classify_schedule_kind(title)
+        payload = {
+            "schedule_kind": kind,
+            "schedule_kind_version": SCHEDULE_KIND_VERSION,
+            "schedule_kind_backfilled_at": datetime.now().isoformat(),
+        }
+
+        updated += 1
+        if not dry_run:
+            batch.set(post_col.document(doc.id), payload, merge=True)
+            ops += 1
+            # Firestore batch write limit safety
+            if ops >= 400:
+                batch.commit()
+                batch = db.batch()
+                ops = 0
+
+        if limit is not None and updated >= limit:
+            break
+
+    if not dry_run and ops > 0:
+        batch.commit()
+
+    print(f"[학사일정][backfill] schedule_kind 업데이트: {updated}건 (dry_run={dry_run})")
+    return updated
+
+
 def main():
     db = init_firebase()
     print("[수집 시작] 학사일정")
     save_to_firestore(db, crawl_schedule())
+    if os.environ.get("SCHEDULE_KIND_BACKFILL", "").strip() in ("1", "true", "TRUE", "yes", "YES"):
+        backfill_schedule_kind(db)
 
 
 if __name__ == "__main__":
