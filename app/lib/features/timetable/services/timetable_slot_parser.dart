@@ -1,4 +1,4 @@
-import "package:mio_notice/features/timetable/models/timetable_models.dart";
+import "package:mjc_in_one/features/timetable/models/timetable_models.dart";
 
 /// Parses timetable cell text, e.g. `수 10:00 - 10:50 ( 공701 )` per slot.
 ///

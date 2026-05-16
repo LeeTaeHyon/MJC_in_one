@@ -1,5 +1,5 @@
-name: mio_notice
-description: 명지전문대학 공지사항 모아보기
+name: mjc_in_one
+description: 명지전문대학 통합 어플리케이션
 publish_to: "none"
 version: 1.0.0+1
 

@@ -1,6 +1,6 @@
 import "package:flutter/material.dart";
-import "package:mio_notice/services/user_data_repository.dart";
-import "package:mio_notice/utils/snack_bar_utils.dart";
+import "package:mjc_in_one/services/user_data_repository.dart";
+import "package:mjc_in_one/utils/snack_bar_utils.dart";
 import "package:shared_preferences/shared_preferences.dart";
 
 /// 푸시 알림용 키워드 등록·편집 화면.

@@ -1,6 +1,6 @@
 import "package:flutter/material.dart";
 import "package:flutter_test/flutter_test.dart";
-import "package:mio_notice/services/shuttle_schedule.dart";
+import "package:mjc_in_one/services/shuttle_schedule.dart";
 
 void main() {
   final ShuttleScheduleService service = ShuttleScheduleService();

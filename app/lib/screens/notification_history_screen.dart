@@ -1,11 +1,11 @@
 import "package:flutter/material.dart";
 import "package:flutter/foundation.dart" show kIsWeb;
-import "package:mio_notice/notification_history_prefs.dart";
-import "package:mio_notice/notification_sources.dart";
-import "package:mio_notice/screens/common_webview_screen.dart";
-import "package:mio_notice/screens/settings_screen.dart";
-import "package:mio_notice/theme/app_colors.dart";
-import "package:mio_notice/widgets/scroll_to_top_scope.dart";
+import "package:mjc_in_one/notification_history_prefs.dart";
+import "package:mjc_in_one/notification_sources.dart";
+import "package:mjc_in_one/screens/common_webview_screen.dart";
+import "package:mjc_in_one/screens/settings_screen.dart";
+import "package:mjc_in_one/theme/app_colors.dart";
+import "package:mjc_in_one/widgets/scroll_to_top_scope.dart";
 import "package:url_launcher/url_launcher.dart";
 
 /// 푸시 알람 수신 내역을 모아보는 화면입니다.

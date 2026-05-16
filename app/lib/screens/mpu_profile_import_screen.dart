@@ -1,9 +1,9 @@
 import "dart:convert";
 
 import "package:flutter/material.dart";
-import "package:mio_notice/mpu_profile_prefs.dart";
-import "package:mio_notice/services/user_data_repository.dart";
-import "package:mio_notice/widgets/webview_navigation_overlay.dart";
+import "package:mjc_in_one/mpu_profile_prefs.dart";
+import "package:mjc_in_one/services/user_data_repository.dart";
+import "package:mjc_in_one/widgets/webview_navigation_overlay.dart";
 import "package:webview_flutter/webview_flutter.dart";
 
 class MpuProfileImportScreen extends StatefulWidget {

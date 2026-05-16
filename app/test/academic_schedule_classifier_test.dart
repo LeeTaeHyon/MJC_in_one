@@ -1,6 +1,6 @@
 import "package:flutter_test/flutter_test.dart";
-import "package:mio_notice/features/academic_schedule/domain/academic_schedule_classifier.dart";
-import "package:mio_notice/features/academic_schedule/domain/academic_schedule_kind.dart";
+import "package:mjc_in_one/features/academic_schedule/domain/academic_schedule_classifier.dart";
+import "package:mjc_in_one/features/academic_schedule/domain/academic_schedule_kind.dart";
 
 void main() {
   test("AcademicScheduleClassifier classifies exam", () {

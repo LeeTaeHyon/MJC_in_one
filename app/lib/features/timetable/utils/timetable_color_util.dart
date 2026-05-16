@@ -1,5 +1,5 @@
 import "package:flutter/material.dart";
-import "package:mio_notice/theme/app_colors.dart";
+import "package:mjc_in_one/theme/app_colors.dart";
 
 abstract final class TimetableColorUtil {
   static Color colorForCourseKey(String colorKey) {

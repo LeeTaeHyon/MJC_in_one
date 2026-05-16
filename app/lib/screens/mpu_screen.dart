@@ -4,19 +4,21 @@ import "dart:ui" show lerpDouble;
 import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
 import "package:flutter_animate/flutter_animate.dart";
-import "package:mio_notice/screens/common_webview_screen.dart";
-import "package:mio_notice/services/notice_filter.dart";
-import "package:mio_notice/services/notice_manager.dart";
-import "package:mio_notice/services/user_data_repository.dart";
-import "package:mio_notice/theme/app_colors.dart";
-import "package:mio_notice/theme/app_theme.dart";
-import "package:mio_notice/utils/mpu_program_dday.dart";
-import "package:mio_notice/perf_flags.dart";
-import "package:mio_notice/widgets/nested_scroll_refresh_indicator.dart";
-import "package:mio_notice/widgets/pin_favorite_buttons.dart";
-import "package:mio_notice/widgets/global_notice_search_sheet.dart";
-import "package:mio_notice/widgets/notice_filter_sheet.dart";
-import "package:mio_notice/widgets/scroll_to_top_scope.dart";
+import "package:mjc_in_one/notification_sources.dart";
+import "package:mjc_in_one/screens/common_webview_screen.dart";
+import "package:mjc_in_one/services/notice_filter.dart";
+import "package:mjc_in_one/services/notice_manager.dart";
+import "package:mjc_in_one/services/user_data_repository.dart";
+import "package:mjc_in_one/theme/app_colors.dart";
+import "package:mjc_in_one/theme/app_theme.dart";
+import "package:mjc_in_one/utils/bookmark_added_feedback.dart";
+import "package:mjc_in_one/utils/mpu_program_dday.dart";
+import "package:mjc_in_one/perf_flags.dart";
+import "package:mjc_in_one/widgets/nested_scroll_refresh_indicator.dart";
+import "package:mjc_in_one/widgets/pin_favorite_buttons.dart";
+import "package:mjc_in_one/widgets/global_notice_search_sheet.dart";
+import "package:mjc_in_one/widgets/notice_filter_sheet.dart";
+import "package:mjc_in_one/widgets/scroll_to_top_scope.dart";
 import "package:shared_preferences/shared_preferences.dart";
 import "package:url_launcher/url_launcher.dart";
 
@@ -188,20 +190,20 @@ class _MpuScreenState extends State<MpuScreen> {
         items: items,
         accentColor: const Color(0xFF7986CB),
         openItem: (item) async {
-          const url = "https://mpu.mjc.ac.kr/Main/default.aspx";
+          final String url = await loadMpuPortalWebUrl();
           if (kIsWeb) {
             await launchUrl(Uri.parse(url), webOnlyWindowName: "_blank");
-          } else {
-            if (!context.mounted) return;
-            await Navigator.of(context).push<void>(
-              MaterialPageRoute<void>(
-                builder: (_) => const CommonWebViewScreen(
-                  url: url,
-                  title: "핵심역량 관리 (MPU)",
-                ),
-              ),
-            );
+            return;
           }
+          if (!mounted) return;
+          await Navigator.of(context).push<void>(
+            MaterialPageRoute<void>(
+              builder: (_) => CommonWebViewScreen(
+                url: url,
+                title: "핵심역량 관리 (MPU)",
+              ),
+            ),
+          );
         },
         chipFor: (item) {
           final String b = (item["branch"] ?? "").toString().trim();
@@ -643,6 +645,7 @@ class _MpuListTabState extends State<_MpuListTab> {
 
   Future<void> _togglePinned(String key) async {
     final prefs = await SharedPreferences.getInstance();
+    final bool adding = !_pinnedKeys.contains(key);
     final Set<String> next = {..._pinnedKeys};
     if (next.contains(key)) {
       next.remove(key);
@@ -656,10 +659,17 @@ class _MpuListTabState extends State<_MpuListTab> {
       pinned: true,
       values: next.toList(),
     );
+    if (!mounted) return;
+    if (adding) {
+      showBookmarkAddedSnackBar(context, openPinnedTab: true);
+    } else {
+      showBookmarkRemovedSnackBar(context, wasPinned: true);
+    }
   }
 
   Future<void> _toggleFavorite(String key) async {
     final prefs = await SharedPreferences.getInstance();
+    final bool adding = !_favoriteKeys.contains(key);
     final Set<String> next = {..._favoriteKeys};
     if (next.contains(key)) {
       next.remove(key);
@@ -673,6 +683,12 @@ class _MpuListTabState extends State<_MpuListTab> {
       pinned: false,
       values: next.toList(),
     );
+    if (!mounted) return;
+    if (adding) {
+      showBookmarkAddedSnackBar(context, openPinnedTab: false);
+    } else {
+      showBookmarkRemovedSnackBar(context, wasPinned: false);
+    }
   }
 
   Future<void> _handleRefresh() async {
@@ -981,7 +997,7 @@ class _MpuListTabState extends State<_MpuListTab> {
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
           onTap: () async {
-            const url = "https://mpu.mjc.ac.kr/Main/default.aspx";
+            final String url = await loadMpuPortalWebUrl();
             await _markAsRead(itemKey);
             if (!context.mounted) return;
             if (kIsWeb) {
@@ -990,7 +1006,7 @@ class _MpuListTabState extends State<_MpuListTab> {
               Navigator.push(
                   context,
                   MaterialPageRoute(
-                      builder: (_) => const CommonWebViewScreen(
+                      builder: (_) => CommonWebViewScreen(
                           url: url, title: "핵심역량 관리 (MPU)")));
             }
           },

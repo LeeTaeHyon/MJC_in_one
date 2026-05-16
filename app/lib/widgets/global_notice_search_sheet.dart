@@ -1,5 +1,5 @@
 import "package:flutter/material.dart";
-import "package:mio_notice/widgets/notice_search_result_card.dart";
+import "package:mjc_in_one/widgets/notice_search_result_card.dart";
 
 List<String> _parseAiTagsForSearchCard(Map<String, dynamic> data) {
   final Object? v = data["ai_tags"];

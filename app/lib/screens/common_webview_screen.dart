@@ -1,7 +1,7 @@
 import "package:flutter/foundation.dart" show kIsWeb;
 import "package:flutter/material.dart";
-import "package:mio_notice/widgets/scroll_to_top_scope.dart";
-import "package:mio_notice/widgets/webview_navigation_overlay.dart";
+import "package:mjc_in_one/widgets/scroll_to_top_scope.dart";
+import "package:mjc_in_one/widgets/webview_navigation_overlay.dart";
 import "package:share_plus/share_plus.dart";
 import "package:url_launcher/url_launcher.dart";
 import "package:webview_flutter/webview_flutter.dart";

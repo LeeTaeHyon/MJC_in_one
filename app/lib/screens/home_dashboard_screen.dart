@@ -3,31 +3,29 @@ import "dart:math";
 
 import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
-import "package:mio_notice/features/timetable/models/timetable_models.dart";
-import "package:mio_notice/features/timetable/screens/timetable_main_screen.dart";
-import "package:mio_notice/features/timetable/services/timetable_storage_service.dart";
-import "package:mio_notice/features/timetable/utils/timetable_next_lecture.dart";
-import "package:mio_notice/home_dashboard_prefs.dart";
-import "package:mio_notice/mpu_profile_prefs.dart";
-import "package:mio_notice/notification_history_prefs.dart";
-import "package:mio_notice/screens/academic_schedule_screen.dart";
-import "package:mio_notice/screens/campus_map_screen.dart";
-import "package:mio_notice/screens/common_webview_screen.dart";
-import "package:mio_notice/screens/foodcourt_menu_screen.dart";
-import "package:mio_notice/screens/library_screen.dart";
-import "package:mio_notice/screens/more_tab_screen.dart";
-import "package:mio_notice/screens/notification_history_screen.dart";
-import "package:mio_notice/screens/notices_tab_screen.dart";
-import "package:mio_notice/services/foodcourt_menu.dart";
-import "package:mio_notice/services/notice_filter.dart";
-import "package:mio_notice/services/auth_service.dart";
-import "package:mio_notice/services/notice_manager.dart";
-import "package:mio_notice/services/mpu_service.dart";
-import "package:mio_notice/theme/app_colors.dart";
-import "package:mio_notice/theme/app_theme.dart";
-import "package:mio_notice/utils/mpu_program_dday.dart";
-import "package:mio_notice/widgets/scroll_to_top_scope.dart";
-import "package:mio_notice/widgets/shuttle_status_card.dart";
+import "package:mjc_in_one/features/timetable/screens/timetable_main_screen.dart";
+import "package:mjc_in_one/home_dashboard_prefs.dart";
+import "package:mjc_in_one/mpu_profile_prefs.dart";
+import "package:mjc_in_one/notification_history_prefs.dart";
+import "package:mjc_in_one/screens/academic_schedule_screen.dart";
+import "package:mjc_in_one/screens/campus_map_screen.dart";
+import "package:mjc_in_one/screens/common_webview_screen.dart";
+import "package:mjc_in_one/screens/foodcourt_menu_screen.dart";
+import "package:mjc_in_one/screens/library_screen.dart";
+import "package:mjc_in_one/screens/more_tab_screen.dart";
+import "package:mjc_in_one/screens/notification_history_screen.dart";
+import "package:mjc_in_one/screens/notices_tab_screen.dart";
+import "package:mjc_in_one/services/foodcourt_menu.dart";
+import "package:mjc_in_one/services/notice_filter.dart";
+import "package:mjc_in_one/services/auth_service.dart";
+import "package:mjc_in_one/services/notice_manager.dart";
+import "package:mjc_in_one/services/mpu_service.dart";
+import "package:mjc_in_one/theme/app_colors.dart";
+import "package:mjc_in_one/theme/app_theme.dart";
+import "package:mjc_in_one/utils/mpu_program_dday.dart";
+import "package:mjc_in_one/widgets/home_lecture_reminder_card.dart";
+import "package:mjc_in_one/widgets/scroll_to_top_scope.dart";
+import "package:mjc_in_one/widgets/shuttle_status_card.dart";
 import "package:firebase_auth/firebase_auth.dart";
 import "package:shared_preferences/shared_preferences.dart";
 import "package:url_launcher/url_launcher.dart";
@@ -89,6 +87,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
       defaultHomeDashboardEnabledSections().toSet();
   List<String> _dashboardSectionOrder = defaultHomeDashboardSectionOrder();
   int _notifBadgeCount = 0;
+  int _lectureReminderReloadKey = 0;
 
   static const String _prefsReadDashboard = "read_notices_combined_dashboard";
   static const String _mpuWebBaseUrl =
@@ -100,7 +99,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     _combinedNoticeFuture = _prepareDashboardNotices();
     _academicScheduleFuture =
         NoticeManager().getNotices(boardId: "main_schedule");
-    _foodcourtMenuFuture = _foodcourtMenuService.loadFromAsset();
+    _foodcourtMenuFuture = _foodcourtMenuService.load();
     _mpuProfileFuture = loadMpuProfile();
     _loadNoticeFilter();
     _loadEnabledDashboardSections();
@@ -295,8 +294,9 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
         boardId: "main_schedule",
         forceRefresh: true,
       );
-      _foodcourtMenuFuture = _foodcourtMenuService.loadFromAsset();
+      _foodcourtMenuFuture = _foodcourtMenuService.load();
       _mpuProfileFuture = loadMpuProfile();
+      _lectureReminderReloadKey++;
     });
     await Future.wait([
       _combinedNoticeFuture,
@@ -511,11 +511,23 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: <Widget>[
                           const SizedBox(height: 12),
-                          Text(
-                            "$name님,\n오늘도 좋은 하루 되세요.",
-                            style: MjcAppTypography.homeDashboardGreeting(
-                              color: Colors.white.withValues(alpha: 0.94),
-                            ),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: <Widget>[
+                              Text(
+                                "$name님,",
+                                style: MjcAppTypography.homeDashboardGreeting(
+                                  color: Colors.white.withValues(alpha: 0.94),
+                                ).copyWith(fontSize: 22),
+                              ),
+                              Text(
+                                "오늘도 좋은 하루 되세요.",
+                                style: MjcAppTypography.homeDashboardGreeting(
+                                  color: Colors.white.withValues(alpha: 0.94),
+                                ),
+                              ),
+                            ],
                           ),
                           const SizedBox(height: _kHomeBlueOverlapPull + 8),
                         ],
@@ -645,79 +657,8 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   }
 
   Widget _buildLectureReminderSection(BuildContext context) {
-    final ColorScheme scheme = Theme.of(context).colorScheme;
-    final MjcSurfaceTokens tokens =
-        Theme.of(context).extension<MjcSurfaceTokens>()!;
-    return FutureBuilder<List<ParsedCourseOffering>>(
-      future: TimetableStorageService.loadEnrolled(),
-      builder: (
-        BuildContext context,
-        AsyncSnapshot<List<ParsedCourseOffering>> snapshot,
-      ) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const SizedBox.shrink();
-        }
-        final List<ParsedCourseOffering> enrolled =
-            snapshot.data ?? const <ParsedCourseOffering>[];
-        final TimetableSlot? slot =
-            TimetableNextLecture.nextUpcomingSlotToday(enrolled);
-        if (slot == null) return const SizedBox.shrink();
-        final DateTime now = DateTime.now();
-        final int nowMin = now.hour * 60 + now.minute;
-        final int untilMin = slot.startMinute - nowMin;
-        final String label = TimetableNextLecture.formatCountdownKo(untilMin);
-        final bool isDark = Theme.of(context).brightness == Brightness.dark;
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
-          child: Material(
-            color: scheme.surface,
-            elevation: 1,
-            shadowColor: scheme.shadow.withValues(alpha: isDark ? 0.45 : 0.12),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-              side: BorderSide(
-                color: (isDark ? tokens.cardBorder : scheme.outline)
-                    .withValues(alpha: isDark ? 0.85 : 0.55),
-              ),
-            ),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(12),
-              onTap: () {
-                Navigator.of(context).push<void>(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const TimetableMainScreen(),
-                  ),
-                );
-              },
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: <Widget>[
-                    const Icon(Icons.schedule_rounded, color: AppColors.primary),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        "$label 뒤 ${slot.courseName} 수업이 있습니다.",
-                        style: TextStyle(
-                          fontFamily: kPretendardFontFamily,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          color: scheme.onSurface,
-                          height: 1.25,
-                        ),
-                      ),
-                    ),
-                    Icon(
-                      Icons.chevron_right_rounded,
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-      },
+    return HomeLectureReminderCard(
+      key: ValueKey<int>(_lectureReminderReloadKey),
     );
   }
 

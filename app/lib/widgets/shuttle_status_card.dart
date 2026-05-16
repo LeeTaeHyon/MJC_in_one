@@ -1,9 +1,10 @@
 import "dart:async";
 
 import "package:flutter/material.dart";
-import "package:mio_notice/services/shuttle_schedule.dart";
-import "package:mio_notice/theme/app_colors.dart";
-import "package:mio_notice/theme/app_theme.dart";
+import "package:mjc_in_one/services/app_config_service.dart";
+import "package:mjc_in_one/services/shuttle_schedule.dart";
+import "package:mjc_in_one/theme/app_colors.dart";
+import "package:mjc_in_one/theme/app_theme.dart";
 
 class ShuttleStatusCard extends StatefulWidget {
   const ShuttleStatusCard({super.key});
@@ -20,7 +21,7 @@ class _ShuttleStatusCardState extends State<ShuttleStatusCard> {
   @override
   void initState() {
     super.initState();
-    _departuresFuture = _service.loadFromAsset();
+    _departuresFuture = _service.load();
     _timer = Timer.periodic(const Duration(seconds: 30), (_) {
       if (mounted) setState(() {});
     });
@@ -224,6 +225,8 @@ class _ShuttleRouteSheet extends StatelessWidget {
       departure,
       todays,
     );
+    final Future<List<String>?> stopsFuture = AppConfigService.loadShuttleStops();
+    const List<String> fallbackStops = <String>["학교", "가좌역", "홍대역", "학교"];
     return SafeArea(
       child: Container(
         margin: const EdgeInsets.all(16),
@@ -273,9 +276,19 @@ class _ShuttleRouteSheet extends StatelessWidget {
             if (status.kind == ShuttleStatusKind.enRoute &&
                 departure != null &&
                 departure.arriveStop != null)
-              _ShuttleRouteMap(
-                status: status,
-                trip: trip,
+              FutureBuilder<List<String>?>(
+                future: stopsFuture,
+                builder: (context, snapshot) {
+                  final List<String> stops = (snapshot.data ?? fallbackStops)
+                      .map((s) => s.trim())
+                      .where((s) => s.isNotEmpty)
+                      .toList();
+                  return _ShuttleRouteMap(
+                    status: status,
+                    trip: trip,
+                    stops: stops.isEmpty ? fallbackStops : stops,
+                  );
+                },
               )
             else
               const _ShuttleWaitingNotice(),
@@ -343,9 +356,9 @@ class _ShuttleRouteMap extends StatelessWidget {
   const _ShuttleRouteMap({
     required this.status,
     required this.trip,
+    required this.stops,
   });
 
-  static const List<String> _stops = ["학교", "가좌역", "홍대역", "학교"];
   static const double _routeTop = 14;
   static const double _stopGap = 64;
   static const double _markerLeft = 18;
@@ -356,6 +369,7 @@ class _ShuttleRouteMap extends StatelessWidget {
 
   final ShuttleStatus status;
   final _ShuttleTripTimes? trip;
+  final List<String> stops;
 
   @override
   Widget build(BuildContext context) {
@@ -385,7 +399,7 @@ class _ShuttleRouteMap extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         SizedBox(
-          height: _routeTop + _stopGap * (_stops.length - 1) + _stopRowExtent,
+          height: _routeTop + _stopGap * (stops.length - 1) + _stopRowExtent,
           child: Stack(
             children: [
               Positioned(
@@ -400,12 +414,12 @@ class _ShuttleRouteMap extends StatelessWidget {
                   ),
                 ),
               ),
-              for (int i = 0; i < _stops.length; i++)
+              for (int i = 0; i < stops.length; i++)
                 _RouteStop(
                   top: _routeTop + (i * _stopGap),
                   left: _markerLeft,
-                  label: _stops[i],
-                  timeLabel: trip == null ? null : trip!.timeLabelForStop(_stops[i], index: i),
+                  label: stops[i],
+                  timeLabel: trip?.timeLabelForStop(stops[i], index: i),
                   active: i == segmentIndex || i == segmentIndex + 1,
                 ),
               Positioned(
@@ -443,9 +457,9 @@ class _ShuttleRouteMap extends StatelessWidget {
   }
 
   int _segmentIndex(ShuttleDeparture departure) {
-    for (int i = 0; i < _stops.length - 1; i++) {
-      if (_stops[i] == departure.stopName &&
-          _stops[i + 1] == departure.arriveStop) {
+    for (int i = 0; i < stops.length - 1; i++) {
+      if (stops[i] == departure.stopName &&
+          stops[i + 1] == departure.arriveStop) {
         return i;
       }
     }

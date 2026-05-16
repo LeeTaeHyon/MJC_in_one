@@ -3,26 +3,33 @@ import "dart:ui" show ImageFilter;
 import "package:firebase_auth/firebase_auth.dart";
 import "package:flutter/foundation.dart" show kIsWeb;
 import "package:flutter/material.dart";
-import "package:mio_notice/mpu_profile_prefs.dart";
-import "package:mio_notice/screens/common_webview_screen.dart";
-import "package:mio_notice/screens/login_screen.dart";
-import "package:mio_notice/screens/settings_screen.dart";
-import "package:mio_notice/screens/mpu_profile_import_screen.dart";
-import "package:mio_notice/services/auth_service.dart";
-import "package:mio_notice/services/notice_manager.dart";
-import "package:mio_notice/services/user_data_repository.dart";
-import "package:mio_notice/theme/app_colors.dart";
-import "package:mio_notice/theme/app_theme.dart";
-import "package:mio_notice/widgets/profile_form.dart";
-import "package:mio_notice/widgets/scroll_to_top_scope.dart";
+import "package:mjc_in_one/mpu_profile_prefs.dart";
+import "package:mjc_in_one/screens/common_webview_screen.dart";
+import "package:mjc_in_one/screens/login_screen.dart";
+import "package:mjc_in_one/screens/settings_screen.dart";
+import "package:mjc_in_one/screens/mpu_profile_import_screen.dart";
+import "package:mjc_in_one/services/auth_service.dart";
+import "package:mjc_in_one/services/notice_manager.dart";
+import "package:mjc_in_one/services/user_data_repository.dart";
+import "package:mjc_in_one/theme/app_colors.dart";
+import "package:mjc_in_one/theme/app_theme.dart";
+import "package:mjc_in_one/widgets/profile_form.dart";
+import "package:mjc_in_one/widgets/scroll_to_top_scope.dart";
 import "package:shared_preferences/shared_preferences.dart";
 import "package:url_launcher/url_launcher.dart";
 
 class MyPageScreen extends StatefulWidget {
-  const MyPageScreen({super.key, this.embedded = false});
+  const MyPageScreen({
+    super.key,
+    this.embedded = false,
+    this.initialBookmarkTabIndex = 0,
+  });
 
   /// `true`이면 [MainNavigationScreen] 하단 탭으로 들어온 경우입니다.
   final bool embedded;
+
+  /// «고정·즐겨찾기 공지» 영역 탭: 0 고정 공지, 1 즐겨찾기.
+  final int initialBookmarkTabIndex;
 
   @override
   State<MyPageScreen> createState() => _MyPageScreenState();
@@ -460,8 +467,11 @@ class _MyPageScreenState extends State<MyPageScreen> {
             ? colorScheme.onSurface.withValues(alpha: 0.45)
             : mjcComponents.myPageBookmarkTabUnselected;
 
+        final int bookmarkTabIndex =
+            widget.initialBookmarkTabIndex.clamp(0, 1);
         return DefaultTabController(
           length: 2,
+          initialIndex: bookmarkTabIndex,
           child: Scaffold(
             backgroundColor: pageBg,
             appBar: AppBar(

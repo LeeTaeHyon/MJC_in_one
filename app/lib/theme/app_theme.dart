@@ -117,7 +117,7 @@ const Color _kSwitchOutlineOffDark = Color(0xFF6A717D);
 const Color _kSurfaceContainerHighDark = Color(0xFF303035);
 const Color _kOnSurfaceDark = Color(0xE6FFFFFF);
 const Color _kErrorDark = Color(0xFFFF6B7A);
-const Color _kCardDarkAlt = Color(0xFF101826);
+const Color _kCardDarkAlt = Color(0xFF16181C);
 @immutable
 class MjcTextTokens extends ThemeExtension<MjcTextTokens> {
   const MjcTextTokens({
@@ -475,7 +475,7 @@ ThemeData buildMjcDarkTheme() {
   const textTokens = MjcTextTokens(
     appBarTitle: TextStyle(
       fontFamily: kPretendardFontFamily,
-      color: Colors.white,
+      color: Color(0xFFE0E0E0),
       fontSize: 20,
       fontWeight: FontWeight.w600,
     ),
@@ -583,7 +583,7 @@ ThemeData buildMjcDarkTheme() {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
     ),
     dividerTheme: DividerThemeData(
-      color: Colors.white.withValues(alpha: 0.08),
+      color: Colors.white.withValues(alpha: 0.05),
       thickness: 1,
       space: 1,
     ),

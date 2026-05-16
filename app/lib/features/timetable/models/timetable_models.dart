@@ -1,5 +1,7 @@
 import "dart:convert";
 
+import "package:mjc_in_one/features/timetable/utils/timetable_slot_merge.dart";
+
 /// One meeting period on the weekly grid (Mon–Fri typical).
 class TimetableSlot {
   const TimetableSlot({
@@ -74,11 +76,25 @@ class ParsedCourseOffering {
   final List<TimetableSlot> slots;
   final String rawTimetableText;
 
+  /// Official timetable cell text for «원격시험 배정시간» — remote class with
+  /// only a face-to-face exam block on the sheet; show name below grid, not in cells.
+  static const String remoteExamScheduleMarker = "원격시험 배정시간";
+
+  bool get isRemoteExamFaceToFaceOnly =>
+      rawTimetableText.contains(remoteExamScheduleMarker);
+
   /// Stable key for color (same course + section shares color).
   String get colorKey => "$courseName|$section";
 
-  String get scheduleSummary =>
-      slots.map((s) => "${_weekdayLabel(s.weekday)} ${_fmtHm(s.startMinute)}-${_fmtHm(s.endMinute)} (${s.room})").join(" ");
+  String get scheduleSummary {
+    final List<TimetableSlot> merged = TimetableSlotMerge.mergeAdjacent(slots);
+    return merged
+        .map(
+          (TimetableSlot s) =>
+              "${_weekdayLabel(s.weekday)} ${_fmtHm(s.startMinute)}-${_fmtHm(s.endMinute)} (${s.room})",
+        )
+        .join(" ");
+  }
 
   static String _weekdayLabel(int wd) {
     return switch (wd) {

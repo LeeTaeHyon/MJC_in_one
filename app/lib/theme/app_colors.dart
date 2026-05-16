@@ -15,17 +15,17 @@ abstract final class AppColors {
   static const Color quickCardText = Color(0xFF343A40);
 
   static const Color scaffoldMuted = Color(0xFFF5F5F5);
-  static const Color scaffoldMutedDark = Color(0xFF0F0F10);
-  static const Color cardDark = Color(0xFF1C1C1E);
-  static const Color surfaceContainerDark = Color(0xFF26262A);
+  static const Color scaffoldMutedDark = Color(0xFF0A0A0A);
+  static const Color cardDark = Color(0xFF16181C);
+  static const Color surfaceContainerDark = Color(0xFF20242B);
   static const Color cardBorderDark = Color(0xFF2A2A2D);
   static const Color chipBackground = Color(0xFFE3F2FD);
   static const Color toggleSelected = Color(0xFFE3F2FD);
   static const Color mutedForeground = Color(0xFF717182);
-  static const Color mutedForegroundDark = Color(0xFFB5B6BC);
+  static const Color mutedForegroundDark = Color(0xFF9CA3AF);
 
   /// 다크 모드 스위치 ON — 칩·세그먼트 선택 등 밝은 파란 톤과 맞춤 (`primary`는 너무 어두움).
-  static const Color switchActiveDark = Color(0xFF82B1FF);
+  static const Color switchActiveDark = Color(0xFF5B8CFF);
 
   static Color iconBackdrop(Color base) => base.withValues(alpha: 0.082);
 

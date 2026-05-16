@@ -3,10 +3,10 @@ import "dart:async";
 import "package:flutter/material.dart";
 import "package:geolocator/geolocator.dart";
 import "package:latlong2/latlong.dart";
-import "package:mio_notice/services/campus_map_data.dart";
-import "package:mio_notice/services/campus_room_parser.dart";
-import "package:mio_notice/theme/app_colors.dart";
-import "package:mio_notice/widgets/campus_map_view.dart";
+import "package:mjc_in_one/services/campus_map_data.dart";
+import "package:mjc_in_one/services/campus_room_parser.dart";
+import "package:mjc_in_one/theme/app_colors.dart";
+import "package:mjc_in_one/widgets/campus_map_view.dart";
 
 class CampusMapScreen extends StatefulWidget {
   const CampusMapScreen({super.key});

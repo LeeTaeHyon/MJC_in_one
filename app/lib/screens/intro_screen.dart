@@ -1,8 +1,8 @@
 import "package:flutter/material.dart";
 import "package:lottie/lottie.dart";
-import "package:mio_notice/screens/main_navigation_screen.dart";
-import "package:mio_notice/services/firebase_app_startup.dart";
-import "package:mio_notice/theme/app_colors.dart";
+import "package:mjc_in_one/screens/main_navigation_screen.dart";
+import "package:mjc_in_one/services/firebase_app_startup.dart";
+import "package:mjc_in_one/theme/app_colors.dart";
 
 class IntroScreen extends StatefulWidget {
   const IntroScreen({super.key});

@@ -1,7 +1,7 @@
 import "package:flutter/material.dart";
-import "package:mio_notice/screens/ctl_screen.dart";
-import "package:mio_notice/screens/main_website_screen.dart";
-import "package:mio_notice/screens/mpu_screen.dart";
+import "package:mjc_in_one/screens/ctl_screen.dart";
+import "package:mjc_in_one/screens/main_website_screen.dart";
+import "package:mjc_in_one/screens/mpu_screen.dart";
 
 enum NoticesSubTab {
   main,

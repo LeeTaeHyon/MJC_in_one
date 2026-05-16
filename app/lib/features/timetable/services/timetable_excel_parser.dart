@@ -1,6 +1,6 @@
 import "package:excel/excel.dart" as xls;
-import "package:mio_notice/features/timetable/models/timetable_models.dart";
-import "package:mio_notice/features/timetable/services/timetable_slot_parser.dart";
+import "package:mjc_in_one/features/timetable/models/timetable_models.dart";
+import "package:mjc_in_one/features/timetable/services/timetable_slot_parser.dart";
 
 /// Reads MJC-style «전체 강의시간표» xlsx: header row with [과목명] and [시간표].
 abstract final class TimetableExcelParser {

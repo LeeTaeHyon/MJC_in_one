@@ -1,5 +1,5 @@
 import "package:flutter_test/flutter_test.dart";
-import "package:mio_notice/services/campus_map_data.dart";
+import "package:mjc_in_one/services/campus_map_data.dart";
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

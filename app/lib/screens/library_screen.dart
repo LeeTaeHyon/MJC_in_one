@@ -1,5 +1,5 @@
 import "package:flutter/material.dart";
-import "package:mio_notice/screens/common_webview_screen.dart";
+import "package:mjc_in_one/screens/common_webview_screen.dart";
 
 /// 명지전문대학 도서관 모바일 웹사이트를
 /// 앱 내의 웹뷰(WebView) 형태로 띄워주는 화면입니다.

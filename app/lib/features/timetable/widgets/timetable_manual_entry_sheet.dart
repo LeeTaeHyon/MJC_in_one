@@ -1,8 +1,8 @@
 import "package:flutter/material.dart";
-import "package:mio_notice/features/timetable/models/timetable_models.dart";
-import "package:mio_notice/features/timetable/services/timetable_slot_parser.dart";
-import "package:mio_notice/theme/app_colors.dart";
-import "package:mio_notice/theme/app_theme.dart";
+import "package:mjc_in_one/features/timetable/models/timetable_models.dart";
+import "package:mjc_in_one/features/timetable/services/timetable_slot_parser.dart";
+import "package:mjc_in_one/theme/app_colors.dart";
+import "package:mjc_in_one/theme/app_theme.dart";
 
 /// Minimal form: one weekly slot per «직접 추가» offering.
 Future<ParsedCourseOffering?> showTimetableManualEntrySheet(

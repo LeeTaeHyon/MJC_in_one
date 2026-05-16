@@ -1,7 +1,7 @@
 import "package:firebase_core/firebase_core.dart";
 import "package:firebase_messaging/firebase_messaging.dart";
 import "package:flutter/foundation.dart";
-import "package:mio_notice/firebase_options.dart";
+import "package:mjc_in_one/firebase_options.dart";
 
 Future<void>? _firebaseStartupFuture;
 

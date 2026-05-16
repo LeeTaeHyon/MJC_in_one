@@ -2,8 +2,8 @@ import "dart:io" show Platform;
 
 import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
-import "package:mio_notice/services/developer_support_service.dart";
-import "package:mio_notice/utils/snack_bar_utils.dart";
+import "package:mjc_in_one/services/developer_support_service.dart";
+import "package:mjc_in_one/utils/snack_bar_utils.dart";
 import "package:shared_preferences/shared_preferences.dart";
 
 /// 사용자가 개발자에게 보내는 문의 유형.

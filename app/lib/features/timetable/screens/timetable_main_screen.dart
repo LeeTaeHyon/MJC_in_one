@@ -1,15 +1,13 @@
-import "dart:typed_data";
-
-import "package:file_picker/file_picker.dart";
 import "package:flutter/material.dart";
-import "package:mio_notice/features/timetable/models/timetable_models.dart";
-import "package:mio_notice/features/timetable/screens/timetable_add_courses_screen.dart";
-import "package:mio_notice/features/timetable/services/timetable_excel_parser.dart";
-import "package:mio_notice/features/timetable/services/timetable_storage_service.dart";
-import "package:mio_notice/features/timetable/widgets/timetable_manual_entry_sheet.dart";
-import "package:mio_notice/features/timetable/widgets/timetable_week_grid.dart";
-import "package:mio_notice/theme/app_colors.dart";
-import "package:mio_notice/theme/app_theme.dart";
+import "package:mjc_in_one/features/timetable/models/timetable_models.dart";
+import "package:mjc_in_one/features/timetable/screens/timetable_add_courses_screen.dart";
+import "package:mjc_in_one/features/timetable/services/timetable_official_service.dart";
+import "package:mjc_in_one/features/timetable/services/timetable_storage_service.dart";
+import "package:mjc_in_one/features/timetable/widgets/timetable_manual_entry_sheet.dart";
+import "package:mjc_in_one/features/timetable/widgets/timetable_offering_schedule_text_block.dart";
+import "package:mjc_in_one/features/timetable/widgets/timetable_week_grid.dart";
+import "package:mjc_in_one/theme/app_colors.dart";
+import "package:mjc_in_one/theme/app_theme.dart";
 
 /// Saved weekly timetable + import / OCR placeholder.
 class TimetableMainScreen extends StatefulWidget {
@@ -22,6 +20,8 @@ class TimetableMainScreen extends StatefulWidget {
 class _TimetableMainScreenState extends State<TimetableMainScreen> {
   List<ParsedCourseOffering> _enrolled = const <ParsedCourseOffering>[];
   bool _loading = true;
+  final TimetableOfficialCatalogService _officialService =
+      TimetableOfficialCatalogService();
 
   @override
   void initState() {
@@ -39,8 +39,34 @@ class _TimetableMainScreenState extends State<TimetableMainScreen> {
     });
   }
 
-  List<TimetableSlot> get _allSlots =>
-      _enrolled.expand((ParsedCourseOffering o) => o.slots).toList();
+  Future<void> _saveEnrolledAndReload(List<ParsedCourseOffering> next) async {
+    final int removedDupes = await TimetableStorageService.saveEnrolled(next);
+    if (!mounted) return;
+    if (removedDupes > 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("이미 시간표에 있는 강의는 중복으로 추가되지 않습니다."),
+        ),
+      );
+    }
+    await _reload();
+  }
+
+  List<TimetableSlot> get _gridSlots => _enrolled
+      .where((ParsedCourseOffering o) => !o.isRemoteExamFaceToFaceOnly)
+      .expand((ParsedCourseOffering o) => o.slots)
+      .toList();
+
+  List<ParsedCourseOffering> get _remoteExamOfferings {
+    final List<ParsedCourseOffering> list = _enrolled
+        .where((ParsedCourseOffering o) => o.isRemoteExamFaceToFaceOnly)
+        .toList();
+    list.sort(
+      (ParsedCourseOffering a, ParsedCourseOffering b) =>
+          a.courseName.compareTo(b.courseName),
+    );
+    return list;
+  }
 
   ParsedCourseOffering? _offeringForSlot(TimetableSlot s) {
     for (final ParsedCourseOffering o in _enrolled) {
@@ -49,34 +75,12 @@ class _TimetableMainScreenState extends State<TimetableMainScreen> {
     return null;
   }
 
-  Future<void> _pickExcelAndEdit({bool mergeExisting = false}) async {
-    final FilePickerResult? result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: const <String>["xlsx"],
-      withData: true,
-    );
+  Future<void> _openOfficialCatalog() async {
+    final List<ParsedCourseOffering> catalog = await _officialService.load();
     if (!mounted) return;
-    if (result == null || result.files.isEmpty) return;
-    final Uint8List? bytes = result.files.first.bytes;
-    if (bytes == null) {
+    if (catalog.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("파일 데이터를 읽을 수 없습니다.")),
-      );
-      return;
-    }
-    List<ParsedCourseOffering> catalog;
-    try {
-      catalog = TimetableExcelParser.parseBytes(bytes);
-    } on TimetableExcelParseException catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message)),
-      );
-      return;
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("엑셀을 읽는 중 오류가 났습니다: $e")),
+        const SnackBar(content: Text("공식 시간표 데이터가 없습니다.")),
       );
       return;
     }
@@ -90,13 +94,12 @@ class _TimetableMainScreenState extends State<TimetableMainScreen> {
       }
     }
 
-    if (!mounted) return;
     final List<ParsedCourseOffering>? picked =
         await Navigator.of(context).push<List<ParsedCourseOffering>>(
       MaterialPageRoute<List<ParsedCourseOffering>>(
         builder: (_) => TimetableAddCoursesScreen(
           catalog: catalog,
-          initialSelectedOfferingIds: mergeExisting ? initialSelected : <String>{},
+          initialSelectedOfferingIds: initialSelected,
         ),
       ),
     );
@@ -109,8 +112,7 @@ class _TimetableMainScreenState extends State<TimetableMainScreen> {
       ...kept,
       ...picked,
     ];
-    await TimetableStorageService.saveEnrolled(next);
-    await _reload();
+    await _saveEnrolledAndReload(next);
   }
 
   Future<void> _openManualFromMain() async {
@@ -121,13 +123,16 @@ class _TimetableMainScreenState extends State<TimetableMainScreen> {
       ..._enrolled,
       o,
     ];
-    await TimetableStorageService.saveEnrolled(next);
-    await _reload();
+    await _saveEnrolledAndReload(next);
   }
 
   void _onSlotTap(TimetableSlot slot) {
     final ParsedCourseOffering? o = _offeringForSlot(slot);
     if (o == null) return;
+    _showOfferingDetailSheet(o);
+  }
+
+  void _showOfferingDetailSheet(ParsedCourseOffering o) {
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
@@ -166,15 +171,7 @@ class _TimetableMainScreenState extends State<TimetableMainScreen> {
                   ),
                 ],
                 const SizedBox(height: 10),
-                Text(
-                  o.scheduleSummary,
-                  style: TextStyle(
-                    fontFamily: kPretendardFontFamily,
-                    fontSize: 13,
-                    height: 1.4,
-                    color: Theme.of(ctx).colorScheme.onSurfaceVariant,
-                  ),
-                ),
+                TimetableOfferingScheduleTextBlock(offering: o),
                 const SizedBox(height: 16),
                 ListTile(
                   leading: const Icon(Icons.delete_outline_rounded),
@@ -184,8 +181,7 @@ class _TimetableMainScreenState extends State<TimetableMainScreen> {
                     final List<ParsedCourseOffering> next = _enrolled
                         .where((ParsedCourseOffering x) => x.offeringId != o.offeringId)
                         .toList();
-                    await TimetableStorageService.saveEnrolled(next);
-                    await _reload();
+                    await _saveEnrolledAndReload(next);
                   },
                 ),
               ],
@@ -193,6 +189,65 @@ class _TimetableMainScreenState extends State<TimetableMainScreen> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildRemoteExamCourseList(BuildContext context) {
+    final List<ParsedCourseOffering> items = _remoteExamOfferings;
+    if (items.isEmpty) return const SizedBox.shrink();
+
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final MjcSurfaceTokens tokens =
+        Theme.of(context).extension<MjcSurfaceTokens>()!;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        const SizedBox(height: 16),
+        Material(
+          color: scheme.surface,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(
+              color: scheme.outline.withValues(alpha: 0.35),
+            ),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              for (int i = 0; i < items.length; i++) ...<Widget>[
+                if (i > 0)
+                  Divider(
+                    height: 1,
+                    thickness: 1,
+                    color: tokens.hairline,
+                  ),
+                InkWell(
+                  onTap: () => _showOfferingDetailSheet(items[i]),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
+                    child: Text(
+                      items[i].courseName,
+                      style: TextStyle(
+                        fontFamily: kPretendardFontFamily,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: scheme.onSurface,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -206,6 +261,10 @@ class _TimetableMainScreenState extends State<TimetableMainScreen> {
         actions: <Widget>[
           PopupMenuButton<String>(
             onSelected: (String value) {
+              if (value == "official") {
+                _openOfficialCatalog();
+                return;
+              }
               if (value == "ocr") {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
@@ -215,6 +274,10 @@ class _TimetableMainScreenState extends State<TimetableMainScreen> {
               }
             },
             itemBuilder: (BuildContext context) => const <PopupMenuEntry<String>>[
+              PopupMenuItem<String>(
+                value: "official",
+                child: Text("공식 시간표 불러오기"),
+              ),
               PopupMenuItem<String>(
                 value: "ocr",
                 child: Text("스크린샷으로 불러오기"),
@@ -257,9 +320,12 @@ class _TimetableMainScreenState extends State<TimetableMainScreen> {
                         ),
                         const SizedBox(height: 12),
                         TimetableWeekGrid(
-                          slots: _allSlots,
+                          slots: _gridSlots,
                           onSlotTap: _onSlotTap,
+                          startHour: 9,
+                          endHour: 18,
                         ),
+                        _buildRemoteExamCourseList(context),
                       ],
                     ),
                   ),
@@ -267,9 +333,9 @@ class _TimetableMainScreenState extends State<TimetableMainScreen> {
       floatingActionButton: _loading
           ? null
           : FloatingActionButton.extended(
-              onPressed: () => _pickExcelAndEdit(mergeExisting: true),
-              icon: const Icon(Icons.add_rounded),
-              label: const Text("강의 추가"),
+              onPressed: _openOfficialCatalog,
+              icon: const Icon(Icons.cloud_download_outlined),
+              label: const Text("시간표 추가"),
               backgroundColor: AppColors.primary,
               foregroundColor: AppColors.timetableSlotOnColor,
             ),
@@ -298,7 +364,7 @@ class _TimetableMainScreenState extends State<TimetableMainScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              "학교 공지의 전체 강의시간표 엑셀(xlsx)을 불러와\n원하는 분반을 선택해 주세요.",
+              "공식 시간표(Firestore)에서 강의를 불러와\n원하는 분반을 선택해 주세요.",
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontFamily: kPretendardFontFamily,
@@ -309,9 +375,9 @@ class _TimetableMainScreenState extends State<TimetableMainScreen> {
             ),
             const SizedBox(height: 24),
             FilledButton.icon(
-              onPressed: () => _pickExcelAndEdit(mergeExisting: false),
-              icon: const Icon(Icons.upload_file_rounded),
-              label: const Text("엑셀에서 시간표 가져오기"),
+              onPressed: _openOfficialCatalog,
+              icon: const Icon(Icons.cloud_download_outlined),
+              label: const Text("공식 시간표 불러오기"),
               style: FilledButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 foregroundColor: AppColors.timetableSlotOnColor,

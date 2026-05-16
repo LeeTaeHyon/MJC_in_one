@@ -2,9 +2,9 @@ import "dart:async";
 
 import "package:firebase_auth/firebase_auth.dart";
 import "package:flutter/material.dart";
-import "package:mio_notice/screens/main_navigation_screen.dart";
-import "package:mio_notice/services/auth_service.dart";
-import "package:mio_notice/theme/app_colors.dart";
+import "package:mjc_in_one/screens/main_navigation_screen.dart";
+import "package:mjc_in_one/services/auth_service.dart";
+import "package:mjc_in_one/theme/app_colors.dart";
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});

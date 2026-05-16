@@ -1,4 +1,4 @@
-import "package:mio_notice/features/timetable/models/timetable_models.dart";
+import "package:mjc_in_one/features/timetable/models/timetable_models.dart";
 
 /// Today’s next class that has not yet started (local weekday).
 abstract final class TimetableNextLecture {
@@ -11,6 +11,7 @@ abstract final class TimetableNextLecture {
     TimetableSlot? best;
     int bestStart = 1 << 30;
     for (final ParsedCourseOffering o in enrolled) {
+      if (o.isRemoteExamFaceToFaceOnly) continue;
       for (final TimetableSlot s in o.slots) {
         if (s.weekday != wd) continue;
         if (s.startMinute <= nowMin) continue;

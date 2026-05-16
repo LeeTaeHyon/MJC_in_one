@@ -1,8 +1,8 @@
 import "package:flutter/material.dart";
-import "package:mio_notice/models/notice_model.dart";
-import "package:mio_notice/theme/app_colors.dart";
-import "package:mio_notice/utils/snack_bar_utils.dart";
-import "package:mio_notice/widgets/new_notice_badge.dart";
+import "package:mjc_in_one/models/notice_model.dart";
+import "package:mjc_in_one/theme/app_colors.dart";
+import "package:mjc_in_one/utils/snack_bar_utils.dart";
+import "package:mjc_in_one/widgets/new_notice_badge.dart";
 import "package:shared_preferences/shared_preferences.dart";
 import "package:url_launcher/url_launcher.dart";
 

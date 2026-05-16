@@ -1,9 +1,9 @@
 import "package:flutter/foundation.dart" show kIsWeb;
 import "package:flutter/material.dart";
 import "package:flutter_animate/flutter_animate.dart";
-import "package:mio_notice/screens/common_webview_screen.dart";
-import "package:mio_notice/theme/app_theme.dart";
-import "package:mio_notice/widgets/notice_report_sheet.dart";
+import "package:mjc_in_one/screens/common_webview_screen.dart";
+import "package:mjc_in_one/theme/app_theme.dart";
+import "package:mjc_in_one/widgets/notice_report_sheet.dart";
 import "package:share_plus/share_plus.dart";
 import "package:url_launcher/url_launcher.dart";
 

@@ -1,5 +1,5 @@
 import "package:flutter/material.dart";
-import "package:mio_notice/perf_flags.dart";
+import "package:mjc_in_one/perf_flags.dart";
 /// 메인 공지 리스트(`MainWebsiteScreen` 카드)와 동일한 톤의 검색 결과 카드입니다.
 /// 핀/즐겨찾기 버튼은 검색 맥락에서 생략합니다.
 class NoticeSearchResultCard extends StatelessWidget {

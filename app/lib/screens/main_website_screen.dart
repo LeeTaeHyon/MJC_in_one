@@ -4,20 +4,22 @@ import "dart:ui" show lerpDouble;
 import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
 import "package:flutter_animate/flutter_animate.dart";
-import "package:mio_notice/main_website_prefs.dart";
-import "package:mio_notice/screens/common_webview_screen.dart";
-import "package:mio_notice/screens/notice_detail_screen.dart";
-import "package:mio_notice/services/notice_filter.dart";
-import "package:mio_notice/services/notice_manager.dart";
-import "package:mio_notice/services/user_data_repository.dart";
-import "package:mio_notice/theme/app_colors.dart";
-import "package:mio_notice/theme/app_theme.dart";
-import "package:mio_notice/perf_flags.dart";
-import "package:mio_notice/widgets/nested_scroll_refresh_indicator.dart";
-import "package:mio_notice/widgets/pin_favorite_buttons.dart";
-import "package:mio_notice/widgets/global_notice_search_sheet.dart";
-import "package:mio_notice/widgets/notice_filter_sheet.dart";
-import "package:mio_notice/widgets/scroll_to_top_scope.dart";
+import "package:mjc_in_one/main_website_prefs.dart";
+import "package:mjc_in_one/screens/common_webview_screen.dart";
+import "package:mjc_in_one/screens/notice_detail_screen.dart";
+import "package:mjc_in_one/services/app_config_service.dart";
+import "package:mjc_in_one/services/notice_filter.dart";
+import "package:mjc_in_one/services/notice_manager.dart";
+import "package:mjc_in_one/services/user_data_repository.dart";
+import "package:mjc_in_one/theme/app_colors.dart";
+import "package:mjc_in_one/theme/app_theme.dart";
+import "package:mjc_in_one/utils/bookmark_added_feedback.dart";
+import "package:mjc_in_one/perf_flags.dart";
+import "package:mjc_in_one/widgets/nested_scroll_refresh_indicator.dart";
+import "package:mjc_in_one/widgets/pin_favorite_buttons.dart";
+import "package:mjc_in_one/widgets/global_notice_search_sheet.dart";
+import "package:mjc_in_one/widgets/notice_filter_sheet.dart";
+import "package:mjc_in_one/widgets/scroll_to_top_scope.dart";
 import "package:shared_preferences/shared_preferences.dart";
 import "package:url_launcher/url_launcher.dart";
 
@@ -660,11 +662,13 @@ class _UnifiedNoticeList extends StatefulWidget {
 }
 
 class _UnifiedNoticeListState extends State<_UnifiedNoticeList> {
-  static const List<_BoardSpec> _boards = <_BoardSpec>[
+  static const List<_BoardSpec> _boardsFallback = <_BoardSpec>[
     _BoardSpec(boardId: "main_notice", label: "공지사항"),
     _BoardSpec(boardId: "main_academic", label: "학사공지"),
     _BoardSpec(boardId: "main_scholarship", label: "장학공지"),
   ];
+  List<_BoardSpec> _boards = List<_BoardSpec>.from(_boardsFallback);
+  List<String> _aiTagChips = List<String>.from(kMainNoticeAiTagFilterChips);
 
   final _MainWebsiteListEntrance _entrance = _MainWebsiteListEntrance();
 
@@ -692,9 +696,43 @@ class _UnifiedNoticeListState extends State<_UnifiedNoticeList> {
     super.initState();
     widget.filterRevision.addListener(_onFilterRevision);
     _loadNoticeFilter();
+    _loadNoticesUiConfig();
     _loadReadHistory();
     _loadPinsAndFavorites();
     _noticeFuture = _loadAllNotices();
+  }
+
+  Future<void> _loadNoticesUiConfig() async {
+    try {
+      final NoticesUiConfig? cfg = await AppConfigService.loadNoticesUi();
+      if (!mounted || cfg == null) return;
+
+      final List<_BoardSpec> boards = cfg.boards
+          .map((m) => _BoardSpec(
+                boardId: (m["boardId"] ?? "").toString().trim(),
+                label: (m["label"] ?? "").toString().trim(),
+              ))
+          .where((b) => b.boardId.isNotEmpty && b.label.isNotEmpty)
+          .toList();
+
+      final List<String> chips = cfg.aiTagChips.isEmpty
+          ? _aiTagChips
+          : (cfg.aiTagChips.contains("전체")
+              ? cfg.aiTagChips
+              : <String>["전체", ...cfg.aiTagChips]);
+
+      setState(() {
+        if (boards.isNotEmpty) _boards = boards;
+        if (chips.isNotEmpty) {
+          _aiTagChips = chips;
+          if (!_aiTagChips.contains(_aiTagChipSelection)) {
+            _aiTagChipSelection = "전체";
+          }
+        }
+      });
+    } catch (_) {
+      // Keep fallback.
+    }
   }
 
   @override
@@ -814,6 +852,7 @@ class _UnifiedNoticeListState extends State<_UnifiedNoticeList> {
   Future<void> _togglePinned(String boardId, String key) async {
     final prefs = await SharedPreferences.getInstance();
     final Set<String> cur = _pinnedKeysByBoard[boardId] ?? <String>{};
+    final bool adding = !cur.contains(key);
     final Set<String> next = {...cur};
     if (next.contains(key)) {
       next.remove(key);
@@ -829,11 +868,18 @@ class _UnifiedNoticeListState extends State<_UnifiedNoticeList> {
       pinned: true,
       values: next.toList(),
     );
+    if (!mounted) return;
+    if (adding) {
+      showBookmarkAddedSnackBar(context, openPinnedTab: true);
+    } else {
+      showBookmarkRemovedSnackBar(context, wasPinned: true);
+    }
   }
 
   Future<void> _toggleFavorite(String boardId, String key) async {
     final prefs = await SharedPreferences.getInstance();
     final Set<String> cur = _favoriteKeysByBoard[boardId] ?? <String>{};
+    final bool adding = !cur.contains(key);
     final Set<String> next = {...cur};
     if (next.contains(key)) {
       next.remove(key);
@@ -849,6 +895,12 @@ class _UnifiedNoticeListState extends State<_UnifiedNoticeList> {
       pinned: false,
       values: next.toList(),
     );
+    if (!mounted) return;
+    if (adding) {
+      showBookmarkAddedSnackBar(context, openPinnedTab: false);
+    } else {
+      showBookmarkRemovedSnackBar(context, wasPinned: false);
+    }
   }
 
   Future<void> _markAsRead(String boardId, String id) async {
@@ -903,10 +955,10 @@ class _UnifiedNoticeListState extends State<_UnifiedNoticeList> {
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            itemCount: kMainNoticeAiTagFilterChips.length,
+            itemCount: _aiTagChips.length,
             separatorBuilder: (_, __) => const SizedBox(width: 8),
             itemBuilder: (BuildContext context, int index) {
-              final String label = kMainNoticeAiTagFilterChips[index];
+              final String label = _aiTagChips[index];
               final bool selected = _aiTagChipSelection == label;
               final Color bg = selected
                   ? (isDark ? scheme.primary : const Color(0xFF0F0F0F))
@@ -1407,6 +1459,7 @@ class _NoticeListTabState extends State<_NoticeListTab> {
   List<String> _noticeSharedKeywords = [];
   /// `main_notice` 탭만: 유튜브 스타일 주제 칩 필터.
   String _mainNoticeAiTagChipSelection = "전체";
+  List<String> _mainNoticeAiTagChips = List<String>.from(kMainNoticeAiTagFilterChips);
   late Future<List<Map<String, dynamic>>> _noticeFuture;
 
   bool _allowRefreshNotification(ScrollNotification n) {
@@ -1424,7 +1477,28 @@ class _NoticeListTabState extends State<_NoticeListTab> {
     _loadReadHistory();
     _loadPinsAndFavorites();
     _loadNoticeFilter();
+    _loadMainNoticeChipsConfig();
     _noticeFuture = NoticeManager().getNotices(boardId: widget.boardId);
+  }
+
+  Future<void> _loadMainNoticeChipsConfig() async {
+    if (widget.boardId != "main_notice") return;
+    try {
+      final NoticesUiConfig? cfg = await AppConfigService.loadNoticesUi();
+      if (!mounted || cfg == null) return;
+      if (cfg.aiTagChips.isEmpty) return;
+      final List<String> chips = cfg.aiTagChips.contains("전체")
+          ? cfg.aiTagChips
+          : <String>["전체", ...cfg.aiTagChips];
+      setState(() {
+        _mainNoticeAiTagChips = chips;
+        if (!_mainNoticeAiTagChips.contains(_mainNoticeAiTagChipSelection)) {
+          _mainNoticeAiTagChipSelection = "전체";
+        }
+      });
+    } catch (_) {
+      // Keep fallback.
+    }
   }
 
   @override
@@ -1510,6 +1584,7 @@ class _NoticeListTabState extends State<_NoticeListTab> {
 
   Future<void> _togglePinned(String key) async {
     final prefs = await SharedPreferences.getInstance();
+    final bool adding = !_pinnedKeys.contains(key);
     final Set<String> next = {..._pinnedKeys};
     if (next.contains(key)) {
       next.remove(key);
@@ -1524,10 +1599,17 @@ class _NoticeListTabState extends State<_NoticeListTab> {
       pinned: true,
       values: next.toList(),
     );
+    if (!mounted) return;
+    if (adding) {
+      showBookmarkAddedSnackBar(context, openPinnedTab: true);
+    } else {
+      showBookmarkRemovedSnackBar(context, wasPinned: true);
+    }
   }
 
   Future<void> _toggleFavorite(String key) async {
     final prefs = await SharedPreferences.getInstance();
+    final bool adding = !_favoriteKeys.contains(key);
     final Set<String> next = {..._favoriteKeys};
     if (next.contains(key)) {
       next.remove(key);
@@ -1542,6 +1624,12 @@ class _NoticeListTabState extends State<_NoticeListTab> {
       pinned: false,
       values: next.toList(),
     );
+    if (!mounted) return;
+    if (adding) {
+      showBookmarkAddedSnackBar(context, openPinnedTab: false);
+    } else {
+      showBookmarkRemovedSnackBar(context, wasPinned: false);
+    }
   }
 
   Future<void> _handleRefresh() async {
@@ -1601,10 +1689,10 @@ class _NoticeListTabState extends State<_NoticeListTab> {
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            itemCount: kMainNoticeAiTagFilterChips.length,
+            itemCount: _mainNoticeAiTagChips.length,
             separatorBuilder: (_, __) => const SizedBox(width: 8),
             itemBuilder: (BuildContext context, int index) {
-              final String label = kMainNoticeAiTagFilterChips[index];
+              final String label = _mainNoticeAiTagChips[index];
               final bool selected =
                   _mainNoticeAiTagChipSelection == label;
               final Color bg = selected

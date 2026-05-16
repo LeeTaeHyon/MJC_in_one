@@ -2,19 +2,20 @@ import "dart:async";
 
 import "package:flutter/material.dart";
 import "package:flutter/scheduler.dart";
-import "package:mio_notice/home_dashboard_prefs.dart";
-import "package:mio_notice/main_website_prefs.dart";
-import "package:mio_notice/notification_sources.dart";
-import "package:mio_notice/screens/common_webview_screen.dart";
-import "package:mio_notice/screens/inquiry_screen.dart";
-import "package:mio_notice/screens/keyword_notification_settings_screen.dart";
-import "package:mio_notice/screens/open_source_licenses_screen.dart";
-import "package:mio_notice/services/notice_filter.dart";
-import "package:mio_notice/services/user_data_repository.dart";
-import "package:mio_notice/theme/theme_mode_scope.dart";
-import "package:mio_notice/utils/snack_bar_utils.dart";
-import "package:mio_notice/widgets/safe_tooltip.dart";
-import "package:mio_notice/widgets/scroll_to_top_scope.dart";
+import "package:mjc_in_one/home_dashboard_prefs.dart";
+import "package:mjc_in_one/main_website_prefs.dart";
+import "package:mjc_in_one/notification_sources.dart";
+import "package:mjc_in_one/screens/common_webview_screen.dart";
+import "package:mjc_in_one/screens/inquiry_screen.dart";
+import "package:mjc_in_one/screens/keyword_notification_settings_screen.dart";
+import "package:mjc_in_one/screens/open_source_licenses_screen.dart";
+import "package:mjc_in_one/services/app_config_service.dart";
+import "package:mjc_in_one/services/notice_filter.dart";
+import "package:mjc_in_one/services/user_data_repository.dart";
+import "package:mjc_in_one/theme/theme_mode_scope.dart";
+import "package:mjc_in_one/utils/snack_bar_utils.dart";
+import "package:mjc_in_one/widgets/safe_tooltip.dart";
+import "package:mjc_in_one/widgets/scroll_to_top_scope.dart";
 import "package:shared_preferences/shared_preferences.dart";
 
 class SettingsScreen extends StatefulWidget {
@@ -28,9 +29,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   /// 설정 화면 본문·카드 구분용 (참고 UI와 유사한 톤).
   static const Color _pageBackground = Color(0xFFF5F7F9);
   static const Color _cardBorder = Color(0xFFEDEDED);
-  static const String _privacyPolicyUrl = "https://mjcinone.web.app/privacy";
+  static const String _privacyPolicyUrlFallback =
+      "https://mjcinone.web.app/privacy";
   static const Duration _settingsNoticePanelDuration =
       Duration(milliseconds: 400);
+
+  String _privacyPolicyUrl = _privacyPolicyUrlFallback;
 
   bool _allNoticesEnabled = true;
   bool _keywordNoticesEnabled = true;
@@ -57,7 +61,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void initState() {
     super.initState();
     _loadSettings();
+    _loadLinksConfig();
     _scrollController.addListener(_onSettingsScroll);
+  }
+
+  Future<void> _loadLinksConfig() async {
+    try {
+      final String? url = await AppConfigService.loadLink("privacyPolicyUrl");
+      if (!mounted || url == null) return;
+      setState(() => _privacyPolicyUrl = url);
+    } catch (_) {
+      // Keep fallback.
+    }
   }
 
   void _onSettingsScroll() {
@@ -985,7 +1000,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   onTap: () {
                     Navigator.of(context).push<void>(
                       MaterialPageRoute<void>(
-                        builder: (context) => const CommonWebViewScreen(
+                        builder: (context) => CommonWebViewScreen(
                           url: _privacyPolicyUrl,
                           title: "개인정보처리방침",
                         ),

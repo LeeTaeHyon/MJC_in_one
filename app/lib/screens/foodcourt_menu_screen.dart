@@ -1,6 +1,7 @@
 import "package:flutter/material.dart";
-import "package:mio_notice/services/foodcourt_menu.dart";
-import "package:mio_notice/theme/app_colors.dart";
+import "package:mjc_in_one/services/foodcourt_menu.dart";
+import "package:mjc_in_one/services/app_config_service.dart";
+import "package:mjc_in_one/theme/app_colors.dart";
 
 class FoodcourtMenuScreen extends StatefulWidget {
   const FoodcourtMenuScreen({super.key});
@@ -13,13 +14,7 @@ class _FoodcourtMenuScreenState extends State<FoodcourtMenuScreen> {
   late Future<List<FoodcourtMenuItem>> _menuFuture;
   final FoodcourtMenuService _service = FoodcourtMenuService();
 
-  static const TextStyle _appBarTitleStyle = TextStyle(
-    color: Colors.white,
-    fontSize: 18,
-    fontWeight: FontWeight.w800,
-  );
-
-  static const List<String> _preferredShopOrder = [
+  static const List<String> _preferredShopOrderFallback = [
     "바비든든",
     "포포420",
     "경성카츠",
@@ -27,41 +22,45 @@ class _FoodcourtMenuScreenState extends State<FoodcourtMenuScreen> {
     "값찌개",
   ];
 
-  static String _shopEmoji(String shop) {
-    switch (shop.trim()) {
-      case "바비든든":
-        return "🍚";
-      case "포포420":
-        return "🍜";
-      case "경성카츠":
-        return "🐷";
-      case "비비고고":
-        return "🥗";
-      case "값찌개":
-        return "🍲";
-      default:
-        return "🍽️";
-    }
-  }
+  static const Map<String, String> _shopEmojiFallback = {
+    "바비든든": "🍚",
+    "포포420": "🍜",
+    "경성카츠": "🐷",
+    "비비고고": "🥗",
+    "값찌개": "🍲",
+  };
 
-  static Widget _shopIconWidget(String shop, {required Color color}) {
-    final String emoji = _shopEmoji(shop);
-    return Text(
-      emoji,
-      style: TextStyle(
-        fontSize: 20,
-        height: 1,
-        // Emoji는 시스템 컬러 폰트를 쓰는 경우가 많아 color가 적용되지 않음.
-        // 대신 배경색/레이아웃을 유지하고, 동일한 크기/정렬로 보여주도록 한다.
-        color: color,
-      ),
-    );
-  }
+  List<String> _preferredShopOrder = _preferredShopOrderFallback;
+  Map<String, String> _shopEmoji = _shopEmojiFallback;
+
+  static const TextStyle _appBarTitleStyle = TextStyle(
+    color: Colors.white,
+    fontSize: 18,
+    fontWeight: FontWeight.w800,
+  );
 
   @override
   void initState() {
     super.initState();
-    _menuFuture = _service.loadFromAsset();
+    _menuFuture = _service.load();
+    _loadFoodcourtMeta();
+  }
+
+  Future<void> _loadFoodcourtMeta() async {
+    try {
+      final FoodcourtMetaConfig? meta = await AppConfigService.loadFoodcourtMeta();
+      if (!mounted || meta == null) return;
+      setState(() {
+        if (meta.preferredShopOrder.isNotEmpty) {
+          _preferredShopOrder = meta.preferredShopOrder;
+        }
+        if (meta.shopEmoji.isNotEmpty) {
+          _shopEmoji = meta.shopEmoji;
+        }
+      });
+    } catch (_) {
+      // Keep fallback.
+    }
   }
 
   @override
@@ -109,6 +108,7 @@ class _FoodcourtMenuScreenState extends State<FoodcourtMenuScreen> {
                     _ShopTabList(
                       shop: shop,
                       items: grouped[shop] ?? const [],
+                      shopEmoji: _shopEmoji,
                     ),
                 ],
               ),
@@ -163,10 +163,15 @@ class _FoodcourtMenuScreenState extends State<FoodcourtMenuScreen> {
 }
 
 class _ShopTabList extends StatelessWidget {
-  const _ShopTabList({required this.shop, required this.items});
+  const _ShopTabList({
+    required this.shop,
+    required this.items,
+    required this.shopEmoji,
+  });
 
   final String shop;
   final List<FoodcourtMenuItem> items;
+  final Map<String, String> shopEmoji;
 
   @override
   Widget build(BuildContext context) {
@@ -180,17 +185,22 @@ class _ShopTabList extends StatelessWidget {
           style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12),
         ),
         const SizedBox(height: 12),
-        _MenuListCard(shop: shop, items: items),
+        _MenuListCard(shop: shop, items: items, shopEmoji: shopEmoji),
       ],
     );
   }
 }
 
 class _MenuListCard extends StatelessWidget {
-  const _MenuListCard({required this.shop, required this.items});
+  const _MenuListCard({
+    required this.shop,
+    required this.items,
+    required this.shopEmoji,
+  });
 
   final String shop;
   final List<FoodcourtMenuItem> items;
+  final Map<String, String> shopEmoji;
 
   @override
   Widget build(BuildContext context) {
@@ -216,9 +226,15 @@ class _MenuListCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Center(
-                    child: _FoodcourtMenuScreenState._shopIconWidget(
-                      shop,
-                      color: AppColors.primary,
+                    child: Text(
+                      (shopEmoji[shop.trim()] ?? "").trim().isEmpty
+                          ? "🍽️"
+                          : (shopEmoji[shop.trim()] ?? "🍽️"),
+                      style: const TextStyle(
+                        fontSize: 20,
+                        height: 1,
+                        color: AppColors.primary,
+                      ),
                     ),
                   ),
                 ),

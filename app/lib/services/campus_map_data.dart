@@ -1,7 +1,9 @@
 import "dart:convert";
 
+import "package:cloud_firestore/cloud_firestore.dart";
 import "package:flutter/services.dart";
 import "package:latlong2/latlong.dart";
+import "package:shared_preferences/shared_preferences.dart";
 
 class CampusMapData {
   const CampusMapData({
@@ -11,6 +13,9 @@ class CampusMapData {
   });
 
   static const String defaultAssetPath = "assets/data/campus_buildings.json";
+  static const String _cacheJsonKey = "campus_map_data_json_v1";
+  static const String _cacheAtKey = "campus_map_data_cached_at_ms_v1";
+  static const Duration _cacheTtl = Duration(days: 7);
 
   final LatLng mapCenter;
   final List<CampusBuilding> buildings;
@@ -19,8 +24,63 @@ class CampusMapData {
   static Future<CampusMapData> load({
     String assetPath = defaultAssetPath,
   }) async {
+    final Map<String, dynamic>? cached = await _tryLoadCache();
+    if (cached != null) {
+      return _parse(cached);
+    }
+
+    try {
+      final Map<String, dynamic>? remote = await _loadFromFirestore();
+      if (remote != null) {
+        await _saveCache(remote);
+        return _parse(remote);
+      }
+    } catch (_) {
+      // Fall back to bundled asset.
+    }
+
+    return _loadFromAsset(assetPath);
+  }
+
+  static Future<CampusMapData> _loadFromAsset(String assetPath) async {
     final String raw = await rootBundle.loadString(assetPath);
     final Map<String, dynamic> json = jsonDecode(raw) as Map<String, dynamic>;
+    return _parse(json);
+  }
+
+  static Future<Map<String, dynamic>?> _loadFromFirestore() async {
+    final DocumentSnapshot<Map<String, dynamic>> snap = await FirebaseFirestore
+        .instance
+        .collection("config")
+        .doc("campus_map")
+        .get();
+    final Map<String, dynamic>? data = snap.data();
+    return data == null ? null : Map<String, dynamic>.from(data);
+  }
+
+  static Future<Map<String, dynamic>?> _tryLoadCache() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final int cachedAt = prefs.getInt(_cacheAtKey) ?? 0;
+    if (cachedAt <= 0) return null;
+    final int now = DateTime.now().millisecondsSinceEpoch;
+    if (now - cachedAt > _cacheTtl.inMilliseconds) return null;
+    final String raw = prefs.getString(_cacheJsonKey) ?? "";
+    if (raw.trim().isEmpty) return null;
+    final Object? decoded = jsonDecode(raw);
+    if (decoded is! Map) return null;
+    return Map<String, dynamic>.from(decoded);
+  }
+
+  static Future<void> _saveCache(Map<String, dynamic> json) async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_cacheJsonKey, jsonEncode(json));
+    await prefs.setInt(
+      _cacheAtKey,
+      DateTime.now().millisecondsSinceEpoch,
+    );
+  }
+
+  static CampusMapData _parse(Map<String, dynamic> json) {
 
     final List<dynamic> buildingList =
         (json["buildings"] as List<dynamic>? ?? const <dynamic>[]);

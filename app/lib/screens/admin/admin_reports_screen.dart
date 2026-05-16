@@ -1,9 +1,9 @@
 import "package:cloud_firestore/cloud_firestore.dart";
 import "package:flutter/material.dart";
-import "package:mio_notice/screens/admin/admin_auth_service.dart";
-import "package:mio_notice/screens/admin/admin_post_editor_dialog.dart";
-import "package:mio_notice/services/admin_moderation_service.dart";
-import "package:mio_notice/utils/snack_bar_utils.dart";
+import "package:mjc_in_one/screens/admin/admin_auth_service.dart";
+import "package:mjc_in_one/screens/admin/admin_post_editor_dialog.dart";
+import "package:mjc_in_one/services/admin_moderation_service.dart";
+import "package:mjc_in_one/utils/snack_bar_utils.dart";
 import "package:url_launcher/url_launcher.dart";
 
 /// 사용자가 보낸 공지 신고를 관리하는 화면.

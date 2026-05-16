@@ -1,5 +1,5 @@
 import "package:cloud_firestore/cloud_firestore.dart";
-import "package:mio_notice/models/notice_model.dart";
+import "package:mjc_in_one/models/notice_model.dart";
 
 /// `notices/{category_id}/posts/{post_id}` 하위 컬렉션을 구독합니다.
 class FirestoreService {

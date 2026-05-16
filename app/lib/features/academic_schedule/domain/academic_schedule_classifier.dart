@@ -1,4 +1,4 @@
-import "package:mio_notice/features/academic_schedule/domain/academic_schedule_kind.dart";
+import "package:mjc_in_one/features/academic_schedule/domain/academic_schedule_kind.dart";
 
 class AcademicScheduleClassifier {
   static final List<RegExp> _exam = [

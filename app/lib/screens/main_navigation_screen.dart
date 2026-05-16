@@ -3,16 +3,17 @@ import "dart:async";
 import "package:firebase_auth/firebase_auth.dart";
 import "package:flutter/material.dart";
 import "package:flutter/services.dart";
-import "package:mio_notice/features/timetable/screens/timetable_main_screen.dart";
-import "package:mio_notice/screens/home_dashboard_screen.dart";
-import "package:mio_notice/screens/my_page_screen.dart";
-import "package:mio_notice/screens/notices_tab_screen.dart";
-import "package:mio_notice/screens/profile_setup_screen.dart";
-import "package:mio_notice/services/auth_service.dart";
-import "package:mio_notice/services/user_data_repository.dart";
-import "package:mio_notice/widgets/scroll_to_top_fab.dart";
-import "package:mio_notice/widgets/scroll_to_top_scope.dart";
-import "package:mio_notice/theme/app_theme.dart";
+import "package:mjc_in_one/features/timetable/screens/timetable_main_screen.dart";
+import "package:mjc_in_one/screens/home_dashboard_screen.dart";
+import "package:mjc_in_one/screens/my_page_screen.dart";
+import "package:mjc_in_one/screens/notices_tab_screen.dart";
+import "package:mjc_in_one/screens/profile_setup_screen.dart";
+import "package:mjc_in_one/services/auth_service.dart";
+import "package:mjc_in_one/services/user_data_repository.dart";
+import "package:mjc_in_one/utils/bookmark_added_feedback.dart";
+import "package:mjc_in_one/widgets/scroll_to_top_fab.dart";
+import "package:mjc_in_one/widgets/scroll_to_top_scope.dart";
+import "package:mjc_in_one/theme/app_theme.dart";
 import "package:shared_preferences/shared_preferences.dart";
 
 class MainNavigationScreen extends StatefulWidget {
@@ -341,100 +342,104 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   @override
   Widget build(BuildContext context) {
     final Color scaffoldBackground = Theme.of(context).scaffoldBackgroundColor;
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: _onSystemPopInvoked,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          Scaffold(
-            backgroundColor: scaffoldBackground,
-            body: Stack(
-              children: [
-                // 1. 메인 콘텐츠 영역 – 탭 전환 시 새로 생성(상태 유지하지 않음) + 전환 애니메이션.
-                Positioned.fill(
-                  child: ColoredBox(
-                    color: scaffoldBackground,
-                    child: NotificationListener<ScrollNotification>(
-                      onNotification: _handleMainScrollNotification,
-                      child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 220),
-                        switchInCurve: Curves.easeOutCubic,
-                        switchOutCurve: Curves.easeInCubic,
-                        layoutBuilder: (Widget? currentChild,
-                            List<Widget> previousChildren) {
-                          return Stack(
-                            fit: StackFit.expand,
-                            children: <Widget>[
-                              ...previousChildren,
-                              if (currentChild != null) currentChild,
-                            ],
-                          );
-                        },
-                        transitionBuilder: (child, animation) {
-                          final CurvedAnimation fade = CurvedAnimation(
-                            parent: animation,
-                            curve: Curves.easeOutCubic,
-                          );
-                          // 기본 페이드 인/아웃만 사용 (슬라이드 제거).
-                          return FadeTransition(opacity: fade, child: child);
-                        },
-                        child: KeyedSubtree(
-                          key: ValueKey<int>(_index),
-                          child: _buildMainTab(_index),
+    return ValueListenableBuilder<int>(
+      valueListenable: bookmarkSnackBarSubnavSuppressionCount,
+      builder: (context, snackbarSuppression, _) {
+        final bool showNoticeSubChrome =
+            _index == MainNavTabIndex.notices &&
+                _noticeSubNavVisible &&
+                snackbarSuppression == 0;
+        return PopScope(
+          canPop: false,
+          onPopInvokedWithResult: _onSystemPopInvoked,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Scaffold(
+                backgroundColor: scaffoldBackground,
+                body: Stack(
+                  children: [
+                    // 1. 메인 콘텐츠 영역 – 탭 전환 시 새로 생성(상태 유지하지 않음) + 전환 애니메이션.
+                    Positioned.fill(
+                      child: ColoredBox(
+                        color: scaffoldBackground,
+                        child: NotificationListener<ScrollNotification>(
+                          onNotification: _handleMainScrollNotification,
+                          child: AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 220),
+                            switchInCurve: Curves.easeOutCubic,
+                            switchOutCurve: Curves.easeInCubic,
+                            layoutBuilder: (Widget? currentChild,
+                                List<Widget> previousChildren) {
+                              return Stack(
+                                fit: StackFit.expand,
+                                children: <Widget>[
+                                  ...previousChildren,
+                                  if (currentChild != null) currentChild,
+                                ],
+                              );
+                            },
+                            transitionBuilder: (child, animation) {
+                              final CurvedAnimation fade = CurvedAnimation(
+                                parent: animation,
+                                curve: Curves.easeOutCubic,
+                              );
+                              // 기본 페이드 인/아웃만 사용 (슬라이드 제거).
+                              return FadeTransition(opacity: fade, child: child);
+                            },
+                            child: KeyedSubtree(
+                              key: ValueKey<int>(_index),
+                              child: _buildMainTab(_index),
+                            ),
+                          ),
                         ),
                       ),
                     ),
-                  ),
+                  ],
                 ),
-              ],
-            ),
-            bottomNavigationBar: _buildBottomAppBar(),
-          ),
-          Positioned(
-            left: 18,
-            right: 18,
-            bottom: MediaQuery.paddingOf(context).bottom +
-                _bottomNavHeight +
-                _noticeSubNavBottomGap,
-            child: IgnorePointer(
-              ignoring:
-                  _index != MainNavTabIndex.notices || !_noticeSubNavVisible,
-              child: AnimatedSlide(
-                offset:
-                    _index == MainNavTabIndex.notices && _noticeSubNavVisible
+                bottomNavigationBar: _buildBottomAppBar(),
+              ),
+              Positioned(
+                left: 18,
+                right: 18,
+                bottom: MediaQuery.paddingOf(context).bottom +
+                    _bottomNavHeight +
+                    _noticeSubNavBottomGap,
+                child: IgnorePointer(
+                  ignoring: !showNoticeSubChrome,
+                  child: AnimatedSlide(
+                    offset: showNoticeSubChrome
                         ? Offset.zero
                         : const Offset(0, 0.55),
-                duration: const Duration(milliseconds: 240),
-                curve: Curves.easeOutCubic,
-                child: AnimatedOpacity(
-                  opacity:
-                      _index == MainNavTabIndex.notices && _noticeSubNavVisible
-                          ? 1
-                          : 0,
-                  duration: const Duration(milliseconds: 180),
-                  curve: Curves.easeOutCubic,
-                  child: _buildNoticeSubNav(),
+                    duration: const Duration(milliseconds: 240),
+                    curve: Curves.easeOutCubic,
+                    child: AnimatedOpacity(
+                      opacity: showNoticeSubChrome ? 1 : 0,
+                      duration: const Duration(milliseconds: 180),
+                      curve: Curves.easeOutCubic,
+                      child: _buildNoticeSubNav(),
+                    ),
+                  ),
                 ),
               ),
-            ),
+              AnimatedPositioned(
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOutCubic,
+                right: 14,
+                bottom: MediaQuery.paddingOf(context).bottom +
+                    _bottomNavHeight +
+                    10 +
+                    (showNoticeSubChrome
+                        ? _noticeSubNavBottomGap +
+                            _noticeSubNavHeight +
+                            _noticeSubNavFabGap
+                        : 0),
+                child: const ScrollToTopFab(),
+              ),
+            ],
           ),
-          AnimatedPositioned(
-            duration: const Duration(milliseconds: 220),
-            curve: Curves.easeOutCubic,
-            right: 14,
-            bottom: MediaQuery.paddingOf(context).bottom +
-                _bottomNavHeight +
-                10 +
-                (_index == MainNavTabIndex.notices && _noticeSubNavVisible
-                    ? _noticeSubNavBottomGap +
-                        _noticeSubNavHeight +
-                        _noticeSubNavFabGap
-                    : 0),
-            child: const ScrollToTopFab(),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 

@@ -1,5 +1,5 @@
 import "package:flutter/material.dart";
-import "package:mio_notice/theme/app_colors.dart";
+import "package:mjc_in_one/theme/app_colors.dart";
 
 /// 웹뷰 위 왼쪽 하단 뒤로/앞으로 플로팅 컨트롤.
 class WebViewNavigationOverlay extends StatelessWidget {

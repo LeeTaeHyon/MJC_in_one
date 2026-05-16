@@ -1,9 +1,9 @@
 import "package:flutter/material.dart";
 import "package:flutter_map/flutter_map.dart";
 import "package:latlong2/latlong.dart";
-import "package:mio_notice/services/campus_map_data.dart";
-import "package:mio_notice/services/campus_room_parser.dart";
-import "package:mio_notice/theme/app_colors.dart";
+import "package:mjc_in_one/services/campus_map_data.dart";
+import "package:mjc_in_one/services/campus_room_parser.dart";
+import "package:mjc_in_one/theme/app_colors.dart";
 
 class CampusMapView extends StatefulWidget {
   const CampusMapView({

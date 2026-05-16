@@ -1,6 +1,6 @@
 import "package:flutter/material.dart";
-import "package:mio_notice/services/notice_filter.dart";
-import "package:mio_notice/theme/app_theme.dart";
+import "package:mjc_in_one/services/notice_filter.dart";
+import "package:mjc_in_one/theme/app_theme.dart";
 
 /// 공지 목록(메인·CTL·MPU 등)에서 설정 화면으로 가지 않고 필터를 조정할 때 사용합니다.
 Future<void> showNoticeFilterSheet(

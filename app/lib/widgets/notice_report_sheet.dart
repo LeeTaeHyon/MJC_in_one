@@ -1,7 +1,7 @@
 import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
-import "package:mio_notice/services/notice_report_service.dart";
-import "package:mio_notice/utils/snack_bar_utils.dart";
+import "package:mjc_in_one/services/notice_report_service.dart";
+import "package:mjc_in_one/utils/snack_bar_utils.dart";
 import "package:shared_preferences/shared_preferences.dart";
 
 /// "내용이 이상해요" 신고 사유 카테고리 (Firestore 에 저장되는 값과 라벨).

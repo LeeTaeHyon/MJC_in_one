@@ -1,8 +1,9 @@
 import "package:flutter/material.dart";
-import "package:mio_notice/features/timetable/models/timetable_models.dart";
-import "package:mio_notice/features/timetable/utils/timetable_color_util.dart";
-import "package:mio_notice/theme/app_colors.dart";
-import "package:mio_notice/theme/app_theme.dart";
+import "package:mjc_in_one/features/timetable/models/timetable_models.dart";
+import "package:mjc_in_one/features/timetable/utils/timetable_color_util.dart";
+import "package:mjc_in_one/features/timetable/utils/timetable_slot_merge.dart";
+import "package:mjc_in_one/theme/app_colors.dart";
+import "package:mjc_in_one/theme/app_theme.dart";
 
 /// Mon–Fri weekly grid with hour rows and colored class blocks.
 class TimetableWeekGrid extends StatelessWidget {
@@ -37,8 +38,9 @@ class TimetableWeekGrid extends StatelessWidget {
     final int hourSpan = endHour - startHour;
     final double gridBodyHeight = hourSpan * hourHeight;
 
-    final List<TimetableSlot> visible =
-        slots.where((s) => s.weekday >= 1 && s.weekday <= 5).toList();
+    final List<TimetableSlot> visible = TimetableSlotMerge.mergeAdjacent(
+      slots.where((TimetableSlot s) => s.weekday >= 1 && s.weekday <= 5),
+    );
 
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {

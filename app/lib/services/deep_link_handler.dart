@@ -2,9 +2,9 @@ import "dart:async";
 
 import "package:app_links/app_links.dart";
 import "package:flutter/material.dart";
-import "package:mio_notice/screens/profile_setup_screen.dart";
-import "package:mio_notice/services/auth_service.dart";
-import "package:mio_notice/services/user_data_repository.dart";
+import "package:mjc_in_one/screens/profile_setup_screen.dart";
+import "package:mjc_in_one/services/auth_service.dart";
+import "package:mjc_in_one/services/user_data_repository.dart";
 
 class DeepLinkHandler {
   DeepLinkHandler._();

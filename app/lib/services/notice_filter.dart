@@ -1,4 +1,5 @@
 import "package:shared_preferences/shared_preferences.dart";
+import "package:mjc_in_one/services/app_config_service.dart";
 
 const String kNoticeFilterEnabledPrefKey = "feed_filter_enabled";
 const String kNoticeFilterRequireKeywordPrefKey = "feed_filter_require_kw";
@@ -81,6 +82,27 @@ const List<String> kNoticeFilterTypeOptions = [
   "학사일정",
 ];
 
+List<String> _runtimeSourceOptions = List<String>.from(kNoticeFilterSourceOptions);
+List<String> _runtimeTypeOptions = List<String>.from(kNoticeFilterTypeOptions);
+bool _runtimeOptionsLoaded = false;
+
+Future<void> _ensureRuntimeOptionsLoaded() async {
+  if (_runtimeOptionsLoaded) return;
+  _runtimeOptionsLoaded = true;
+  try {
+    final NoticesUiConfig? cfg = await AppConfigService.loadNoticesUi();
+    if (cfg == null) return;
+    if (cfg.filterSourceOptions.isNotEmpty) {
+      _runtimeSourceOptions = cfg.filterSourceOptions;
+    }
+    if (cfg.filterTypeOptions.isNotEmpty) {
+      _runtimeTypeOptions = cfg.filterTypeOptions;
+    }
+  } catch (_) {
+    // Keep fallback options.
+  }
+}
+
 class NoticeFilterState {
   const NoticeFilterState({
     this.enabled = false,
@@ -124,8 +146,8 @@ class NoticeFilterState {
   bool get hasPersistentRules {
     return enabled ||
         requireKeywordHit ||
-        sources.length != kNoticeFilterSourceOptions.length ||
-        types.length != kNoticeFilterTypeOptions.length ||
+        sources.length != _runtimeSourceOptions.length ||
+        types.length != _runtimeTypeOptions.length ||
         excludes.isNotEmpty ||
         includes.isNotEmpty;
   }
@@ -133,21 +155,22 @@ class NoticeFilterState {
   bool get hasAnyRule => hasPersistentRules || quickQuery.trim().isNotEmpty;
 
   static Future<NoticeFilterState> load() async {
+    await _ensureRuntimeOptionsLoaded();
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     final List<String> storedSources =
         prefs.getStringList(kNoticeFilterSourcesPrefKey) ??
-            kNoticeFilterSourceOptions;
+            _runtimeSourceOptions;
     final List<String> storedTypes =
         prefs.getStringList(kNoticeFilterTypesPrefKey) ??
-            kNoticeFilterTypeOptions;
+            _runtimeTypeOptions;
     return NoticeFilterState(
       enabled: prefs.getBool(kNoticeFilterEnabledPrefKey) ?? false,
       requireKeywordHit:
           prefs.getBool(kNoticeFilterRequireKeywordPrefKey) ?? false,
-      sources: kNoticeFilterSourceOptions
+      sources: _runtimeSourceOptions
           .where((source) => storedSources.contains(source))
           .toList(),
-      types: kNoticeFilterTypeOptions
+      types: _runtimeTypeOptions
           .where((type) => storedTypes.contains(type))
           .toList(),
       excludes: prefs.getStringList(kNoticeFilterExcludesPrefKey) ?? const [],
@@ -208,8 +231,8 @@ class NoticeFilterState {
 
   NoticeFilterState _ensureNonEmptyDefaults() {
     return copyWith(
-      sources: sources.isEmpty ? kNoticeFilterSourceOptions : sources,
-      types: types.isEmpty ? kNoticeFilterTypeOptions : types,
+      sources: sources.isEmpty ? _runtimeSourceOptions : sources,
+      types: types.isEmpty ? _runtimeTypeOptions : types,
     );
   }
 }

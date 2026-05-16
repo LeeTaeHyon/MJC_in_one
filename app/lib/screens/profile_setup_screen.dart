@@ -1,7 +1,7 @@
 import "package:flutter/material.dart";
-import "package:mio_notice/mpu_profile_prefs.dart";
-import "package:mio_notice/theme/app_colors.dart";
-import "package:mio_notice/widgets/profile_form.dart";
+import "package:mjc_in_one/mpu_profile_prefs.dart";
+import "package:mjc_in_one/theme/app_colors.dart";
+import "package:mjc_in_one/widgets/profile_form.dart";
 import "package:shared_preferences/shared_preferences.dart";
 
 const String kProfileSetupSeenPrefKey = "profile_setup_seen";

@@ -1,9 +1,9 @@
 import "package:firebase_auth/firebase_auth.dart";
 import "package:flutter/material.dart";
-import "package:mio_notice/screens/admin/admin_auth_service.dart";
-import "package:mio_notice/screens/admin/admin_inquiries_screen.dart";
-import "package:mio_notice/screens/admin/admin_login_screen.dart";
-import "package:mio_notice/screens/admin/admin_reports_screen.dart";
+import "package:mjc_in_one/screens/admin/admin_auth_service.dart";
+import "package:mjc_in_one/screens/admin/admin_inquiries_screen.dart";
+import "package:mjc_in_one/screens/admin/admin_login_screen.dart";
+import "package:mjc_in_one/screens/admin/admin_reports_screen.dart";
 
 /// 관리자 콘솔 진입점.
 ///

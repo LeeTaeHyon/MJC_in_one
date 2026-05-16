@@ -1,5 +1,5 @@
 import "package:flutter_test/flutter_test.dart";
-import "package:mio_notice/features/timetable/services/timetable_slot_parser.dart";
+import "package:mjc_in_one/features/timetable/services/timetable_slot_parser.dart";
 
 void main() {
   test("parseTimetableCell parses multiline MJC-style cell", () {

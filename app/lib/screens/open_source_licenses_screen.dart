@@ -2,7 +2,7 @@ import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
 import "package:flutter/services.dart";
 import "dart:convert";
-import "package:mio_notice/widgets/scroll_to_top_scope.dart";
+import "package:mjc_in_one/widgets/scroll_to_top_scope.dart";
 
 class _LicenseParagraph {
   const _LicenseParagraph({required this.indent, required this.text});

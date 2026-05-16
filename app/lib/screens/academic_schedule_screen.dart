@@ -1,11 +1,11 @@
 import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
-import "package:mio_notice/features/academic_schedule/domain/academic_schedule_classifier.dart";
-import "package:mio_notice/features/academic_schedule/domain/academic_schedule_kind.dart";
-import "package:mio_notice/features/academic_schedule/presentation/academic_schedule_visuals.dart";
-import "package:mio_notice/screens/common_webview_screen.dart";
-import "package:mio_notice/services/notice_manager.dart";
-import "package:mio_notice/theme/app_colors.dart";
+import "package:mjc_in_one/features/academic_schedule/domain/academic_schedule_classifier.dart";
+import "package:mjc_in_one/features/academic_schedule/domain/academic_schedule_kind.dart";
+import "package:mjc_in_one/features/academic_schedule/presentation/academic_schedule_visuals.dart";
+import "package:mjc_in_one/screens/common_webview_screen.dart";
+import "package:mjc_in_one/services/notice_manager.dart";
+import "package:mjc_in_one/theme/app_colors.dart";
 import "package:shared_preferences/shared_preferences.dart";
 import "package:url_launcher/url_launcher.dart";
 

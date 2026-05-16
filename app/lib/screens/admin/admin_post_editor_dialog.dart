@@ -1,7 +1,7 @@
 import "package:flutter/material.dart";
-import "package:mio_notice/screens/admin/admin_auth_service.dart";
-import "package:mio_notice/services/admin_moderation_service.dart";
-import "package:mio_notice/utils/snack_bar_utils.dart";
+import "package:mjc_in_one/screens/admin/admin_auth_service.dart";
+import "package:mjc_in_one/services/admin_moderation_service.dart";
+import "package:mjc_in_one/utils/snack_bar_utils.dart";
 
 /// 관리자 페이지에서 신고된 공지의 요약을 인라인 편집하기 위한 다이얼로그.
 ///

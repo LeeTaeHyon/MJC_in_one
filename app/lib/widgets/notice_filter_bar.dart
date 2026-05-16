@@ -1,6 +1,6 @@
 import "package:flutter/material.dart";
-import "package:mio_notice/services/notice_filter.dart";
-import "package:mio_notice/theme/app_theme.dart";
+import "package:mjc_in_one/services/notice_filter.dart";
+import "package:mjc_in_one/theme/app_theme.dart";
 
 class NoticeFilterBar extends StatefulWidget {
   const NoticeFilterBar({

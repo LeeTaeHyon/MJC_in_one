@@ -1,10 +1,10 @@
 import "package:cloud_firestore/cloud_firestore.dart";
 import "package:firebase_auth/firebase_auth.dart";
-import "package:mio_notice/home_dashboard_prefs.dart";
-import "package:mio_notice/main_website_prefs.dart";
-import "package:mio_notice/mpu_profile_prefs.dart";
-import "package:mio_notice/notification_sources.dart";
-import "package:mio_notice/services/notice_filter.dart";
+import "package:mjc_in_one/home_dashboard_prefs.dart";
+import "package:mjc_in_one/main_website_prefs.dart";
+import "package:mjc_in_one/mpu_profile_prefs.dart";
+import "package:mjc_in_one/notification_sources.dart";
+import "package:mjc_in_one/services/notice_filter.dart";
 import "package:shared_preferences/shared_preferences.dart";
 
 const String _pinnedPrefix = "pinned_notices_";

@@ -1,6 +1,6 @@
 import "package:firebase_auth/firebase_auth.dart";
 import "package:flutter/material.dart";
-import "package:mio_notice/screens/admin/admin_auth_service.dart";
+import "package:mjc_in_one/screens/admin/admin_auth_service.dart";
 
 /// 관리자 로그인 화면 (Email / Password).
 ///

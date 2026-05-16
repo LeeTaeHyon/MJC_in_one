@@ -1,6 +1,6 @@
 import "package:flutter/material.dart";
 
-import "package:mio_notice/theme/app_theme.dart";
+import "package:mjc_in_one/theme/app_theme.dart";
 
 /// Crawled HTML may use Unicode minus (U+2212) instead of ASCII hyphen in "D−n".
 String normalizeMpuDdayScrape(String raw) {

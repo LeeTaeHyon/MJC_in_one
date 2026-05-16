@@ -1,7 +1,7 @@
 import "package:flutter/material.dart";
-import "package:mio_notice/theme/app_colors.dart";
-import "package:mio_notice/widgets/safe_tooltip.dart";
-import "package:mio_notice/widgets/scroll_to_top_scope.dart";
+import "package:mjc_in_one/theme/app_colors.dart";
+import "package:mjc_in_one/widgets/safe_tooltip.dart";
+import "package:mjc_in_one/widgets/scroll_to_top_scope.dart";
 
 /// [ScrollToTopCoordinator]에 등록된 대상으로 스크롤·웹뷰를 맨 위로 올립니다.
 /// [ValueListenableBuilder]는 [fabVisibleNotifier] 갱신이 프레임 콜백에서만 일어날 때

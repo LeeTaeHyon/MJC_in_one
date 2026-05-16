@@ -1,4 +1,4 @@
-import "package:mio_notice/services/campus_map_data.dart";
+import "package:mjc_in_one/services/campus_map_data.dart";
 
 class CampusRoomParser {
   const CampusRoomParser(this.data);

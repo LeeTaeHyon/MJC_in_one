@@ -1,9 +1,11 @@
 import "dart:convert";
 
+import "package:cloud_firestore/cloud_firestore.dart";
 import "package:flutter/material.dart";
 import "package:flutter/services.dart";
-import "package:mio_notice/mpu_profile_prefs.dart";
-import "package:mio_notice/services/user_data_repository.dart";
+import "package:mjc_in_one/mpu_profile_prefs.dart";
+import "package:mjc_in_one/services/user_data_repository.dart";
+import "package:shared_preferences/shared_preferences.dart";
 
 class ProfileForm extends StatefulWidget {
   const ProfileForm({
@@ -22,13 +24,18 @@ class ProfileForm extends StatefulWidget {
 }
 
 class _ProfileFormState extends State<ProfileForm> {
+  static const String _departmentsCacheJsonKey =
+      "departments_config_json_v1";
+  static const String _departmentsCacheAtKey =
+      "departments_config_cached_at_ms_v1";
+  static const Duration _departmentsCacheTtl = Duration(days: 7);
+
   static const String _customDepartmentValue = "__custom_department__";
   static const List<String> _gradeOptions = [
     "1학년",
     "2학년",
     "3학년",
-    "4학년",
-    "수료",
+    "전공심화",
     "졸업",
   ];
 
@@ -68,6 +75,23 @@ class _ProfileFormState extends State<ProfileForm> {
   }
 
   Future<void> _loadDepartments() async {
+    final List<String>? cached = await _tryLoadDepartmentsCache();
+    if (cached != null) {
+      _applyDepartments(cached);
+      return;
+    }
+
+    try {
+      final List<String>? remote = await _loadDepartmentsFromFirestore();
+      if (remote != null && remote.isNotEmpty) {
+        await _saveDepartmentsCache(remote);
+        _applyDepartments(remote);
+        return;
+      }
+    } catch (_) {
+      // Fall back to asset.
+    }
+
     try {
       final String raw =
           await rootBundle.loadString("assets/data/mjc_departments.json");
@@ -77,17 +101,7 @@ class _ProfileFormState extends State<ProfileForm> {
           .where((String value) => value.isNotEmpty)
           .toList();
       departments.sort();
-      if (!mounted) return;
-      setState(() {
-        _departments = departments;
-        _selectedDepartment =
-            departments.contains(widget.initialProfile.department)
-                ? widget.initialProfile.department
-                : (widget.initialProfile.department.trim().isEmpty
-                    ? null
-                    : _customDepartmentValue);
-        _loadingDepartments = false;
-      });
+      _applyDepartments(departments);
     } catch (_) {
       if (!mounted) return;
       setState(() {
@@ -97,6 +111,60 @@ class _ProfileFormState extends State<ProfileForm> {
         _loadingDepartments = false;
       });
     }
+  }
+
+  void _applyDepartments(List<String> departments) {
+    final List<String> sorted = [...departments]..sort();
+    if (!mounted) return;
+    setState(() {
+      _departments = sorted;
+      _selectedDepartment = sorted.contains(widget.initialProfile.department)
+          ? widget.initialProfile.department
+          : (widget.initialProfile.department.trim().isEmpty
+              ? null
+              : _customDepartmentValue);
+      _loadingDepartments = false;
+    });
+  }
+
+  Future<List<String>?> _loadDepartmentsFromFirestore() async {
+    final DocumentSnapshot<Map<String, dynamic>> snap = await FirebaseFirestore
+        .instance
+        .collection("config")
+        .doc("departments")
+        .get();
+    final Map<String, dynamic>? data = snap.data();
+    final Object? raw = data?["departments"];
+    if (raw is! List) return null;
+    return raw
+        .map((e) => e.toString().trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
+  }
+
+  Future<List<String>?> _tryLoadDepartmentsCache() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final int cachedAt = prefs.getInt(_departmentsCacheAtKey) ?? 0;
+    if (cachedAt <= 0) return null;
+    final int now = DateTime.now().millisecondsSinceEpoch;
+    if (now - cachedAt > _departmentsCacheTtl.inMilliseconds) return null;
+    final String raw = prefs.getString(_departmentsCacheJsonKey) ?? "";
+    if (raw.trim().isEmpty) return null;
+    final Object? decoded = jsonDecode(raw);
+    if (decoded is! List) return null;
+    return decoded
+        .map((e) => e.toString().trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
+  }
+
+  Future<void> _saveDepartmentsCache(List<String> departments) async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_departmentsCacheJsonKey, jsonEncode(departments));
+    await prefs.setInt(
+      _departmentsCacheAtKey,
+      DateTime.now().millisecondsSinceEpoch,
+    );
   }
 
   Future<void> _save() async {

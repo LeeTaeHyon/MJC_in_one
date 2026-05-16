@@ -1,8 +1,10 @@
 import "dart:convert";
 
+import "package:cloud_firestore/cloud_firestore.dart";
 import "package:flutter/material.dart";
 import "package:flutter/services.dart";
 import "package:cp949_codec/cp949_codec.dart";
+import "package:shared_preferences/shared_preferences.dart";
 
 enum ShuttleStatusKind {
   empty,
@@ -104,6 +106,31 @@ class ShuttleScheduleService {
   static const int afternoonStartMinute = 15 * 60;
   static const int serviceClosedMinute = 18 * 60 + 40;
 
+  static const String _cacheJsonKey = "shuttle_schedule_rows_json_v1";
+  static const String _cacheAtKey = "shuttle_schedule_cached_at_ms_v1";
+  static const Duration _cacheTtl = Duration(days: 1);
+
+  Future<List<ShuttleDeparture>> load() async {
+    final List<Map<String, dynamic>>? cached = await _tryLoadCache();
+    if (cached != null) {
+      final List<ShuttleDeparture> parsed = _parseRows(cached);
+      if (parsed.isNotEmpty) return parsed;
+    }
+
+    try {
+      final List<Map<String, dynamic>> remote = await _loadFromFirestore();
+      if (remote.isNotEmpty) {
+        await _saveCache(remote);
+        final List<ShuttleDeparture> parsed = _parseRows(remote);
+        if (parsed.isNotEmpty) return parsed;
+      }
+    } catch (_) {
+      // Fall back to asset.
+    }
+
+    return loadFromAsset();
+  }
+
   Future<List<ShuttleDeparture>> loadFromAsset() async {
     final ByteData data = await rootBundle.load(assetPath);
     final Uint8List bytes = data.buffer.asUint8List();
@@ -146,6 +173,61 @@ class ShuttleScheduleService {
       return aMin.compareTo(bMin);
     });
     return rows;
+  }
+
+  Future<List<Map<String, dynamic>>> _loadFromFirestore() async {
+    final QuerySnapshot<Map<String, dynamic>> snap =
+        await FirebaseFirestore.instance.collection("shuttle_schedule").get();
+    return [
+      for (final d in snap.docs)
+        if (d.data().isNotEmpty) Map<String, dynamic>.from(d.data()),
+    ];
+  }
+
+  List<ShuttleDeparture> _parseRows(List<Map<String, dynamic>> rows) {
+    final List<ShuttleDeparture> out = [];
+    for (final Map<String, dynamic> row in rows) {
+      final String stopName = _normalizeStopName(row["stop_name"]?.toString());
+      final TimeOfDay? time = _parseTime(row["depart_time"]?.toString());
+      final Set<int> weekdays = _parseWeekdays(row["weekday"]?.toString());
+      if (stopName.isEmpty || time == null || weekdays.isEmpty) continue;
+      final String arriveStop =
+          _normalizeStopName(row["arrive_stop"]?.toString());
+      out.add(
+        ShuttleDeparture(
+          stopName: stopName,
+          departTime: time,
+          weekdays: weekdays,
+          arriveStop: arriveStop.isEmpty ? null : arriveStop,
+          travelMin: _toInt(row["travel_min"]),
+        ),
+      );
+    }
+    out.sort((a, b) => _timeMinute(a).compareTo(_timeMinute(b)));
+    return out;
+  }
+
+  Future<List<Map<String, dynamic>>?> _tryLoadCache() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final int cachedAt = prefs.getInt(_cacheAtKey) ?? 0;
+    if (cachedAt <= 0) return null;
+    final int now = DateTime.now().millisecondsSinceEpoch;
+    if (now - cachedAt > _cacheTtl.inMilliseconds) return null;
+    final String raw = prefs.getString(_cacheJsonKey) ?? "";
+    if (raw.trim().isEmpty) return null;
+    final Object? decoded = jsonDecode(raw);
+    if (decoded is! List) return null;
+    final List<Map<String, dynamic>> out = [];
+    for (final item in decoded) {
+      if (item is Map) out.add(Map<String, dynamic>.from(item));
+    }
+    return out;
+  }
+
+  Future<void> _saveCache(List<Map<String, dynamic>> rows) async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_cacheJsonKey, jsonEncode(rows));
+    await prefs.setInt(_cacheAtKey, DateTime.now().millisecondsSinceEpoch);
   }
 
   String _decodeText(Uint8List bytes) {
@@ -327,4 +409,10 @@ class ShuttleScheduleService {
     if (seconds <= 0) return 0;
     return (seconds / 60).ceil();
   }
+}
+
+int? _toInt(Object? value) {
+  if (value == null) return null;
+  if (value is num) return value.toInt();
+  return int.tryParse(value.toString().trim());
 }
