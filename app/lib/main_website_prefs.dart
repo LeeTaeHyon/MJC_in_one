@@ -30,10 +30,12 @@ class MainWebsitePrefs {
 
   static bool _loaded = false;
 
+  static MainWebsiteNoticeViewMode decodeViewMode(String? raw) => _decode(raw);
+
   static Future<void> ensureLoaded() async {
     if (_loaded) return;
     final SharedPreferences prefs = await SharedPreferences.getInstance();
-    noticeViewMode.value = _decode(prefs.getString(kMainWebsiteNoticeViewModePrefKey));
+    noticeViewMode.value = decodeViewMode(prefs.getString(kMainWebsiteNoticeViewModePrefKey));
     _loaded = true;
   }
 

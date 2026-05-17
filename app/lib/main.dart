@@ -13,7 +13,8 @@ import "package:mjc_in_one/services/firebase_app_startup.dart";
 import "package:mjc_in_one/services/user_data_repository.dart";
 import "package:mjc_in_one/theme/app_theme.dart";
 import "package:mjc_in_one/theme/theme_mode_scope.dart";
-import "package:mjc_in_one/widgets/scroll_to_top_fab.dart";
+import "package:mjc_in_one/debug/app_debug_flags.dart";
+import "package:mjc_in_one/debug/scroll_fab_debug.dart";
 import "package:mjc_in_one/widgets/scroll_to_top_scope.dart";
 import "package:firebase_messaging/firebase_messaging.dart";
 import "package:flutter_local_notifications/flutter_local_notifications.dart";
@@ -189,6 +190,9 @@ class _MioNoticeAppState extends State<MioNoticeApp>
           builder: (context, mode, _) {
             return MaterialApp(
               navigatorKey: _navigatorKey,
+              navigatorObservers: ScrollFabDebug.enabled
+                  ? <NavigatorObserver>[ScrollFabDebug.navigatorObserver]
+                  : const <NavigatorObserver>[],
               title: "명지전문대학 공지",
               theme: buildMjcTheme(),
               darkTheme: buildMjcDarkTheme(),
@@ -208,44 +212,46 @@ class _MioNoticeAppState extends State<MioNoticeApp>
                 final bool pushedRoute =
                     _navigatorKey.currentState?.canPop() ?? false;
                 final double safeBottom = MediaQuery.paddingOf(context).bottom;
+                if (ScrollFabDebug.enabled) {
+                  ScrollFabDebug.reportCanPop(pushedRoute);
+                }
 
                 return Stack(
                   fit: StackFit.expand,
                   clipBehavior: Clip.none,
                   children: [
                     body,
-                    // [DEBUG] 앱 전역 피드백(버그 리포트) 버튼. 최종 배포 시 이 블록을 삭제하세요.
-                    Positioned(
-                      left: 16,
-                      // 메인 탭바(BottomNavigationBar)를 가리지 않도록 위치 조정
-                      bottom: pushedRoute ? safeBottom + 16 : safeBottom + 90,
-                      child: SafeArea(
-                        child: FloatingActionButton.small(
-                          heroTag: 'global_feedback_btn',
-                          elevation: 4,
-                          backgroundColor: Colors.red,
-                          onPressed: () {
-                            _navigatorKey.currentState?.push(
-                              MaterialPageRoute<void>(
-                                builder: (_) => const InquiryScreen(),
-                              ),
-                            );
-                          },
-                          child: Icon(
-                            Icons.campaign_rounded,
-                            color: Theme.of(context).colorScheme.onPrimaryContainer,
+                    if (AppDevFeatures.globalInquiryFab)
+                      Positioned(
+                        left: 16,
+                        // 메인 탭바(BottomNavigationBar)를 가리지 않도록 위치 조정
+                        bottom: pushedRoute
+                            ? safeBottom + 16
+                            : safeBottom + 90,
+                        child: SafeArea(
+                          child: FloatingActionButton.small(
+                            heroTag: 'global_feedback_btn',
+                            elevation: 4,
+                            backgroundColor: Colors.red,
+                            onPressed: () {
+                              _navigatorKey.currentState?.push(
+                                MaterialPageRoute<void>(
+                                  builder: (_) => const InquiryScreen(),
+                                ),
+                              );
+                            },
+                            child: Icon(
+                              Icons.campaign_rounded,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onPrimaryContainer,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    // [DEBUG] 끝
 
-                    if (pushedRoute)
-                      Positioned(
-                        right: 14,
-                        bottom: safeBottom + 16,
-                        child: const ScrollToTopFab(),
-                      ),
+                    if (ScrollFabDebug.enabled)
+                      const ScrollFabDebugOverlay(),
                   ],
                 );
               },

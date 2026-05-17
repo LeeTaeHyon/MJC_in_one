@@ -25,7 +25,7 @@ class AcademicScheduleVisuals {
     switch (kind) {
       case AcademicScheduleKind.exam:
         return AcademicScheduleVisuals(
-          icon: Icons.quiz_rounded,
+          icon: Icons.assignment_rounded,
           iconColor: Colors.redAccent,
           backgroundColor: Colors.redAccent.withValues(alpha: 0.12),
           dotColor: Colors.redAccent,
@@ -39,21 +39,28 @@ class AcademicScheduleVisuals {
         );
       case AcademicScheduleKind.grades:
         return AcademicScheduleVisuals(
-          icon: Icons.grading_rounded,
+          icon: Icons.rate_review_rounded,
           iconColor: Colors.deepPurpleAccent,
           backgroundColor: Colors.deepPurpleAccent.withValues(alpha: 0.12),
           dotColor: Colors.deepPurpleAccent,
         );
       case AcademicScheduleKind.scholarship:
         return AcademicScheduleVisuals(
-          icon: Icons.volunteer_activism_rounded,
+          icon: Icons.savings_rounded,
           iconColor: Colors.green,
           backgroundColor: Colors.green.withValues(alpha: 0.12),
           dotColor: Colors.green,
         );
+      case AcademicScheduleKind.worship:
+        return AcademicScheduleVisuals(
+          icon: Icons.church_rounded,
+          iconColor: Colors.brown,
+          backgroundColor: Colors.brown.withValues(alpha: 0.12),
+          dotColor: Colors.brown,
+        );
       case AcademicScheduleKind.general:
         return AcademicScheduleVisuals(
-          icon: Icons.event_note_rounded,
+          icon: Icons.event_rounded,
           iconColor: grey,
           backgroundColor: grey.withValues(alpha: 0.10),
           dotColor: grey.withValues(alpha: 0.85),
@@ -71,6 +78,7 @@ class AcademicScheduleVisuals {
       AcademicScheduleKind.registration => 1,
       AcademicScheduleKind.grades => 2,
       AcademicScheduleKind.scholarship => 3,
+      AcademicScheduleKind.worship => 4,
       AcademicScheduleKind.general => 99,
     };
   }

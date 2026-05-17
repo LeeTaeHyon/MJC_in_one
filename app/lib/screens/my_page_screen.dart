@@ -13,10 +13,14 @@ import "package:mjc_in_one/services/notice_manager.dart";
 import "package:mjc_in_one/services/user_data_repository.dart";
 import "package:mjc_in_one/theme/app_colors.dart";
 import "package:mjc_in_one/theme/app_theme.dart";
+import "package:mjc_in_one/utils/notice_bookmark_key.dart";
 import "package:mjc_in_one/widgets/profile_form.dart";
+import "package:mjc_in_one/widgets/scroll_to_top_fab.dart";
 import "package:mjc_in_one/widgets/scroll_to_top_scope.dart";
 import "package:shared_preferences/shared_preferences.dart";
 import "package:url_launcher/url_launcher.dart";
+
+const Color _myPageDarkNeutralAccent = Color(0xFFF5F5F5);
 
 class MyPageScreen extends StatefulWidget {
   const MyPageScreen({
@@ -189,33 +193,6 @@ class _MyPageScreenState extends State<MyPageScreen> {
     return s.split("~").first.trim();
   }
 
-  String _noticeKey(String boardId, Map<String, dynamic> data) {
-    String pickDate() {
-      final String date =
-          (data["date"] ?? data["reg_date"] ?? "").toString().trim();
-      return date;
-    }
-
-    if (boardId == "mpu_programs") {
-      final String title = (data["title"] ?? "").toString().trim();
-      final String branch = (data["branch"] ?? "").toString().trim();
-      final String dDay = (data["d_day"] ?? "").toString().trim();
-      return "$title|$branch|$dDay|${pickDate()}";
-    }
-
-    if (boardId.startsWith("ctl_")) {
-      final String url = (data["link"] ?? data["url"] ?? "").toString().trim();
-      final String title = (data["title"] ?? "").toString().trim();
-      return "$url|$title|${pickDate()}";
-    }
-
-    final String id = (data["id"] ?? "").toString().trim();
-    if (id.isNotEmpty) return id;
-    final String url = (data["url"] ?? data["link"] ?? "").toString().trim();
-    final String title = (data["title"] ?? "").toString().trim();
-    return "$url|$title|${pickDate()}";
-  }
-
   Future<void> _loadPinnedAndFavorites() async {
     setState(() => _loading = true);
 
@@ -253,9 +230,10 @@ class _MyPageScreenState extends State<MyPageScreen> {
       final List<Map<String, dynamic>> notices =
           await NoticeManager().getNotices(boardId: boardId);
       for (final n in notices) {
-        final String key = _noticeKey(boardId, n);
-        final bool isPinned = pinnedKeys.contains(key);
-        final bool isFavorite = favKeys.contains(key);
+        final bool isPinned =
+            noticeBookmarkMatches(boardId, n, pinnedKeys);
+        final bool isFavorite =
+            noticeBookmarkMatches(boardId, n, favKeys);
         if (!isPinned && !isFavorite) continue;
 
         final String title = (n["title"] ?? "").toString();
@@ -466,10 +444,13 @@ class _MyPageScreenState extends State<MyPageScreen> {
         final Color bookmarkTabUnselected = light
             ? colorScheme.onSurface.withValues(alpha: 0.45)
             : mjcComponents.myPageBookmarkTabUnselected;
+        final Color loginActionColor = light
+            ? mjcComponents.myPageBookmarkTabSelected
+            : _myPageDarkNeutralAccent;
 
         final int bookmarkTabIndex =
             widget.initialBookmarkTabIndex.clamp(0, 1);
-        return DefaultTabController(
+        final Widget page = DefaultTabController(
           length: 2,
           initialIndex: bookmarkTabIndex,
           child: Scaffold(
@@ -694,6 +675,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
                       const _MyPageSectionHeader(
                         title: "고정·즐겨찾기 공지",
                         icon: Icons.bookmarks_outlined,
+                        neutralTitleInDarkMode: true,
                       ),
                       _myPageCard(
                         child: Column(
@@ -850,7 +832,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
                                       : Icons.login_rounded,
                                   color: signedIn
                                       ? const Color(0xFFD4183D)
-                                      : mjcComponents.myPageBookmarkTabSelected,
+                                      : loginActionColor,
                                 ),
                                 const SizedBox(width: 10),
                                 Text(
@@ -858,7 +840,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
                                   style: TextStyle(
                                     color: signedIn
                                         ? const Color(0xFFD4183D)
-                                        : mjcComponents.myPageBookmarkTabSelected,
+                                        : loginActionColor,
                                     fontWeight: FontWeight.w900,
                                   ),
                                 ),
@@ -873,6 +855,14 @@ class _MyPageScreenState extends State<MyPageScreen> {
               ],
             ),
           ),
+        );
+        if (widget.embedded) return page;
+        return Stack(
+          clipBehavior: Clip.none,
+          children: <Widget>[
+            page,
+            const PushedRouteScrollToTopLayer(),
+          ],
         );
       },
     );
@@ -1238,16 +1228,24 @@ class _MyNotice {
 }
 
 class _MyPageSectionHeader extends StatelessWidget {
-  const _MyPageSectionHeader({required this.title, this.icon});
+  const _MyPageSectionHeader({
+    required this.title,
+    this.icon,
+    this.neutralTitleInDarkMode = false,
+  });
 
   final String title;
   final IconData? icon;
+  final bool neutralTitleInDarkMode;
 
   @override
   Widget build(BuildContext context) {
-    final Color accent = Theme.of(context)
-        .extension<MjcComponentTokens>()!
-        .myPageBookmarkTabSelected;
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color accent = neutralTitleInDarkMode && isDark
+        ? _myPageDarkNeutralAccent
+        : Theme.of(context)
+            .extension<MjcComponentTokens>()!
+            .myPageBookmarkTabSelected;
     return Padding(
       padding: const EdgeInsets.fromLTRB(2, 0, 2, 8),
       child: Row(

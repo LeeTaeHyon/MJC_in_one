@@ -5,6 +5,7 @@ import "package:mjc_in_one/notification_sources.dart";
 import "package:mjc_in_one/screens/common_webview_screen.dart";
 import "package:mjc_in_one/screens/settings_screen.dart";
 import "package:mjc_in_one/theme/app_colors.dart";
+import "package:mjc_in_one/widgets/scroll_to_top_fab.dart";
 import "package:mjc_in_one/widgets/scroll_to_top_scope.dart";
 import "package:url_launcher/url_launcher.dart";
 
@@ -571,7 +572,10 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
           ),
         ],
       ),
-      body: _isLoading
+      body: Stack(
+        clipBehavior: Clip.none,
+        children: <Widget>[
+          _isLoading
           ? const Center(child: CircularProgressIndicator())
           : Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -605,6 +609,9 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
                 ),
               ],
             ),
+          const PushedRouteScrollToTopLayer(),
+        ],
+      ),
     );
   }
 

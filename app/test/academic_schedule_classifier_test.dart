@@ -10,6 +10,20 @@ void main() {
     );
   });
 
+  test("AcademicScheduleClassifier classifies lecture evaluation as grades", () {
+    expect(
+      AcademicScheduleClassifier.kindOfTitle("중간 강의평가"),
+      AcademicScheduleKind.grades,
+    );
+  });
+
+  test("AcademicScheduleClassifier classifies worship", () {
+    expect(
+      AcademicScheduleClassifier.kindOfTitle("학생 부활절예배"),
+      AcademicScheduleKind.worship,
+    );
+  });
+
   test("AcademicScheduleClassifier classifies registration", () {
     expect(
       AcademicScheduleClassifier.kindOfTitle("수강신청 기간"),

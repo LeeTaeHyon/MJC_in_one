@@ -32,4 +32,20 @@ abstract final class TimetableNextLecture {
     if (h > 0) return "$h시간";
     return "$m분";
   }
+
+  static String formatStartTimeHm(int startMinute) {
+    final int h = startMinute ~/ 60;
+    final int m = startMinute % 60;
+    return "${h.toString().padLeft(2, "0")}:${m.toString().padLeft(2, "0")}";
+  }
+
+  /// 예: `1시간 30분 남음`, `35분 남음`, `곧 시작`
+  static String formatRemainingKo(int totalMinutes) {
+    if (totalMinutes <= 0) return "곧 시작";
+    final int h = totalMinutes ~/ 60;
+    final int m = totalMinutes % 60;
+    if (h > 0 && m > 0) return "$h시간 $m분 남음";
+    if (h > 0) return "$h시간 남음";
+    return "$m분 남음";
+  }
 }

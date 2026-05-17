@@ -57,6 +57,55 @@ class _AdminInquiriesScreenState extends State<AdminInquiriesScreen> {
     }
   }
 
+  Future<void> _delete(DocumentSnapshot<Map<String, dynamic>> doc) async {
+    final bool? ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("문의 삭제"),
+        content: const Text(
+          "이 문의를 Firestore에서 완전히 삭제합니다.\n되돌릴 수 없습니다.",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text("취소"),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(ctx).colorScheme.error,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text("삭제"),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await _svc.deleteInquiry(ref: doc.reference);
+      if (!mounted) return;
+      SnackBarUtils.showUnique(
+        context,
+        key: "admin_inquiry_deleted_${doc.id}",
+        snackBar: const SnackBar(
+          behavior: SnackBarBehavior.floating,
+          content: Text("문의를 삭제했습니다."),
+        ),
+      );
+    } catch (e) {
+      debugPrint("admin delete inquiry error: $e");
+      if (!mounted) return;
+      SnackBarUtils.showUnique(
+        context,
+        key: "admin_delete_inquiry_failed_${doc.id}",
+        snackBar: SnackBar(
+          behavior: SnackBarBehavior.floating,
+          content: Text("삭제 실패: $e"),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
@@ -66,47 +115,30 @@ class _AdminInquiriesScreenState extends State<AdminInquiriesScreen> {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final Widget segmented = SegmentedButton<String>(
-                segments: const [
-                  ButtonSegment(value: "open", label: Text("처리 대기")),
-                  ButtonSegment(value: "resolved", label: Text("처리 완료")),
-                  ButtonSegment(value: "ignored", label: Text("무시")),
-                  ButtonSegment(value: "all", label: Text("전체")),
-                ],
-                selected: {_statusFilter},
-                onSelectionChanged: (s) =>
-                    setState(() => _statusFilter = s.first),
-              );
-              final Widget scrollFilters = SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: segmented,
-              );
-              final Widget title = Text(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
                 "문의함",
                 style: theme.textTheme.titleLarge
                     ?.copyWith(fontWeight: FontWeight.w800),
-              );
-              if (constraints.maxWidth < 520) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    title,
-                    const SizedBox(height: 10),
-                    scrollFilters,
+              ),
+              const SizedBox(height: 10),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: SegmentedButton<String>(
+                  segments: const [
+                    ButtonSegment(value: "open", label: Text("처리 대기")),
+                    ButtonSegment(value: "resolved", label: Text("처리 완료")),
+                    ButtonSegment(value: "ignored", label: Text("무시")),
+                    ButtonSegment(value: "all", label: Text("전체")),
                   ],
-                );
-              }
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  title,
-                  const SizedBox(width: 12),
-                  Expanded(child: scrollFilters),
-                ],
-              );
-            },
+                  selected: {_statusFilter},
+                  onSelectionChanged: (s) =>
+                      setState(() => _statusFilter = s.first),
+                ),
+              ),
+            ],
           ),
         ),
         Expanded(
@@ -146,6 +178,7 @@ class _AdminInquiriesScreenState extends State<AdminInquiriesScreen> {
                   onResolve: () => _setStatus(docs[i], "resolved"),
                   onIgnore: () => _setStatus(docs[i], "ignored"),
                   onReopen: () => _setStatus(docs[i], "open"),
+                  onDelete: () => _delete(docs[i]),
                   onSaveMemo: (memo) => _saveMemo(docs[i], memo),
                 ),
               );
@@ -163,6 +196,7 @@ class _InquiryRow extends StatefulWidget {
     required this.onResolve,
     required this.onIgnore,
     required this.onReopen,
+    required this.onDelete,
     required this.onSaveMemo,
   });
 
@@ -170,6 +204,7 @@ class _InquiryRow extends StatefulWidget {
   final Future<void> Function() onResolve;
   final Future<void> Function() onIgnore;
   final Future<void> Function() onReopen;
+  final Future<void> Function() onDelete;
   final Future<void> Function(String memo) onSaveMemo;
 
   @override
@@ -352,6 +387,12 @@ class _InquiryRowState extends State<_InquiryRow> {
                   icon: const Icon(Icons.refresh, size: 16),
                   label: const Text("다시 열기"),
                 ),
+              TextButton.icon(
+                onPressed: () => widget.onDelete(),
+                icon: Icon(Icons.delete_outline,
+                    size: 16, color: scheme.error),
+                label: Text("삭제", style: TextStyle(color: scheme.error)),
+              ),
             ],
           ),
         ],

@@ -84,8 +84,56 @@ int? mpuEffectiveDaysUntilDeadline(Map<String, dynamic> data) {
   return _calendarDaysUntil(deadline);
 }
 
+int? _parseMpuDDayPlusStrict(dynamic v) {
+  final String s = normalizeMpuDdayScrape((v ?? "").toString());
+  final RegExpMatch? m =
+      RegExp(r"^D\+(\d+)$", caseSensitive: false).firstMatch(s);
+  if (m == null) return null;
+  return int.tryParse(m.group(1)!);
+}
+
+/// 마감/완료 탭: 마감 후 경과 일 수. `D+n` 스크랩·신청 기간·`D-0` 등에서 추정.
+int? mpuDaysElapsedSinceDeadline(Map<String, dynamic> data) {
+  final int? plusStrict = _parseMpuDDayPlusStrict(data["d_day"]);
+  if (plusStrict != null) {
+    return plusStrict;
+  }
+
+  final String dd = normalizeMpuDdayScrape((data["d_day"] ?? "").toString());
+  final RegExpMatch? plusLoose =
+      RegExp(r"D\+(\d+)", caseSensitive: false).firstMatch(dd);
+  if (plusLoose != null) {
+    return int.tryParse(plusLoose.group(1)!);
+  }
+
+  final DateTime? deadline = mpuApplicationDeadlineDate(data);
+  if (deadline != null) {
+    final int diff = _calendarDaysUntil(deadline);
+    if (diff <= 0) {
+      return -diff;
+    }
+  }
+
+  if (parseMpuDDayStrict(data["d_day"]) == 0) {
+    return 0;
+  }
+  if (dd.contains("마감")) {
+    return 0;
+  }
+  return null;
+}
+
 /// 홈 대시보드 MPU 마감 배지 두 번째 줄과 동일 규칙: 숫자, 없으면 `?`, 마감일 당일은 `DAY`.
-String mpuDeadlineBadgeSecondLine(Map<String, dynamic> data) {
+/// [elapsed] true면 마감 후 경과 일 수(`D+` 배지용).
+String mpuDeadlineBadgeSecondLine(
+  Map<String, dynamic> data, {
+  bool elapsed = false,
+}) {
+  if (elapsed) {
+    final int? days = mpuDaysElapsedSinceDeadline(data);
+    return days?.toString() ?? "?";
+  }
+
   final int? strict = parseMpuDDayStrict(data["d_day"]);
   if (strict != null) {
     return strict.toString();
@@ -160,17 +208,21 @@ class MpuDeadlineHomeStyleBadge extends StatelessWidget {
     super.key,
     required this.data,
     this.compactSecondLineFontSize,
+    this.elapsed = false,
   });
 
   final Map<String, dynamic> data;
   final double? compactSecondLineFontSize;
+  /// true면 `D+`와 마감 후 경과 일 수(마감/완료 탭).
+  final bool elapsed;
 
   @override
   Widget build(BuildContext context) {
     final MjcSurfaceTokens tokens =
         Theme.of(context).extension<MjcSurfaceTokens>()!;
-    final String second = mpuDeadlineBadgeSecondLine(data);
-    final double secondSize = second == "DAY"
+    final String second =
+        mpuDeadlineBadgeSecondLine(data, elapsed: elapsed);
+    final double secondSize = !elapsed && second == "DAY"
         ? (compactSecondLineFontSize ?? 11)
         : (compactSecondLineFontSize ?? 18);
 
@@ -186,7 +238,7 @@ class MpuDeadlineHomeStyleBadge extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
-              "D-",
+              elapsed ? "D+" : "D-",
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.92),
                 fontSize: 11,

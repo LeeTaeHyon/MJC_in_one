@@ -38,6 +38,12 @@ class AdminModerationService {
     }, SetOptions(merge: true));
   }
 
+  Future<void> deleteInquiry({
+    required DocumentReference<Map<String, dynamic>> ref,
+  }) async {
+    await ref.delete();
+  }
+
   Query<Map<String, dynamic>> reportQuery({required String statusFilter}) {
     Query<Map<String, dynamic>> q = _db
         .collection("notice_reports")
@@ -59,6 +65,12 @@ class AdminModerationService {
       "resolved_by": resolverUid,
       "resolved_at": FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
+  }
+
+  Future<void> deleteReport({
+    required DocumentReference<Map<String, dynamic>> ref,
+  }) async {
+    await ref.delete();
   }
 
   Future<void> flagPostForResummary({

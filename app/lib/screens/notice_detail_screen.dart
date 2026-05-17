@@ -2,6 +2,7 @@ import "package:flutter/foundation.dart" show kIsWeb;
 import "package:flutter/material.dart";
 import "package:flutter_animate/flutter_animate.dart";
 import "package:mjc_in_one/screens/common_webview_screen.dart";
+import "package:mjc_in_one/theme/app_colors.dart";
 import "package:mjc_in_one/theme/app_theme.dart";
 import "package:mjc_in_one/widgets/notice_report_sheet.dart";
 import "package:share_plus/share_plus.dart";
@@ -38,6 +39,10 @@ class NoticeDetailScreen extends StatefulWidget {
 }
 
 class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
+  /// [MainNavigationScreen] 공지 서브 네비 pill과 동일한 높이(44 + 세로 패딩).
+  static const double _floatingCtaHeight = 50;
+  static const double _floatingCtaBottomGap = 12;
+
   late bool _isPinned;
   late bool _isFavorite;
 
@@ -104,10 +109,20 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
     );
   }
 
+  bool get _isAiSummaryVersion {
+    final String v = _summaryVersion;
+    if (v.isEmpty) return false;
+    return v == "gemini-flash-v1" ||
+        v == "lmstudio-v1" ||
+        v.startsWith("gemini-") ||
+        v.startsWith("gemma-");
+  }
+
   String _summaryStatusLabel() {
+    if (_isAiSummaryVersion) {
+      return "AI 요약";
+    }
     switch (_summaryVersion) {
-      case "lmstudio-v1":
-        return "AI 요약";
       case "manual":
         return "관리자 검수 요약";
       case "heuristic-v1":
@@ -181,23 +196,35 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
           ),
         ),
       ),
-      body: Column(
+      body: Stack(
+        fit: StackFit.expand,
         children: [
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-              children: [
-                _buildHeaderCard(theme, scheme, tokens),
-                const SizedBox(height: 16),
-                _buildSummaryCard(theme, scheme),
-                if (_body.isNotEmpty) ...[
-                  const SizedBox(height: 16),
-                  _buildBodyPreviewCard(theme, scheme),
-                ],
-              ],
+          ListView(
+            padding: EdgeInsets.fromLTRB(
+              20,
+              16,
+              20,
+              MediaQuery.paddingOf(context).bottom +
+                  _floatingCtaBottomGap +
+                  _floatingCtaHeight +
+                  16,
             ),
+            children: [
+              _buildHeaderCard(theme, scheme, tokens),
+              const SizedBox(height: 16),
+              _buildSummaryCard(theme, scheme),
+              if (_body.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                _buildBodyPreviewCard(theme, scheme),
+              ],
+            ],
           ),
-          _buildBottomCta(theme, scheme),
+          Positioned(
+            left: 18,
+            right: 18,
+            bottom: MediaQuery.paddingOf(context).bottom + _floatingCtaBottomGap,
+            child: _buildBottomCta(theme, scheme),
+          ),
         ],
       ),
     );
@@ -312,20 +339,49 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
     );
   }
 
+  /// 라이트 모드 연한 파란 그라데이션을 어두운 배경 위에서도 동일하게 보이게 합성.
+  LinearGradient _summaryCardGradient(Color primary, {required bool isDark}) {
+    final Color base =
+        isDark ? const Color(0xFFc4c5c9) : AppColors.scaffoldMuted;
+    final double topAlpha = isDark ? 0.10 : 0.12;
+    final double bottomAlpha = isDark ? 0.028 : 0.03;
+    return LinearGradient(
+      colors: <Color>[
+        Color.alphaBlend(primary.withValues(alpha: topAlpha), base),
+        Color.alphaBlend(primary.withValues(alpha: bottomAlpha), base),
+      ],
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+    );
+  }
+
+  /// 밝은 요약 박스 위 텍스트 — 다크 테마 [TextStyle.foreground]가 color를 덮어쓰지 않게 분리.
+  TextStyle _summaryBoxBodyStyle(ThemeData theme, {required Color color}) {
+    final TextStyle base = theme.textTheme.bodyMedium ?? const TextStyle();
+    return TextStyle(
+      fontFamily: base.fontFamily,
+      fontSize: base.fontSize,
+      fontWeight: base.fontWeight,
+      height: 1.55,
+      color: color,
+    );
+  }
+
   Widget _buildSummaryCard(ThemeData theme, ColorScheme scheme) {
     final bool hasSummary = _summary.trim().isNotEmpty;
     final bool isDark = theme.brightness == Brightness.dark;
+    // 다크 모드: 연한 파란 카드 위에 라이트 모드와 같은 진한 글자색.
+    final Color summaryOnSurface =
+        isDark ? const Color(0xDE000000) : scheme.onSurface;
+    final Color summaryOnSurfaceVariant =
+        isDark ? AppColors.mutedForeground : scheme.onSurfaceVariant;
+    final Color reportAccent =
+        isDark ? const Color(0xFFD4183D) : scheme.error;
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            scheme.primary.withValues(alpha: isDark ? 0.25 : 0.12),
-            scheme.primary.withValues(alpha: isDark ? 0.05 : 0.03),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        gradient: _summaryCardGradient(scheme.primary, isDark: isDark),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: scheme.primary.withValues(alpha: 0.3),
@@ -353,7 +409,7 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
                 shaderCallback: (bounds) => LinearGradient(
                   colors: [
                     scheme.primary,
-                    isDark ? const Color(0xFFD500F9) : const Color(0xFF9C27B0),
+                    const Color(0xFF9C27B0),
                   ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
@@ -362,7 +418,7 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
                   _summaryStatusLabel(),
                   style: theme.textTheme.labelLarge?.copyWith(
                     color: Colors.white,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
@@ -370,17 +426,18 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
               TextButton.icon(
                 onPressed: _showReportSheet,
                 style: TextButton.styleFrom(
+                  foregroundColor: reportAccent,
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   minimumSize: const Size(0, 32),
                   visualDensity: VisualDensity.compact,
                 ),
                 icon: Icon(Icons.flag_outlined,
-                    size: 16, color: scheme.error),
+                    size: 16, color: reportAccent),
                 label: Text(
                   "내용이 이상해요",
                   style: TextStyle(
-                    color: scheme.error,
+                    color: reportAccent,
                     fontWeight: FontWeight.w600,
                     fontSize: 12,
                   ),
@@ -392,15 +449,18 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
           if (hasSummary)
             Text(
               _summary,
-              style: theme.textTheme.bodyMedium?.copyWith(height: 1.55),
+              style: _summaryBoxBodyStyle(
+                theme,
+                color: summaryOnSurface,
+              ),
             )
           else
             Text(
               "아직 요약이 준비되지 않았습니다. 본문 확인을 눌러 원문을 확인해 주세요.",
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: scheme.onSurfaceVariant,
-                fontStyle: FontStyle.italic,
-              ),
+              style: _summaryBoxBodyStyle(
+                theme,
+                color: summaryOnSurfaceVariant,
+              ).copyWith(fontStyle: FontStyle.italic),
             ),
         ],
       ),
@@ -463,38 +523,78 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
 
   Widget _buildBottomCta(ThemeData theme, ColorScheme scheme) {
     final bool hasUrl = _url.isNotEmpty;
-    return SafeArea(
-      top: false,
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
-        decoration: BoxDecoration(
-          color: scheme.surface,
-          border: Border(
-            top: BorderSide(color: scheme.outlineVariant, width: 1),
+    final MjcComponentTokens components =
+        theme.extension<MjcComponentTokens>()!;
+    final MjcSurfaceTokens surfaceTokens =
+        theme.extension<MjcSurfaceTokens>()!;
+    final bool isDark = theme.brightness == Brightness.dark;
+    final Color accent = components.bottomNavSelected;
+
+    return Align(
+      alignment: Alignment.center,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 430),
+        child: Material(
+          color: scheme.surface.withValues(alpha: isDark ? 0.98 : 0.96),
+          elevation: 10,
+          shadowColor: components.noticeSubNavShadow,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(28),
+            side: BorderSide(color: surfaceTokens.hairline, width: 1),
           ),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: FilledButton.icon(
-                onPressed: hasUrl ? _openOriginal : null,
-                style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+          clipBehavior: Clip.antiAlias,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
+            child: InkWell(
+              onTap: hasUrl ? _openOriginal : null,
+              borderRadius: BorderRadius.circular(28),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 170),
+                curve: Curves.easeOutCubic,
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
                 ),
-                icon: const Icon(Icons.open_in_new_rounded, size: 20),
-                label: const Text(
-                  "본문 확인",
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                  ),
+                decoration: BoxDecoration(
+                  color: hasUrl
+                      ? accent.withValues(alpha: isDark ? 0.20 : 0.12)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(28),
+                  border: hasUrl
+                      ? Border.all(
+                          color: accent.withValues(
+                            alpha: isDark ? 0.35 : 0.18,
+                          ),
+                        )
+                      : null,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.open_in_new_rounded,
+                      size: 18,
+                      color: hasUrl
+                          ? accent
+                          : scheme.onSurfaceVariant.withValues(alpha: 0.45),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      "본문 확인",
+                      style: TextStyle(
+                        color: hasUrl
+                            ? accent
+                            : scheme.onSurfaceVariant.withValues(alpha: 0.45),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
-          ],
+          ),
         ),
       ),
     );

@@ -90,8 +90,14 @@ class ParsedCourseOffering {
     final List<TimetableSlot> merged = TimetableSlotMerge.mergeAdjacent(slots);
     return merged
         .map(
-          (TimetableSlot s) =>
-              "${_weekdayLabel(s.weekday)} ${_fmtHm(s.startMinute)}-${_fmtHm(s.endMinute)} (${s.room})",
+          (TimetableSlot s) {
+            final String roomLabel = isRemoteExamFaceToFaceOnly
+                ? (s.room.isEmpty
+                    ? "대면시험 강의실"
+                    : "대면시험 강의실 ${s.room}")
+                : s.room;
+            return "${_weekdayLabel(s.weekday)} ${_fmtHm(s.startMinute)}-${_fmtHm(s.endMinute)} ($roomLabel)";
+          },
         )
         .join(" ");
   }

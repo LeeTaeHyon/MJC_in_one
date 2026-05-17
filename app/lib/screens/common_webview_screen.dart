@@ -1,5 +1,6 @@
 import "package:flutter/foundation.dart" show kIsWeb;
 import "package:flutter/material.dart";
+import "package:mjc_in_one/widgets/scroll_to_top_fab.dart";
 import "package:mjc_in_one/widgets/scroll_to_top_scope.dart";
 import "package:mjc_in_one/widgets/webview_navigation_overlay.dart";
 import "package:share_plus/share_plus.dart";
@@ -230,6 +231,7 @@ class _CommonWebViewScreenState extends State<CommonWebViewScreen> {
               await _syncNavigationHistory();
             },
           ),
+          const PushedRouteScrollToTopLayer(),
         ],
       ),
     );

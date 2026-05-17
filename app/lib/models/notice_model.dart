@@ -16,7 +16,7 @@ class Notice {
   /// AI 요약 (휴리스틱 또는 LLM). 누락 시 빈 문자열.
   final String summary;
 
-  /// 요약 생성 방식: `heuristic-v1` / `lmstudio-v1` / `manual` / 빈 문자열.
+  /// 요약 생성 방식: `heuristic-v1` / `{model-id}-v1`(예: `gemma-4-31b-it-v1`) / `gemini-flash-v1`(구) / `manual`.
   final String summaryVersion;
 
   const Notice({

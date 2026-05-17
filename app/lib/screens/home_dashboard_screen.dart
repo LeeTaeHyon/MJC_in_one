@@ -57,6 +57,11 @@ const double _kPinnedBrandRowContentHeight = _kPinnedBrandVerticalInset +
     _kPinnedBrandIconRowHeight +
     _kPinnedBrandVerticalInset;
 
+/// 홈 대시보드 다크 모드 텍스트 (순백 대비 눈부심 완화).
+const Color _kHomeDarkTitleText = Color(0xFFF5F5F5);
+const Color _kHomeDarkBodyText = Color(0xFFD4D4D4);
+const Color _kHomeDarkMoreText = Color(0xFFA3A3A3);
+
 class HomeDashboardScreen extends StatefulWidget {
   final void Function(int, {NoticesSubTab? noticesSubTab}) onNavigate;
 
@@ -155,6 +160,25 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
 
   bool _sectionEnabled(HomeDashboardSection section) {
     return _enabledDashboardSections.contains(section.id);
+  }
+
+  Color _homeTitleTextColor(BuildContext context) {
+    if (Theme.of(context).brightness == Brightness.dark) {
+      return _kHomeDarkTitleText;
+    }
+    return Theme.of(context).colorScheme.onSurface;
+  }
+
+  Color _homeBodyTextColor(BuildContext context) {
+    if (Theme.of(context).brightness == Brightness.dark) {
+      return _kHomeDarkBodyText;
+    }
+    return Theme.of(context).colorScheme.onSurfaceVariant;
+  }
+
+  ButtonStyle? _homeMoreButtonStyle(BuildContext context) {
+    if (Theme.of(context).brightness != Brightness.dark) return null;
+    return TextButton.styleFrom(foregroundColor: _kHomeDarkMoreText);
   }
 
   List<HomeDashboardSection> _orderedEnabledSections() {
@@ -357,7 +381,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   Future<void> _openMore() async {
     await Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
-        builder: (_) => const MoreTabScreen(),
+        builder: (_) => MoreTabScreen(onNavigate: widget.onNavigate),
       ),
     );
     if (!mounted) return;
@@ -621,11 +645,11 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
-                          color: scheme.onSurfaceVariant,
+                          color: _homeBodyTextColor(context),
                         ),
                       ),
                       const SizedBox(height: 4),
-                      const Text(
+                      Text(
                         "주말입니다",
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
@@ -633,6 +657,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                           fontSize: 16,
                           fontWeight: FontWeight.w900,
                           height: 1.2,
+                          color: _homeTitleTextColor(context),
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -642,7 +667,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: 12,
-                          color: scheme.onSurfaceVariant,
+                          color: _homeBodyTextColor(context),
                         ),
                       ),
                     ],
@@ -676,7 +701,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
               "본교 공지",
               "최신 소식",
               Icons.school,
-              const <Color>[Color(0xFF1E88E5), Color(0xFF1E88E5)],
+              tokens.dashboardGradients[0],
               MainNavTabIndex.notices,
               noticesSubTab: NoticesSubTab.main,
             ),
@@ -862,7 +887,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          color: isDark ? scheme.onSurface : lightTitle,
+                          color: isDark ? _kHomeDarkTitleText : lightTitle,
                           fontSize: 13.5,
                           fontWeight: FontWeight.bold,
                           letterSpacing: -0.3,
@@ -873,7 +898,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          color: isDark ? scheme.onSurfaceVariant : lightSub,
+                          color: isDark ? _kHomeDarkBodyText : lightSub,
                           fontSize: 9.5,
                           letterSpacing: -0.2,
                         ),
@@ -937,21 +962,21 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                               style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w700,
-                                color: scheme.onSurfaceVariant,
+                                color: _homeBodyTextColor(context),
                               ),
                             ),
                             const SizedBox(height: 4),
                             Text(
                               loading
-                                  ? "메뉴를 불러오는 중입니다."
-                                  : "${items.length}개 메뉴 중 고민되시나요?",
+                                  ? "메뉴 불러오는 중"
+                                  : "메뉴가 고민되시나요?",
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w900,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
                                 height: 1.2,
-                                color: scheme.onSurface,
+                                color: _homeTitleTextColor(context),
                               ),
                             ),
                           ],
@@ -1029,13 +1054,17 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
           child: Row(
             children: [
               Text(
                 "핵심역량 프로그램 신청 마감 일정",
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.bold,
+                  color: _homeTitleTextColor(context),
+                ),
               ),
             ],
           ),
@@ -1054,9 +1083,12 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                   });
 
             if (items.isEmpty) {
-              return const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                child: Text("진행 중인 일정이 없습니다."),
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                child: Text(
+                  "진행 중인 일정이 없습니다.",
+                  style: TextStyle(color: _homeBodyTextColor(context)),
+                ),
               );
             }
 
@@ -1126,10 +1158,11 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                       title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontWeight: FontWeight.w800,
                         fontSize: 15,
                         height: 1.15,
+                        color: _homeTitleTextColor(context),
                       ),
                     ),
                     if (regLine.isNotEmpty) ...[
@@ -1139,7 +1172,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          color: scheme.onSurfaceVariant,
+                          color: _homeBodyTextColor(context),
                           fontSize: 12,
                           height: 1.1,
                         ),
@@ -1152,7 +1185,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          color: scheme.onSurfaceVariant,
+                          color: _homeBodyTextColor(context),
                           fontSize: 12,
                           height: 1.1,
                         ),
@@ -1184,12 +1217,17 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
+                  Text(
                     "다가오는 학사일정",
-                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                      color: _homeTitleTextColor(context),
+                    ),
                   ),
                   TextButton(
                     onPressed: _openAcademicScheduleScreen,
+                    style: _homeMoreButtonStyle(context),
                     child: const Text("더보기"),
                   ),
                 ],
@@ -1201,9 +1239,12 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                 child: LinearProgressIndicator(minHeight: 2),
               )
             else if (upcoming.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                child: Text("예정된 학사일정이 없습니다."),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                child: Text(
+                  "예정된 학사일정이 없습니다.",
+                  style: TextStyle(color: _homeBodyTextColor(context)),
+                ),
               )
             else
               ListView.separated(
@@ -1290,14 +1331,14 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                 height: 52,
                 decoration: BoxDecoration(
                   color:
-                      AppColors.primary.withValues(alpha: isDark ? 0.18 : 0.10),
+                      AppColors.primary.withValues(alpha: isDark ? 0.28 : 0.10),
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Center(
                   child: Text(
                     dDay <= 0 ? "D-DAY" : "D-$dDay",
                     style: TextStyle(
-                      color: isDark ? Colors.white : scheme.primary,
+                      color: isDark ? _kHomeDarkTitleText : scheme.primary,
                       fontSize: 12,
                       fontWeight: FontWeight.w900,
                     ),
@@ -1313,9 +1354,10 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                       title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w800,
+                        color: _homeTitleTextColor(context),
                       ),
                     ),
                     const SizedBox(height: 6),
@@ -1324,7 +1366,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        color: scheme.onSurfaceVariant,
+                        color: _homeBodyTextColor(context),
                         fontSize: 12,
                       ),
                     ),
@@ -1352,15 +1394,20 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Text(
+          Text(
             "최근 공지사항",
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: _homeTitleTextColor(context),
+            ),
           ),
           TextButton(
             onPressed: () => widget.onNavigate(
               MainNavTabIndex.notices,
               noticesSubTab: NoticesSubTab.main,
             ),
+            style: _homeMoreButtonStyle(context),
             child: const Text("더보기"),
           ),
         ],
@@ -1395,11 +1442,16 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           return !type.contains("학사일정");
         }).toList();
         if (notices.isEmpty) {
-          return const Column(
+          return Column(
             children: [
               Padding(
-                padding: EdgeInsets.symmetric(vertical: 12),
-                child: Center(child: Text("새로운 소식이 없습니다.")),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Center(
+                  child: Text(
+                    "새로운 소식이 없습니다.",
+                    style: TextStyle(color: _homeBodyTextColor(context)),
+                  ),
+                ),
               ),
             ],
           );
@@ -1492,7 +1544,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                         .first
                         .trim(),
                     style: TextStyle(
-                      color: scheme.onSurfaceVariant,
+                      color: _homeBodyTextColor(context),
                       fontSize: 11,
                     ),
                   ),
@@ -1503,10 +1555,11 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                 data["title"] ?? "",
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 14,
                   height: 1.3,
+                  color: _homeTitleTextColor(context),
                 ),
               ),
             ],
@@ -1590,7 +1643,12 @@ class _FoodcourtSlotMachineDialogState
         Theme.of(context).extension<MjcSurfaceTokens>()!;
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
     return AlertDialog(
-      title: const Text("오늘 뭐 먹지?"),
+      title: Text(
+        "오늘 뭐 먹지?",
+        style: TextStyle(
+          color: isDark ? _kHomeDarkTitleText : scheme.onSurface,
+        ),
+      ),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -1609,7 +1667,7 @@ class _FoodcourtSlotMachineDialogState
                 Text(
                   _spinning ? "두구두구..." : "오늘은 이거 어때요?",
                   style: TextStyle(
-                    color: scheme.onSurfaceVariant,
+                    color: isDark ? _kHomeDarkBodyText : scheme.onSurfaceVariant,
                     fontSize: 13,
                     fontWeight: FontWeight.w800,
                   ),
@@ -1635,10 +1693,11 @@ class _FoodcourtSlotMachineDialogState
                     textAlign: TextAlign.center,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.w900,
                       height: 1.15,
+                      color: isDark ? _kHomeDarkTitleText : scheme.onSurface,
                     ),
                   ),
                 ),
@@ -1650,7 +1709,7 @@ class _FoodcourtSlotMachineDialogState
                     "${_currentItem.shop} • ${_currentItem.formattedPrice}",
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      color: scheme.onSurfaceVariant,
+                      color: isDark ? _kHomeDarkBodyText : scheme.onSurfaceVariant,
                       fontWeight: FontWeight.w700,
                     ),
                   ),

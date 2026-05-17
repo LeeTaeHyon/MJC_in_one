@@ -1,8 +1,9 @@
 import "package:mjc_in_one/features/academic_schedule/domain/academic_schedule_kind.dart";
 
 class AcademicScheduleClassifier {
+  /// `평가` 단독은 강의평가와 겹치므로 넣지 않음.
   static final List<RegExp> _exam = [
-    RegExp(r"(시험|중간고사|기말고사|고사|재시험|추가시험|보강시험|평가)"),
+    RegExp(r"(시험|중간고사|기말고사|고사|재시험|추가시험|보강시험)"),
   ];
 
   static final List<RegExp> _registration = [
@@ -13,13 +14,20 @@ class AcademicScheduleClassifier {
   ];
 
   static final List<RegExp> _grades = [
-    RegExp(r"(성적|강의평가|평가\s*입력|성적\s*입력|성적열람|성적\s*열람|성적정정|정정\s*기간)"),
+    RegExp(
+      r"(성적|강의\s*평가|강의평가|평가\s*입력|성적\s*입력|성적열람|성적\s*열람|"
+      r"성적정정|정정\s*기간)",
+    ),
   ];
 
   static final List<RegExp> _scholarship = [
     RegExp(
-      r"(장학|장학금|국가장학|근로장학|학자금|대출|등록금|등록|분납|납부|고지서|추가\s*등록)",
+      r"(장학|장학금|국가장학|근로장학|학자금|대출|등록금|분납|납부|고지서|추가\s*등록)",
     ),
+  ];
+
+  static final List<RegExp> _worship = [
+    RegExp(r"(예배|채플|기도회|예식)"),
   ];
 
   static AcademicScheduleKind kindOf(Map<String, dynamic> item) {
@@ -33,10 +41,12 @@ class AcademicScheduleClassifier {
 
     bool anyMatch(List<RegExp> pats) => pats.any((p) => p.hasMatch(t));
 
+    // 성적·강의평가를 시험 키워드보다 먼저 검사
+    if (anyMatch(_grades)) return AcademicScheduleKind.grades;
     if (anyMatch(_exam)) return AcademicScheduleKind.exam;
     if (anyMatch(_registration)) return AcademicScheduleKind.registration;
-    if (anyMatch(_grades)) return AcademicScheduleKind.grades;
     if (anyMatch(_scholarship)) return AcademicScheduleKind.scholarship;
+    if (anyMatch(_worship)) return AcademicScheduleKind.worship;
     return AcademicScheduleKind.general;
   }
 }

@@ -3,7 +3,6 @@ import "package:mjc_in_one/features/timetable/models/timetable_models.dart";
 import "package:mjc_in_one/features/timetable/screens/timetable_add_courses_screen.dart";
 import "package:mjc_in_one/features/timetable/services/timetable_official_service.dart";
 import "package:mjc_in_one/features/timetable/services/timetable_storage_service.dart";
-import "package:mjc_in_one/features/timetable/widgets/timetable_manual_entry_sheet.dart";
 import "package:mjc_in_one/features/timetable/widgets/timetable_offering_schedule_text_block.dart";
 import "package:mjc_in_one/features/timetable/widgets/timetable_week_grid.dart";
 import "package:mjc_in_one/theme/app_colors.dart";
@@ -68,6 +67,29 @@ class _TimetableMainScreenState extends State<TimetableMainScreen> {
     return list;
   }
 
+  static double _parseCredits(String raw) {
+    final String s = raw.trim();
+    if (s.isEmpty) return 0;
+    final double? direct = double.tryParse(s);
+    if (direct != null) return direct;
+    final RegExpMatch? m = RegExp(r"(\d+(?:\.\d+)?)").firstMatch(s);
+    if (m == null) return 0;
+    return double.tryParse(m.group(1)!) ?? 0;
+  }
+
+  double get _totalCredits =>
+      _enrolled.fold(0.0, (double sum, ParsedCourseOffering o) {
+        return sum + _parseCredits(o.credits);
+      });
+
+  String get _totalCreditsLabel {
+    final double total = _totalCredits;
+    if (total == total.roundToDouble()) {
+      return "${total.toInt()}학점";
+    }
+    return "${total.toStringAsFixed(1)}학점";
+  }
+
   ParsedCourseOffering? _offeringForSlot(TimetableSlot s) {
     for (final ParsedCourseOffering o in _enrolled) {
       if (o.offeringId == s.offeringId) return o;
@@ -111,17 +133,6 @@ class _TimetableMainScreenState extends State<TimetableMainScreen> {
     final List<ParsedCourseOffering> next = <ParsedCourseOffering>[
       ...kept,
       ...picked,
-    ];
-    await _saveEnrolledAndReload(next);
-  }
-
-  Future<void> _openManualFromMain() async {
-    final ParsedCourseOffering? o =
-        await showTimetableManualEntrySheet(context);
-    if (!mounted || o == null) return;
-    final List<ParsedCourseOffering> next = <ParsedCourseOffering>[
-      ..._enrolled,
-      o,
     ];
     await _saveEnrolledAndReload(next);
   }
@@ -170,6 +181,15 @@ class _TimetableMainScreenState extends State<TimetableMainScreen> {
                     ),
                   ),
                 ],
+                const SizedBox(height: 6),
+                Text(
+                  o.credits.isEmpty ? "학점 미상" : "${o.credits}학점",
+                  style: TextStyle(
+                    fontFamily: kPretendardFontFamily,
+                    fontSize: 14,
+                    color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                  ),
+                ),
                 const SizedBox(height: 10),
                 TimetableOfferingScheduleTextBlock(offering: o),
                 const SizedBox(height: 16),
@@ -256,144 +276,81 @@ class _TimetableMainScreenState extends State<TimetableMainScreen> {
     final ColorScheme scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
+      floatingActionButtonAnimator: FloatingActionButtonAnimator.noAnimation,
       appBar: AppBar(
         title: const Text("시간표"),
         actions: <Widget>[
-          PopupMenuButton<String>(
-            onSelected: (String value) {
-              if (value == "official") {
-                _openOfficialCatalog();
-                return;
-              }
-              if (value == "ocr") {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text("스크린샷으로 불러오기는 추후 제공 예정입니다."),
+          if (!_loading)
+            Padding(
+              padding: const EdgeInsets.only(right: 16),
+              child: Center(
+                child: Text(
+                  _totalCreditsLabel,
+                  style: const TextStyle(
+                    fontFamily: kPretendardFontFamily,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
                   ),
-                );
-              }
-            },
-            itemBuilder: (BuildContext context) => const <PopupMenuEntry<String>>[
-              PopupMenuItem<String>(
-                value: "official",
-                child: Text("공식 시간표 불러오기"),
+                ),
               ),
-              PopupMenuItem<String>(
-                value: "ocr",
-                child: Text("스크린샷으로 불러오기"),
-              ),
-            ],
-          ),
+            ),
         ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : _enrolled.isEmpty
-              ? _buildEmpty(context)
-              : RefreshIndicator(
-                  onRefresh: _reload,
-                  color: AppColors.primary,
-                  child: SingleChildScrollView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.fromLTRB(12, 12, 12, 100),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: <Widget>[
-                        Text(
-                          "이번 학기",
-                          style: TextStyle(
-                            fontFamily: kPretendardFontFamily,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: scheme.primary,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          "내 시간표",
-                          style: TextStyle(
-                            fontFamily: kPretendardFontFamily,
-                            fontSize: 20,
-                            fontWeight: FontWeight.w900,
-                            color: scheme.onSurface,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        TimetableWeekGrid(
-                          slots: _gridSlots,
-                          onSlotTap: _onSlotTap,
-                          startHour: 9,
-                          endHour: 18,
-                        ),
-                        _buildRemoteExamCourseList(context),
-                      ],
+          : RefreshIndicator(
+              onRefresh: _reload,
+              color: AppColors.primary,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 100),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    Text(
+                      "이번 학기",
+                      style: TextStyle(
+                        fontFamily: kPretendardFontFamily,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: scheme.primary,
+                      ),
                     ),
-                  ),
+                    const SizedBox(height: 4),
+                    Text(
+                      "내 시간표",
+                      style: TextStyle(
+                        fontFamily: kPretendardFontFamily,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w900,
+                        color: scheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TimetableWeekGrid(
+                      slots: _gridSlots,
+                      onSlotTap: _onSlotTap,
+                      startHour: 9,
+                      endHour: 18,
+                    ),
+                    _buildRemoteExamCourseList(context),
+                  ],
                 ),
+              ),
+            ),
       floatingActionButton: _loading
           ? null
-          : FloatingActionButton.extended(
+          : FloatingActionButton(
+              heroTag: null,
               onPressed: _openOfficialCatalog,
-              icon: const Icon(Icons.cloud_download_outlined),
-              label: const Text("시간표 추가"),
+              tooltip: "시간표 추가",
               backgroundColor: AppColors.primary,
               foregroundColor: AppColors.timetableSlotOnColor,
+              splashColor: Colors.transparent,
+              highlightElevation: 6,
+              child: const Icon(Icons.edit_rounded),
             ),
-    );
-  }
-
-  Widget _buildEmpty(BuildContext context) {
-    final ColorScheme scheme = Theme.of(context).colorScheme;
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            Icon(Icons.calendar_today_outlined, size: 56, color: scheme.outline),
-            const SizedBox(height: 16),
-            Text(
-              "저장된 시간표가 없습니다.",
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontFamily: kPretendardFontFamily,
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: scheme.onSurface,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              "공식 시간표(Firestore)에서 강의를 불러와\n원하는 분반을 선택해 주세요.",
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontFamily: kPretendardFontFamily,
-                fontSize: 13,
-                height: 1.4,
-                color: scheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 24),
-            FilledButton.icon(
-              onPressed: _openOfficialCatalog,
-              icon: const Icon(Icons.cloud_download_outlined),
-              label: const Text("공식 시간표 불러오기"),
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: AppColors.timetableSlotOnColor,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-              ),
-            ),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: _openManualFromMain,
-              icon: const Icon(Icons.edit_calendar_outlined),
-              label: const Text("직접 추가"),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

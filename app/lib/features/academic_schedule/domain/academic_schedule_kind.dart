@@ -3,6 +3,7 @@ enum AcademicScheduleKind {
   registration,
   grades,
   scholarship,
+  worship,
   general;
 
   static AcademicScheduleKind? tryParse(String? raw) {
@@ -12,6 +13,7 @@ enum AcademicScheduleKind {
       "registration" => AcademicScheduleKind.registration,
       "grades" => AcademicScheduleKind.grades,
       "scholarship" => AcademicScheduleKind.scholarship,
+      "worship" => AcademicScheduleKind.worship,
       "general" => AcademicScheduleKind.general,
       _ => null,
     };

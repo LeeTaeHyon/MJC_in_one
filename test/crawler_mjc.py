@@ -13,10 +13,10 @@ from notice_body import enrich_with_body_and_summary
 
 # 본문 fetch HTTP 호출 간 대기(초) — 서버 부하 방지
 _BODY_FETCH_THROTTLE_S = float(os.environ.get("BODY_FETCH_THROTTLE_S", "1.0"))
-# LM Studio 사용 여부 (GitHub Actions 등 원격에서는 보통 OFF)
-_BODY_USE_LMSTUDIO = bool((os.environ.get("LMSTUDIO_BASE_URL") or "").strip())
-_BODY_LM_BASE = (os.environ.get("LMSTUDIO_BASE_URL") or "").strip()
-_BODY_LM_MODEL = os.environ.get("LMSTUDIO_MODEL", "qwen/qwen3.5-9b")
+# Gemini Flash 요약 (GEMINI_API_KEY 없으면 휴리스틱만)
+_BODY_USE_GEMINI = bool((os.environ.get("GEMINI_API_KEY") or "").strip())
+_BODY_GEMINI_KEY = (os.environ.get("GEMINI_API_KEY") or "").strip()
+_BODY_GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
 
 
 def _enrich_body(post: dict, session: requests.Session | None = None) -> None:
@@ -25,9 +25,9 @@ def _enrich_body(post: dict, session: requests.Session | None = None) -> None:
         enrich_with_body_and_summary(
             post,
             session=session,
-            use_lmstudio=_BODY_USE_LMSTUDIO,
-            lm_base=_BODY_LM_BASE,
-            lm_model=_BODY_LM_MODEL,
+            use_gemini=_BODY_USE_GEMINI,
+            gemini_api_key=_BODY_GEMINI_KEY,
+            gemini_model=_BODY_GEMINI_MODEL,
         )
     except Exception as e:
         post.setdefault("body", "")

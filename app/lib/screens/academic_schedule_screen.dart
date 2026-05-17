@@ -265,11 +265,7 @@ class ScheduleTile extends StatelessWidget {
 
   final Map<String, dynamic> item;
 
-  AcademicScheduleKind _kindOf() {
-    final AcademicScheduleKind? fromTag =
-        AcademicScheduleKind.tryParse(item["schedule_kind"]?.toString());
-    return fromTag ?? AcademicScheduleClassifier.kindOf(item);
-  }
+  AcademicScheduleKind _kindOf() => AcademicScheduleClassifier.kindOf(item);
 
   @override
   Widget build(BuildContext context) {
@@ -576,11 +572,8 @@ class _CalendarGrid extends StatelessWidget {
   final VoidCallback onNext;
   final ValueChanged<DateTime> onDateTap;
 
-  AcademicScheduleKind _kindOf(Map<String, dynamic> item) {
-    final AcademicScheduleKind? fromTag =
-        AcademicScheduleKind.tryParse(item["schedule_kind"]?.toString());
-    return fromTag ?? AcademicScheduleClassifier.kindOf(item);
-  }
+  AcademicScheduleKind _kindOf(Map<String, dynamic> item) =>
+      AcademicScheduleClassifier.kindOf(item);
 
   @override
   Widget build(BuildContext context) {

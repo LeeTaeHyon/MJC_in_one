@@ -10,6 +10,7 @@ import "package:mjc_in_one/screens/notices_tab_screen.dart";
 import "package:mjc_in_one/screens/profile_setup_screen.dart";
 import "package:mjc_in_one/services/auth_service.dart";
 import "package:mjc_in_one/services/user_data_repository.dart";
+import "package:mjc_in_one/debug/scroll_fab_debug.dart";
 import "package:mjc_in_one/utils/bookmark_added_feedback.dart";
 import "package:mjc_in_one/widgets/scroll_to_top_fab.dart";
 import "package:mjc_in_one/widgets/scroll_to_top_scope.dart";
@@ -434,7 +435,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                             _noticeSubNavHeight +
                             _noticeSubNavFabGap
                         : 0),
-                child: const ScrollToTopFab(),
+                child: ScrollToTopFab(
+                  debugTag: ScrollFabDebug.enabled ? "mainNav" : null,
+                ),
               ),
             ],
           ),

@@ -1,12 +1,12 @@
 """
-공지 본문 수집 + 요약 (휴리스틱 / LM Studio).
+공지 본문 수집 + 요약 (휴리스틱 / Gemini Flash).
 
 MJC `view.do` 페이지의 본문 컨테이너는 `#divMemo.memo` 입니다.
 실측은 test 디렉터리에서 임시 inspection 스크립트로 확정했습니다.
 
-LM Studio 요약 디버그 (stderr):
-  PowerShell: `$env:LMSTUDIO_DEBUG = "1"`
-  CMD: `set LMSTUDIO_DEBUG=1`
+Gemini 요약 디버그 (stderr):
+  PowerShell: `$env:GEMINI_DEBUG = "1"`
+  CMD: `set GEMINI_DEBUG=1`
 
 사용:
   body, summary, info = fetch_and_summarize(view_url)
@@ -20,6 +20,7 @@ import json
 import os
 import re
 import sys
+import time
 import traceback
 from datetime import datetime
 from typing import Any
@@ -28,12 +29,26 @@ import requests
 from bs4 import BeautifulSoup
 
 SUMMARY_HEURISTIC_VERSION = "heuristic-v1"
+# 구 백필 문서 호환용. 신규 요약은 [summary_version_for_model] 로 모델 ID 반영.
+SUMMARY_GEMINI_VERSION = "gemini-flash-v1"
+
+
+def summary_version_for_model(model_id: str) -> str:
+    """Firestore ``summary_version`` — 실제 API 모델 ID 기반 (예: ``gemma-4-31b-it-v1``)."""
+    mid = re.sub(r"[^a-z0-9._-]+", "", (model_id or "").strip().lower())
+    if not mid:
+        return SUMMARY_GEMINI_VERSION
+    return f"{mid}-v1"
+# 이전 LM Studio 백필 문서 호환용 (신규 요약에는 사용하지 않음)
 SUMMARY_LMSTUDIO_VERSION = "lmstudio-v1"
 SUMMARY_MANUAL_VERSION = "manual"
 
+GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta"
+DEFAULT_GEMINI_MODEL = "gemini-2.0-flash"
 
-def _lmstudio_debug_enabled() -> bool:
-    return os.environ.get("LMSTUDIO_DEBUG", "").strip().lower() in (
+
+def _gemini_debug_enabled() -> bool:
+    return os.environ.get("GEMINI_DEBUG", "").strip().lower() in (
         "1",
         "true",
         "yes",
@@ -41,10 +56,10 @@ def _lmstudio_debug_enabled() -> bool:
     )
 
 
-def _lm_log(msg: str) -> None:
-    """LM Studio 관련 진단 로그 (환경변수 켰을 때만 stderr)."""
-    if _lmstudio_debug_enabled():
-        print(f"[notice_body/lmstudio] {msg}", file=sys.stderr)
+def _gemini_log(msg: str) -> None:
+    """Gemini 요약 진단 로그 (환경변수 켰을 때만 stderr)."""
+    if _gemini_debug_enabled():
+        print(f"[notice_body/gemini] {msg}", file=sys.stderr)
 
 
 _DEFAULT_HEADERS = {
@@ -302,36 +317,13 @@ def heuristic_summary(body: str, *, max_chars: int = 220) -> str:
     return out.strip()
 
 
-def lmstudio_summarize(
-    *,
-    base_url: str,
-    model: str,
-    title: str,
-    body: str,
-    timeout: float = 120.0,
-) -> tuple[str | None, str]:
-    """LM Studio (OpenAI 호환) 로 한국어 2~3줄 요약 생성.
-
-    Returns:
-        (summary, fail_reason) — 성공 시 ``(text, "")``.
-        호출 자체를 건너뛴 경우(URL 없음·본문 빈 값)는 ``(None, "")``.
-        HTTP 요청 이후 실패 시 ``fail_reason`` 에 짧은 태그
-        (``timeout``, ``http_404``, ``json_decode`` 등)가 들어가 재시도 목록에 넣기 좋음.
-
-    디버그: ``LMSTUDIO_DEBUG=1`` 이면 stderr에 요청/응답 스니펫과 예외를 출력합니다.
-    """
-    url = (base_url or os.environ.get("LMSTUDIO_BASE_URL") or "").strip().rstrip("/")
-    if not url:
-        _lm_log("skip: base_url 비어 있음")
-        return None, ""
-    if not body or not body.strip():
-        _lm_log("skip: body 비어 있음")
-        return None, ""
-
-    chat_url = f"{url}/v1/chat/completions"
-
-    # 본문 너무 길면 토큰 절약 위해 6000자에서 자름
+def _summary_prompt(title: str, body: str) -> tuple[str, str]:
+    """(system_instruction, user_text) for Gemini / legacy callers."""
     body_for_prompt = body[:6000]
+    system = (
+        "너는 대학 공지 요약기다. 한국어 격식체 ~합니다 로 끝내고 "
+        "허위 정보를 만들지 않으며 JSON만 출력한다."
+    )
     user = (
         f"제목: {title}\n"
         f"본문:\n{body_for_prompt}\n\n"
@@ -340,94 +332,218 @@ def lmstudio_summarize(
         '출력은 JSON 한 줄만: {"summary":"..."}\n'
         "설명, 마크다운 코드펜스, 다른 키, 줄바꿈 모두 금지."
     )
-    _lm_log(f"POST {chat_url} model={model!r} title_len={len(title)} body_prompt_len={len(body_for_prompt)}")
+    return system, user
+
+
+def _gemini_max_retries() -> int:
+    raw = os.environ.get("GEMINI_MAX_RETRIES", "6").strip()
+    try:
+        return max(0, int(raw))
+    except ValueError:
+        return 6
+
+
+def _retry_after_seconds(res: requests.Response, attempt: int) -> float:
+    """429/503 시 대기 초. Retry-After 헤더 우선, 없으면 지수 백오프."""
+    ra = (res.headers.get("Retry-After") or "").strip()
+    if ra:
+        try:
+            return max(1.0, float(ra))
+        except ValueError:
+            pass
+    return min(120.0, 2.0 * (2**attempt))
+
+
+def _summary_from_parsed(parsed: Any) -> str | None:
+    if isinstance(parsed, dict):
+        summary = parsed.get("summary")
+        if isinstance(summary, str) and summary.strip():
+            return summary.strip()[:600]
+    return None
+
+
+def _parse_summary_json(content: str) -> tuple[str | None, str]:
+    """모델 출력에서 summary 필드 추출 (Gemma 등 비준수 JSON 폴백 포함)."""
+    text = content.strip()
+    if not text:
+        return None, "empty_content"
+    if text.startswith("```"):
+        text = re.sub(r"^```[a-zA-Z]*\n?", "", text)
+        text = re.sub(r"\n?```$", "", text).strip()
+
+    try:
+        parsed = json.loads(text)
+        summary = _summary_from_parsed(parsed)
+        if summary:
+            return summary, ""
+    except json.JSONDecodeError:
+        pass
+
+    # {"summary":"..."} 가 앞뒤 설명과 섞인 경우
+    obj_match = re.search(r"\{[\s\S]*\}", text)
+    if obj_match:
+        try:
+            parsed = json.loads(obj_match.group(0))
+            summary = _summary_from_parsed(parsed)
+            if summary:
+                return summary, ""
+        except json.JSONDecodeError:
+            pass
+
+    field_match = re.search(
+        r'"summary"\s*:\s*"((?:[^"\\]|\\.)*)"',
+        text,
+        flags=re.DOTALL,
+    )
+    if field_match:
+        try:
+            summary = json.loads(f'"{field_match.group(1)}"')
+        except json.JSONDecodeError:
+            summary = field_match.group(1)
+        summary = str(summary).strip()
+        if summary:
+            return summary[:600], ""
+
+    # JSON 대신 평문만 준 경우 (짧은 공지에서 Gemma가 자주 함)
+    if "{" not in text and len(text) >= 8:
+        _gemini_log(f"plain-text fallback len={len(text)} snip={text[:200]!r}")
+        return text[:600], ""
+
+    _gemini_log(f"json_decode 실패 snip={text[:500]!r}")
+    return None, "json_decode"
+
+
+def gemini_summarize(
+    *,
+    api_key: str,
+    model: str,
+    title: str,
+    body: str,
+    timeout: float = 120.0,
+) -> tuple[str | None, str]:
+    """Google Gemini Flash 로 한국어 2~3줄 요약 생성.
+
+    Returns:
+        (summary, fail_reason) — 성공 시 ``(text, "")``.
+        API 키·본문이 비어 있으면 ``(None, "")``.
+        HTTP 이후 실패 시 ``fail_reason`` (``timeout``, ``http_429``, ``json_decode`` 등).
+
+    환경변수: ``GEMINI_API_KEY``, ``GEMINI_MODEL`` (기본 ``gemini-2.0-flash``).
+    디버그: ``GEMINI_DEBUG=1``.
+    """
+    key = (api_key or os.environ.get("GEMINI_API_KEY") or "").strip()
+    if not key:
+        _gemini_log("skip: api_key 비어 있음")
+        return None, ""
+    if not body or not body.strip():
+        _gemini_log("skip: body 비어 있음")
+        return None, ""
+
+    model_id = (
+        (model or os.environ.get("GEMINI_MODEL") or DEFAULT_GEMINI_MODEL).strip()
+    )
+    generate_url = f"{GEMINI_API_BASE}/models/{model_id}:generateContent"
+    system, user = _summary_prompt(title, body)
+    _gemini_log(
+        f"POST {generate_url} model={model_id!r} "
+        f"title_len={len(title)} body_prompt_len={len(body[:6000])}"
+    )
 
     res: requests.Response | None = None
     content = ""
+    max_retries = _gemini_max_retries()
     try:
-        res = requests.post(
-            chat_url,
-            json={
-                "model": model,
+        payload = {
+            "systemInstruction": {"parts": [{"text": system}]},
+            "contents": [{"role": "user", "parts": [{"text": user}]}],
+            "generationConfig": {
                 "temperature": 0.2,
-                "messages": [
-                    {
-                        "role": "system",
-                        "content": (
-                            "너는 대학 공지 요약기다. 한국어 격식체 ~합니다 로 끝내고 "
-                            "허위 정보를 만들지 않으며 JSON만 출력한다."
-                        ),
+                "responseMimeType": "application/json",
+                "responseSchema": {
+                    "type": "object",
+                    "properties": {
+                        "summary": {"type": "string"},
                     },
-                    {"role": "user", "content": user},
-                ],
+                    "required": ["summary"],
+                },
             },
-            timeout=timeout,
-        )
-        _lm_log(f"HTTP status={res.status_code}")
-        if res.status_code >= 400:
-            _lm_log(f"응답 본문 스니펫: {res.text[:1500]!r}")
-            return None, f"http_{res.status_code}"
-
-        res.raise_for_status()
-        data = res.json()
-        if _lmstudio_debug_enabled():
+        }
+        data: dict[str, Any] | None = None
+        for attempt in range(max_retries + 1):
+            res = requests.post(
+                generate_url,
+                params={"key": key},
+                json=payload,
+                timeout=timeout,
+            )
+            _gemini_log(f"HTTP status={res.status_code} attempt={attempt + 1}")
+            if res.status_code in (429, 503) and attempt < max_retries:
+                wait_s = _retry_after_seconds(res, attempt)
+                _gemini_log(
+                    f"{res.status_code} rate limit/일시 오류 → {wait_s:.1f}s 대기 후 재시도 "
+                    f"({attempt + 1}/{max_retries + 1}) snip={res.text[:300]!r}"
+                )
+                time.sleep(wait_s)
+                continue
+            if res.status_code >= 400:
+                _gemini_log(f"응답 본문 스니펫: {res.text[:1500]!r}")
+                return None, f"http_{res.status_code}"
+            res.raise_for_status()
+            data = res.json()
+            break
+        if data is None:
+            return None, "http_429"
+        if _gemini_debug_enabled():
             err_obj = data.get("error")
             if err_obj:
-                _lm_log(f"API error 필드: {err_obj!r}")
-            choices = data.get("choices")
-            if not choices:
-                _lm_log(f"choices 없음 data_keys={list(data.keys())} raw_snip={str(data)[:800]!r}")
+                _gemini_log(f"API error 필드: {err_obj!r}")
+            if not data.get("candidates"):
+                _gemini_log(
+                    f"candidates 없음 keys={list(data.keys())} "
+                    f"feedback={data.get('promptFeedback')!r} "
+                    f"raw_snip={str(data)[:800]!r}"
+                )
 
-        content = (
-            data.get("choices", [{}])[0]
-            .get("message", {})
-            .get("content", "")
-            .strip()
-        )
-        _lm_log(f"assistant content_len={len(content)} snip={content[:400]!r}")
+        candidates = data.get("candidates") or []
+        if not candidates:
+            return None, "no_candidates"
 
-        if content.startswith("```"):
-            content = re.sub(r"^```[a-zA-Z]*\n?", "", content)
-            content = re.sub(r"\n?```$", "", content).strip()
-            _lm_log(f"코드펜스 제거 후 len={len(content)} snip={content[:400]!r}")
+        finish = (candidates[0].get("finishReason") or "").strip()
+        if finish and finish not in ("STOP", "MAX_TOKENS"):
+            _gemini_log(f"finishReason={finish!r}")
+            if finish in ("SAFETY", "RECITATION", "BLOCKLIST"):
+                return None, f"blocked_{finish.lower()}"
 
-        parsed = json.loads(content)
-        summary = parsed.get("summary")
-        if not isinstance(summary, str):
-            _lm_log(f"summary 타입 오류: {type(summary)!r} parsed_keys={list(parsed.keys()) if isinstance(parsed, dict) else 'n/a'}")
-            return None, "bad_summary_type"
-        summary = summary.strip()
-        if not summary:
-            _lm_log("summary 빈 문자열")
-            return None, "empty_summary"
-        _lm_log(f"성공 summary_len={len(summary)}")
-        return summary[:600], ""
+        parts = (candidates[0].get("content") or {}).get("parts") or []
+        content = "".join(
+            p.get("text", "") for p in parts if isinstance(p, dict)
+        ).strip()
+        _gemini_log(f"model text_len={len(content)} snip={content[:400]!r}")
+
+        summary, parse_err = _parse_summary_json(content)
+        if summary:
+            _gemini_log(f"성공 summary_len={len(summary)}")
+            return summary, ""
+        return None, parse_err or "parse_failed"
 
     except requests.Timeout as e:
-        _lm_log(f"Timeout: {e!r} (timeout={timeout}s) — 서버가 응답하지 않거나 모델 로딩 중일 수 있음")
+        _gemini_log(f"Timeout: {e!r} (timeout={timeout}s)")
         return None, "timeout"
     except requests.RequestException as e:
-        _lm_log(f"RequestException: {e!r}")
+        _gemini_log(f"RequestException: {e!r}")
         if res is not None and getattr(res, "text", None):
-            _lm_log(f"응답 스니펫: {res.text[:1500]!r}")
+            _gemini_log(f"응답 스니펫: {res.text[:1500]!r}")
         return None, "request_error"
-    except json.JSONDecodeError as e:
-        _lm_log(f"JSONDecodeError: {e!r}")
-        if content.strip():
-            _lm_log(f"assistant 출력 JSON 파싱 실패 snip: {content[:1200]!r}")
-        elif res is not None:
-            _lm_log(f"HTTP 응답 JSON 파싱 실패 snip: {res.text[:1500]!r}")
-        return None, "json_decode"
     except (KeyError, IndexError, TypeError) as e:
-        _lm_log(f"응답 구조 오류: {type(e).__name__}: {e}")
+        _gemini_log(f"응답 구조 오류: {type(e).__name__}: {e}")
         if res is not None:
             try:
-                _lm_log(f"raw json snip: {str(res.json())[:1200]!r}")
+                _gemini_log(f"raw json snip: {str(res.json())[:1200]!r}")
             except Exception:
-                _lm_log(f"raw text snip: {res.text[:1200]!r}")
+                _gemini_log(f"raw text snip: {res.text[:1200]!r}")
         return None, "response_shape"
     except Exception as e:
-        _lm_log(f"기타 예외: {type(e).__name__}: {e}\n{traceback.format_exc()}")
+        _gemini_log(f"기타 예외: {type(e).__name__}: {e}\n{traceback.format_exc()}")
         return None, "unknown"
 
 
@@ -440,10 +556,10 @@ def enrich_with_body_and_summary(
     *,
     session: requests.Session | None = None,
     fetch_timeout: float = 15.0,
-    use_lmstudio: bool = False,
-    lm_base: str = "",
-    lm_model: str = "",
-    lm_timeout: float = 120.0,
+    use_gemini: bool = False,
+    gemini_api_key: str = "",
+    gemini_model: str = "",
+    gemini_timeout: float = 120.0,
 ) -> None:
     """post dict 에 body, summary, body_fetched_at 등을 채워넣음.
 
@@ -467,7 +583,7 @@ def enrich_with_body_and_summary(
 
     summary: str = ""
     summary_version = SUMMARY_HEURISTIC_VERSION
-    post.pop("_lm_summarize_fail_reason", None)
+    post.pop("_summarize_fail_reason", None)
 
     # 리스트에서 이미 .../… 로 잘린 제목이면 상세 페이지 제목으로 교체
     list_title = str(post.get("title") or "").strip()
@@ -478,25 +594,31 @@ def enrich_with_body_and_summary(
                 post["title"] = vt
 
     if body:
-        if use_lmstudio and lm_base:
-            lm, lm_fail = lmstudio_summarize(
-                base_url=lm_base,
-                model=lm_model,
+        api_key = (gemini_api_key or os.environ.get("GEMINI_API_KEY") or "").strip()
+        if use_gemini and api_key:
+            model_id = (
+                gemini_model
+                or os.environ.get("GEMINI_MODEL")
+                or DEFAULT_GEMINI_MODEL
+            ).strip()
+            gm, gm_fail = gemini_summarize(
+                api_key=api_key,
+                model=model_id,
                 title=str(post.get("title") or ""),
                 body=body,
-                timeout=lm_timeout,
+                timeout=gemini_timeout,
             )
-            if lm:
-                summary = lm
-                summary_version = SUMMARY_LMSTUDIO_VERSION
+            if gm:
+                summary = gm
+                summary_version = summary_version_for_model(model_id)
             else:
-                if lm_fail:
-                    post["_lm_summarize_fail_reason"] = lm_fail
-                if _lmstudio_debug_enabled():
+                if gm_fail:
+                    post["_summarize_fail_reason"] = gm_fail
+                if _gemini_debug_enabled():
                     tid = str(post.get("title") or "")[:80]
-                    r = post.get("_lm_summarize_fail_reason") or "skip"
-                    _lm_log(
-                        f"→ 휴리스틱 폴백 (LM 결과 없음) reason={r!r} title_snip={tid!r}"
+                    r = post.get("_summarize_fail_reason") or "skip"
+                    _gemini_log(
+                        f"→ 휴리스틱 폴백 (Gemini 결과 없음) reason={r!r} title_snip={tid!r}"
                     )
         if not summary:
             summary = heuristic_summary(body)

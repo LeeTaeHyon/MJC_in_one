@@ -8,40 +8,38 @@ Firestore 의 MJC 공지에 본문(body) + 요약(summary) 백필.
 옵션:
   --resummary-flagged   관리자 페이지에서 needs_resummary=true 로 마킹한 문서 재처리
   --reported-only       reports_count > 0 이고 status != resolved 인 문서만
-  --use-lmstudio        LM Studio 로 요약 생성 (--lmstudio-url 또는 LMSTUDIO_BASE_URL 필요)
-  --failure-log PATH    LM 요약이 실패한 문서만 JSON 한 줄씩 append (재시도 목록)
+  --use-gemini          Gemini Flash 로 요약 생성 (GEMINI_API_KEY 필요)
+  --failure-log PATH    Gemini 요약 실패 문서만 JSON 한 줄씩 append (재시도 목록)
   --retry-failure-log PATH  위 로그를 읽어 해당 글만 다시 fetch+요약 (--board 로 필터 가능)
-  --lm-timeout-sec      LM HTTP read timeout (기본 120)
-  --lmstudio-debug      LM 요약 호출 상세 로그 stderr 출력 (--lmstudio-url 과 무관)
+  --gemini-timeout-sec  Gemini HTTP read timeout (기본 120)
+  --gemini-debug        Gemini 요약 호출 상세 로그 stderr 출력
   --force               이미 body 가 있어도 재 fetch + 요약
   --board               특정 보드만 처리
   --limit               처리 최대 건수 (테스트용)
   --start-after         ( --board 와 함께) Firestore 문서 ID 기준 이 ID 다음부터 처리
   --firestore-page-size Firestore 목록을 이만큼씩만 읽은 뒤 끊음 (기본 100).
-                         LM 등으로 문서 처리가 길면 stream() 대신 이 방식이 필요함 — 안 쓰면 504 DeadlineExceeded 가 날 수 있음.
-  --throttle-ms         문서당 대기 (서버 부하 / 토큰 제한 방지)
+                         AI 요약 등으로 문서 처리가 길면 stream() 대신 이 방식이 필요함 — 안 쓰면 504 DeadlineExceeded 가 날 수 있음.
+  --throttle-ms         문서당 대기 ms (Gemini 429 시 8000~15000 권장, 기본 6000)
 
 사용 예 (test 폴더에서):
   cd test
   python backfill_notice_body.py --dry-run --limit 5
   python backfill_notice_body.py
-  set LMSTUDIO_BASE_URL=http://127.0.0.1:1234
-  python backfill_notice_body.py --use-lmstudio --resummary-flagged
+  set GEMINI_API_KEY=your_key_here
+  python backfill_notice_body.py --use-gemini --resummary-flagged
 
-  LM Studio 요약 실패 원인 로그 (stderr):
-    플래그: --lmstudio-debug
-    또는 PowerShell: $env:LMSTUDIO_DEBUG = "1"
+  Gemini 요약 실패 원인 로그 (stderr):
+    플래그: --gemini-debug
+    또는 PowerShell: $env:GEMINI_DEBUG = "1"
 
-  한 번에: LM + 실패 수집 + 504 방지(페이지 읽기) + 중단 시 이어하기 (PowerShell, test 폴더):
+  한 번에: Gemini + 실패 수집 + 504 방지(페이지 읽기) + 중단 시 이어하기 (PowerShell, test 폴더):
     python backfill_notice_body.py `
-      --board main_notice --force --use-lmstudio `
-      --lmstudio-url http://127.0.0.1:1234 `
-      --failure-log lm_failures.jsonl --firestore-page-size 100
+      --board main_notice --force --use-gemini `
+      --failure-log gemini_failures.jsonl --firestore-page-size 100
     # limit 으로 끊었거나 중간에 끊기면 stderr 의 [이어하기] 가 알려주는 DOC_ID 로:
     python backfill_notice_body.py `
-      --board main_notice --force --use-lmstudio `
-      --lmstudio-url http://127.0.0.1:1234 `
-      --failure-log lm_failures.jsonl --firestore-page-size 100 `
+      --board main_notice --force --use-gemini `
+      --failure-log gemini_failures.jsonl --firestore-page-size 100 `
       --start-after BD00xxxxxxxx
 
 인증: 환경변수 FIREBASE_KEY (JSON 문자열) 또는 test/serviceAccountKey.json
@@ -117,7 +115,7 @@ def _should_process(
 
 
 def _append_failure_jsonl(path: str, record: dict) -> None:
-    """LM 요약 실패 건만 한 줄 JSON 으로 append (중단돼도 지금까지 기록 유지)."""
+    """Gemini 요약 실패 건만 한 줄 JSON 으로 append (중단돼도 지금까지 기록 유지)."""
     abs_path = os.path.abspath(path)
     parent = os.path.dirname(abs_path)
     if parent:
@@ -137,10 +135,10 @@ def _persist_notice_body_update(
     resummary_flagged: bool,
     dry_run: bool,
     failure_log_path: str | None,
-    use_lmstudio: bool,
+    use_gemini: bool,
 ) -> None:
-    fail_reason = post.pop("_lm_summarize_fail_reason", None)
-    if failure_log_path and use_lmstudio and fail_reason:
+    fail_reason = post.pop("_summarize_fail_reason", None)
+    if failure_log_path and use_gemini and fail_reason:
         _append_failure_jsonl(
             failure_log_path,
             {
@@ -172,8 +170,8 @@ def _persist_notice_body_update(
         f"[{board_id}] {doc_id} body={body_len}b summary={summary_len}b "
         f"version={update['summary_version']} err={post.get('body_fetch_error')}"
     )
-    if use_lmstudio:
-        base_line += f" lm_fail={fail_reason!r}"
+    if use_gemini:
+        base_line += f" gemini_fail={fail_reason!r}"
     print(base_line)
     if not dry_run:
         doc_ref.set(update, merge=True)
@@ -199,21 +197,21 @@ def backfill_one_board(
     force: bool,
     resummary_flagged: bool,
     reported_only: bool,
-    use_lmstudio: bool,
-    lm_base: str,
-    lm_model: str,
+    use_gemini: bool,
+    gemini_api_key: str,
+    gemini_model: str,
     limit: int | None,
     throttle_s: float,
     dry_run: bool,
     session: requests.Session,
     start_after: str | None = None,
     failure_log_path: str | None = None,
-    lm_timeout: float = 120.0,
+    gemini_timeout: float = 120.0,
     firestore_page_size: int = 100,
 ) -> tuple[int, str | None]:
     """Returns (processed_count, last_processed_doc_id_if_any).
 
-    Firestore ``stream()`` 은 한 번 연 연결을 유지하는데, 문서마다 LM/본문 fetch 가
+    Firestore ``stream()`` 은 한 번 연 연결을 유지하는데, 문서마다 Gemini/본문 fetch 가
     길어지면 gRPC 가 유휴 상태로 ``Deadline Exceeded`` 가 난다. 그래서 페이지 단위
     ``get()`` 으로만 읽는다.
     """
@@ -267,10 +265,10 @@ def backfill_one_board(
             enrich_with_body_and_summary(
                 post,
                 session=session,
-                use_lmstudio=use_lmstudio,
-                lm_base=lm_base,
-                lm_model=lm_model,
-                lm_timeout=lm_timeout,
+                use_gemini=use_gemini,
+                gemini_api_key=gemini_api_key,
+                gemini_model=gemini_model,
+                gemini_timeout=gemini_timeout,
             )
 
             _persist_notice_body_update(
@@ -281,7 +279,7 @@ def backfill_one_board(
                 resummary_flagged=resummary_flagged,
                 dry_run=dry_run,
                 failure_log_path=failure_log_path,
-                use_lmstudio=use_lmstudio,
+                use_gemini=use_gemini,
             )
 
             processed += 1
@@ -299,10 +297,10 @@ def retry_from_failure_log(
     log_path: str,
     *,
     board_filter: str | None,
-    use_lmstudio: bool,
-    lm_base: str,
-    lm_model: str,
-    lm_timeout: float,
+    use_gemini: bool,
+    gemini_api_key: str,
+    gemini_model: str,
+    gemini_timeout: float,
     limit: int | None,
     throttle_s: float,
     dry_run: bool,
@@ -351,10 +349,10 @@ def retry_from_failure_log(
             enrich_with_body_and_summary(
                 post,
                 session=session,
-                use_lmstudio=use_lmstudio,
-                lm_base=lm_base,
-                lm_model=lm_model,
-                lm_timeout=lm_timeout,
+                use_gemini=use_gemini,
+                gemini_api_key=gemini_api_key,
+                gemini_model=gemini_model,
+                gemini_timeout=gemini_timeout,
             )
             _persist_notice_body_update(
                 board_id=bid,
@@ -364,7 +362,7 @@ def retry_from_failure_log(
                 resummary_flagged=resummary_flagged,
                 dry_run=dry_run,
                 failure_log_path=failure_log_path,
-                use_lmstudio=use_lmstudio,
+                use_gemini=use_gemini,
             )
             processed += 1
             if throttle_s > 0:
@@ -390,32 +388,30 @@ def main() -> None:
     python backfill_notice_body.py
 
   관리자 페이지에서 플래그한 글만 재요약:
-    set LMSTUDIO_BASE_URL=http://127.0.0.1:1234
-    python backfill_notice_body.py --resummary-flagged --use-lmstudio
+    set GEMINI_API_KEY=your_key_here
+    python backfill_notice_body.py --resummary-flagged --use-gemini
 
   열린 신고가 있는 글만 재요약:
-    python backfill_notice_body.py --reported-only --use-lmstudio
+    python backfill_notice_body.py --reported-only --use-gemini
 
-  보드별로 20건씩 끊어서 LM 재생성 (이어하기):
-    python backfill_notice_body.py --board main_notice --force --use-lmstudio --limit 20
+  보드별로 20건씩 끊어서 Gemini 재생성 (이어하기):
+    python backfill_notice_body.py --board main_notice --force --use-gemini --limit 20
     # stderr 에 나온 [이어하기] 줄 그대로 다음에 붙여 실행
-    python backfill_notice_body.py --board main_notice --force --use-lmstudio --limit 20 --start-after BD00...
+    python backfill_notice_body.py --board main_notice --force --use-gemini --limit 20 --start-after BD00...
 
-  LM 타임아웃 등 실패만 파일에 모았다가 나중에 재시도:
-    python backfill_notice_body.py --board main_notice --force --use-lmstudio \\
-      --failure-log lm_failures.jsonl --firestore-page-size 100
-    python backfill_notice_body.py --retry-failure-log lm_failures.jsonl --use-lmstudio \\
-      --lmstudio-url http://127.0.0.1:1234 --failure-log lm_failures_round2.jsonl
+  Gemini 타임아웃 등 실패만 파일에 모았다가 나중에 재시도:
+    python backfill_notice_body.py --board main_notice --force --use-gemini \\
+      --failure-log gemini_failures.jsonl --firestore-page-size 100
+    python backfill_notice_body.py --retry-failure-log gemini_failures.jsonl --use-gemini \\
+      --failure-log gemini_failures_round2.jsonl
 
-  실패 로그 + 이어하기 한 세트 (PowerShell, URL 은 환경에 맞게):
+  실패 로그 + 이어하기 한 세트 (PowerShell):
     python backfill_notice_body.py `
-      --board main_notice --force --use-lmstudio `
-      --lmstudio-url http://127.0.0.1:1234 `
-      --failure-log lm_failures.jsonl --firestore-page-size 100
+      --board main_notice --force --use-gemini `
+      --failure-log gemini_failures.jsonl --firestore-page-size 100
     python backfill_notice_body.py `
-      --board main_notice --force --use-lmstudio `
-      --lmstudio-url http://127.0.0.1:1234 `
-      --failure-log lm_failures.jsonl --firestore-page-size 100 `
+      --board main_notice --force --use-gemini `
+      --failure-log gemini_failures.jsonl --firestore-page-size 100 `
       --start-after BD00xxxxxxxx
     # --start-after 값은 직전 실행이 stderr 에 출력한 [이어하기] 줄의 DOC_ID 와 동일하게 넣으면 됨.
 """,
@@ -440,33 +436,40 @@ def main() -> None:
     ap.add_argument(
         "--throttle-ms",
         type=int,
-        default=int(os.environ.get("BODY_FETCH_THROTTLE_MS", "1000")),
+        default=int(
+            os.environ.get(
+                "GEMINI_THROTTLE_MS",
+                os.environ.get("BODY_FETCH_THROTTLE_MS", "6000"),
+            )
+        ),
+        help="문서 처리 후 대기(ms). Gemini 429 나오면 10000~15000 으로 올리세요.",
     )
     ap.add_argument(
-        "--use-lmstudio",
+        "--use-gemini",
         action="store_true",
-        help="LM Studio 로 요약 생성 (LMSTUDIO_BASE_URL 필요)",
+        help="Gemini Flash 로 요약 생성 (GEMINI_API_KEY 필요)",
     )
     ap.add_argument(
-        "--lmstudio-url",
-        default=os.environ.get("LMSTUDIO_BASE_URL", ""),
+        "--gemini-api-key",
+        default=os.environ.get("GEMINI_API_KEY", ""),
+        help="Gemini API 키 (미지정 시 GEMINI_API_KEY 환경변수)",
     )
     ap.add_argument(
-        "--lmstudio-model",
-        default=os.environ.get("LMSTUDIO_MODEL", "qwen/qwen3.5-9b"),
+        "--gemini-model",
+        default=os.environ.get("GEMINI_MODEL", "gemini-2.0-flash"),
     )
     ap.add_argument(
-        "--lmstudio-debug",
+        "--gemini-debug",
         action="store_true",
-        help="LMSTUDIO_DEBUG=1 과 동일: stderr 에 요약 API 디버그 로그 출력",
+        help="GEMINI_DEBUG=1 과 동일: stderr 에 요약 API 디버그 로그 출력",
     )
     ap.add_argument(
         "--failure-log",
         default=None,
         metavar="PATH",
         help=(
-            "LM 요약 실패 시 board_id/post_id/reason 등을 JSON 한 줄로 append "
-            "(--use-lmstudio 일 때만 기록)"
+            "Gemini 요약 실패 시 board_id/post_id/reason 등을 JSON 한 줄로 append "
+            "(--use-gemini 일 때만 기록)"
         ),
     )
     ap.add_argument(
@@ -476,10 +479,10 @@ def main() -> None:
         help="이전에 --failure-log 로 저장한 JSONL 만 다시 처리 (--board 로 해당 보드만 필터)",
     )
     ap.add_argument(
-        "--lm-timeout-sec",
+        "--gemini-timeout-sec",
         type=float,
-        default=float(os.environ.get("LMSTUDIO_TIMEOUT_SEC", "120")),
-        help="LM Studio chat/completions HTTP timeout 초",
+        default=float(os.environ.get("GEMINI_TIMEOUT_SEC", "120")),
+        help="Gemini generateContent HTTP timeout 초",
     )
     ap.add_argument(
         "--firestore-page-size",
@@ -488,13 +491,13 @@ def main() -> None:
         metavar="N",
         help=(
             "Firestore 는 페이지당 N개 문서만 조회 후 연결을 닫음 "
-            "(스트림 유지 시 장시간 LM 처리 중 504 DeadlineExceeded 방지)"
+            "(스트림 유지 시 장시간 AI 요약 처리 중 504 DeadlineExceeded 방지)"
         ),
     )
     args = ap.parse_args()
 
-    if args.lmstudio_debug:
-        os.environ["LMSTUDIO_DEBUG"] = "1"
+    if args.gemini_debug:
+        os.environ["GEMINI_DEBUG"] = "1"
 
     if args.retry_failure_log:
         if args.start_after:
@@ -509,13 +512,23 @@ def main() -> None:
     boards = [args.board] if args.board else list(_DEFAULT_BOARDS)
     db = init_firebase()
     sess = requests.Session()
-    lm_base = (args.lmstudio_url or "").strip().rstrip("/")
-    if args.use_lmstudio and not lm_base:
-        print("--use-lmstudio 지정했지만 LMSTUDIO_BASE_URL 가 비어 있습니다.", file=sys.stderr)
+    gemini_api_key = (args.gemini_api_key or "").strip()
+    if args.use_gemini:
+        print(
+            f"[안내] Gemini 백필: 문서당 {args.throttle_ms}ms 대기, "
+            f"429 시 API 자동 재시도(GEMINI_MAX_RETRIES). "
+            f"계속 429면 --throttle-ms 12000 --limit 10 으로 나눠 실행.",
+            file=sys.stderr,
+        )
+    if args.use_gemini and not gemini_api_key:
+        print(
+            "--use-gemini 지정했지만 GEMINI_API_KEY 가 비어 있습니다.",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     throttle_s = max(0.0, args.throttle_ms / 1000.0)
-    lm_timeout = max(1.0, float(args.lm_timeout_sec))
+    gemini_timeout = max(1.0, float(args.gemini_timeout_sec))
     failure_log = (args.failure_log or "").strip() or None
     fs_page = max(1, int(args.firestore_page_size))
 
@@ -525,10 +538,10 @@ def main() -> None:
             db,
             args.retry_failure_log,
             board_filter=bf,
-            use_lmstudio=args.use_lmstudio,
-            lm_base=lm_base,
-            lm_model=args.lmstudio_model,
-            lm_timeout=lm_timeout,
+            use_gemini=args.use_gemini,
+            gemini_api_key=gemini_api_key,
+            gemini_model=args.gemini_model,
+            gemini_timeout=gemini_timeout,
             limit=args.limit,
             throttle_s=throttle_s,
             dry_run=args.dry_run,
@@ -549,16 +562,16 @@ def main() -> None:
             force=args.force,
             resummary_flagged=args.resummary_flagged,
             reported_only=args.reported_only,
-            use_lmstudio=args.use_lmstudio,
-            lm_base=lm_base,
-            lm_model=args.lmstudio_model,
+            use_gemini=args.use_gemini,
+            gemini_api_key=gemini_api_key,
+            gemini_model=args.gemini_model,
             limit=remain,
             throttle_s=throttle_s,
             dry_run=args.dry_run,
             session=sess,
             start_after=start_after if b == boards[0] else None,
             failure_log_path=failure_log,
-            lm_timeout=lm_timeout,
+            gemini_timeout=gemini_timeout,
             firestore_page_size=fs_page,
         )
         total += n

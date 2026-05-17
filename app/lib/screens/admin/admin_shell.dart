@@ -68,40 +68,43 @@ class _AdminShellState extends State<AdminShell> {
   Widget _buildAdminBody(BuildContext context, User user) {
     final ThemeData theme = Theme.of(context);
     final ColorScheme scheme = theme.colorScheme;
+    final double width = MediaQuery.sizeOf(context).width;
+    final String accountLabel = user.email ?? user.uid;
     return Scaffold(
       backgroundColor: scheme.surface,
       appBar: AppBar(
-        title: const Text(
-          "MJC In One 관리자",
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        title: Text(
+          width < 520 ? "관리자" : "MJC In One 관리자",
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
         backgroundColor: scheme.surface,
         foregroundColor: scheme.onSurface,
         elevation: 0,
         actions: [
-          Tooltip(
-            message: user.email ?? user.uid,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8.0),
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxWidth: MediaQuery.sizeOf(context).width * 0.34,
-                  ),
-                  child: Text(
-                    user.email ?? user.uid,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.end,
-                    style: theme.textTheme.labelMedium
-                        ?.copyWith(color: scheme.onSurfaceVariant),
+          if (width >= 720)
+            Tooltip(
+              message: accountLabel,
+              child: Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: width * 0.22),
+                    child: Text(
+                      accountLabel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.end,
+                      style: theme.textTheme.labelMedium
+                          ?.copyWith(color: scheme.onSurfaceVariant),
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
           IconButton(
-            tooltip: "로그아웃",
+            tooltip: "로그아웃 ($accountLabel)",
             icon: const Icon(Icons.logout),
             onPressed: () async {
               await AdminAuthService.instance.signOut();

@@ -9,12 +9,14 @@ import "package:mjc_in_one/screens/common_webview_screen.dart";
 import "package:mjc_in_one/screens/inquiry_screen.dart";
 import "package:mjc_in_one/screens/keyword_notification_settings_screen.dart";
 import "package:mjc_in_one/screens/open_source_licenses_screen.dart";
+import "package:mjc_in_one/services/app_cache_service.dart";
 import "package:mjc_in_one/services/app_config_service.dart";
 import "package:mjc_in_one/services/notice_filter.dart";
 import "package:mjc_in_one/services/user_data_repository.dart";
 import "package:mjc_in_one/theme/theme_mode_scope.dart";
 import "package:mjc_in_one/utils/snack_bar_utils.dart";
 import "package:mjc_in_one/widgets/safe_tooltip.dart";
+import "package:mjc_in_one/widgets/scroll_to_top_fab.dart";
 import "package:mjc_in_one/widgets/scroll_to_top_scope.dart";
 import "package:shared_preferences/shared_preferences.dart";
 
@@ -53,6 +55,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   /// 매 진입마다 재생되는 것을 막습니다. 첫 동기화 이후에만 duration을 켭니다.
   bool _settingsNoticeAnimationsEnabled = false;
 
+  int _estimatedCacheBytes = 0;
+  bool _clearingCache = false;
+
   static const Duration _adminHiddenTapResetDelay = Duration(seconds: 2);
   int _adminHiddenTapCount = 0;
   Timer? _adminHiddenTapResetTimer;
@@ -62,7 +67,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
     super.initState();
     _loadSettings();
     _loadLinksConfig();
+    _refreshEstimatedCacheSize();
     _scrollController.addListener(_onSettingsScroll);
+  }
+
+  Future<void> _refreshEstimatedCacheSize() async {
+    try {
+      final int bytes = await AppCacheService.estimateCacheBytes();
+      if (!mounted) return;
+      setState(() => _estimatedCacheBytes = bytes);
+    } catch (_) {
+      // 표시용 추정치 — 실패 시 0 유지.
+    }
   }
 
   Future<void> _loadLinksConfig() async {
@@ -177,13 +193,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         }
       }
 
-      _mainWebsiteNoticeViewMode = (() {
-        final String? raw = prefs.getString(kMainWebsiteNoticeViewModePrefKey);
-        if (raw == MainWebsiteNoticeViewMode.unified.name) {
-          return MainWebsiteNoticeViewMode.unified;
-        }
-        return MainWebsiteNoticeViewMode.unified;
-      })();
+      _mainWebsiteNoticeViewMode = MainWebsitePrefs.decodeViewMode(
+        prefs.getString(kMainWebsiteNoticeViewModePrefKey),
+      );
     });
     // [AnimatedSize]/[AnimatedCrossFade]는 레이아웃 중 RenderAnimatedSize가
     // 다시 markNeedsLayout 될 수 있어 [TweenAnimationBuilder]+heightFactor로 대체함.
@@ -343,6 +355,63 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await Navigator.of(context).push<void>(
       MaterialPageRoute<void>(builder: (_) => const InquiryScreen()),
     );
+  }
+
+  Future<void> _confirmAndClearAppCache() async {
+    if (_clearingCache) return;
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text("캐시 데이터 지우기"),
+          content: const Text(
+            "식단·셔틀·캠퍼스맵·공지 목록 등 임시 데이터를 삭제합니다.\n\n"
+            "다음 사용 시 서버에서 다시 받아옵니다. 알림 설정, 북마크, 시간표, 프로필은 유지됩니다.",
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text("취소"),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text("지우기"),
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _clearingCache = true);
+    try {
+      await AppCacheService.clearAppCache();
+      await _loadLinksConfig();
+      await _refreshEstimatedCacheSize();
+      if (!mounted) return;
+      SnackBarUtils.showUnique(
+        context,
+        key: "settings_cache_cleared",
+        snackBar: SnackBar(
+          behavior: SnackBarBehavior.floating,
+          margin: _snackBarMargin(context),
+          content: const Text("캐시 데이터를 삭제했습니다."),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      SnackBarUtils.showUnique(
+        context,
+        key: "settings_cache_clear_failed",
+        snackBar: SnackBar(
+          behavior: SnackBarBehavior.floating,
+          margin: _snackBarMargin(context),
+          content: const Text("캐시 삭제에 실패했습니다. 잠시 후 다시 시도해 주세요."),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _clearingCache = false);
+    }
   }
 
   Widget _buildFilterChipGroup({
@@ -711,7 +780,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       appBar: AppBar(
         title: const Text("설정"),
       ),
-      body: SingleChildScrollView(
+      body: Stack(
+        clipBehavior: Clip.none,
+        children: <Widget>[
+          SingleChildScrollView(
         controller: _scrollController,
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
         child: Column(
@@ -956,6 +1028,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           const SizedBox(height: 16),
           const _SectionHeader(
+            title: "저장 공간",
+            icon: Icons.storage_outlined,
+          ),
+          const SizedBox(height: 10),
+          _settingsCard(
+            child: ListTile(
+              title: const Text("캐시 데이터 지우기"),
+              subtitle: Text(
+                _estimatedCacheBytes > 0
+                    ? "임시 데이터 약 ${AppCacheService.formatCacheSize(_estimatedCacheBytes)} · "
+                        "식단·셔틀·지도 등 다시 받아옵니다"
+                    : "식단·셔틀·지도·공지 목록 등 임시 데이터를 삭제합니다",
+              ),
+              trailing: _clearingCache
+                  ? const SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.delete_outline_rounded),
+              onTap: _clearingCache ? null : _confirmAndClearAppCache,
+            ),
+          ),
+          const SizedBox(height: 16),
+          const _SectionHeader(
             title: "앱 정보",
             icon: Icons.info_outline_rounded,
           ),
@@ -1013,6 +1110,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ],
         ),
+          ),
+          const PushedRouteScrollToTopLayer(),
+        ],
       ),
     );
   }

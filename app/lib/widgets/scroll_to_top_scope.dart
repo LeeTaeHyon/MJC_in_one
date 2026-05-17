@@ -1,5 +1,7 @@
+import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
 import "package:flutter/scheduler.dart";
+import "package:mjc_in_one/debug/scroll_fab_debug.dart";
 
 /// [ScrollController] 뷰포트 크기를 안전히 읽어 맨 위로 버튼 임계값에 씁니다.
 /// Flutter 웹 등에서 [ScrollPosition] 프록시가 깨지는 경우를 막습니다.
@@ -226,6 +228,17 @@ class ScrollToTopCoordinator {
     if (fabVisibleNotifier.value != visible) {
       fabVisibleNotifier.value = visible;
     }
+    _reportDebugState();
+  }
+
+  void _reportDebugState() {
+    if (!ScrollFabDebug.enabled) return;
+    ScrollFabDebug.reportCoordinator(
+      fabVisible: fabVisibleNotifier.value,
+      activeMainTab: _activeMainTab,
+      routeHandlersCount: _routeHandlers.length,
+      mainTabHandlerKeys: _mainTabHandlers.keys.toList()..sort(),
+    );
   }
 
   /// 빌드 중([build] / [didChangeDependencies])에는 [ValueNotifier]를 건드리면
@@ -255,6 +268,7 @@ class ScrollToTopCoordinator {
       activeMainTabNotifier.value = index;
     }
     _scheduleMainTabVisibilityDecision();
+    _reportDebugState();
   }
 
   void _decideMainTabVisibility() {
@@ -306,6 +320,12 @@ class ScrollToTopCoordinator {
 
   void registerMainTab(int tabIndex, VoidCallback handler, {Object? owner}) {
     _mainTabHandlers[tabIndex] = _MainTabScrollHandler(handler, owner);
+    if (ScrollFabDebug.logToConsole) {
+      debugPrint(
+        "[ScrollFab] registerMainTab tab=$tabIndex owner=${owner?.runtimeType}",
+      );
+    }
+    _reportDebugState();
   }
 
   void unregisterMainTab(int tabIndex, {Object? owner}) {
@@ -315,17 +335,31 @@ class ScrollToTopCoordinator {
     _mainTabHandlers.remove(tabIndex);
     _lastMainScrollPixels.remove(tabIndex);
     _lastMainViewportHeight.remove(tabIndex);
+    if (ScrollFabDebug.logToConsole) {
+      debugPrint(
+        "[ScrollFab] unregisterMainTab tab=$tabIndex owner=${owner?.runtimeType}",
+      );
+    }
+    _reportDebugState();
   }
 
   void pushRouteHandler(VoidCallback handler) {
     _routeHandlers.add(handler);
+    if (ScrollFabDebug.logToConsole) {
+      debugPrint("[ScrollFab] pushRouteHandler depth=${_routeHandlers.length}");
+    }
     _setFabVisible(false);
+    _reportDebugState();
   }
 
   void popRouteHandler() {
     if (_routeHandlers.isEmpty) return;
     _routeHandlers.removeLast();
+    if (ScrollFabDebug.logToConsole) {
+      debugPrint("[ScrollFab] popRouteHandler depth=${_routeHandlers.length}");
+    }
     _setFabVisible(false);
+    _reportDebugState();
   }
 
   void scrollToTop() {

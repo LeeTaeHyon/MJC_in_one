@@ -2,6 +2,7 @@ import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
 import "package:flutter/services.dart";
 import "dart:convert";
+import "package:mjc_in_one/widgets/scroll_to_top_fab.dart";
 import "package:mjc_in_one/widgets/scroll_to_top_scope.dart";
 
 class _LicenseParagraph {
@@ -323,7 +324,10 @@ class _OpenSourceLicensesScreenState extends State<OpenSourceLicensesScreen> {
           style: TextStyle(fontWeight: FontWeight.w600, color: Colors.white),
         ),
       ),
-      body: FutureBuilder<List<_LicenseTile>>(
+      body: Stack(
+        clipBehavior: Clip.none,
+        children: <Widget>[
+          FutureBuilder<List<_LicenseTile>>(
         future: _licensesFuture,
         builder: (context, snapshot) {
           if (snapshot.hasError) {
@@ -448,6 +452,9 @@ class _OpenSourceLicensesScreenState extends State<OpenSourceLicensesScreen> {
             ],
           );
         },
+      ),
+          const PushedRouteScrollToTopLayer(),
+        ],
       ),
     );
   }

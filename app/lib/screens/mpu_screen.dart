@@ -808,7 +808,10 @@ class _MpuListTabState extends State<_MpuListTab> {
               final Widget dDayBadge = widget.showCompleted
                   ? Opacity(
                       opacity: 0.55,
-                      child: MpuDeadlineHomeStyleBadge(data: data),
+                      child: MpuDeadlineHomeStyleBadge(
+                        data: data,
+                        elapsed: true,
+                      ),
                     )
                   : MpuDeadlineHomeStyleBadge(data: data);
               final Widget overlaid = Stack(
@@ -855,7 +858,8 @@ class _MpuListTabState extends State<_MpuListTab> {
     BuildContext context, {
     required Map<String, dynamic> data,
     required String title,
-    required String chipLabel,
+    required List<String> tagLabels,
+    required String fallbackLabel,
     required Color titleColor,
     required Color chipBackground,
     required Color chipForeground,
@@ -866,23 +870,37 @@ class _MpuListTabState extends State<_MpuListTab> {
         (data["reg_date"] ?? data["date"] ?? "").toString().trim();
     final String edu = (data["edu_date"] ?? "").toString().trim();
 
+    final List<String> chips = tagLabels.isNotEmpty
+        ? tagLabels
+        : <String>[
+            fallbackLabel.trim().isEmpty ? "핵심역량" : fallbackLabel.trim(),
+          ];
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-          decoration: BoxDecoration(
-            color: chipBackground,
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: Text(
-            chipLabel.isEmpty ? "핵심역량" : chipLabel,
-            style: TextStyle(
-              color: chipForeground,
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: <Widget>[
+            for (final String label in chips)
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: chipBackground,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    color: chipForeground,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+          ],
         ),
         const SizedBox(height: 12),
         Text(
@@ -976,12 +994,14 @@ class _MpuListTabState extends State<_MpuListTab> {
       final List<dynamic> raw => raw.map((e) => e.toString().trim()).toList(),
       _ => const <String>[],
     };
-    final String tagsLabel = tags
+    final List<String> tagLabels = tags
         .where((t) => t.isNotEmpty)
         .take(3)
-        .map((t) => "#$t")
-        .join(" ");
-    final String chipLabel = tagsLabel.isNotEmpty ? tagsLabel : branch;
+        .map((t) {
+          final String trimmed = t.trim();
+          return trimmed.startsWith("#") ? trimmed : "#$trimmed";
+        })
+        .toList();
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -1034,7 +1054,8 @@ class _MpuListTabState extends State<_MpuListTab> {
                         context,
                         data: data,
                         title: title,
-                        chipLabel: chipLabel,
+                        tagLabels: tagLabels,
+                        fallbackLabel: branch,
                         titleColor: titleColor,
                         chipBackground: chipBackground,
                         chipForeground: chipForeground,
@@ -1068,7 +1089,8 @@ class _MpuListTabState extends State<_MpuListTab> {
                           context,
                           data: data,
                           title: title,
-                          chipLabel: chipLabel,
+                          tagLabels: tagLabels,
+                          fallbackLabel: branch,
                           titleColor: titleColor,
                           chipBackground: chipBackground,
                           chipForeground: chipForeground,

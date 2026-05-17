@@ -6,6 +6,12 @@ import "package:mjc_in_one/services/shuttle_schedule.dart";
 import "package:mjc_in_one/theme/app_colors.dart";
 import "package:mjc_in_one/theme/app_theme.dart";
 
+const TextStyle _kShuttleCardTitleStyle = TextStyle(
+  fontSize: 15,
+  fontWeight: FontWeight.w700,
+  height: 1.2,
+);
+
 class ShuttleStatusCard extends StatefulWidget {
   const ShuttleStatusCard({super.key});
 
@@ -93,15 +99,11 @@ class _ShuttleStatusCardState extends State<ShuttleStatusCard> {
                           const SizedBox(height: 4),
                           Text(
                             snapshot.connectionState == ConnectionState.waiting
-                                ? "시간표를 불러오는 중입니다."
+                                ? "시간표 불러오는 중"
                                 : copy.title,
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w900,
-                              height: 1.2,
-                            ),
+                            style: _kShuttleCardTitleStyle,
                           ),
                           if (copy.subtitle.isNotEmpty) ...[
                             const SizedBox(height: 4),
@@ -138,32 +140,32 @@ class _ShuttleStatusCardState extends State<ShuttleStatusCard> {
     switch (status.kind) {
       case ShuttleStatusKind.empty:
         return const _ShuttleCopy(
-          "셔틀버스 시간표 등록 후 표시됩니다.",
-          "assets/data/shuttle.csv를 채워 주세요.",
+          "시간표 등록 후 표시",
+          "shuttle.csv를 채워 주세요.",
         );
       case ShuttleStatusKind.noMoreToday:
-        return const _ShuttleCopy("오늘 셔틀버스 운행이 없습니다.", "");
+        return const _ShuttleCopy("오늘 셔틀 없음", "");
       case ShuttleStatusKind.closed:
         return const _ShuttleCopy(
-          "셔틀버스 운행이 마감되었습니다.",
-          "오전 6시 이후 다음 운행 안내가 표시됩니다.",
+          "오늘 운행 종료",
+          "6시부터 다음 안내",
         );
       case ShuttleStatusKind.morningFinished:
         return const _ShuttleCopy(
-          "오전 셔틀 마감, 오후 셔틀 15:00 학교 출발 예정",
+          "오후 15:00 학교 출발",
           "",
         );
       case ShuttleStatusKind.beforeDeparture:
         if (departure!.stopName == "학교" &&
             departure.departTime.hour == 8 &&
             departure.departTime.minute == 0) {
-          return const _ShuttleCopy("오전 8시에 학교에서 출발 예정", "");
+          return const _ShuttleCopy("8시 학교 출발 예정", "");
         }
-        return _ShuttleCopy("${status.minutes}분 후 학교에서 출발 예정", "");
+        return _ShuttleCopy("${status.minutes}분 후 학교 출발", "");
       case ShuttleStatusKind.enRoute:
         return _ShuttleCopy(
-          "${status.minutes}분 뒤 ${departure!.arriveStop} 도착",
-          "${departure.stopName}에서 ${_formatDepartTime(departure)} 출발",
+          "${status.minutes}분 후 ${departure!.arriveStop} 도착",
+          "${departure.stopName} ${_formatDepartTime(departure)} 출발",
         );
     }
   }

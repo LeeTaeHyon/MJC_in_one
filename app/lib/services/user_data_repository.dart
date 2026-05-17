@@ -4,6 +4,7 @@ import "package:mjc_in_one/home_dashboard_prefs.dart";
 import "package:mjc_in_one/main_website_prefs.dart";
 import "package:mjc_in_one/mpu_profile_prefs.dart";
 import "package:mjc_in_one/notification_sources.dart";
+import "package:mjc_in_one/services/legal_consent_service.dart";
 import "package:mjc_in_one/services/notice_filter.dart";
 import "package:shared_preferences/shared_preferences.dart";
 
@@ -36,6 +37,11 @@ class UserDataRepository {
     }
 
     final Map<String, dynamic> data = snapshot.data() ?? {};
+    final Map<String, dynamic>? legalConsent = _asMap(data["legalConsent"]);
+    if (legalConsent != null) {
+      await LegalConsentService.instance.applyCloudRecord(legalConsent);
+    }
+
     final SharedPreferences prefs = await SharedPreferences.getInstance();
 
     await _setStringList(
@@ -125,6 +131,8 @@ class UserDataRepository {
     } else {
       await clearMpuProfile();
     }
+
+    await LegalConsentService.instance.syncToCloud(user);
   }
 
   Future<void> pushSnapshotToCloud({
@@ -181,6 +189,13 @@ class UserDataRepository {
 
     if (includeCreatedAt) {
       payload["createdAt"] = FieldValue.serverTimestamp();
+    }
+
+    final LegalConsentRecord? legalConsent =
+        await LegalConsentService.instance.loadLocalRecord();
+    if (legalConsent != null &&
+        legalConsent.version == kLegalConsentVersion) {
+      payload["legalConsent"] = legalConsent.toFirestore();
     }
 
     try {

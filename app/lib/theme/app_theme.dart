@@ -73,13 +73,14 @@ const Color _kSourceCtlLight = Color(0xFF2962FF);
 const Color _kFoodAccentLight = Color(0xFFE65100);
 const Color _kDeadlineBadgeLight = Color(0xFF0D47A1);
 
+/// 홈 바로가기 카드 우측 상단 accent. [home_dashboard_screen] `_buildGridButtons`.
 const List<List<Color>> _kDashboardGradientsLight = [
-  [Color(0xFF005EB8)],
+  [Color(0xFF005EB8)], // 0 본교 공지
   [Color(0xFF0587dd)],
   [Color(0xFF0039B8)],
-  [Color(0xFF0288D1)],
-  [Color(0xFF673AB7)],
-  [Color(0xFF00897B)]
+  [Color(0xFF0288D1)], // 3 도서관
+  [Color(0xFF673AB7)], // 4 학사일정
+  [Color(0xFF00897B)], // 5 캠퍼스 약도
 ];
 
 // ---- Color tokens (dark) ----
@@ -90,12 +91,12 @@ const Color _kFoodAccentDark = Color(0xFFFFAB91);
 const Color _kDeadlineBadgeDark = Color(0xFF1F4F9A);
 
 const List<List<Color>> _kDashboardGradientsDark = [
-  [Color(0xFF005EB8)],
+  [Color(0xFF005EB8)], // 0 본교 공지
   [Color(0xFF0587dd)],
   [Color(0xFF0039B8)],
-  [Color(0xFF0288D1)],
-  [Color(0xFF673AB7)],
-  [Color(0xFF00897B)]
+  [Color(0xFF0288D1)], // 3 도서관
+  [Color(0xFF673AB7)], // 4 학사일정
+  [Color(0xFF00897B)], // 5 캠퍼스 약도
 ];
 
 const Color _kBottomNavUnselectedDark = Color(0xFF9AA4B2);

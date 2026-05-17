@@ -2,9 +2,12 @@ import "dart:async";
 
 import "package:firebase_auth/firebase_auth.dart";
 import "package:flutter/material.dart";
+import "package:mjc_in_one/screens/common_webview_screen.dart";
 import "package:mjc_in_one/screens/main_navigation_screen.dart";
 import "package:mjc_in_one/services/auth_service.dart";
+import "package:mjc_in_one/services/legal_consent_service.dart";
 import "package:mjc_in_one/theme/app_colors.dart";
+import "package:mjc_in_one/widgets/legal_consent_row.dart";
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -20,6 +23,38 @@ class _LoginScreenState extends State<LoginScreen> {
   String? _errorText;
   Timer? _cooldownTimer;
   int _cooldownSeconds = 0;
+  bool _consentAccepted = false;
+  String _termsUrl = kTermsOfServiceUrlFallback;
+  String _privacyUrl = kPrivacyPolicyUrlFallback;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadConsentState();
+  }
+
+  Future<void> _loadConsentState() async {
+    final bool accepted =
+        await LegalConsentService.instance.hasValidLocalConsent();
+    final String termsUrl =
+        await LegalConsentService.instance.resolveTermsUrl();
+    final String privacyUrl =
+        await LegalConsentService.instance.resolvePrivacyUrl();
+    if (!mounted) return;
+    setState(() {
+      _consentAccepted = accepted;
+      _termsUrl = termsUrl;
+      _privacyUrl = privacyUrl;
+    });
+  }
+
+  void _openLegalPage({required String url, required String title}) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => CommonWebViewScreen(url: url, title: title),
+      ),
+    );
+  }
 
   @override
   void dispose() {
@@ -61,6 +96,13 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _sendLoginLink() async {
+    if (!_consentAccepted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("약관 및 개인정보 처리에 동의해 주세요.")),
+      );
+      return;
+    }
+
     final String email = _emailController.text.trim().toLowerCase();
     setState(() {
       _errorText = null;
@@ -68,6 +110,7 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
+      await LegalConsentService.instance.recordLocalConsent();
       await AuthService.instance.sendMagicLink(email);
       if (!mounted) return;
       setState(() => _sent = true);
@@ -148,19 +191,16 @@ class _LoginScreenState extends State<LoginScreen> {
                             color: Colors.white.withValues(alpha: 0.16),
                             borderRadius: BorderRadius.circular(20),
                           ),
-                          alignment: Alignment.center,
-                          child: const Text(
-                            "M",
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 34,
-                              fontWeight: FontWeight.w800,
-                            ),
+                          clipBehavior: Clip.antiAlias,
+                          padding: const EdgeInsets.all(8),
+                          child: Image.asset(
+                            "assets/images/app_logo.png",
+                            fit: BoxFit.contain,
                           ),
                         ),
                         const SizedBox(height: 12),
                         const Text(
-                          "MJC in one",
+                          "MJC ONE",
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 28,
@@ -170,7 +210,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          "명지전문대학 통합 플랫폼",
+                          "에 오신 것을 환영합니다!",
                           style: TextStyle(
                             color: Colors.white.withValues(alpha: 0.88),
                             fontSize: 13,
@@ -199,6 +239,18 @@ class _LoginScreenState extends State<LoginScreen> {
                         sent: _sent,
                         errorText: _errorText,
                         cooldownSeconds: _cooldownSeconds,
+                        consentAccepted: _consentAccepted,
+                        onConsentChanged: (bool? value) {
+                          setState(() => _consentAccepted = value ?? false);
+                        },
+                        onOpenTerms: () => _openLegalPage(
+                          url: _termsUrl,
+                          title: "서비스 이용약관",
+                        ),
+                        onOpenPrivacy: () => _openLegalPage(
+                          url: _privacyUrl,
+                          title: "개인정보처리방침",
+                        ),
                         onSend: _sendLoginLink,
                       ),
                       const SizedBox(height: 18),
@@ -245,6 +297,10 @@ class _LoginCard extends StatelessWidget {
     required this.sent,
     required this.errorText,
     required this.cooldownSeconds,
+    required this.consentAccepted,
+    required this.onConsentChanged,
+    required this.onOpenTerms,
+    required this.onOpenPrivacy,
     required this.onSend,
   });
 
@@ -253,12 +309,17 @@ class _LoginCard extends StatelessWidget {
   final bool sent;
   final String? errorText;
   final int cooldownSeconds;
+  final bool consentAccepted;
+  final ValueChanged<bool?> onConsentChanged;
+  final VoidCallback onOpenTerms;
+  final VoidCallback onOpenPrivacy;
   final VoidCallback onSend;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final bool canSend = !sending && cooldownSeconds == 0;
+    final bool canSend =
+        consentAccepted && !sending && cooldownSeconds == 0;
 
     return Card(
       elevation: 0,
@@ -355,6 +416,13 @@ class _LoginCard extends StatelessWidget {
                 ),
               ),
             ],
+            const SizedBox(height: 14),
+            LegalConsentRow(
+              value: consentAccepted,
+              onChanged: onConsentChanged,
+              onOpenTerms: onOpenTerms,
+              onOpenPrivacy: onOpenPrivacy,
+            ),
             const SizedBox(height: 16),
             SizedBox(
               height: 54,

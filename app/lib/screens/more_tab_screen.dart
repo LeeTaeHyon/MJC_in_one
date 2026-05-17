@@ -7,11 +7,9 @@ import "package:mjc_in_one/screens/campus_map_screen.dart";
 import "package:mjc_in_one/screens/foodcourt_menu_screen.dart";
 import "package:mjc_in_one/screens/library_screen.dart";
 import "package:mjc_in_one/screens/login_screen.dart";
-import "package:mjc_in_one/screens/my_page_screen.dart";
 import "package:mjc_in_one/screens/notices_tab_screen.dart";
 import "package:mjc_in_one/screens/notification_history_screen.dart";
 import "package:mjc_in_one/screens/profile_setup_screen.dart";
-import "package:mjc_in_one/features/timetable/screens/timetable_main_screen.dart";
 import "package:mjc_in_one/screens/settings_screen.dart";
 import "package:mjc_in_one/services/auth_service.dart";
 import "package:mjc_in_one/services/user_data_repository.dart";
@@ -20,7 +18,13 @@ import "package:mjc_in_one/theme/app_theme.dart";
 import "package:mjc_in_one/widgets/scroll_to_top_scope.dart";
 
 class MoreTabScreen extends StatefulWidget {
-  const MoreTabScreen({super.key});
+  const MoreTabScreen({
+    super.key,
+    this.onNavigate,
+  });
+
+  /// [MainNavigationScreen] 하단 탭 전환. 없으면 기존처럼 푸시 라우트만 사용합니다.
+  final void Function(int tabIndex, {NoticesSubTab? noticesSubTab})? onNavigate;
 
   @override
   State<MoreTabScreen> createState() => _MoreTabScreenState();
@@ -80,6 +84,14 @@ class _MoreTabScreenState extends State<MoreTabScreen> {
     );
   }
 
+  void _goToMainTab(int tabIndex, {NoticesSubTab? noticesSubTab}) {
+    final void Function(int, {NoticesSubTab? noticesSubTab})? navigate =
+        widget.onNavigate;
+    if (navigate == null) return;
+    Navigator.of(context).pop();
+    navigate(tabIndex, noticesSubTab: noticesSubTab);
+  }
+
   Future<void> _signOut() async {
     await UserDataRepository.instance.pushSnapshotToCloud();
     await clearMpuProfile();
@@ -137,18 +149,16 @@ class _MoreTabScreenState extends State<MoreTabScreen> {
                                 label: "마이페이지",
                                 color: AppColors.primary,
                                 isList: _isListView,
-                                onTap: () => _push(const MyPageScreen()),
+                                onTap: () => _goToMainTab(MainNavTabIndex.mypage),
                               ),
                               _MoreMenuItem(
                                 icon: Icons.school_outlined,
                                 label: "본교 공지",
                                 color: const Color(0xFF1E88E5),
                                 isList: _isListView,
-                                onTap: () => _push(
-                                  const _NoticesStandaloneScreen(
-                                    initial: NoticesSubTab.main,
-                                    title: "본교 공지",
-                                  ),
+                                onTap: () => _goToMainTab(
+                                  MainNavTabIndex.notices,
+                                  noticesSubTab: NoticesSubTab.main,
                                 ),
                               ),
                               _MoreMenuItem(
@@ -156,11 +166,9 @@ class _MoreTabScreenState extends State<MoreTabScreen> {
                                 label: "교수학습",
                                 color: const Color(0xFF7B1FA2),
                                 isList: _isListView,
-                                onTap: () => _push(
-                                  const _NoticesStandaloneScreen(
-                                    initial: NoticesSubTab.ctl,
-                                    title: "교수학습",
-                                  ),
+                                onTap: () => _goToMainTab(
+                                  MainNavTabIndex.notices,
+                                  noticesSubTab: NoticesSubTab.ctl,
                                 ),
                               ),
                               _MoreMenuItem(
@@ -168,11 +176,9 @@ class _MoreTabScreenState extends State<MoreTabScreen> {
                                 label: "역량관리",
                                 color: const Color(0xFFEF6C00),
                                 isList: _isListView,
-                                onTap: () => _push(
-                                  const _NoticesStandaloneScreen(
-                                    initial: NoticesSubTab.mpu,
-                                    title: "역량관리",
-                                  ),
+                                onTap: () => _goToMainTab(
+                                  MainNavTabIndex.notices,
+                                  noticesSubTab: NoticesSubTab.mpu,
                                 ),
                               ),
                               _MoreMenuItem(
@@ -210,7 +216,7 @@ class _MoreTabScreenState extends State<MoreTabScreen> {
                                 label: "시간표",
                                 color: AppColors.primary,
                                 isList: _isListView,
-                                onTap: () => _push(const TimetableMainScreen()),
+                                onTap: () => _goToMainTab(MainNavTabIndex.timetable),
                               ),
                               _MoreMenuItem(
                                 icon: Icons.map_outlined,
@@ -529,39 +535,6 @@ class _MoreMenuItem extends StatelessWidget {
                 ),
         ),
       ),
-    );
-  }
-}
-
-class _NoticesStandaloneScreen extends StatefulWidget {
-  const _NoticesStandaloneScreen({
-    required this.initial,
-    required this.title,
-  });
-
-  final NoticesSubTab initial;
-  final String title;
-
-  @override
-  State<_NoticesStandaloneScreen> createState() =>
-      _NoticesStandaloneScreenState();
-}
-
-class _NoticesStandaloneScreenState extends State<_NoticesStandaloneScreen> {
-  late final ValueNotifier<NoticesSubTab> _subTabNotifier =
-      ValueNotifier<NoticesSubTab>(widget.initial);
-
-  @override
-  void dispose() {
-    _subTabNotifier.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(widget.title)),
-      body: NoticesTabScreen(subTabNotifier: _subTabNotifier),
     );
   }
 }
