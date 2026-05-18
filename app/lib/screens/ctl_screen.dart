@@ -164,6 +164,8 @@ class _CtlScreenState extends State<CtlScreen> {
       final results = await Future.wait(futures);
       if (!mounted) return;
 
+      final MjcSurfaceTokens tokens =
+          Theme.of(context).extension<MjcSurfaceTokens>()!;
       final List<Map<String, dynamic>> items = [];
       void addAll(List<Map<String, dynamic>> docs, String type) {
         for (final d in docs) {
@@ -181,7 +183,7 @@ class _CtlScreenState extends State<CtlScreen> {
       await showGlobalNoticeSearchSheet(
         context,
         items: items,
-        accentColor: const Color(0xFF2962FF),
+        accentColor: tokens.sourceCtl,
         openItem: (item) async {
           final String url =
               (item["link"] ?? item["url"] ?? "").toString().trim();
@@ -434,22 +436,19 @@ class _CtlCollapsingHeaderDelegate extends SliverPersistentHeaderDelegate {
                                 ignoring: titleOpacity < 0.02,
                                 child: Opacity(
                                   opacity: titleOpacity,
-                                  child: const Text(
+                                  child: Text(
                                     "교수학습센터",
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.w900,
-                                      height: 1.1,
-                                      shadows: <Shadow>[
-                                        Shadow(
-                                          blurRadius: 6,
-                                          color: Color(0x66000000),
+                                    style: Theme.of(context)
+                                        .extension<MjcTextTokens>()!
+                                        .appBarTitle
+                                        .copyWith(
+                                          color: Colors.white,
+                                          height: 1.1,
+                                          shadows: MjcAppTypography
+                                              .homeHeroCollapsedTitleShadows,
                                         ),
-                                      ],
-                                    ),
                                   ),
                                 ),
                               ),
@@ -702,9 +701,11 @@ class _CtlListTabState extends State<_CtlListTab> {
   @override
   Widget build(BuildContext context) {
     final ColorScheme scheme = Theme.of(context).colorScheme;
+    final MjcSurfaceTokens tokens =
+        Theme.of(context).extension<MjcSurfaceTokens>()!;
     return NestedScrollRefreshIndicator(
       onRefresh: _handleRefresh,
-      color: const Color(0xFF2962FF),
+      color: tokens.sourceCtl,
       backgroundColor: scheme.surface,
       notificationPredicate: _allowRefreshNotification,
       child: FutureBuilder<List<Map<String, dynamic>>>(
@@ -822,8 +823,7 @@ class _CtlListTabState extends State<_CtlListTab> {
     final MjcSurfaceTokens tokens =
         Theme.of(context).extension<MjcSurfaceTokens>()!;
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
-    final Color readTitlePurple =
-        isDark ? const Color(0xFFB39DDB) : const Color(0xFF7E57C2);
+    final Color readTitleColor = tokens.noticeReadTitle;
     final Color accent = tokens.sourceCtl;
     final Color chipBackground = accent.withValues(alpha: isDark ? 0.18 : 0.12);
     final Color secondaryText = scheme.onSurfaceVariant;
@@ -835,7 +835,7 @@ class _CtlListTabState extends State<_CtlListTab> {
     final String readKey = _itemKey(data);
     final bool isRead = _readKeys.contains(readKey);
     final Color stripColor = isRead ? scheme.onSurfaceVariant : accent;
-    final Color titleColor = isRead ? readTitlePurple : scheme.onSurface;
+    final Color titleColor = isRead ? readTitleColor : scheme.onSurface;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),

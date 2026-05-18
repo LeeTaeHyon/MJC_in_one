@@ -2,24 +2,6 @@ import "package:flutter/material.dart";
 
 import "package:mjc_in_one/theme/app_theme.dart";
 
-/// Crawled HTML may use Unicode minus (U+2212) instead of ASCII hyphen in "D−n".
-String normalizeMpuDdayScrape(String raw) {
-  return raw
-      .trim()
-      .replaceAll("\u2212", "-")
-      .replaceAll("\u2013", "-")
-      .replaceAll("\u2014", "-");
-}
-
-/// Home dashboard MPU 줄과 동일: `D-<digits>` 형태만 숫자로 인정 (예: D-12).
-int? parseMpuDDayStrict(dynamic v) {
-  final String s = normalizeMpuDdayScrape((v ?? "").toString());
-  final RegExpMatch? m =
-      RegExp(r"^D-(\d+)$", caseSensitive: false).firstMatch(s);
-  if (m == null) return null;
-  return int.tryParse(m.group(1)!);
-}
-
 /// 신청·마감 등 문자열에서 마지막 날짜(가장 늦은 일)를 고릅니다.
 DateTime? mpuLastCalendarDateInText(String raw) {
   final String s = raw.trim();
@@ -66,17 +48,12 @@ DateTime? mpuApplicationDeadlineDate(Map<String, dynamic> data) {
 int _calendarDaysUntil(DateTime endDay) {
   final DateTime now = DateTime.now();
   final DateTime today = DateTime(now.year, now.month, now.day);
-  final DateTime end =
-      DateTime(endDay.year, endDay.month, endDay.day);
+  final DateTime end = DateTime(endDay.year, endDay.month, endDay.day);
   return end.difference(today).inDays;
 }
 
-/// Firestore `D-n`이 있으면 그 [n], 없으면 신청 기간 문자열에서 마감일까지 일 수.
+/// 신청 기간 문자열의 마감일(가장 늦은 날)까지 남은 달력 일 수. 파싱 불가 시 null.
 int? mpuEffectiveDaysUntilDeadline(Map<String, dynamic> data) {
-  final int? strict = parseMpuDDayStrict(data["d_day"]);
-  if (strict != null) {
-    return strict;
-  }
   final DateTime? deadline = mpuApplicationDeadlineDate(data);
   if (deadline == null) {
     return null;
@@ -84,46 +61,20 @@ int? mpuEffectiveDaysUntilDeadline(Map<String, dynamic> data) {
   return _calendarDaysUntil(deadline);
 }
 
-int? _parseMpuDDayPlusStrict(dynamic v) {
-  final String s = normalizeMpuDdayScrape((v ?? "").toString());
-  final RegExpMatch? m =
-      RegExp(r"^D\+(\d+)$", caseSensitive: false).firstMatch(s);
-  if (m == null) return null;
-  return int.tryParse(m.group(1)!);
-}
-
-/// 마감/완료 탭: 마감 후 경과 일 수. `D+n` 스크랩·신청 기간·`D-0` 등에서 추정.
+/// 마감/완료 탭: 신청 마감일 이후 경과 일 수 (당일=0).
 int? mpuDaysElapsedSinceDeadline(Map<String, dynamic> data) {
-  final int? plusStrict = _parseMpuDDayPlusStrict(data["d_day"]);
-  if (plusStrict != null) {
-    return plusStrict;
-  }
-
-  final String dd = normalizeMpuDdayScrape((data["d_day"] ?? "").toString());
-  final RegExpMatch? plusLoose =
-      RegExp(r"D\+(\d+)", caseSensitive: false).firstMatch(dd);
-  if (plusLoose != null) {
-    return int.tryParse(plusLoose.group(1)!);
-  }
-
   final DateTime? deadline = mpuApplicationDeadlineDate(data);
-  if (deadline != null) {
-    final int diff = _calendarDaysUntil(deadline);
-    if (diff <= 0) {
-      return -diff;
-    }
+  if (deadline == null) {
+    return null;
   }
-
-  if (parseMpuDDayStrict(data["d_day"]) == 0) {
-    return 0;
-  }
-  if (dd.contains("마감")) {
-    return 0;
+  final int diff = _calendarDaysUntil(deadline);
+  if (diff <= 0) {
+    return -diff;
   }
   return null;
 }
 
-/// 홈 대시보드 MPU 마감 배지 두 번째 줄과 동일 규칙: 숫자, 없으면 `?`, 마감일 당일은 `DAY`.
+/// 홈 대시보드 MPU 마감 배지 두 번째 줄: 숫자, 없으면 `?`, 마감일 당일은 `DAY`.
 /// [elapsed] true면 마감 후 경과 일 수(`D+` 배지용).
 String mpuDeadlineBadgeSecondLine(
   Map<String, dynamic> data, {
@@ -134,64 +85,33 @@ String mpuDeadlineBadgeSecondLine(
     return days?.toString() ?? "?";
   }
 
-  final int? strict = parseMpuDDayStrict(data["d_day"]);
-  if (strict != null) {
-    return strict.toString();
-  }
-  final DateTime? deadline = mpuApplicationDeadlineDate(data);
-  if (deadline == null) {
+  final int? eff = mpuEffectiveDaysUntilDeadline(data);
+  if (eff == null) {
     return "?";
   }
-  final int diff = _calendarDaysUntil(deadline);
-  if (diff < 0) {
+  if (eff < 0) {
     return "!";
   }
-  if (diff == 0) {
+  if (eff == 0) {
     return "DAY";
   }
-  return diff.toString();
+  return eff.toString();
 }
 
-/// MPU 리스트 탭(진행 / 마감) 분류용.
+/// MPU 리스트 탭(진행 / 마감) 분류: 신청 마감일 기준.
 bool mpuListingIsCompleted(Map<String, dynamic> data) {
-  final String dd = normalizeMpuDdayScrape((data["d_day"] ?? "").toString());
-  if (dd.contains("마감") || dd.contains("+") || dd == "D-0") {
-    return true;
-  }
-  if (parseMpuDDayStrict(data["d_day"]) == 0) {
-    return true;
-  }
   final int? eff = mpuEffectiveDaysUntilDeadline(data);
   if (eff != null) {
     return eff < 0;
   }
-  if (dd.toUpperCase() == "D-DAY") {
-    return false;
-  }
-  return dd.isEmpty;
+  return false;
 }
 
-/// 정렬용: 작을수록(가까울수록) 마감이 임박. Firestore `D-n`과 일정 기반 일 수를 통일.
+/// 정렬용: 작을수록(가까울수록) 마감이 임박.
 int mpuSortDValue(Map<String, dynamic> data) {
   final int? eff = mpuEffectiveDaysUntilDeadline(data);
   if (eff != null) {
     return -eff;
-  }
-  final String n = normalizeMpuDdayScrape((data["d_day"] ?? "").toString());
-  if (n.contains("마감")) {
-    return 9999;
-  }
-  if (n.toUpperCase() == "D-DAY") {
-    return 0;
-  }
-  final RegExpMatch? match =
-      RegExp(r"D([-+])(\d+)", caseSensitive: false).firstMatch(n);
-  if (match != null) {
-    final int val = int.parse(match.group(2)!);
-    return match.group(1) == "-" ? -val : val;
-  }
-  if (n == "D-0") {
-    return 0;
   }
   return 9999;
 }

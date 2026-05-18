@@ -56,6 +56,12 @@ class _TimetableMainScreenState extends State<TimetableMainScreen> {
       .expand((ParsedCourseOffering o) => o.slots)
       .toList();
 
+  Map<String, String> get _professorByOfferingId => <String, String>{
+        for (final ParsedCourseOffering o in _enrolled)
+          if (!o.isRemoteExamFaceToFaceOnly && o.professor.trim().isNotEmpty)
+            o.offeringId: o.professor.trim(),
+      };
+
   List<ParsedCourseOffering> get _remoteExamOfferings {
     final List<ParsedCourseOffering> list = _enrolled
         .where((ParsedCourseOffering o) => o.isRemoteExamFaceToFaceOnly)
@@ -170,17 +176,14 @@ class _TimetableMainScreenState extends State<TimetableMainScreen> {
                     ),
                   ],
                 ),
-                if (o.professor.isNotEmpty) ...<Widget>[
-                  const SizedBox(height: 6),
-                  Text(
-                    o.professor,
-                    style: TextStyle(
-                      fontFamily: kPretendardFontFamily,
-                      fontSize: 14,
-                      color: Theme.of(ctx).colorScheme.onSurfaceVariant,
-                    ),
+                Text(
+                  o.professorSectionLine,
+                  style: TextStyle(
+                    fontFamily: kPretendardFontFamily,
+                    fontSize: 14,
+                    color: Theme.of(ctx).colorScheme.onSurfaceVariant,
                   ),
-                ],
+                ),
                 const SizedBox(height: 6),
                 Text(
                   o.credits.isEmpty ? "학점 미상" : "${o.credits}학점",
@@ -252,14 +255,30 @@ class _TimetableMainScreenState extends State<TimetableMainScreen> {
                       horizontal: 16,
                       vertical: 14,
                     ),
-                    child: Text(
-                      items[i].courseName,
-                      style: TextStyle(
-                        fontFamily: kPretendardFontFamily,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: scheme.onSurface,
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          items[i].courseName,
+                          style: TextStyle(
+                            fontFamily: kPretendardFontFamily,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: scheme.onSurface,
+                          ),
+                        ),
+                        if (items[i].sectionLabel.isNotEmpty) ...<Widget>[
+                          const SizedBox(height: 4),
+                          Text(
+                            items[i].sectionLabel,
+                            style: TextStyle(
+                              fontFamily: kPretendardFontFamily,
+                              fontSize: 12,
+                              color: scheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                 ),
@@ -331,6 +350,7 @@ class _TimetableMainScreenState extends State<TimetableMainScreen> {
                     TimetableWeekGrid(
                       slots: _gridSlots,
                       onSlotTap: _onSlotTap,
+                      professorByOfferingId: _professorByOfferingId,
                       startHour: 9,
                       endHour: 18,
                     ),

@@ -179,11 +179,13 @@ class _MyPageScreenState extends State<MyPageScreen> {
   }
 
   Color _chipColor(String boardId) {
-    if (boardId == "main_academic") return const Color(0xFF1976D2);
-    if (boardId == "main_scholarship") return const Color(0xFF1976D2);
-    if (boardId.startsWith("ctl_")) return const Color(0xFF2962FF);
-    if (boardId == "mpu_programs") return const Color(0xFF7986CB);
-    return const Color(0xFF1976D2);
+    final MjcSurfaceTokens tokens =
+        Theme.of(context).extension<MjcSurfaceTokens>()!;
+    if (boardId == "main_academic") return tokens.sourceMjc;
+    if (boardId == "main_scholarship") return tokens.sourceMjc;
+    if (boardId.startsWith("ctl_")) return tokens.sourceCtl;
+    if (boardId == "mpu_programs") return tokens.sourceMpu;
+    return tokens.sourceMjc;
   }
 
   String _formatDate(String raw) {

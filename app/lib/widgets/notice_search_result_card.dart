@@ -1,5 +1,6 @@
 import "package:flutter/material.dart";
 import "package:mjc_in_one/perf_flags.dart";
+import "package:mjc_in_one/theme/app_theme.dart";
 /// 메인 공지 리스트(`MainWebsiteScreen` 카드)와 동일한 톤의 검색 결과 카드입니다.
 /// 핀/즐겨찾기 버튼은 검색 맥락에서 생략합니다.
 class NoticeSearchResultCard extends StatelessWidget {
@@ -25,16 +26,17 @@ class NoticeSearchResultCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ColorScheme scheme = Theme.of(context).colorScheme;
+    final MjcSurfaceTokens tokens =
+        Theme.of(context).extension<MjcSurfaceTokens>()!;
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
-    final Color readTitlePurple =
-        isDark ? const Color(0xFFB39DDB) : const Color(0xFF7E57C2);
+    final Color readTitleColor = tokens.noticeReadTitle;
     final String displayTitle = title.trim().isEmpty ? "(제목 없음)" : title.trim();
     final String chip = chipLabel.trim().isEmpty ? "공지" : chipLabel.trim();
     final Color stripColor = isRead ? scheme.onSurfaceVariant : accentColor;
     final Color chipBackground =
         accentColor.withValues(alpha: isDark ? 0.18 : 0.12);
     final Color chipForeground = accentColor;
-    final Color titleColor = isRead ? readTitlePurple : scheme.onSurface;
+    final Color titleColor = isRead ? readTitleColor : scheme.onSurface;
     final Color dateColor = scheme.onSurfaceVariant;
     const bool lowRaster = kPerfLowRasterMode;
 

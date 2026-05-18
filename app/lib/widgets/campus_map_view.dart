@@ -30,7 +30,7 @@ class CampusMapView extends StatefulWidget {
 class CampusMapViewState extends State<CampusMapView> {
   final MapController _mapController = MapController();
 
-  void focusOn(LatLng target, {double zoom = 18.0}) {
+  void focusOn(LatLng target, {double zoom = 18.5}) {
     _mapController.move(target, zoom);
   }
 
@@ -60,7 +60,7 @@ class CampusMapViewState extends State<CampusMapView> {
           mapController: _mapController,
           options: MapOptions(
             initialCenter: widget.data.mapCenter,
-            initialZoom: 16.8,
+            initialZoom: 17.5,
             minZoom: 15.0,
             maxZoom: 19.0,
             interactionOptions: const InteractionOptions(

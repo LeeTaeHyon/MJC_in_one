@@ -4,6 +4,7 @@ import "package:mjc_in_one/home_dashboard_prefs.dart";
 import "package:mjc_in_one/main_website_prefs.dart";
 import "package:mjc_in_one/mpu_profile_prefs.dart";
 import "package:mjc_in_one/notification_sources.dart";
+import "package:mjc_in_one/services/keyword_notification_detail.dart";
 import "package:mjc_in_one/services/legal_consent_service.dart";
 import "package:mjc_in_one/services/notice_filter.dart";
 import "package:shared_preferences/shared_preferences.dart";
@@ -48,6 +49,9 @@ class UserDataRepository {
       prefs,
       kNoticeKeywordsPrefKey,
       data["notificationKeywords"],
+    );
+    await applyKeywordNotificationDetailsFromCloud(
+      data["notificationKeywordDetails"],
     );
     await _setStringList(
       prefs,
@@ -149,6 +153,9 @@ class UserDataRepository {
       "updatedAt": FieldValue.serverTimestamp(),
       "notificationKeywords":
           prefs.getStringList(kNoticeKeywordsPrefKey) ?? const <String>[],
+      "notificationKeywordDetails": keywordNotificationDetailsForCloud(
+        await loadAllKeywordNotificationDetails(),
+      ),
       "notificationSources": prefs.getStringList(kNotificationSourcesPrefKey) ??
           defaultNotificationSources(),
       "allNoticesEnabled": prefs.getBool(_allNoticesEnabledKey) ?? true,
@@ -208,6 +215,16 @@ class UserDataRepository {
   Future<void> updateKeywords(List<String> keywords) async {
     await _updateSignedInUser({
       "notificationKeywords": keywords,
+      "updatedAt": FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> updateKeywordNotificationDetails() async {
+    final Map<String, KeywordNotificationDetail> details =
+        await loadAllKeywordNotificationDetails();
+    await _updateSignedInUser({
+      "notificationKeywordDetails":
+          keywordNotificationDetailsForCloud(details),
       "updatedAt": FieldValue.serverTimestamp(),
     });
   }

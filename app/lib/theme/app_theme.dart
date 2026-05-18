@@ -67,15 +67,46 @@ const Color _kSurfaceContainerHighLight = Color(0xFFE9ECF1);
 const Color _kOnSurfaceLight = Color(0xDE000000);
 const Color _kErrorLight = Color(0xFFD4183D);
 
-const Color _kSourceMjcLight = Color(0xFF1976D2);
-const Color _kSourceMpuLight = Color(0xFF7986CB);
-const Color _kSourceCtlLight = Color(0xFF2962FF);
+/// 공지·바로가기 색상 — **이 클래스만** 수정하면 MJC / CTL / MPU · [main_website_screen] 공지 UI에 반영됩니다.
+///
+/// - `*Home` : 홈 대시보드 바로가기 카드·아이콘 원색
+/// - `*Ui`   : 공지 탭·컬러바·새로고침·검색 (Home보다 연한 톤)
+abstract final class MjcNoticePalette {
+  /// 본교 공지 ([main_website_screen], 홈 «본교 공지»).
+  static const Color mjcHome = AppColors.primary;
+  static const Color mjcUiLight = Color(0xFF4B74C8);
+  static const Color mjcUiDark = Color(0xFF82A8F0);
+
+  /// 교수학습 ([ctl_screen], 홈 «교수학습»).
+  static const Color ctlHome = Color(0xFF7357A0);
+  static const Color ctlUiLight = Color(0xFF9178AB);
+  static const Color ctlUiDark = Color(0xFFB5A3C8);
+
+  /// 역량관리 ([mpu_screen], 홈 «역량관리»).
+  static const Color mpuHome = Color(0xFFD97706);
+  static const Color mpuUiLight = Color(0xFFE0944F);
+  static const Color mpuUiDark = Color(0xFFF0B889);
+
+  /// 읽은 공지 제목 (모든 공지 리스트·검색 카드 공통).
+  static const Color readTitleLight = Color(0xFF8E7AA8);
+  static const Color readTitleDark = Color(0xFFB8A8C8);
+}
+
+/// [MjcNoticePalette.ctlHome] 별칭 — 홈 바로가기 등.
+const Color kHomeShortcutCtl = MjcNoticePalette.ctlHome;
+
+/// [MjcNoticePalette.mpuHome] 별칭 — 홈 바로가기 등.
+const Color kHomeShortcutMpu = MjcNoticePalette.mpuHome;
+
+const Color _kSourceMjcLight = MjcNoticePalette.mjcUiLight;
+const Color _kSourceCtlLight = MjcNoticePalette.ctlUiLight;
+const Color _kSourceMpuLight = MjcNoticePalette.mpuUiLight;
 const Color _kFoodAccentLight = Color(0xFFE65100);
 const Color _kDeadlineBadgeLight = Color(0xFF0D47A1);
 
 /// 홈 바로가기 카드 우측 상단 accent. [home_dashboard_screen] `_buildGridButtons`.
 const List<List<Color>> _kDashboardGradientsLight = [
-  [Color(0xFF005EB8)], // 0 본교 공지
+  [MjcNoticePalette.mjcHome], // 0 본교 공지
   [Color(0xFF0587dd)],
   [Color(0xFF0039B8)],
   [Color(0xFF0288D1)], // 3 도서관
@@ -84,14 +115,16 @@ const List<List<Color>> _kDashboardGradientsLight = [
 ];
 
 // ---- Color tokens (dark) ----
-const Color _kSourceMjcDark = AppColors.switchActiveDark;
-const Color _kSourceMpuDark = Color(0xFFB0B6E0);
-const Color _kSourceCtlDark = Color(0xFF82AEFF);
+const Color _kSourceMjcDark = MjcNoticePalette.mjcUiDark;
+const Color _kSourceCtlDark = MjcNoticePalette.ctlUiDark;
+const Color _kSourceMpuDark = MjcNoticePalette.mpuUiDark;
+const Color _kNoticeReadTitleLight = MjcNoticePalette.readTitleLight;
+const Color _kNoticeReadTitleDark = MjcNoticePalette.readTitleDark;
 const Color _kFoodAccentDark = Color(0xFFFFAB91);
 const Color _kDeadlineBadgeDark = Color(0xFF1F4F9A);
 
 const List<List<Color>> _kDashboardGradientsDark = [
-  [Color(0xFF005EB8)], // 0 본교 공지
+  [MjcNoticePalette.mjcHome], // 0 본교 공지
   [Color(0xFF0587dd)],
   [Color(0xFF0039B8)],
   [Color(0xFF0288D1)], // 3 도서관
@@ -159,6 +192,7 @@ class MjcSurfaceTokens extends ThemeExtension<MjcSurfaceTokens> {
     required this.sourceMjc,
     required this.sourceMpu,
     required this.sourceCtl,
+    required this.noticeReadTitle,
     required this.foodAccent,
     required this.deadlineBadge,
     required this.dashboardGradients,
@@ -167,9 +201,14 @@ class MjcSurfaceTokens extends ThemeExtension<MjcSurfaceTokens> {
   final Color cardBorder;
   final Color hairline;
   final Color surfaceContainer;
+  /// 본교 공지 UI 액센트 — [MjcNoticePalette.mjcUiLight] / [MjcNoticePalette.mjcUiDark].
   final Color sourceMjc;
+  /// 역량관리 공지 UI 액센트.
   final Color sourceMpu;
+  /// 교수학습 공지 UI 액센트.
   final Color sourceCtl;
+  /// 읽은 공지 제목 색.
+  final Color noticeReadTitle;
   final Color foodAccent;
   final Color deadlineBadge;
   final List<List<Color>> dashboardGradients;
@@ -182,6 +221,7 @@ class MjcSurfaceTokens extends ThemeExtension<MjcSurfaceTokens> {
     Color? sourceMjc,
     Color? sourceMpu,
     Color? sourceCtl,
+    Color? noticeReadTitle,
     Color? foodAccent,
     Color? deadlineBadge,
     List<List<Color>>? dashboardGradients,
@@ -193,6 +233,7 @@ class MjcSurfaceTokens extends ThemeExtension<MjcSurfaceTokens> {
       sourceMjc: sourceMjc ?? this.sourceMjc,
       sourceMpu: sourceMpu ?? this.sourceMpu,
       sourceCtl: sourceCtl ?? this.sourceCtl,
+      noticeReadTitle: noticeReadTitle ?? this.noticeReadTitle,
       foodAccent: foodAccent ?? this.foodAccent,
       deadlineBadge: deadlineBadge ?? this.deadlineBadge,
       dashboardGradients: dashboardGradients ?? this.dashboardGradients,
@@ -210,6 +251,7 @@ class MjcSurfaceTokens extends ThemeExtension<MjcSurfaceTokens> {
       sourceMjc: Color.lerp(sourceMjc, other.sourceMjc, t)!,
       sourceMpu: Color.lerp(sourceMpu, other.sourceMpu, t)!,
       sourceCtl: Color.lerp(sourceCtl, other.sourceCtl, t)!,
+      noticeReadTitle: Color.lerp(noticeReadTitle, other.noticeReadTitle, t)!,
       foodAccent: Color.lerp(foodAccent, other.foodAccent, t)!,
       deadlineBadge: Color.lerp(deadlineBadge, other.deadlineBadge, t)!,
       dashboardGradients: _lerpDashboardGradients(
@@ -313,6 +355,7 @@ const MjcSurfaceTokens _lightSurfaceTokens = MjcSurfaceTokens(
   sourceMjc: _kSourceMjcLight,
   sourceMpu: _kSourceMpuLight,
   sourceCtl: _kSourceCtlLight,
+  noticeReadTitle: _kNoticeReadTitleLight,
   foodAccent: _kFoodAccentLight,
   deadlineBadge: _kDeadlineBadgeLight,
   dashboardGradients: _kDashboardGradientsLight,
@@ -325,6 +368,7 @@ const MjcSurfaceTokens _darkSurfaceTokens = MjcSurfaceTokens(
   sourceMjc: _kSourceMjcDark,
   sourceMpu: _kSourceMpuDark,
   sourceCtl: _kSourceCtlDark,
+  noticeReadTitle: _kNoticeReadTitleDark,
   foodAccent: _kFoodAccentDark,
   deadlineBadge: _kDeadlineBadgeDark,
   dashboardGradients: _kDashboardGradientsDark,

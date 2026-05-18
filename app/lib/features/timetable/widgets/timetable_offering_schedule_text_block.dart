@@ -28,6 +28,10 @@ class TimetableOfferingScheduleTextBlock extends StatelessWidget {
       return Text(offering.scheduleSummary, style: detailStyle);
     }
 
+    if (offering.isPassNonPassRemote) {
+      return Text(offering.scheduleSummary, style: detailStyle);
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
@@ -35,7 +39,7 @@ class TimetableOfferingScheduleTextBlock extends StatelessWidget {
           "원격 강의(대면 시험). 시간표에는 강의명만 표시됩니다.",
           style: detailStyle,
         ),
-        if (offering.slots.isNotEmpty) ...<Widget>[
+        if (offering.isRemoteWithFaceToFaceExam) ...<Widget>[
           const SizedBox(height: 10),
           Text("대면 시험 일정", style: labelStyle),
           const SizedBox(height: 4),

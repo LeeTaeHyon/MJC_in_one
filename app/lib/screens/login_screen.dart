@@ -184,18 +184,19 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Container(
-                          width: 70,
-                          height: 70,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.16),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          clipBehavior: Clip.antiAlias,
-                          padding: const EdgeInsets.all(8),
-                          child: Image.asset(
-                            "assets/images/app_logo.png",
-                            fit: BoxFit.contain,
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(20),
+                          child: SizedBox(
+                            width: 70,
+                            height: 70,
+                            child: Image.asset(
+                              "assets/images/app_logo.png",
+                              width: 70,
+                              height: 70,
+                              fit: BoxFit.cover,
+                              alignment: const Alignment(0, -0.22),
+                              filterQuality: FilterQuality.high,
+                            ),
                           ),
                         ),
                         const SizedBox(height: 12),

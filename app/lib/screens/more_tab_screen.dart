@@ -154,7 +154,7 @@ class _MoreTabScreenState extends State<MoreTabScreen> {
                               _MoreMenuItem(
                                 icon: Icons.school_outlined,
                                 label: "본교 공지",
-                                color: const Color(0xFF1E88E5),
+                                color: MjcNoticePalette.mjcHome,
                                 isList: _isListView,
                                 onTap: () => _goToMainTab(
                                   MainNavTabIndex.notices,
@@ -164,7 +164,7 @@ class _MoreTabScreenState extends State<MoreTabScreen> {
                               _MoreMenuItem(
                                 icon: Icons.menu_book_outlined,
                                 label: "교수학습",
-                                color: const Color(0xFF7B1FA2),
+                                color: MjcNoticePalette.ctlHome,
                                 isList: _isListView,
                                 onTap: () => _goToMainTab(
                                   MainNavTabIndex.notices,
@@ -174,7 +174,7 @@ class _MoreTabScreenState extends State<MoreTabScreen> {
                               _MoreMenuItem(
                                 icon: Icons.emoji_events_outlined,
                                 label: "역량관리",
-                                color: const Color(0xFFEF6C00),
+                                color: MjcNoticePalette.mpuHome,
                                 isList: _isListView,
                                 onTap: () => _goToMainTab(
                                   MainNavTabIndex.notices,

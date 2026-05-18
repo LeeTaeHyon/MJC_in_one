@@ -185,10 +185,12 @@ class _MpuScreenState extends State<MpuScreen> {
           }
       ];
 
+      final MjcSurfaceTokens tokens =
+          Theme.of(context).extension<MjcSurfaceTokens>()!;
       await showGlobalNoticeSearchSheet(
         context,
         items: items,
-        accentColor: const Color(0xFF7986CB),
+        accentColor: tokens.sourceMpu,
         openItem: (item) async {
           final String url = await loadMpuPortalWebUrl();
           if (kIsWeb) {
@@ -442,22 +444,19 @@ class _MpuCollapsingHeaderDelegate extends SliverPersistentHeaderDelegate {
                                 ignoring: titleOpacity < 0.02,
                                 child: Opacity(
                                   opacity: titleOpacity,
-                                  child: const Text(
+                                  child: Text(
                                     "핵심역량관리",
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.w900,
-                                      height: 1.1,
-                                      shadows: <Shadow>[
-                                        Shadow(
-                                          blurRadius: 6,
-                                          color: Color(0x66000000),
+                                    style: Theme.of(context)
+                                        .extension<MjcTextTokens>()!
+                                        .appBarTitle
+                                        .copyWith(
+                                          color: Colors.white,
+                                          height: 1.1,
+                                          shadows: MjcAppTypography
+                                              .homeHeroCollapsedTitleShadows,
                                         ),
-                                      ],
-                                    ),
                                   ),
                                 ),
                               ),
@@ -703,9 +702,11 @@ class _MpuListTabState extends State<_MpuListTab> {
   @override
   Widget build(BuildContext context) {
     final ColorScheme scheme = Theme.of(context).colorScheme;
+    final MjcSurfaceTokens tokens =
+        Theme.of(context).extension<MjcSurfaceTokens>()!;
     return NestedScrollRefreshIndicator(
       onRefresh: _handleRefresh,
-      color: const Color(0xFF7986CB),
+      color: tokens.sourceMpu,
       backgroundColor: scheme.surface,
       notificationPredicate: _allowRefreshNotification,
       child: FutureBuilder<List<Map<String, dynamic>>>(
@@ -973,8 +974,7 @@ class _MpuListTabState extends State<_MpuListTab> {
     final MjcSurfaceTokens tokens =
         Theme.of(context).extension<MjcSurfaceTokens>()!;
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
-    final Color readTitlePurple =
-        isDark ? const Color(0xFFB39DDB) : const Color(0xFF7E57C2);
+    final Color readTitleColor = tokens.noticeReadTitle;
     final Color accent = tokens.sourceMpu;
     final Color completedColor = scheme.onSurfaceVariant;
     final Color chipBackground = widget.showCompleted
@@ -984,7 +984,7 @@ class _MpuListTabState extends State<_MpuListTab> {
     final bool isRead = !widget.showCompleted && _readKeys.contains(itemKey);
     final Color titleColor = widget.showCompleted
         ? completedColor
-        : (isRead ? readTitlePurple : scheme.onSurface);
+        : (isRead ? readTitleColor : scheme.onSurface);
     final Color stripColor = widget.showCompleted
         ? completedColor
         : (isRead ? scheme.onSurfaceVariant : accent);

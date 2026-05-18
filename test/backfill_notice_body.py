@@ -14,6 +14,8 @@ Firestore 의 MJC 공지에 본문(body) + 요약(summary) 백필.
   --gemini-timeout-sec  Gemini HTTP read timeout (기본 120)
   --gemini-debug        Gemini 요약 호출 상세 로그 stderr 출력
   --force               이미 body 가 있어도 재 fetch + 요약
+  --body-only           본문(body/body_html)만 fetch, summary 필드는 Firestore 에 그대로 둠
+  --summary-only        HTTP fetch 없이 summary/summary_version 만 재생성 (--use-gemini 권장)
   --board               특정 보드만 처리
   --limit               처리 최대 건수 (테스트용)
   --start-after         ( --board 와 함께) Firestore 문서 ID 기준 이 ID 다음부터 처리
@@ -59,6 +61,8 @@ import requests
 
 from notice_body import (
     _BODY_IMAGE_ONLY_PLACEHOLDER,
+    enrich_body_only,
+    enrich_summary_only,
     enrich_with_body_and_summary,
 )
 
@@ -105,11 +109,19 @@ def _should_process(
     force: bool,
     resummary_flagged: bool,
     reported_only: bool,
+    summary_only: bool = False,
 ) -> bool:
     if reported_only:
         rc = int(data.get("reports_count") or 0)
         return rc > 0
     if resummary_flagged:
+        return bool(data.get("needs_resummary"))
+    if summary_only:
+        if force:
+            return True
+        summary = data.get("summary")
+        if not isinstance(summary, str) or not summary.strip():
+            return True
         return bool(data.get("needs_resummary"))
     if force:
         return True
@@ -140,10 +152,13 @@ def _persist_notice_body_update(
     doc_id: str,
     doc_ref,
     post: dict,
+    original: dict,
     resummary_flagged: bool,
     dry_run: bool,
     failure_log_path: str | None,
     use_gemini: bool,
+    body_only: bool = False,
+    summary_only: bool = False,
 ) -> None:
     fail_reason = post.pop("_summarize_fail_reason", None)
     if failure_log_path and use_gemini and fail_reason:
@@ -159,16 +174,37 @@ def _persist_notice_body_update(
             },
         )
 
-    update = {
-        "body": post.get("body", ""),
-        "body_html": post.get("body_html", ""),
-        "body_fetched_at": post.get("body_fetched_at"),
-        "summary": post.get("summary", ""),
-        "summary_version": post.get("summary_version"),
-        "summary_generated_at": post.get("summary_generated_at"),
-    }
-    if post.get("body_fetch_error") is not None:
-        update["body_fetch_error"] = post["body_fetch_error"]
+    mode = "summary-only" if summary_only else ("body-only" if body_only else "full")
+    update: dict = {}
+
+    if summary_only:
+        update = {
+            "summary": post.get("summary", ""),
+            "summary_version": post.get("summary_version"),
+            "summary_generated_at": post.get("summary_generated_at"),
+        }
+    elif body_only:
+        update = {
+            "body": post.get("body", ""),
+            "body_html": post.get("body_html", ""),
+            "body_fetched_at": post.get("body_fetched_at"),
+        }
+        if post.get("body_fetch_error") is not None:
+            update["body_fetch_error"] = post["body_fetch_error"]
+        new_title = post.get("title")
+        if isinstance(new_title, str) and new_title != original.get("title"):
+            update["title"] = new_title
+    else:
+        update = {
+            "body": post.get("body", ""),
+            "body_html": post.get("body_html", ""),
+            "body_fetched_at": post.get("body_fetched_at"),
+            "summary": post.get("summary", ""),
+            "summary_version": post.get("summary_version"),
+            "summary_generated_at": post.get("summary_generated_at"),
+        }
+        if post.get("body_fetch_error") is not None:
+            update["body_fetch_error"] = post["body_fetch_error"]
 
     if resummary_flagged:
         update["needs_resummary"] = False
@@ -176,16 +212,49 @@ def _persist_notice_body_update(
     body_len = len(post.get("body") or "")
     html_len = len(post.get("body_html") or "")
     summary_len = len(post.get("summary") or "")
+    summary_version = update.get("summary_version", original.get("summary_version"))
     base_line = (
-        f"[{board_id}] {doc_id} body={body_len}b html={html_len}b "
-        f"summary={summary_len}b "
-        f"version={update['summary_version']} err={post.get('body_fetch_error')}"
+        f"[{board_id}] {doc_id} mode={mode} body={body_len}b html={html_len}b "
+        f"summary={summary_len}b version={summary_version} "
+        f"err={post.get('body_fetch_error')}"
     )
-    if use_gemini:
+    if use_gemini and not body_only:
         base_line += f" gemini_fail={fail_reason!r}"
     print(base_line)
     if not dry_run:
         doc_ref.set(update, merge=True)
+
+
+def _enrich_post(
+    post: dict,
+    *,
+    session: requests.Session,
+    body_only: bool,
+    summary_only: bool,
+    use_gemini: bool,
+    gemini_api_key: str,
+    gemini_model: str,
+    gemini_timeout: float,
+) -> None:
+    if body_only:
+        enrich_body_only(post, session=session)
+    elif summary_only:
+        enrich_summary_only(
+            post,
+            use_gemini=use_gemini,
+            gemini_api_key=gemini_api_key,
+            gemini_model=gemini_model,
+            gemini_timeout=gemini_timeout,
+        )
+    else:
+        enrich_with_body_and_summary(
+            post,
+            session=session,
+            use_gemini=use_gemini,
+            gemini_api_key=gemini_api_key,
+            gemini_model=gemini_model,
+            gemini_timeout=gemini_timeout,
+        )
 
 
 def _has_open_report_for(db, board_id: str, post_id: str) -> bool:
@@ -219,6 +288,8 @@ def backfill_one_board(
     failure_log_path: str | None = None,
     gemini_timeout: float = 120.0,
     firestore_page_size: int = 100,
+    body_only: bool = False,
+    summary_only: bool = False,
 ) -> tuple[int, str | None]:
     """Returns (processed_count, last_processed_doc_id_if_any).
 
@@ -265,17 +336,31 @@ def backfill_one_board(
                 force=force,
                 resummary_flagged=resummary_flagged,
                 reported_only=reported_only,
+                summary_only=summary_only,
             ):
                 continue
             if reported_only and not _has_open_report_for(db, board_id, doc.id):
                 continue
 
+            original = dict(data)
             post = dict(data)
             if not post.get("url"):
                 continue
-            enrich_with_body_and_summary(
+            if summary_only and not (
+                str(post.get("body") or "").strip()
+                or str(post.get("body_html") or "").strip()
+            ):
+                print(
+                    f"[스킵] {board_id}/{doc.id} 본문·body_html 없음 "
+                    f"(--body-only 로 먼저 채우거나 --force 전체 모드 사용)",
+                    file=sys.stderr,
+                )
+                continue
+            _enrich_post(
                 post,
                 session=session,
+                body_only=body_only,
+                summary_only=summary_only,
                 use_gemini=use_gemini,
                 gemini_api_key=gemini_api_key,
                 gemini_model=gemini_model,
@@ -287,10 +372,13 @@ def backfill_one_board(
                 doc_id=doc.id,
                 doc_ref=doc.reference,
                 post=post,
+                original=original,
                 resummary_flagged=resummary_flagged,
                 dry_run=dry_run,
                 failure_log_path=failure_log_path,
                 use_gemini=use_gemini,
+                body_only=body_only,
+                summary_only=summary_only,
             )
 
             processed += 1
@@ -318,6 +406,8 @@ def retry_from_failure_log(
     session: requests.Session,
     failure_log_path: str | None,
     resummary_flagged: bool,
+    body_only: bool = False,
+    summary_only: bool = False,
 ) -> int:
     """--failure-log 로 쌓인 JSONL 만 순서대로 다시 처리."""
     abs_path = os.path.abspath(log_path)
@@ -352,14 +442,17 @@ def retry_from_failure_log(
             if not snap.exists:
                 print(f"[경고] 문서 없음 스킵: {bid}/{pid}", file=sys.stderr)
                 continue
-            post = dict(snap.to_dict() or {})
+            original = dict(snap.to_dict() or {})
+            post = dict(original)
             if not post.get("url"):
                 print(f"[경고] url 없음 스킵: {bid}/{pid}", file=sys.stderr)
                 continue
 
-            enrich_with_body_and_summary(
+            _enrich_post(
                 post,
                 session=session,
+                body_only=body_only,
+                summary_only=summary_only,
                 use_gemini=use_gemini,
                 gemini_api_key=gemini_api_key,
                 gemini_model=gemini_model,
@@ -370,10 +463,13 @@ def retry_from_failure_log(
                 doc_id=pid,
                 doc_ref=doc_ref,
                 post=post,
+                original=original,
                 resummary_flagged=resummary_flagged,
                 dry_run=dry_run,
                 failure_log_path=failure_log_path,
                 use_gemini=use_gemini,
+                body_only=body_only,
+                summary_only=summary_only,
             )
             processed += 1
             if throttle_s > 0:
@@ -416,6 +512,12 @@ def main() -> None:
     python backfill_notice_body.py --retry-failure-log gemini_failures.jsonl --use-gemini \\
       --failure-log gemini_failures_round2.jsonl
 
+  body_html 만 채우고 기존 AI 요약 유지:
+    python backfill_notice_body.py --body-only --board main_notice
+
+  휴리스틱으로 덮인 요약만 Gemini 로 복구 (본문 fetch 없음):
+    python backfill_notice_body.py --summary-only --force --use-gemini --board main_notice
+
   실패 로그 + 이어하기 한 세트 (PowerShell):
     python backfill_notice_body.py `
       --board main_notice --force --use-gemini `
@@ -429,6 +531,16 @@ def main() -> None:
     )
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--force", action="store_true", help="이미 body 있어도 재 fetch")
+    ap.add_argument(
+        "--body-only",
+        action="store_true",
+        help="view.do 본문(body/body_html)만 갱신. summary 필드는 Firestore 에 그대로 둠",
+    )
+    ap.add_argument(
+        "--summary-only",
+        action="store_true",
+        help="HTTP fetch 없이 summary/summary_version 만 재생성 (기존 body 사용)",
+    )
     ap.add_argument("--resummary-flagged", action="store_true")
     ap.add_argument("--reported-only", action="store_true")
     ap.add_argument(
@@ -507,6 +619,21 @@ def main() -> None:
     )
     args = ap.parse_args()
 
+    if args.body_only and args.summary_only:
+        print("--body-only 와 --summary-only 는 동시에 쓸 수 없습니다.", file=sys.stderr)
+        sys.exit(1)
+    if args.body_only and args.use_gemini:
+        print(
+            "[안내] --body-only 모드에서는 --use-gemini 가 무시됩니다 (요약 미갱신).",
+            file=sys.stderr,
+        )
+    if args.summary_only and not args.use_gemini:
+        print(
+            "[안내] --summary-only 는 휴리스틱 요약만 생성합니다. "
+            "Gemini 복구 시 --use-gemini 를 함께 지정하세요.",
+            file=sys.stderr,
+        )
+
     if args.gemini_debug:
         os.environ["GEMINI_DEBUG"] = "1"
 
@@ -559,6 +686,8 @@ def main() -> None:
             session=sess,
             failure_log_path=failure_log,
             resummary_flagged=args.resummary_flagged,
+            body_only=args.body_only,
+            summary_only=args.summary_only,
         )
         print(f"완료: 재시도 로그에서 처리 {total}건 (dry_run={args.dry_run})")
         return
@@ -584,6 +713,8 @@ def main() -> None:
             failure_log_path=failure_log,
             gemini_timeout=gemini_timeout,
             firestore_page_size=fs_page,
+            body_only=args.body_only,
+            summary_only=args.summary_only,
         )
         total += n
         # 여러 보드 순회 시 start-after 는 첫 보드에만 적용 (의도적)

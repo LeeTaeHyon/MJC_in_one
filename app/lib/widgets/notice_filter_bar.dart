@@ -11,7 +11,7 @@ class NoticeFilterBar extends StatefulWidget {
     required this.filteredCount,
     required this.onQueryChanged,
     required this.onOpenSettings,
-    this.accentColor = const Color(0xFF003FB4),
+    this.accentColor = MjcNoticePalette.mjcUiLight,
     this.horizontalPadding = 16,
   });
 

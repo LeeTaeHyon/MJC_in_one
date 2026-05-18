@@ -78,7 +78,10 @@ class _NoticeFilterSheetBodyState extends State<_NoticeFilterSheetBody> {
 
             final List<Color> headerGradient = isDark && tokens != null
                 ? tokens.dashboardGradients[0]
-                : const [Color(0xFF0D47A1), Color(0xFF1976D2)];
+                : [
+                    MjcNoticePalette.mjcHome,
+                    MjcNoticePalette.mjcUiLight,
+                  ];
 
             final Color fieldBg = isDark
                 ? (tokens?.surfaceContainer.withValues(alpha: 0.65) ?? scheme.surfaceContainerHigh)

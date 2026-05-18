@@ -8,6 +8,7 @@ import "package:mjc_in_one/notification_sources.dart";
 import "package:mjc_in_one/screens/admin/admin_shell.dart";
 import "package:mjc_in_one/screens/inquiry_screen.dart";
 import "package:mjc_in_one/screens/intro_screen.dart";
+import "package:mjc_in_one/services/keyword_notification_detail.dart";
 import "package:mjc_in_one/services/deep_link_handler.dart";
 import "package:mjc_in_one/services/firebase_app_startup.dart";
 import "package:mjc_in_one/services/user_data_repository.dart";
@@ -32,15 +33,7 @@ Future<void> _processAndShowNotification(RemoteMessage message) async {
   if (message.data.isEmpty) return;
 
   final prefs = await SharedPreferences.getInstance();
-  final enabledSources = prefs.getStringList(kNotificationSourcesPrefKey) ??
-      defaultNotificationSources();
-  final source = resolveNotificationSource(
-    Map<String, dynamic>.from(message.data),
-  );
-  if (!enabledSources.contains(source)) return;
-
   final allNoticesEnabled = prefs.getBool("allNoticesEnabled") ?? true;
-  final keywordNoticesEnabled = prefs.getBool("keywordNoticesEnabled") ?? true;
   final keywordsList = prefs.getStringList("keywords") ?? [];
 
   final title = message.data["title"] ?? "새 알림";
@@ -49,14 +42,20 @@ Future<void> _processAndShowNotification(RemoteMessage message) async {
   bool shouldShow = false;
 
   if (allNoticesEnabled) {
+    final enabledSources = prefs.getStringList(kNotificationSourcesPrefKey) ??
+        defaultNotificationSources();
+    final source = resolveNotificationSource(
+      Map<String, dynamic>.from(message.data),
+    );
+    if (!enabledSources.contains(source)) return;
     shouldShow = true;
-  } else if (keywordNoticesEnabled) {
-    for (String kw in keywordsList) {
-      if (body.contains(kw) || title.contains(kw)) {
-        shouldShow = true;
-        break;
-      }
-    }
+  } else {
+    shouldShow = await shouldShowKeywordNotification(
+      keywords: keywordsList,
+      title: title,
+      body: body,
+      data: Map<String, dynamic>.from(message.data),
+    );
   }
 
   // 발송 허가된 상태라면 로컬 알람 솜

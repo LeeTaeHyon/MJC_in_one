@@ -18,6 +18,13 @@ _SLOT_RE = re.compile(
 
 _WEEKDAY = {"월": 1, "화": 2, "수": 3, "목": 4, "금": 5, "토": 6}
 
+# Same marker as app `ParsedCourseOffering.remoteExamScheduleMarker`.
+_REMOTE_EXAM_MARKER = "원격시험 배정시간"
+
+
+def _is_remote_exam_only(raw_tt: str) -> bool:
+    return _REMOTE_EXAM_MARKER in raw_tt
+
 
 def _read_csv_bytes(path: str) -> str:
     with open(path, "rb") as f:
@@ -221,7 +228,11 @@ def _dart_offering_ids(rows_for_ids: List[Tuple[str, str, str, str]]) -> List[st
 
 
 def _build_payloads(rows: List[Dict[str, str]]) -> Tuple[List[str], List[Dict[str, Any]]]:
-    """Skip rows with empty course name or no parseable slots (same as app Excel parser)."""
+    """Skip rows with empty course name or timetable.
+
+    Rows with only «원격시험 배정시간» (P/NP: no weekly slots, no exam) are kept
+    with empty slots — same as app [ParsedCourseOffering.isPassNonPassRemote].
+    """
     kept: List[Dict[str, str]] = []
     quads: List[Tuple[str, str, str, str]] = []
 
@@ -240,7 +251,7 @@ def _build_payloads(rows: List[Dict[str, str]]) -> Tuple[List[str], List[Dict[st
             offering_id="probe",
             color_key=color_key,
         )
-        if not probe_slots:
+        if not probe_slots and not _is_remote_exam_only(raw_tt):
             continue
         kept.append(r)
         quads.append((dept, course_name, section, prof))

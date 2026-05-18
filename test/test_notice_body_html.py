@@ -8,6 +8,8 @@ from notice_body import (
     _BODY_IMAGE_ONLY_PLACEHOLDER,
     body_text_for_ai,
     clean_body_text,
+    enrich_body_only,
+    enrich_summary_only,
     extract_body_html,
     fetch_mjc_view_body,
 )
@@ -61,3 +63,40 @@ def test_clean_body_text_plain():
     text = clean_body_text(soup)
     assert "안녕하세요" in text
     assert "두 번째" in text
+
+
+def test_enrich_body_only_preserves_summary(monkeypatch):
+    html_page = """
+    <html><body><div id="motion" class="memo"><img src="/upload/poster.jpg"/></div></body></html>
+    """
+
+    class FakeRes:
+        status_code = 200
+        encoding = "utf-8"
+        apparent_encoding = "utf-8"
+        text = html_page
+
+    monkeypatch.setattr("notice_body.requests.get", lambda *a, **k: FakeRes())
+
+    post = {
+        "url": "https://www.mjc.ac.kr/notice/view.do?idx=1",
+        "summary": "기존 AI 요약",
+        "summary_version": "gemini-2.0-flash-v1",
+    }
+    enrich_body_only(post)
+    assert post["summary"] == "기존 AI 요약"
+    assert post["summary_version"] == "gemini-2.0-flash-v1"
+    assert "<img" in post["body_html"]
+
+
+def test_enrich_summary_only_uses_existing_body():
+    post = {
+        "title": "테스트 공지",
+        "body": "첫 문단입니다. " * 20,
+        "body_html": "",
+        "summary": "",
+        "summary_version": "",
+    }
+    enrich_summary_only(post)
+    assert post["summary"]
+    assert post["summary_version"] == "heuristic-v1"

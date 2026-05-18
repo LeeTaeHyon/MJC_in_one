@@ -76,17 +76,42 @@ class ParsedCourseOffering {
   final List<TimetableSlot> slots;
   final String rawTimetableText;
 
-  /// Official timetable cell text for «원격시험 배정시간» — remote class with
-  /// only a face-to-face exam block on the sheet; show name below grid, not in cells.
+  /// MJC official sheet marker for online / non-weekly offerings.
   static const String remoteExamScheduleMarker = "원격시험 배정시간";
 
+  /// Any row with [remoteExamScheduleMarker] — excluded from the week grid.
   bool get isRemoteExamFaceToFaceOnly =>
       rawTimetableText.contains(remoteExamScheduleMarker);
+
+  /// P/NP style: marker only, no weekday slots and no exam block on the sheet.
+  bool get isPassNonPassRemote =>
+      isRemoteExamFaceToFaceOnly && slots.isEmpty;
+
+  /// Remote lecture with a face-to-face exam block parsed from the sheet.
+  bool get isRemoteWithFaceToFaceExam =>
+      isRemoteExamFaceToFaceOnly && slots.isNotEmpty;
+
+  /// CSV «분반» column (e.g. `101`, `801`).
+  String get sectionLabel {
+    final String s = section.trim();
+    return s.isEmpty ? "" : "$s분반";
+  }
+
+  /// Professor + section for list subtitles.
+  String get professorSectionLine {
+    final List<String> parts = <String>[];
+    if (professor.trim().isNotEmpty) parts.add(professor.trim());
+    if (sectionLabel.isNotEmpty) parts.add(sectionLabel);
+    return parts.isEmpty ? "교수 · 분반 미상" : parts.join(" · ");
+  }
 
   /// Stable key for color (same course + section shares color).
   String get colorKey => "$courseName|$section";
 
   String get scheduleSummary {
+    if (isPassNonPassRemote) {
+      return "패논패 · 원격 강의 (주간 시간표·시험 없음)";
+    }
     final List<TimetableSlot> merged = TimetableSlotMerge.mergeAdjacent(slots);
     return merged
         .map(

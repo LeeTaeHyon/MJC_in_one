@@ -276,13 +276,23 @@ String _normalizedSource(Map<String, dynamic> item, String fallbackSource) {
 String _normalizedType(Map<String, dynamic> item, String fallbackType) {
   final String raw =
       (item["type"] ?? item["category"] ?? fallbackType).toString().trim();
-  if (raw.isEmpty) return fallbackType.isEmpty ? "공지사항" : fallbackType;
-  if (raw.contains("장학")) return "장학공지";
-  if (raw.contains("학사일정")) return "학사일정";
-  if (raw.contains("학사")) return "학사공지";
-  if (raw.contains("역량")) return "역량관리";
-  if (raw.contains("CTL") && raw.contains("프로그램")) return "CTL 프로그램";
-  if (raw.contains("학습")) return "학습공지";
-  if (raw.contains("공지")) return "공지사항";
-  return fallbackType.isEmpty ? raw : fallbackType;
+  return normalizeNoticeFilterType(raw, fallback: fallbackType);
+}
+
+/// FCM `board`·공지 `category` 등을 필터/알림용 게시판 라벨로 통일합니다.
+String normalizeNoticeFilterType(String raw, {String fallback = ""}) {
+  final String trimmed = raw.trim();
+  if (trimmed.isEmpty) {
+    return fallback.isEmpty ? "공지사항" : fallback;
+  }
+  if (trimmed.contains("장학")) return "장학공지";
+  if (trimmed.contains("학사일정")) return "학사일정";
+  if (trimmed.contains("학사")) return "학사공지";
+  if (trimmed.contains("역량")) return "역량관리";
+  if (trimmed.contains("CTL") && trimmed.contains("프로그램")) {
+    return "CTL 프로그램";
+  }
+  if (trimmed.contains("학습")) return "학습공지";
+  if (trimmed.contains("공지")) return "공지사항";
+  return fallback.isEmpty ? trimmed : fallback;
 }

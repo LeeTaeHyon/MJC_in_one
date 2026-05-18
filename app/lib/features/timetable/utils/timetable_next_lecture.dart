@@ -1,6 +1,7 @@
 import "package:mjc_in_one/features/timetable/models/timetable_models.dart";
+import "package:mjc_in_one/features/timetable/utils/timetable_slot_merge.dart";
 
-/// Today’s next class that has not yet started (local weekday).
+/// Today’s current or next class block (merged adjacent periods, local weekday).
 abstract final class TimetableNextLecture {
   static TimetableSlot? nextUpcomingSlotToday(
     List<ParsedCourseOffering> enrolled,
@@ -8,20 +9,36 @@ abstract final class TimetableNextLecture {
     final DateTime now = DateTime.now();
     final int wd = now.weekday;
     final int nowMin = now.hour * 60 + now.minute;
-    TimetableSlot? best;
-    int bestStart = 1 << 30;
+
+    final List<TimetableSlot> todayRaw = <TimetableSlot>[];
     for (final ParsedCourseOffering o in enrolled) {
       if (o.isRemoteExamFaceToFaceOnly) continue;
       for (final TimetableSlot s in o.slots) {
-        if (s.weekday != wd) continue;
-        if (s.startMinute <= nowMin) continue;
-        if (s.startMinute < bestStart) {
-          bestStart = s.startMinute;
-          best = s;
-        }
+        if (s.weekday == wd) todayRaw.add(s);
       }
     }
-    return best;
+    if (todayRaw.isEmpty) return null;
+
+    final List<TimetableSlot> merged =
+        TimetableSlotMerge.mergeAdjacent(todayRaw);
+
+    TimetableSlot? bestOngoing;
+    int bestOngoingStart = 1 << 30;
+    TimetableSlot? bestUpcoming;
+    int bestUpcomingStart = 1 << 30;
+    for (final TimetableSlot s in merged) {
+      if (s.endMinute <= nowMin) continue;
+      if (s.startMinute <= nowMin) {
+        if (s.startMinute < bestOngoingStart) {
+          bestOngoingStart = s.startMinute;
+          bestOngoing = s;
+        }
+      } else if (s.startMinute < bestUpcomingStart) {
+        bestUpcomingStart = s.startMinute;
+        bestUpcoming = s;
+      }
+    }
+    return bestOngoing ?? bestUpcoming;
   }
 
   static String formatCountdownKo(int totalMinutes) {

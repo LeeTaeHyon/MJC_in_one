@@ -10,8 +10,10 @@ import "package:mjc_in_one/screens/notices_tab_screen.dart";
 import "package:mjc_in_one/screens/profile_setup_screen.dart";
 import "package:mjc_in_one/services/auth_service.dart";
 import "package:mjc_in_one/services/user_data_repository.dart";
+import "package:mjc_in_one/debug/app_debug_flags.dart";
 import "package:mjc_in_one/debug/scroll_fab_debug.dart";
 import "package:mjc_in_one/utils/bookmark_added_feedback.dart";
+import "package:mjc_in_one/widgets/main_navigation_scope.dart";
 import "package:mjc_in_one/widgets/scroll_to_top_fab.dart";
 import "package:mjc_in_one/widgets/scroll_to_top_scope.dart";
 import "package:mjc_in_one/theme/app_theme.dart";
@@ -34,6 +36,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       Theme.of(context).extension<MjcComponentTokens>()!;
 
   int _index = 0;
+  int _myPageBookmarkTabIndex = 0;
+  int _myPageNavigateEpoch = 0;
   bool _noticeSubNavVisible = true;
   Timer? _noticeSubNavRevealTimer;
   final List<int> _tabHistory = <int>[];
@@ -64,11 +68,16 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   }
 
   Future<void> _checkTestBuildWarning() async {
+    final bool showTestBuildDialog = AppDevFeatures.startupTestBuildWarning;
+    final bool showInquiryOverlay = AppDevFeatures.startupInquiryFocusOverlay;
+    if (!showTestBuildDialog && !showInquiryOverlay) return;
+
     final prefs = await SharedPreferences.getInstance();
     final bool shown = prefs.getBool("test_build_warning_shown") ?? false;
     if (!shown) {
       if (!mounted) return;
 
+      if (showTestBuildDialog) {
       // 1. 테스트 빌드 안내 팝업 표시
       await showDialog<void>(
         context: context,
@@ -127,9 +136,13 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           );
         },
       );
+      }
+
       await prefs.setBool("test_build_warning_shown", true);
 
       if (!mounted) return;
+
+      if (!showInquiryOverlay) return;
 
       // 2. 팝업이 닫힌 후 배경 딤(Dim) 처리와 함께 피드백 버튼 포커싱 오버레이 표시
       final overlay = Overlay.maybeOf(context, rootOverlay: true);
@@ -248,7 +261,10 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       case MainNavTabIndex.timetable:
         return const TimetableMainScreen();
       case MainNavTabIndex.mypage:
-        return const MyPageScreen(embedded: true);
+        return MyPageScreen(
+          embedded: true,
+          initialBookmarkTabIndex: _myPageBookmarkTabIndex,
+        );
       default:
         return const SizedBox.shrink();
     }
@@ -300,9 +316,24 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     return false;
   }
 
-  void _onMenuItemClick(int index, {NoticesSubTab? noticesSubTab}) {
+  Object _mainTabChildKey(int index) {
+    if (index == MainNavTabIndex.mypage) {
+      return (MainNavTabIndex.mypage, _myPageNavigateEpoch);
+    }
+    return index;
+  }
+
+  void _onMenuItemClick(
+    int index, {
+    NoticesSubTab? noticesSubTab,
+    int? myPageBookmarkTabIndex,
+  }) {
     if (noticesSubTab != null) {
       _noticeSubTab.value = noticesSubTab;
+    }
+    if (index == MainNavTabIndex.mypage && myPageBookmarkTabIndex != null) {
+      _myPageBookmarkTabIndex = myPageBookmarkTabIndex.clamp(0, 1);
+      _myPageNavigateEpoch++;
     }
     final bool tabChanged = index != _index;
     setState(() {
@@ -343,14 +374,16 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   @override
   Widget build(BuildContext context) {
     final Color scaffoldBackground = Theme.of(context).scaffoldBackgroundColor;
-    return ValueListenableBuilder<int>(
-      valueListenable: bookmarkSnackBarSubnavSuppressionCount,
-      builder: (context, snackbarSuppression, _) {
-        final bool showNoticeSubChrome =
-            _index == MainNavTabIndex.notices &&
-                _noticeSubNavVisible &&
-                snackbarSuppression == 0;
-        return PopScope(
+    return MainNavigationScope(
+      navigate: _onMenuItemClick,
+      child: ValueListenableBuilder<int>(
+        valueListenable: bookmarkSnackBarSubnavSuppressionCount,
+        builder: (context, snackbarSuppression, _) {
+          final bool showNoticeSubChrome =
+              _index == MainNavTabIndex.notices &&
+                  _noticeSubNavVisible &&
+                  snackbarSuppression == 0;
+          return PopScope(
           canPop: false,
           onPopInvokedWithResult: _onSystemPopInvoked,
           child: Stack(
@@ -389,7 +422,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                               return FadeTransition(opacity: fade, child: child);
                             },
                             child: KeyedSubtree(
-                              key: ValueKey<int>(_index),
+                              key: ValueKey<Object>(_mainTabChildKey(_index)),
                               child: _buildMainTab(_index),
                             ),
                           ),
@@ -442,7 +475,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
             ],
           ),
         );
-      },
+        },
+      ),
     );
   }
 

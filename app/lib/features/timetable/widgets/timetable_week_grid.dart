@@ -11,6 +11,7 @@ class TimetableWeekGrid extends StatelessWidget {
     super.key,
     required this.slots,
     this.onSlotTap,
+    this.professorByOfferingId = const <String, String>{},
     this.startHour = 8,
     this.endHour = 22,
     this.hourHeight = 44,
@@ -21,6 +22,8 @@ class TimetableWeekGrid extends StatelessWidget {
 
   final List<TimetableSlot> slots;
   final void Function(TimetableSlot slot)? onSlotTap;
+  /// [TimetableSlot.offeringId] → professor name for grid cell subtitle.
+  final Map<String, String> professorByOfferingId;
   final int startHour;
   final int endHour;
   final double hourHeight;
@@ -162,6 +165,8 @@ class TimetableWeekGrid extends StatelessWidget {
     final double width = dayColW - 2;
 
     final Color bg = TimetableColorUtil.colorForCourseKey(slot.colorKey);
+    final String professor =
+        (professorByOfferingId[slot.offeringId] ?? "").trim();
 
     return Positioned(
       left: left,
@@ -180,7 +185,7 @@ class TimetableWeekGrid extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                Expanded(
+                Flexible(
                   child: Text(
                     slot.courseName,
                     maxLines: compact ? 1 : 2,
@@ -194,18 +199,37 @@ class TimetableWeekGrid extends StatelessWidget {
                     ),
                   ),
                 ),
-                Text(
-                  slot.room,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontFamily: kPretendardFontFamily,
-                    fontSize: compact ? 8 : 9,
-                    fontWeight: FontWeight.w500,
-                    color:
-                        AppColors.timetableSlotOnColor.withValues(alpha: 0.92),
+                if (professor.isNotEmpty) ...<Widget>[
+                  const SizedBox(height: 1),
+                  Text(
+                    professor,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontFamily: kPretendardFontFamily,
+                      fontSize: compact ? 7 : 8,
+                      fontWeight: FontWeight.w600,
+                      height: 1.1,
+                      color: AppColors.timetableSlotOnColor
+                          .withValues(alpha: 0.95),
+                    ),
                   ),
-                ),
+                ],
+                if (slot.room.isNotEmpty) ...<Widget>[
+                  const SizedBox(height: 1),
+                  Text(
+                    slot.room,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontFamily: kPretendardFontFamily,
+                      fontSize: compact ? 8 : 9,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.timetableSlotOnColor
+                          .withValues(alpha: 0.92),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

@@ -5,7 +5,6 @@ import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
 import "package:flutter_animate/flutter_animate.dart";
 import "package:mjc_in_one/main_website_prefs.dart";
-import "package:mjc_in_one/screens/common_webview_screen.dart";
 import "package:mjc_in_one/screens/notice_detail_screen.dart";
 import "package:mjc_in_one/services/app_config_service.dart";
 import "package:mjc_in_one/services/notice_filter.dart";
@@ -21,8 +20,6 @@ import "package:mjc_in_one/widgets/global_notice_search_sheet.dart";
 import "package:mjc_in_one/widgets/notice_filter_sheet.dart";
 import "package:mjc_in_one/widgets/scroll_to_top_scope.dart";
 import "package:shared_preferences/shared_preferences.dart";
-import "package:url_launcher/url_launcher.dart";
-
 List<String> _parseAiTagsForList(Map<String, dynamic> data) {
   final Object? v = data["ai_tags"];
   if (v is! List) return const <String>[];
@@ -261,6 +258,117 @@ class _MainWebsiteScreenState extends State<MainWebsiteScreen> {
     }
   }
 
+  String _globalSearchBoardIdOf(Map<String, dynamic> item) {
+    final String v = (item["_boardId"] ?? "").toString().trim();
+    if (v.isNotEmpty) return v;
+    switch ((item["_searchType"] ?? "").toString()) {
+      case "학사공지":
+        return "main_academic";
+      case "장학공지":
+        return "main_scholarship";
+      default:
+        return "main_notice";
+    }
+  }
+
+  String _globalSearchNoticeKey(String boardId, Map<String, dynamic> data) {
+    final String id = (data["id"] ?? "").toString().trim();
+    if (id.isNotEmpty) return "$boardId|$id";
+    final String url = (data["url"] ?? data["link"] ?? "").toString().trim();
+    final String title = (data["title"] ?? "").toString().trim();
+    final String date =
+        (data["date"] ?? data["reg_date"] ?? "").toString().trim();
+    return "$boardId|$url|$title|$date";
+  }
+
+  Future<void> _toggleGlobalSearchPinned(String boardId, String key) async {
+    final prefs = await SharedPreferences.getInstance();
+    final Set<String> cur =
+        (prefs.getStringList("pinned_notices_$boardId") ?? []).toSet();
+    final bool adding = !cur.contains(key);
+    final Set<String> next = {...cur};
+    if (next.contains(key)) {
+      next.remove(key);
+    } else {
+      next.add(key);
+    }
+    await prefs.setStringList("pinned_notices_$boardId", next.toList());
+    await UserDataRepository.instance.updateBookmarks(
+      boardId,
+      pinned: true,
+      values: next.toList(),
+    );
+    if (!mounted) return;
+    if (adding) {
+      showBookmarkAddedSnackBar(context, openPinnedTab: true);
+    } else {
+      showBookmarkRemovedSnackBar(context, wasPinned: true);
+    }
+  }
+
+  Future<void> _toggleGlobalSearchFavorite(String boardId, String key) async {
+    final prefs = await SharedPreferences.getInstance();
+    final Set<String> cur =
+        (prefs.getStringList("favorite_notices_$boardId") ?? []).toSet();
+    final bool adding = !cur.contains(key);
+    final Set<String> next = {...cur};
+    if (next.contains(key)) {
+      next.remove(key);
+    } else {
+      next.add(key);
+    }
+    await prefs.setStringList("favorite_notices_$boardId", next.toList());
+    await UserDataRepository.instance.updateBookmarks(
+      boardId,
+      pinned: false,
+      values: next.toList(),
+    );
+    if (!mounted) return;
+    if (adding) {
+      showBookmarkAddedSnackBar(context, openPinnedTab: false);
+    } else {
+      showBookmarkRemovedSnackBar(context, wasPinned: false);
+    }
+  }
+
+  Future<void> _openNoticeFromGlobalSearch(Map<String, dynamic> item) async {
+    final String boardId = _globalSearchBoardIdOf(item);
+    final String id = (item["id"] ?? "").toString().trim();
+    final String key = _globalSearchNoticeKey(boardId, item);
+
+    final prefs = await SharedPreferences.getInstance();
+    if (id.isNotEmpty) {
+      final Set<String> read =
+          (prefs.getStringList("read_notices_$boardId") ?? []).toSet();
+      if (!read.contains(id)) {
+        await prefs.setStringList(
+          "read_notices_$boardId",
+          [...read, id].toList(),
+        );
+      }
+    }
+
+    if (!mounted) return;
+
+    final Set<String> pinned =
+        (prefs.getStringList("pinned_notices_$boardId") ?? []).toSet();
+    final Set<String> favorites =
+        (prefs.getStringList("favorite_notices_$boardId") ?? []).toSet();
+
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => NoticeDetailScreen(
+          notice: item,
+          boardId: boardId,
+          isPinned: pinned.contains(key),
+          isFavorite: favorites.contains(key),
+          onTogglePinned: () => _toggleGlobalSearchPinned(boardId, key),
+          onToggleFavorite: () => _toggleGlobalSearchFavorite(boardId, key),
+        ),
+      ),
+    );
+  }
+
   Future<void> _openGlobalSearch() async {
     if (_openingGlobalSearch) return;
     _openingGlobalSearch = true;
@@ -273,41 +381,33 @@ class _MainWebsiteScreenState extends State<MainWebsiteScreen> {
       final results = await Future.wait(futures);
       if (!mounted) return;
 
+      final MjcSurfaceTokens tokens =
+          Theme.of(context).extension<MjcSurfaceTokens>()!;
       final List<Map<String, dynamic>> items = [];
-      void addAll(List<Map<String, dynamic>> docs, String type) {
+      void addAll(
+        List<Map<String, dynamic>> docs,
+        String boardId,
+        String type,
+      ) {
         for (final d in docs) {
           items.add({
             ...d,
+            "_boardId": boardId,
             "_searchType": type,
             "_searchSource": "메인 공지사항",
           });
         }
       }
 
-      addAll(results[0], "공지사항");
-      addAll(results[1], "학사공지");
-      addAll(results[2], "장학공지");
+      addAll(results[0], "main_notice", "공지사항");
+      addAll(results[1], "main_academic", "학사공지");
+      addAll(results[2], "main_scholarship", "장학공지");
 
       await showGlobalNoticeSearchSheet(
         context,
         items: items,
-        accentColor: const Color(0xFF003FB4),
-        openItem: (item) async {
-          final String url =
-              (item["url"] ?? item["link"] ?? "").toString().trim();
-          final String title = (item["title"] ?? "공지사항").toString();
-          if (url.isEmpty) return;
-          if (kIsWeb) {
-            await launchUrl(Uri.parse(url), webOnlyWindowName: "_blank");
-          } else {
-            if (!context.mounted) return;
-            await Navigator.of(context).push<void>(
-              MaterialPageRoute<void>(
-                builder: (_) => CommonWebViewScreen(url: url, title: title),
-              ),
-            );
-          }
-        },
+        accentColor: tokens.sourceMjc,
+        openItem: _openNoticeFromGlobalSearch,
         chipFor: (item) {
           final String cat = (item["category"] ?? "").toString().trim();
           if (cat.isNotEmpty) return cat;
@@ -357,8 +457,9 @@ class _MainWebsiteScreenState extends State<MainWebsiteScreen> {
       builder: (context, mode, _) {
         final bool useTabs = mode == MainWebsiteNoticeViewMode.tabs;
         final ColorScheme scheme = Theme.of(context).colorScheme;
-        final bool isDark = Theme.of(context).brightness == Brightness.dark;
-        final Color tabAccent = isDark ? scheme.primary : scheme.primary;
+        final MjcSurfaceTokens tokens =
+            Theme.of(context).extension<MjcSurfaceTokens>()!;
+        final Color tabAccent = tokens.sourceMjc;
 
         final PreferredSizeWidget? tabBar = useTabs
             ? TabBar(
@@ -558,22 +659,19 @@ class _MainWebsiteCollapsingHeaderDelegate
                                 ignoring: titleOpacity < 0.02,
                                 child: Opacity(
                                   opacity: titleOpacity,
-                                  child: const Text(
+                                  child: Text(
                                     "본교 공지",
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.w900,
-                                      height: 1.1,
-                                      shadows: <Shadow>[
-                                        Shadow(
-                                          blurRadius: 6,
-                                          color: Color(0x66000000),
+                                    style: Theme.of(context)
+                                        .extension<MjcTextTokens>()!
+                                        .appBarTitle
+                                        .copyWith(
+                                          color: Colors.white,
+                                          height: 1.1,
+                                          shadows: MjcAppTypography
+                                              .homeHeroCollapsedTitleShadows,
                                         ),
-                                      ],
-                                    ),
                                   ),
                                 ),
                               ),
@@ -1017,9 +1115,11 @@ class _UnifiedNoticeListState extends State<_UnifiedNoticeList> {
   @override
   Widget build(BuildContext context) {
     final ColorScheme scheme = Theme.of(context).colorScheme;
+    final MjcSurfaceTokens tokens =
+        Theme.of(context).extension<MjcSurfaceTokens>()!;
     return NestedScrollRefreshIndicator(
       onRefresh: _handleRefresh,
-      color: const Color(0xFF003FB4),
+      color: tokens.sourceMjc,
       backgroundColor: scheme.surface,
       notificationPredicate: _allowRefreshNotification,
       child: FutureBuilder<List<Map<String, dynamic>>>(
@@ -1206,8 +1306,7 @@ class _UnifiedNoticeListState extends State<_UnifiedNoticeList> {
     final ColorScheme scheme = Theme.of(context).colorScheme;
     final MjcSurfaceTokens tokens = Theme.of(context).extension<MjcSurfaceTokens>()!;
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
-    final Color readTitlePurple =
-        isDark ? const Color(0xFFB39DDB) : const Color(0xFF7E57C2);
+    final Color readTitleColor = tokens.noticeReadTitle;
     final String title = (data["title"] ?? "").toString();
     final String dateStr = (data["date"] ?? data["reg_date"] ?? "").toString();
     final String category = (data["category"] ?? "").toString().trim();
@@ -1222,7 +1321,7 @@ class _UnifiedNoticeListState extends State<_UnifiedNoticeList> {
     final Color mainColor = isRead ? scheme.onSurfaceVariant : tokens.sourceMjc;
     final Color chipBackground = tokens.sourceMjc.withValues(alpha: isDark ? 0.18 : 0.12);
     final Color chipForeground = tokens.sourceMjc;
-    final Color titleColor = isRead ? readTitlePurple : scheme.onSurface;
+    final Color titleColor = isRead ? readTitleColor : scheme.onSurface;
     final Color dateColor = scheme.onSurfaceVariant;
     const bool lowRaster = kPerfLowRasterMode;
 
@@ -1741,9 +1840,11 @@ class _NoticeListTabState extends State<_NoticeListTab> {
   @override
   Widget build(BuildContext context) {
     final ColorScheme scheme = Theme.of(context).colorScheme;
+    final MjcSurfaceTokens tokens =
+        Theme.of(context).extension<MjcSurfaceTokens>()!;
     return NestedScrollRefreshIndicator(
       onRefresh: _handleRefresh,
-      color: const Color(0xFF003FB4),
+      color: tokens.sourceMjc,
       backgroundColor: scheme.surface,
       notificationPredicate: _allowRefreshNotification,
       child: FutureBuilder<List<Map<String, dynamic>>>(
@@ -1928,8 +2029,7 @@ class _NoticeListTabState extends State<_NoticeListTab> {
     final MjcSurfaceTokens tokens =
         Theme.of(context).extension<MjcSurfaceTokens>()!;
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
-    final Color readTitlePurple =
-        isDark ? const Color(0xFFB39DDB) : const Color(0xFF7E57C2);
+    final Color readTitleColor = tokens.noticeReadTitle;
     final String title = data["title"] ?? "";
     final String dateStr = data["date"] ?? "";
     final String type = data["category"] ?? "공지";
@@ -1941,7 +2041,7 @@ class _NoticeListTabState extends State<_NoticeListTab> {
     final Color chipBackground =
         tokens.sourceMjc.withValues(alpha: isDark ? 0.18 : 0.12);
     final Color chipForeground = tokens.sourceMjc;
-    final Color titleColor = isRead ? readTitlePurple : scheme.onSurface;
+    final Color titleColor = isRead ? readTitleColor : scheme.onSurface;
     final Color dateColor = scheme.onSurfaceVariant;
     const bool lowRaster = kPerfLowRasterMode;
 

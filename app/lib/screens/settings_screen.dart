@@ -1,7 +1,6 @@
 import "dart:async";
 
 import "package:flutter/material.dart";
-import "package:flutter/scheduler.dart";
 import "package:mjc_in_one/home_dashboard_prefs.dart";
 import "package:mjc_in_one/main_website_prefs.dart";
 import "package:mjc_in_one/notification_sources.dart";
@@ -14,11 +13,58 @@ import "package:mjc_in_one/services/app_config_service.dart";
 import "package:mjc_in_one/services/notice_filter.dart";
 import "package:mjc_in_one/services/user_data_repository.dart";
 import "package:mjc_in_one/theme/theme_mode_scope.dart";
+import "package:mjc_in_one/utils/mjc_snack_bar.dart";
 import "package:mjc_in_one/utils/snack_bar_utils.dart";
 import "package:mjc_in_one/widgets/safe_tooltip.dart";
 import "package:mjc_in_one/widgets/scroll_to_top_fab.dart";
 import "package:mjc_in_one/widgets/scroll_to_top_scope.dart";
 import "package:shared_preferences/shared_preferences.dart";
+
+/// 설정 화면 섹션·카드 항목 제목.
+const Color _settingsSectionTitleColor = Color(0xFF374151);
+const Color _settingsSectionTitleColorDark = Color(0xFFD1D5DB);
+
+TextStyle _settingsItemTitleStyle(
+  BuildContext context, {
+  FontWeight? fontWeight,
+  double? fontSize,
+  double? height,
+}) {
+  final TextStyle base = (Theme.of(context).listTileTheme.titleTextStyle ??
+          Theme.of(context).textTheme.titleMedium!)
+      .copyWith(
+    fontWeight: fontWeight,
+    fontSize: fontSize,
+    height: height,
+  );
+  final Color color = Theme.of(context).brightness == Brightness.light
+      ? _settingsSectionTitleColor
+      : _settingsSectionTitleColorDark;
+  return base.copyWith(color: color);
+}
+
+/// 설정 화면 보조 텍스트 (설명·ListTile subtitle 등).
+const Color _settingsSubtitleColor = Color(0xFF6B7280);
+const Color _settingsSubtitleColorDark = Color(0xFF9CA3AF);
+
+TextStyle _settingsSubtitleStyle(
+  BuildContext context, {
+  double? fontSize,
+  double? height,
+  FontWeight? fontWeight,
+}) {
+  final TextStyle base = (Theme.of(context).listTileTheme.subtitleTextStyle ??
+          Theme.of(context).textTheme.bodyMedium!)
+      .copyWith(
+    fontSize: fontSize,
+    height: height,
+    fontWeight: fontWeight,
+  );
+  final Color color = Theme.of(context).brightness == Brightness.light
+      ? _settingsSubtitleColor
+      : _settingsSubtitleColorDark;
+  return base.copyWith(color: color);
+}
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -33,13 +79,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   static const Color _cardBorder = Color(0xFFEDEDED);
   static const String _privacyPolicyUrlFallback =
       "https://mjcinone.web.app/privacy";
-  static const Duration _settingsNoticePanelDuration =
-      Duration(milliseconds: 400);
-
   String _privacyPolicyUrl = _privacyPolicyUrlFallback;
 
   bool _allNoticesEnabled = true;
-  bool _keywordNoticesEnabled = true;
   List<String> _keywords = [];
   List<String> _enabledSources = List<String>.from(kNotificationSourceIds);
   Set<String> _homeDashboardEnabledSections =
@@ -50,10 +92,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final ScrollController _scrollController = ScrollController();
   ScrollToTopCoordinator? _scrollRouteCoordinator;
   bool _registeredScrollRoute = false;
-
-  /// [SharedPreferences] 로드 전 기본값(true)과 저장값이 달라 패널 높이 애니가
-  /// 매 진입마다 재생되는 것을 막습니다. 첫 동기화 이후에만 duration을 켭니다.
-  bool _settingsNoticeAnimationsEnabled = false;
 
   int _estimatedCacheBytes = 0;
   bool _clearingCache = false;
@@ -160,7 +198,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (!mounted) return;
     setState(() {
       _allNoticesEnabled = prefs.getBool("allNoticesEnabled") ?? true;
-      _keywordNoticesEnabled = prefs.getBool("keywordNoticesEnabled") ?? true;
       _keywords = prefs.getStringList("keywords") ?? [];
       final stored = prefs.getStringList(kNotificationSourcesPrefKey);
       if (stored == null || stored.isEmpty) {
@@ -197,13 +234,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         prefs.getString(kMainWebsiteNoticeViewModePrefKey),
       );
     });
-    // [AnimatedSize]/[AnimatedCrossFade]는 레이아웃 중 RenderAnimatedSize가
-    // 다시 markNeedsLayout 될 수 있어 [TweenAnimationBuilder]+heightFactor로 대체함.
-    // 첫 동기화 직후 불필요한 모션만 막기 위해 한 프레임 뒤 duration을 켠다.
-    await SchedulerBinding.instance.endOfFrame;
-    if (!mounted) return;
-    if (_settingsNoticeAnimationsEnabled) return;
-    setState(() => _settingsNoticeAnimationsEnabled = true);
   }
 
   Future<void> _setMainWebsiteNoticeViewMode(
@@ -238,45 +268,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _allNoticesEnabled = value;
     });
     if (mounted) {
-      final bool allOff = !value && !_keywordNoticesEnabled;
+      final bool allOff = !value && _keywords.isEmpty;
       final message = allOff
           ? "알람이 꺼집니다."
           : (value ? "전체 알림이 활성화되었습니다." : "전체 알림이 비활성화되었습니다.");
-      SnackBarUtils.showUnique(
+      showUniqueMjcSnackBar(
         context,
         key: "settings_all_notices_${value ? "on" : "off"}",
-        snackBar: SnackBar(
-          behavior: SnackBarBehavior.floating,
-          margin: _snackBarMargin(context),
-          content: Text(message),
-        ),
+        message: message,
+        margin: _snackBarMargin(context),
       );
     }
-  }
-
-  Future<void> _toggleKeywordNotices(bool value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool("keywordNoticesEnabled", value);
-    try {
-      await UserDataRepository.instance.pushSnapshotToCloud();
-    } catch (_) {}
-    if (!mounted) return;
-    setState(() => _keywordNoticesEnabled = value);
-
-    if (!mounted) return;
-    final bool allOff = !_allNoticesEnabled && !value;
-    final String message = allOff
-        ? "알람이 꺼집니다."
-        : (value ? "키워드 알림이 활성화되었습니다." : "키워드 알림이 비활성화되었습니다.");
-    SnackBarUtils.showUnique(
-      context,
-      key: "settings_keyword_notices_${value ? "on" : "off"}",
-      snackBar: SnackBar(
-        behavior: SnackBarBehavior.floating,
-        margin: _snackBarMargin(context),
-        content: Text(message),
-      ),
-    );
   }
 
   /// [kNoticeFilterSourceOptions] 라벨(MJC·CTL·MPU) ↔ FCM `source` id.
@@ -648,17 +650,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _buildHomeDashboardSectionVisibilityCard() {
-    final Color subtitleColor = Theme.of(context)
-        .colorScheme
-        .onSurfaceVariant
-        .withValues(alpha: 0.92);
     return _settingsCard(
       child: Column(
         children: [
           ListTile(
-            title: const Text(
+            title: Text(
               "홈에 표시할 요소 선택",
-              style: TextStyle(
+              style: _settingsItemTitleStyle(
+                context,
                 fontWeight: FontWeight.w700,
                 fontSize: 15,
                 height: 1.25,
@@ -668,11 +667,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
               padding: const EdgeInsets.only(top: 6),
               child: Text(
                 "홈 화면에 표시할 카드/섹션을 선택할 수 있습니다.",
-                style: TextStyle(
+                style: _settingsSubtitleStyle(
+                  context,
                   fontSize: 13,
                   height: 1.35,
-                  fontWeight: FontWeight.w400,
-                  color: subtitleColor,
                 ),
               ),
             ),
@@ -707,28 +705,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _buildMainWebsiteNoticeViewModeCard() {
-    final Color subtitleColor = Theme.of(context)
-        .colorScheme
-        .onSurfaceVariant
-        .withValues(alpha: 0.92);
-
     return _settingsCard(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               "본교 공지사항 보기 방식",
-              style: TextStyle(fontWeight: FontWeight.w700),
+              style: _settingsItemTitleStyle(
+                context,
+                fontWeight: FontWeight.w700,
+              ),
             ),
             const SizedBox(height: 6),
             Text(
               "공지/학사/장학을 3탭으로 볼지, 한 게시판으로 통합해 볼지 선택합니다.",
-              style: TextStyle(
+              style: _settingsSubtitleStyle(
+                context,
                 fontSize: 13,
                 height: 1.35,
-                color: subtitleColor,
               ),
             ),
             const SizedBox(height: 12),
@@ -764,12 +760,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ThemeModeScope.maybeOf(context);
     final ThemeMode themeMode = themeController?.value ?? ThemeMode.system;
     final bool allNotices = _allNoticesEnabled;
-    final bool keywordNotices = _keywordNoticesEnabled;
-    final bool showKeywordPanel = allNotices && keywordNotices;
-    final bool notificationsAllOff = !allNotices && !keywordNotices;
-    final Duration noticePanelDuration = _settingsNoticeAnimationsEnabled
-        ? _settingsNoticePanelDuration
-        : Duration.zero;
+    final bool notificationsAllOff = !allNotices && _keywords.isEmpty;
 
     final Color scaffoldBg = Theme.of(context).brightness == Brightness.light
         ? _pageBackground
@@ -798,57 +789,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 SwitchListTile(
-                  title: const Text("전체 알람"),
-                  subtitle: allNotices
-                      ? const Text("모든 공지사항 새글 알림 받기")
-                      : const Text("꺼 두면 아래 알람·출처 설정이 접혀 있습니다."),
+                  title: Text(
+                    "전체 알람",
+                    style: _settingsItemTitleStyle(context),
+                  ),
+                  subtitle: Text(
+                    allNotices
+                        ? "모든 공지사항 새글 알림 받기"
+                        : "꺼 두면 등록한 키워드가 포함된 공지만 알림을 받습니다.",
+                    style: _settingsSubtitleStyle(context),
+                  ),
                   value: allNotices,
                   onChanged: _toggleAllNotices,
                 ),
                 ClipRect(
-                  child: TweenAnimationBuilder<double>(
-                    key: ValueKey<bool>(allNotices),
-                    duration: noticePanelDuration,
+                  child: AnimatedAlign(
+                    alignment: Alignment.topCenter,
+                    duration: const Duration(milliseconds: 280),
                     curve: Curves.easeOutCubic,
-                    tween: Tween<double>(
-                      begin: allNotices ? 0.0 : 1.0,
-                      end: allNotices ? 1.0 : 0.0,
-                    ),
-                    builder: (context, heightFactor, child) {
-                      return Align(
-                        alignment: Alignment.topCenter,
-                        heightFactor: heightFactor.clamp(0.0, 1.0),
-                        widthFactor: 1.0,
-                        child: child,
-                      );
-                    },
+                    heightFactor: allNotices ? 1.0 : 0.0,
                     child: Column(
-                      key: const ValueKey<String>(
-                          "settings_all_notices_expanded"),
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        _hairlineDivider(),
-                        SwitchListTile(
-                          title: const Text("키워드 알람"),
-                          subtitle: const Text(
-                              "등록한 키워드가 포함된 공지사항만"),
-                          value: keywordNotices,
-                          onChanged: _toggleKeywordNotices,
-                        ),
                         _hairlineDivider(),
                         Padding(
                           padding:
                               const EdgeInsets.fromLTRB(16, 14, 16, 6),
                           child: Text(
                             "알림 받을 출처",
-                            style: TextStyle(
-                              color: Theme.of(context).brightness ==
-                                      Brightness.dark
-                                  ? Colors.white
-                                  : Theme.of(context)
-                                      .colorScheme
-                                      .primary,
+                            style: _settingsItemTitleStyle(
+                              context,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
@@ -857,13 +828,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           padding:
                               const EdgeInsets.fromLTRB(16, 0, 16, 6),
                           child: Text(
-                            "푸시 알림을 받을 사이트를 고릅니다. 최소 한 곳은 선택해야 합니다.",
-                            style: TextStyle(
+                            "전체 알람에만 적용됩니다. 키워드 알림에는 적용되지 않습니다.",
+                            style: _settingsSubtitleStyle(
+                              context,
                               fontSize: 12,
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurface
-                                  .withValues(alpha: 0.65),
                             ),
                           ),
                         ),
@@ -882,96 +850,85 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                     value, false),
                           ),
                         ),
-                        if (notificationsAllOff) ...[
-                          _hairlineDivider(),
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(
-                                16, 12, 16, 14),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.notifications_off_outlined,
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .onSurface
-                                      .withValues(alpha: 0.72),
-                                  size: 18,
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    "알람이 꺼집니다.",
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .onSurface
-                                          .withValues(alpha: 0.78),
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
                       ],
                     ),
                   ),
                 ),
+                if (notificationsAllOff) ...[
+                  _hairlineDivider(),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.notifications_off_outlined,
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withValues(alpha: 0.72),
+                          size: 18,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            "알람이 꺼집니다.",
+                            style: _settingsSubtitleStyle(
+                              context,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
-          ClipRect(
-            child: TweenAnimationBuilder<double>(
-              key: ValueKey<bool>(showKeywordPanel),
-              duration: noticePanelDuration,
-              curve: Curves.easeOutCubic,
-              tween: Tween<double>(
-                begin: showKeywordPanel ? 0.0 : 1.0,
-                end: showKeywordPanel ? 1.0 : 0.0,
-              ),
-              builder: (context, heightFactor, child) {
-                return Align(
-                  alignment: Alignment.topCenter,
-                  heightFactor: heightFactor.clamp(0.0, 1.0),
-                  widthFactor: 1.0,
-                  child: child,
-                );
-              },
-              child: Padding(
-                padding: const EdgeInsets.only(top: 12),
-                child: _settingsCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Padding(
-                        padding: EdgeInsets.fromLTRB(16, 16, 16, 6),
-                        child: Text(
-                          "키워드 관리",
-                          style: TextStyle(fontWeight: FontWeight.w700),
-                        ),
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: _settingsCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 6),
+                    child: Text(
+                      "키워드 관리",
+                      style: _settingsItemTitleStyle(
+                        context,
+                        fontWeight: FontWeight.w700,
                       ),
-                      const Padding(
-                        padding: EdgeInsets.fromLTRB(16, 0, 16, 10),
-                        child: Text(
-                          "키워드가 없으면 알림이 오지 않습니다.",
-                          style: TextStyle(fontSize: 12),
-                        ),
-                      ),
-                      ListTile(
-                        title: const Text("키워드 알림 설정"),
-                        subtitle: Text(
-                          _keywords.isEmpty
-                              ? "현재 등록된 키워드 없음"
-                              : "${_keywords.length}개 키워드 감시 중",
-                        ),
-                        trailing: const Icon(Icons.chevron_right_rounded),
-                        onTap: _openKeywordNotificationSettings,
-                      ),
-                    ],
+                    ),
                   ),
-                ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                    child: Text(
+                      allNotices
+                          ? "전체 알람이 켜져 있으면 키워드와 관계없이 모든 공지를 받습니다."
+                          : "키워드가 없으면 알림이 오지 않습니다.",
+                      style: _settingsSubtitleStyle(
+                        context,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                  ListTile(
+                    title: Text(
+                      "키워드 알림 설정",
+                      style: _settingsItemTitleStyle(context),
+                    ),
+                    subtitle: Text(
+                      _keywords.isEmpty
+                          ? "현재 등록된 키워드 없음"
+                          : "${_keywords.length}개 키워드 감시 중",
+                      style: _settingsSubtitleStyle(context),
+                    ),
+                    trailing: const Icon(Icons.chevron_right_rounded),
+                    onTap: _openKeywordNotificationSettings,
+                  ),
+                ],
               ),
             ),
           ),
@@ -991,9 +948,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     "앱 화면 테마",
-                    style: TextStyle(fontWeight: FontWeight.w600),
+                    style: _settingsItemTitleStyle(
+                      context,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                   const SizedBox(height: 12),
                   SegmentedButton<ThemeMode>(
@@ -1034,12 +994,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 10),
           _settingsCard(
             child: ListTile(
-              title: const Text("캐시 데이터 지우기"),
+              title: Text(
+                "캐시 데이터 지우기",
+                style: _settingsItemTitleStyle(context),
+              ),
               subtitle: Text(
                 _estimatedCacheBytes > 0
                     ? "임시 데이터 약 ${AppCacheService.formatCacheSize(_estimatedCacheBytes)} · "
                         "식단·셔틀·지도 등 다시 받아옵니다"
                     : "식단·셔틀·지도·공지 목록 등 임시 데이터를 삭제합니다",
+                style: _settingsSubtitleStyle(context),
               ),
               trailing: _clearingCache
                   ? const SizedBox(
@@ -1060,7 +1024,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
             child: Column(
               children: [
                 ListTile(
-                  title: const Text("앱 버전"),
+                  title: Text(
+                    "앱 버전",
+                    style: _settingsItemTitleStyle(context),
+                  ),
                   trailing: GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onTap: _onVersionTextTap,
@@ -1072,14 +1039,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 _hairlineDivider(),
                 ListTile(
-                  title: const Text("개발자에게 문의하기"),
-                  subtitle: const Text("불편한 점이나 건의사항을 보내주세요."),
+                  title: Text(
+                    "개발자에게 문의하기",
+                    style: _settingsItemTitleStyle(context),
+                  ),
+                  subtitle: Text(
+                    "불편한 점이나 건의사항을 보내주세요.",
+                    style: _settingsSubtitleStyle(context),
+                  ),
                   trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: _contactDeveloper,
                 ),
                 _hairlineDivider(),
                 ListTile(
-                  title: const Text("오픈소스 라이선스"),
+                  title: Text(
+                    "오픈소스 라이선스",
+                    style: _settingsItemTitleStyle(context),
+                  ),
                   trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: () {
                     Navigator.of(context).push<void>(
@@ -1091,8 +1067,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 _hairlineDivider(),
                 ListTile(
-                  title: const Text("개인정보처리방침"),
-                  subtitle: const Text("수집 항목과 이용 목적을 확인할 수 있습니다."),
+                  title: Text(
+                    "개인정보처리방침",
+                    style: _settingsItemTitleStyle(context),
+                  ),
+                  subtitle: Text(
+                    "수집 항목과 이용 목적을 확인할 수 있습니다.",
+                    style: _settingsSubtitleStyle(context),
+                  ),
                   trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: () {
                     Navigator.of(context).push<void>(
@@ -1126,12 +1108,10 @@ class _SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ThemeData theme = Theme.of(context);
-    final ColorScheme cs = theme.colorScheme;
-    final bool dark = theme.brightness == Brightness.dark;
+    final bool dark = Theme.of(context).brightness == Brightness.dark;
 
     final Color accent =
-        dark ? Colors.white : cs.primary;
+        dark ? _settingsSectionTitleColorDark : _settingsSectionTitleColor;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(4, 4, 0, 8),

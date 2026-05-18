@@ -659,49 +659,33 @@ def gemini_summarize(
 #  edit-in-place helper
 # ────────────────────────────────────────────────────────────────────
 
-def enrich_with_body_and_summary(
+def _maybe_fix_title_from_view(post: dict[str, Any], view_title: str) -> None:
+    """리스트에서 잘린 제목이면 view.do 제목으로 교체."""
+    list_title = str(post.get("title") or "").strip()
+    if not view_title:
+        return
+    vt = view_title.strip()
+    if list_title.endswith("...") or list_title.endswith("…"):
+        if len(vt) > len(list_title) and not vt.endswith("...") and not vt.endswith("…"):
+            post["title"] = vt
+
+
+def _assign_summary_fields(
     post: dict[str, Any],
     *,
-    session: requests.Session | None = None,
-    fetch_timeout: float = 15.0,
     use_gemini: bool = False,
     gemini_api_key: str = "",
     gemini_model: str = "",
     gemini_timeout: float = 120.0,
 ) -> None:
-    """post dict 에 body, summary, body_fetched_at 등을 채워넣음.
-
-    크롤러/백필 양쪽에서 같이 쓸 수 있도록 in-place 패턴.
-    """
-    url = str(post.get("url") or "")
-    body_text, body_html, view_title, err = fetch_mjc_view_body(
-        url,
-        timeout=fetch_timeout,
-        session=session,
-    )
+    """Firestore 에 이미 있는 body/body_html 기준으로 summary 필드만 갱신."""
     now_iso = datetime.now().isoformat()
-    ai_body = body_text_for_ai(body_text)
-
-    post["body"] = body_text
-    post["body_html"] = body_html
-    post["body_fetched_at"] = now_iso
-    if err:
-        post["body_fetch_error"] = err
-    elif "body_fetch_error" in post:
-        # 이전에 실패한 적이 있는 문서가 이번에 성공하면 명시적으로 비움
-        post["body_fetch_error"] = None
+    ai_body = body_text_for_ai(str(post.get("body") or ""))
+    body_html = str(post.get("body_html") or "")
 
     summary: str = ""
     summary_version = SUMMARY_HEURISTIC_VERSION
     post.pop("_summarize_fail_reason", None)
-
-    # 리스트에서 이미 .../… 로 잘린 제목이면 상세 페이지 제목으로 교체
-    list_title = str(post.get("title") or "").strip()
-    if view_title:
-        vt = view_title.strip()
-        if list_title.endswith("...") or list_title.endswith("…"):
-            if len(vt) > len(list_title) and not vt.endswith("...") and not vt.endswith("…"):
-                post["title"] = vt
 
     title_for_summary = str(post.get("title") or "")
     if ai_body:
@@ -733,11 +717,96 @@ def enrich_with_body_and_summary(
                     )
         if not summary:
             summary = heuristic_summary(ai_body)
-    elif body_html and title_for_summary.strip():
+    elif body_html.strip() and title_for_summary.strip():
         summary = heuristic_summary_from_title(title_for_summary)
     post["summary"] = summary
     post["summary_version"] = summary_version
     post["summary_generated_at"] = now_iso
-    # 신고/플래그 카운터 기본값 (Firestore 기존 문서에 없으면 신설)
     post.setdefault("reports_count", 0)
     post.setdefault("needs_resummary", False)
+
+
+def enrich_body_only(
+    post: dict[str, Any],
+    *,
+    session: requests.Session | None = None,
+    fetch_timeout: float = 15.0,
+) -> None:
+    """view.do 에서 body/body_html 만 fetch. summary 필드는 건드리지 않음."""
+    url = str(post.get("url") or "")
+    body_text, body_html, view_title, err = fetch_mjc_view_body(
+        url,
+        timeout=fetch_timeout,
+        session=session,
+    )
+    now_iso = datetime.now().isoformat()
+
+    post["body"] = body_text
+    post["body_html"] = body_html
+    post["body_fetched_at"] = now_iso
+    if err:
+        post["body_fetch_error"] = err
+    elif "body_fetch_error" in post:
+        post["body_fetch_error"] = None
+
+    _maybe_fix_title_from_view(post, view_title)
+    post.setdefault("reports_count", 0)
+    post.setdefault("needs_resummary", False)
+
+
+def enrich_summary_only(
+    post: dict[str, Any],
+    *,
+    use_gemini: bool = False,
+    gemini_api_key: str = "",
+    gemini_model: str = "",
+    gemini_timeout: float = 120.0,
+) -> None:
+    """HTTP fetch 없이 기존 body/body_html 로 summary 만 재생성."""
+    _assign_summary_fields(
+        post,
+        use_gemini=use_gemini,
+        gemini_api_key=gemini_api_key,
+        gemini_model=gemini_model,
+        gemini_timeout=gemini_timeout,
+    )
+
+
+def enrich_with_body_and_summary(
+    post: dict[str, Any],
+    *,
+    session: requests.Session | None = None,
+    fetch_timeout: float = 15.0,
+    use_gemini: bool = False,
+    gemini_api_key: str = "",
+    gemini_model: str = "",
+    gemini_timeout: float = 120.0,
+) -> None:
+    """post dict 에 body, summary, body_fetched_at 등을 채워넣음.
+
+    크롤러/백필 양쪽에서 같이 쓸 수 있도록 in-place 패턴.
+    """
+    url = str(post.get("url") or "")
+    body_text, body_html, view_title, err = fetch_mjc_view_body(
+        url,
+        timeout=fetch_timeout,
+        session=session,
+    )
+    now_iso = datetime.now().isoformat()
+
+    post["body"] = body_text
+    post["body_html"] = body_html
+    post["body_fetched_at"] = now_iso
+    if err:
+        post["body_fetch_error"] = err
+    elif "body_fetch_error" in post:
+        post["body_fetch_error"] = None
+
+    _maybe_fix_title_from_view(post, view_title)
+    _assign_summary_fields(
+        post,
+        use_gemini=use_gemini,
+        gemini_api_key=gemini_api_key,
+        gemini_model=gemini_model,
+        gemini_timeout=gemini_timeout,
+    )

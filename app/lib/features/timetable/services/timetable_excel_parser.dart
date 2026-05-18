@@ -121,7 +121,11 @@ abstract final class TimetableExcelParser {
         colorKey: colorKey,
       );
 
-      if (courseName.isEmpty || slots.isEmpty) continue;
+      if (courseName.isEmpty) continue;
+      if (slots.isEmpty &&
+          !timetableRaw.contains(ParsedCourseOffering.remoteExamScheduleMarker)) {
+        continue;
+      }
 
       out.add(
         ParsedCourseOffering(

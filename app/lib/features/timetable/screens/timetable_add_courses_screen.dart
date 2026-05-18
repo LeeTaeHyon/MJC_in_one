@@ -5,6 +5,7 @@ import "package:mjc_in_one/features/timetable/widgets/timetable_offering_schedul
 import "package:mjc_in_one/features/timetable/widgets/timetable_week_grid.dart";
 import "package:mjc_in_one/mpu_profile_prefs.dart";
 import "package:mjc_in_one/theme/app_theme.dart";
+import "package:mjc_in_one/utils/mjc_snack_bar.dart";
 
 /// Top preview grid + filter chips + course list (Everytime-like flow).
 class TimetableAddCoursesScreen extends StatefulWidget {
@@ -64,14 +65,7 @@ class _TimetableAddCoursesScreenState extends State<TimetableAddCoursesScreen> {
             : "마이페이지에 저장된 학년으로 목록 필터를 맞춰 두었습니다.";
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            snackMessage,
-            style: const TextStyle(fontFamily: kPretendardFontFamily),
-          ),
-        ),
-      );
+      showMjcSnackBar(context, message: snackMessage);
     });
   }
 
@@ -98,7 +92,8 @@ class _TimetableAddCoursesScreenState extends State<TimetableAddCoursesScreen> {
       if (_search.isNotEmpty) {
         final String q = _search.toLowerCase();
         if (!o.courseName.toLowerCase().contains(q) &&
-            !o.professor.toLowerCase().contains(q)) {
+            !o.professor.toLowerCase().contains(q) &&
+            !o.section.toLowerCase().contains(q)) {
           return false;
         }
       }
@@ -164,13 +159,9 @@ class _TimetableAddCoursesScreenState extends State<TimetableAddCoursesScreen> {
 
   void _showScheduleConflictSnack(ParsedCourseOffering conflictsWith) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          "이미 선택한 강의와 수업 시간이 겹칩니다: ${conflictsWith.courseName}",
-          style: const TextStyle(fontFamily: kPretendardFontFamily),
-        ),
-      ),
+    showMjcSnackBar(
+      context,
+      message: "이미 선택한 강의와 수업 시간이 겹칩니다: ${conflictsWith.courseName}",
     );
   }
 
@@ -299,17 +290,14 @@ class _TimetableAddCoursesScreenState extends State<TimetableAddCoursesScreen> {
                     color: Theme.of(ctx).colorScheme.onSurface,
                   ),
                 ),
-                if (o.professor.isNotEmpty) ...<Widget>[
-                  const SizedBox(height: 6),
-                  Text(
-                    o.professor,
-                    style: TextStyle(
-                      fontFamily: kPretendardFontFamily,
-                      fontSize: 14,
-                      color: Theme.of(ctx).colorScheme.onSurfaceVariant,
-                    ),
+                Text(
+                  o.professorSectionLine,
+                  style: TextStyle(
+                    fontFamily: kPretendardFontFamily,
+                    fontSize: 14,
+                    color: Theme.of(ctx).colorScheme.onSurfaceVariant,
                   ),
-                ],
+                ),
                 const SizedBox(height: 10),
                 TimetableOfferingScheduleTextBlock(offering: o),
                 const SizedBox(height: 8),
@@ -387,6 +375,17 @@ class _TimetableAddCoursesScreenState extends State<TimetableAddCoursesScreen> {
                             color: scheme.onSurface,
                           ),
                         ),
+                        if (items[i].sectionLabel.isNotEmpty) ...<Widget>[
+                          const SizedBox(height: 2),
+                          Text(
+                            items[i].sectionLabel,
+                            style: TextStyle(
+                              fontFamily: kPretendardFontFamily,
+                              fontSize: 11,
+                              color: scheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
                         if (items[i].slots.isNotEmpty) ...<Widget>[
                           const SizedBox(height: 4),
                           Text(
@@ -531,7 +530,7 @@ class _TimetableAddCoursesScreenState extends State<TimetableAddCoursesScreen> {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  o.professor.isEmpty ? "교수 미상" : o.professor,
+                                  o.professorSectionLine,
                                   style: TextStyle(
                                     fontFamily: kPretendardFontFamily,
                                     fontSize: 13,

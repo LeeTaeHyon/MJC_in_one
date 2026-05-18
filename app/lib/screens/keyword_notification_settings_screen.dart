@@ -1,4 +1,6 @@
 import "package:flutter/material.dart";
+import "package:mjc_in_one/notification_sources.dart";
+import "package:mjc_in_one/services/keyword_notification_detail.dart";
 import "package:mjc_in_one/services/user_data_repository.dart";
 import "package:mjc_in_one/utils/snack_bar_utils.dart";
 import "package:shared_preferences/shared_preferences.dart";
@@ -89,15 +91,20 @@ class _KeywordNotificationSettingsScreenState
       _keywords = _keywords.where((k) => k != kw).toList();
       _selected.remove(kw);
     });
+    await removeKeywordNotificationDetail(kw);
     await _persistKeywords();
   }
 
   Future<void> _removeSelected() async {
     if (_selected.isEmpty) return;
+    final List<String> removed = _selected.toList();
     setState(() {
       _keywords = _keywords.where((k) => !_selected.contains(k)).toList();
       _selected.clear();
     });
+    for (final String kw in removed) {
+      await removeKeywordNotificationDetail(kw);
+    }
     await _persistKeywords();
     if (_keywords.isEmpty) {
       setState(() => _editMode = false);
@@ -114,37 +121,9 @@ class _KeywordNotificationSettingsScreenState
   void _onKeywordSettings(String keyword) {
     showModalBottomSheet<void>(
       context: context,
+      isScrollControlled: true,
       showDragHandle: true,
-      builder: (ctx) {
-        return Padding(
-          padding: EdgeInsets.fromLTRB(
-            24,
-            8,
-            24,
-            MediaQuery.paddingOf(ctx).bottom + 24,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                keyword,
-                style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                "키워드별 세부 조건(가격·제외 키워드 등)은 추후 지원 예정입니다.",
-                style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(ctx).colorScheme.onSurfaceVariant,
-                      height: 1.4,
-                    ),
-              ),
-            ],
-          ),
-        );
-      },
+      builder: (ctx) => _KeywordDetailSheet(keyword: keyword),
     );
   }
 
@@ -296,6 +275,298 @@ class _KeywordNotificationSettingsScreenState
                       );
                     },
                   ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _KeywordDetailSheet extends StatefulWidget {
+  const _KeywordDetailSheet({required this.keyword});
+
+  final String keyword;
+
+  static const int maxExcludeKeywords = 10;
+
+  @override
+  State<_KeywordDetailSheet> createState() => _KeywordDetailSheetState();
+}
+
+class _KeywordDetailSheetState extends State<_KeywordDetailSheet> {
+  final TextEditingController _excludeInput = TextEditingController();
+
+  bool _loading = true;
+  List<String> _selectedSourceIds = [];
+  List<String> _excludeKeywords = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _excludeInput.addListener(() => setState(() {}));
+    _load();
+  }
+
+  @override
+  void dispose() {
+    _excludeInput.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    final KeywordNotificationDetail detail =
+        await loadKeywordNotificationDetail(widget.keyword);
+    if (!mounted) return;
+    setState(() {
+      _selectedSourceIds = detail.sources
+          .where(kNotificationSourceIds.contains)
+          .toList();
+      _excludeKeywords = List<String>.from(detail.excludeKeywords);
+      _loading = false;
+    });
+  }
+
+  Future<void> _save() async {
+    await saveKeywordNotificationDetail(
+      widget.keyword,
+      KeywordNotificationDetail(
+        sources: _selectedSourceIds,
+        excludeKeywords: _excludeKeywords,
+      ),
+    );
+    try {
+      await UserDataRepository.instance.updateKeywordNotificationDetails();
+    } catch (_) {}
+  }
+
+  Future<void> _toggleSource(String label, bool selected) async {
+    final String id = notificationSourceIdFromChipLabel(label);
+    if (id.isEmpty) return;
+    setState(() {
+      if (selected) {
+        if (!_selectedSourceIds.contains(id)) {
+          _selectedSourceIds = [..._selectedSourceIds, id];
+        }
+      } else {
+        _selectedSourceIds =
+            _selectedSourceIds.where((s) => s != id).toList();
+      }
+    });
+    await _save();
+  }
+
+  List<String> _selectedSourceChipLabels() {
+    return kNotificationSourceChipLabels
+        .where((label) =>
+            _selectedSourceIds.contains(notificationSourceIdFromChipLabel(label)))
+        .toList();
+  }
+
+  Future<void> _addExcludeKeyword() async {
+    final String text = _excludeInput.text.trim();
+    if (text.isEmpty) return;
+    if (_excludeKeywords.contains(text)) {
+      if (!mounted) return;
+      SnackBarUtils.showUnique(
+        context,
+        key: "keyword_exclude_dup",
+        snackBar: const SnackBar(
+          behavior: SnackBarBehavior.floating,
+          content: Text("이미 등록된 제외 키워드입니다."),
+        ),
+      );
+      return;
+    }
+    if (_excludeKeywords.length >= _KeywordDetailSheet.maxExcludeKeywords) {
+      if (!mounted) return;
+      SnackBarUtils.showUnique(
+        context,
+        key: "keyword_exclude_max",
+        snackBar: const SnackBar(
+          behavior: SnackBarBehavior.floating,
+          content: Text(
+            "제외 키워드는 최대 10개까지 등록할 수 있어요.",
+          ),
+        ),
+      );
+      return;
+    }
+    setState(() {
+      _excludeKeywords = [..._excludeKeywords, text];
+    });
+    _excludeInput.clear();
+    await _save();
+  }
+
+  Future<void> _removeExcludeKeyword(String kw) async {
+    setState(() {
+      _excludeKeywords = _excludeKeywords.where((k) => k != kw).toList();
+    });
+    await _save();
+  }
+
+  String get _sourceSummary {
+    if (_selectedSourceIds.isEmpty) return "전체 출처";
+    if (_selectedSourceIds.length == kNotificationSourceIds.length) {
+      return "전체 출처";
+    }
+    return _selectedSourceIds
+        .map(notificationSourceChipLabelFromId)
+        .where((s) => s.isNotEmpty)
+        .join(", ");
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme scheme = theme.colorScheme;
+    final double bottomInset = MediaQuery.paddingOf(context).bottom;
+
+    if (_loading) {
+      return Padding(
+        padding: EdgeInsets.fromLTRB(24, 16, 24, bottomInset + 32),
+        child: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    final bool canAddExclude = _excludeInput.text.trim().isNotEmpty &&
+        _excludeKeywords.length < _KeywordDetailSheet.maxExcludeKeywords;
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        20,
+        4,
+        20,
+        bottomInset + 20,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            widget.keyword,
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            "이 키워드로 알림을 받을 조건을 설정합니다.",
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: scheme.onSurfaceVariant,
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 20),
+          Text(
+            "알림 받을 출처",
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            "선택하지 않으면 MJC·CTL·MPU 전체에서 알림을 받습니다. · $_sourceSummary",
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: scheme.onSurfaceVariant,
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: kNotificationSourceChipLabels.map((String label) {
+                final bool selected = _selectedSourceChipLabels().contains(label);
+                return FilterChip(
+                  label: Text(label),
+                  selected: selected,
+                  onSelected: (bool next) => _toggleSource(label, next),
+                );
+              }).toList(),
+            ),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            "제외 키워드",
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            "제목·본문에 아래 단어가 함께 있으면 이 키워드 알림을 보내지 않습니다.",
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: scheme.onSurfaceVariant,
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _excludeInput,
+            textInputAction: TextInputAction.done,
+            onSubmitted: (_) {
+              if (canAddExclude) _addExcludeKeyword();
+            },
+            decoration: InputDecoration(
+              hintText: "예: 모집 마감, 취소",
+              filled: true,
+              fillColor: scheme.surfaceContainerLow,
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+              suffixIcon: Padding(
+                padding: const EdgeInsetsDirectional.only(end: 4),
+                child: TextButton(
+                  onPressed: canAddExclude ? _addExcludeKeyword : null,
+                  child: Text(
+                    "추가",
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: canAddExclude
+                          ? scheme.primary
+                          : scheme.onSurfaceVariant
+                              .withValues(alpha: 0.45),
+                    ),
+                  ),
+                ),
+              ),
+              suffixIconConstraints: const BoxConstraints(
+                minWidth: 56,
+                minHeight: 48,
+              ),
+            ),
+          ),
+          if (_excludeKeywords.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: _excludeKeywords.map((String kw) {
+                return InputChip(
+                  label: Text(kw),
+                  onDeleted: () => _removeExcludeKeyword(kw),
+                );
+              }).toList(),
+            ),
+          ],
+          const SizedBox(height: 16),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text("완료"),
           ),
         ],
       ),

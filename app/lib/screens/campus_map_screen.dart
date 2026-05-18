@@ -3,6 +3,7 @@ import "dart:async";
 import "package:flutter/material.dart";
 import "package:geolocator/geolocator.dart";
 import "package:latlong2/latlong.dart";
+import "package:mjc_in_one/debug/app_debug_flags.dart";
 import "package:mjc_in_one/services/campus_map_data.dart";
 import "package:mjc_in_one/services/campus_room_parser.dart";
 import "package:mjc_in_one/theme/app_colors.dart";
@@ -65,7 +66,7 @@ class _CampusMapScreenState extends State<CampusMapScreen>
     });
 
     try {
-      if (_mockLocationEnabled) {
+      if (_mockLocationEnabled && AppDevFeatures.campusMapMockGps) {
         setState(() {
           _loadingLocation = false;
           _locationStatus = "모의 위치($_mockLocationLabel)를 표시 중입니다.";
@@ -202,6 +203,7 @@ class _CampusMapScreenState extends State<CampusMapScreen>
     required String label,
     CampusBuilding? focusBuilding,
   }) {
+    if (!AppDevFeatures.campusMapMockGps) return;
     setState(() {
       _mockLocationEnabled = true;
       _mockLocationLabel = label;
@@ -214,6 +216,7 @@ class _CampusMapScreenState extends State<CampusMapScreen>
   }
 
   Future<void> _showMockLocationSheet(CampusMapData data) async {
+    if (!AppDevFeatures.campusMapMockGps) return;
     await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
@@ -386,18 +389,19 @@ class _CampusMapScreenState extends State<CampusMapScreen>
         backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
         foregroundColor: Colors.white,
         actions: [
-          FutureBuilder<CampusMapData>(
-            future: _dataFuture,
-            builder: (context, snapshot) {
-              final CampusMapData? data = snapshot.data;
-              return IconButton(
-                tooltip: "집에서 테스트용 위치",
-                onPressed:
-                    data == null ? null : () => _showMockLocationSheet(data),
-                icon: const Icon(Icons.tune_rounded),
-              );
-            },
-          ),
+          if (AppDevFeatures.campusMapMockGps)
+            FutureBuilder<CampusMapData>(
+              future: _dataFuture,
+              builder: (context, snapshot) {
+                final CampusMapData? data = snapshot.data;
+                return IconButton(
+                  tooltip: "집에서 테스트용 위치",
+                  onPressed:
+                      data == null ? null : () => _showMockLocationSheet(data),
+                  icon: const Icon(Icons.tune_rounded),
+                );
+              },
+            ),
         ],
       ),
       body: FutureBuilder<CampusMapData>(
@@ -466,7 +470,9 @@ class _CampusMapScreenState extends State<CampusMapScreen>
                             onSearchTextChanged: _onSearchFieldChanged,
                             onFacilitySelected: _selectFacilityMatch,
                             onLocate: () => _loadCurrentLocation(data),
-                            onMockLocation: () => _showMockLocationSheet(data),
+                            onMockLocation: AppDevFeatures.campusMapMockGps
+                                ? () => _showMockLocationSheet(data)
+                                : null,
                           ),
                         ),
                       ],
@@ -507,7 +513,7 @@ class _TopControls extends StatelessWidget {
   final VoidCallback onSearchTextChanged;
   final ValueChanged<CampusFacilityMatch> onFacilitySelected;
   final VoidCallback onLocate;
-  final VoidCallback onMockLocation;
+  final VoidCallback? onMockLocation;
 
   String _floorLabel(int floor) {
     return floor < 0 ? "지하 ${-floor}" : "$floor";
@@ -677,7 +683,7 @@ class _StatusCard extends StatelessWidget {
   final String locationStatus;
   final bool loadingLocation;
   final VoidCallback onLocate;
-  final VoidCallback onMockLocation;
+  final VoidCallback? onMockLocation;
 
   @override
   Widget build(BuildContext context) {
@@ -745,11 +751,12 @@ class _StatusCard extends StatelessWidget {
             Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                IconButton(
-                  tooltip: "테스트 위치 선택",
-                  onPressed: onMockLocation,
-                  icon: const Icon(Icons.tune_rounded),
-                ),
+                if (onMockLocation != null)
+                  IconButton(
+                    tooltip: "테스트 위치 선택",
+                    onPressed: onMockLocation,
+                    icon: const Icon(Icons.tune_rounded),
+                  ),
                 IconButton(
                   tooltip: "현재 위치 새로고침",
                   onPressed: loadingLocation ? null : onLocate,

@@ -8,8 +8,37 @@ const String kMpuPortalWebUrl = "https://mpu.mjc.ac.kr/Main/default.aspx";
 
 const List<String> kNotificationSourceIds = ["mjc", "ctl", "mpu"];
 
+/// 설정·키워드 알림 UI 칩 라벨 (MJC · CTL · MPU).
+const List<String> kNotificationSourceChipLabels = ["MJC", "CTL", "MPU"];
+
 List<String> defaultNotificationSources() =>
     List<String>.from(kNotificationSourceIds);
+
+String notificationSourceIdFromChipLabel(String label) {
+  switch (label) {
+    case "MJC":
+      return "mjc";
+    case "CTL":
+      return "ctl";
+    case "MPU":
+      return "mpu";
+    default:
+      return "";
+  }
+}
+
+String notificationSourceChipLabelFromId(String sourceId) {
+  switch (sourceId) {
+    case "mjc":
+      return "MJC";
+    case "ctl":
+      return "CTL";
+    case "mpu":
+      return "MPU";
+    default:
+      return "";
+  }
+}
 
 Future<String> loadMpuPortalWebUrl() async {
   try {
