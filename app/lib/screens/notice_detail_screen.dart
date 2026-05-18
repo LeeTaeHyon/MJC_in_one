@@ -4,6 +4,8 @@ import "package:flutter_animate/flutter_animate.dart";
 import "package:mjc_in_one/screens/common_webview_screen.dart";
 import "package:mjc_in_one/theme/app_colors.dart";
 import "package:mjc_in_one/theme/app_theme.dart";
+import "package:mjc_in_one/widgets/mjc_floating_pill_cta.dart";
+import "package:mjc_in_one/widgets/notice_body_html_view.dart";
 import "package:mjc_in_one/widgets/notice_report_sheet.dart";
 import "package:share_plus/share_plus.dart";
 import "package:url_launcher/url_launcher.dart";
@@ -40,8 +42,6 @@ class NoticeDetailScreen extends StatefulWidget {
 
 class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
   /// [MainNavigationScreen] 공지 서브 네비 pill과 동일한 높이(44 + 세로 패딩).
-  static const double _floatingCtaHeight = 50;
-  static const double _floatingCtaBottomGap = 12;
 
   late bool _isPinned;
   late bool _isFavorite;
@@ -55,10 +55,10 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
   }
   String get _date => (widget.notice["date"] as String?) ?? "";
   String get _category => (widget.notice["category"] as String?) ?? "공지";
-  String get _source => (widget.notice["source"] as String?) ?? "";
   String get _url => (widget.notice["url"] as String?) ?? "";
   String get _summary => (widget.notice["summary"] as String?) ?? "";
   String get _body => (widget.notice["body"] as String?) ?? "";
+  String get _bodyHtml => (widget.notice["body_html"] as String?) ?? "";
   String get _summaryVersion =>
       (widget.notice["summary_version"] as String?) ?? "";
 
@@ -116,6 +116,26 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
         v == "lmstudio-v1" ||
         v.startsWith("gemini-") ||
         v.startsWith("gemma-");
+  }
+
+  static const Set<String> _mainBoardIds = {
+    "main_notice",
+    "main_academic",
+    "main_scholarship",
+  };
+
+  bool get _isMainBoardNotice => _mainBoardIds.contains(widget.boardId);
+
+  bool get _hasBodyHtml =>
+      _isMainBoardNotice && _bodyHtml.trim().isNotEmpty;
+
+  String _noticePageBaseUrl() {
+    if (_url.isEmpty) return "https://www.mjc.ac.kr";
+    final Uri? uri = Uri.tryParse(_url);
+    if (uri == null || !uri.hasScheme || uri.host.isEmpty) {
+      return "https://www.mjc.ac.kr";
+    }
+    return "${uri.scheme}://${uri.host}/";
   }
 
   String _summaryStatusLabel() {
@@ -204,26 +224,37 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
               20,
               16,
               20,
-              MediaQuery.paddingOf(context).bottom +
-                  _floatingCtaBottomGap +
-                  _floatingCtaHeight +
-                  16,
+              MjcFloatingCtaLayout.scrollBottomPadding(context),
             ),
             children: [
               _buildHeaderCard(theme, scheme, tokens),
               const SizedBox(height: 16),
               _buildSummaryCard(theme, scheme),
-              if (_body.isNotEmpty) ...[
+              if (_hasBodyHtml) ...[
+                const SizedBox(height: 16),
+                NoticeBodyHtmlView(
+                  htmlFragment: _bodyHtml,
+                  baseUrl: _noticePageBaseUrl(),
+                  colorScheme: scheme,
+                  brightness: theme.brightness,
+                ),
+              ],
+              if (_body.isNotEmpty && !_hasBodyHtml) ...[
                 const SizedBox(height: 16),
                 _buildBodyPreviewCard(theme, scheme),
               ],
             ],
           ),
           Positioned(
-            left: 18,
-            right: 18,
-            bottom: MediaQuery.paddingOf(context).bottom + _floatingCtaBottomGap,
-            child: _buildBottomCta(theme, scheme),
+            left: MjcFloatingCtaLayout.horizontalInset,
+            right: MjcFloatingCtaLayout.horizontalInset,
+            bottom: MjcFloatingCtaLayout.positionedBottom(context),
+            child: MjcFloatingPillCta(
+              label: "본문 확인",
+              icon: Icons.open_in_new_rounded,
+              onTap: _openOriginal,
+              enabled: hasUrl,
+            ),
           ),
         ],
       ),
@@ -321,17 +352,6 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
                 style: theme.textTheme.bodySmall
                     ?.copyWith(color: scheme.onSurfaceVariant),
               ),
-              if (_source.isNotEmpty) ...[
-                const SizedBox(width: 12),
-                Icon(Icons.source_outlined,
-                    size: 14, color: scheme.onSurfaceVariant),
-                const SizedBox(width: 6),
-                Text(
-                  _source,
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(color: scheme.onSurfaceVariant),
-                ),
-              ],
             ],
           ),
         ],
@@ -521,82 +541,4 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
     );
   }
 
-  Widget _buildBottomCta(ThemeData theme, ColorScheme scheme) {
-    final bool hasUrl = _url.isNotEmpty;
-    final MjcComponentTokens components =
-        theme.extension<MjcComponentTokens>()!;
-    final MjcSurfaceTokens surfaceTokens =
-        theme.extension<MjcSurfaceTokens>()!;
-    final bool isDark = theme.brightness == Brightness.dark;
-    final Color accent = components.bottomNavSelected;
-
-    return Align(
-      alignment: Alignment.center,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 430),
-        child: Material(
-          color: scheme.surface.withValues(alpha: isDark ? 0.98 : 0.96),
-          elevation: 10,
-          shadowColor: components.noticeSubNavShadow,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(28),
-            side: BorderSide(color: surfaceTokens.hairline, width: 1),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
-            child: InkWell(
-              onTap: hasUrl ? _openOriginal : null,
-              borderRadius: BorderRadius.circular(28),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 170),
-                curve: Curves.easeOutCubic,
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: hasUrl
-                      ? accent.withValues(alpha: isDark ? 0.20 : 0.12)
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(28),
-                  border: hasUrl
-                      ? Border.all(
-                          color: accent.withValues(
-                            alpha: isDark ? 0.35 : 0.18,
-                          ),
-                        )
-                      : null,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.open_in_new_rounded,
-                      size: 18,
-                      color: hasUrl
-                          ? accent
-                          : scheme.onSurfaceVariant.withValues(alpha: 0.45),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      "본문 확인",
-                      style: TextStyle(
-                        color: hasUrl
-                            ? accent
-                            : scheme.onSurfaceVariant.withValues(alpha: 0.45),
-                        fontSize: 13,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }

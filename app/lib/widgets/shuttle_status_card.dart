@@ -1,10 +1,9 @@
-import "dart:async";
-
 import "package:flutter/material.dart";
 import "package:mjc_in_one/services/app_config_service.dart";
 import "package:mjc_in_one/services/shuttle_schedule.dart";
 import "package:mjc_in_one/theme/app_colors.dart";
 import "package:mjc_in_one/theme/app_theme.dart";
+import "package:mjc_in_one/utils/live_clock.dart";
 
 const TextStyle _kShuttleCardTitleStyle = TextStyle(
   fontSize: 15,
@@ -22,20 +21,17 @@ class ShuttleStatusCard extends StatefulWidget {
 class _ShuttleStatusCardState extends State<ShuttleStatusCard> {
   late Future<List<ShuttleDeparture>> _departuresFuture;
   final ShuttleScheduleService _service = ShuttleScheduleService();
-  Timer? _timer;
 
   @override
   void initState() {
     super.initState();
+    LiveClock.instance.attach();
     _departuresFuture = _service.load();
-    _timer = Timer.periodic(const Duration(seconds: 30), (_) {
-      if (mounted) setState(() {});
-    });
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
+    LiveClock.instance.detach();
     super.dispose();
   }
 
@@ -43,23 +39,27 @@ class _ShuttleStatusCardState extends State<ShuttleStatusCard> {
   Widget build(BuildContext context) {
     final ColorScheme scheme = Theme.of(context).colorScheme;
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
-      child: FutureBuilder<List<ShuttleDeparture>>(
-        future: _departuresFuture,
-        builder: (context, snapshot) {
-          final List<ShuttleDeparture> departures = snapshot.data ?? const [];
-          final DateTime now = DateTime.now();
-          final ShuttleStatus status =
-              _service.nextStatus(now, departures);
-          final List<ShuttleDeparture> todays = departures
-              .where((d) => d.weekdays.contains(now.weekday))
-              .toList()
-            ..sort(
-              (a, b) => _timeMinute(a).compareTo(_timeMinute(b)),
-            );
-          final _ShuttleCopy copy = _copyForStatus(status);
-          return Material(
+    return ListenableBuilder(
+      listenable: LiveClock.instance.tick,
+      builder: (BuildContext context, Widget? child) {
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
+          child: FutureBuilder<List<ShuttleDeparture>>(
+            future: _departuresFuture,
+            builder: (context, snapshot) {
+              final List<ShuttleDeparture> departures =
+                  snapshot.data ?? const [];
+              final DateTime now = DateTime.now();
+              final ShuttleStatus status =
+                  _service.nextStatus(now, departures);
+              final List<ShuttleDeparture> todays = departures
+                  .where((d) => d.weekdays.contains(now.weekday))
+                  .toList()
+                ..sort(
+                  (a, b) => _timeMinute(a).compareTo(_timeMinute(b)),
+                );
+              final _ShuttleCopy copy = _copyForStatus(status);
+              return Material(
             color: scheme.surface,
             elevation: 1.5,
             shadowColor: Colors.black.withValues(alpha: isDark ? 0.45 : 0.12),
@@ -129,9 +129,11 @@ class _ShuttleStatusCardState extends State<ShuttleStatusCard> {
                 ),
               ),
             ),
-          );
-        },
-      ),
+              );
+            },
+          ),
+        );
+      },
     );
   }
 

@@ -57,7 +57,10 @@ from datetime import datetime
 
 import requests
 
-from notice_body import enrich_with_body_and_summary
+from notice_body import (
+    _BODY_IMAGE_ONLY_PLACEHOLDER,
+    enrich_with_body_and_summary,
+)
 
 try:
     import firebase_admin
@@ -111,6 +114,11 @@ def _should_process(
     if force:
         return True
     body = data.get("body")
+    body_html = data.get("body_html")
+    if isinstance(body, str) and body.strip() == _BODY_IMAGE_ONLY_PLACEHOLDER:
+        return True
+    if not isinstance(body_html, str) or not body_html.strip():
+        return True
     return not isinstance(body, str) or not body.strip()
 
 
@@ -153,6 +161,7 @@ def _persist_notice_body_update(
 
     update = {
         "body": post.get("body", ""),
+        "body_html": post.get("body_html", ""),
         "body_fetched_at": post.get("body_fetched_at"),
         "summary": post.get("summary", ""),
         "summary_version": post.get("summary_version"),
@@ -165,9 +174,11 @@ def _persist_notice_body_update(
         update["needs_resummary"] = False
 
     body_len = len(post.get("body") or "")
+    html_len = len(post.get("body_html") or "")
     summary_len = len(post.get("summary") or "")
     base_line = (
-        f"[{board_id}] {doc_id} body={body_len}b summary={summary_len}b "
+        f"[{board_id}] {doc_id} body={body_len}b html={html_len}b "
+        f"summary={summary_len}b "
         f"version={update['summary_version']} err={post.get('body_fetch_error')}"
     )
     if use_gemini:

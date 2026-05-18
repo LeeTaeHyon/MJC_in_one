@@ -31,6 +31,7 @@ def _enrich_body(post: dict, session: requests.Session | None = None) -> None:
         )
     except Exception as e:
         post.setdefault("body", "")
+        post.setdefault("body_html", "")
         post["body_fetch_error"] = f"unexpected:{type(e).__name__}"
         post.setdefault("summary", "")
         post.setdefault("summary_version", "heuristic-v1")

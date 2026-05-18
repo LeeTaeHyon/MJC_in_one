@@ -24,9 +24,10 @@ import time
 import traceback
 from datetime import datetime
 from typing import Any
+from urllib.parse import urljoin, urlparse
 
 import requests
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
 
 SUMMARY_HEURISTIC_VERSION = "heuristic-v1"
 # 구 백필 문서 호환용. 신규 요약은 [summary_version_for_model] 로 모델 ID 반영.
@@ -83,7 +84,19 @@ _BODY_SELECTORS: tuple[str, ...] = (
 # 본문 검색 fallback 시 제외할 컨테이너 (헤더/네비/스크립트성)
 _EXCLUDE_TAGS: tuple[str, ...] = ("script", "style", "noscript", "iframe")
 
-# 텍스트 본문 없이 이미지(포스터)만 있는 게시판 글 안내
+# body_html sanitize 시 제거할 태그
+_HTML_STRIP_TAGS: tuple[str, ...] = (
+    "script",
+    "style",
+    "noscript",
+    "iframe",
+    "object",
+    "embed",
+)
+
+_BODY_HTML_MAX_CHARS = 200_000
+
+# 레거시 문서·UI 호환용 (신규 fetch 에는 body 에 넣지 않음)
 _BODY_IMAGE_ONLY_PLACEHOLDER = (
     "이 게시글은 텍스트 본문 없이 안내 이미지(포스터)만 포함되어 있습니다. "
     "자세한 내용은 본문 확인에서 원문 페이지를 열어 이미지를 확인해 주세요."
@@ -101,26 +114,107 @@ _NOISE_LINE_PATTERNS: tuple[re.Pattern[str], ...] = (
 #  본문 fetch
 # ────────────────────────────────────────────────────────────────────
 
+def body_text_for_ai(body: str) -> str:
+    """요약·AI 입력용 plain text — placeholder·HTML 안내 문구 제외."""
+    s = (body or "").strip()
+    if not s or s == _BODY_IMAGE_ONLY_PLACEHOLDER:
+        return ""
+    return s
+
+
+def _page_base_url(view_url: str) -> str:
+    parsed = urlparse(view_url)
+    if not parsed.scheme or not parsed.netloc:
+        return "https://www.mjc.ac.kr"
+    return f"{parsed.scheme}://{parsed.netloc}"
+
+
+def _resolve_resource_url(base_url: str, raw: str) -> str:
+    s = (raw or "").strip()
+    if not s or s.startswith("#"):
+        return s
+    if s.lower().startswith(("javascript:", "data:", "vbscript:")):
+        return ""
+    if s.startswith("//"):
+        scheme = urlparse(base_url).scheme or "https"
+        return f"{scheme}:{s}"
+    return urljoin(base_url, s)
+
+
+def _clone_body_node(node: Tag) -> Tag | None:
+    cloned = BeautifulSoup(str(node), "html.parser")
+    return cloned.find()
+
+
+def extract_body_html(node: Any, *, base_url: str) -> str:
+    """본문 컨테이너 inner HTML — sanitize 후 앱 WebView 렌더용."""
+    work = _clone_body_node(node) if isinstance(node, Tag) else None
+    if work is None:
+        return ""
+
+    for tag_name in _HTML_STRIP_TAGS:
+        for el in work.find_all(tag_name):
+            el.decompose()
+
+    for el in work.find_all(True):
+        if not isinstance(el, Tag):
+            continue
+        for attr in list(el.attrs.keys()):
+            low = attr.lower()
+            if low.startswith("on"):
+                del el.attrs[attr]
+                continue
+            if low not in ("href", "src", "srcset"):
+                continue
+            val = el.attrs.get(attr)
+            if isinstance(val, list):
+                parts = [
+                    _resolve_resource_url(base_url, p)
+                    for p in val
+                    if isinstance(p, str) and p.strip()
+                ]
+                parts = [p for p in parts if p]
+                if not parts:
+                    del el.attrs[attr]
+                elif low == "srcset":
+                    el.attrs[attr] = ", ".join(
+                        f"{p} 1x" if " " not in p else p for p in parts
+                    )
+                else:
+                    el.attrs[attr] = parts[0]
+            elif isinstance(val, str):
+                resolved = _resolve_resource_url(base_url, val)
+                if not resolved:
+                    del el.attrs[attr]
+                else:
+                    el.attrs[attr] = resolved
+
+    html = work.decode_contents().strip()
+    if len(html) > _BODY_HTML_MAX_CHARS:
+        html = html[:_BODY_HTML_MAX_CHARS]
+    return html
+
+
 def fetch_mjc_view_body(
     view_url: str,
     *,
     timeout: float = 15.0,
     session: requests.Session | None = None,
-) -> tuple[str, str, str | None]:
-    """MJC view.do 본문 plain text 추출.
+) -> tuple[str, str, str, str | None]:
+    """MJC view.do 본문 plain text + sanitize HTML 추출.
 
     Returns:
-        (body_text, view_title, error_message)  — error 가 None 이면 성공.
+        (body_text, body_html, view_title, error_message)  — error 가 None 이면 성공.
     """
     if not view_url:
-        return "", "", "empty_url"
+        return "", "", "", "empty_url"
     sess = session or requests
     try:
         res = sess.get(view_url, headers=_DEFAULT_HEADERS, timeout=timeout)
     except requests.RequestException as exc:  # 네트워크/타임아웃
-        return "", "", f"http_error:{type(exc).__name__}"
+        return "", "", "", f"http_error:{type(exc).__name__}"
     if res.status_code != 200:
-        return "", "", f"status:{res.status_code}"
+        return "", "", "", f"status:{res.status_code}"
 
     # MJC 페이지는 charset 메타 기반 자동 추론이 잘 안 될 때가 있어 명시적으로 본다.
     res.encoding = res.apparent_encoding or "utf-8"
@@ -139,15 +233,29 @@ def fetch_mjc_view_body(
         node = _largest_text_container(soup)
 
     if node is None:
-        return "", view_title, "no_body_node"
+        return "", "", view_title, "no_body_node"
 
-    # 이미지 전용 글: 추출 텍스트는 비었지만 본문 영역에 <img> 가 있는 경우
-    has_image = bool(node.find("img"))
-    text = clean_body_text(node)
-    if has_image and not text.strip():
-        return _BODY_IMAGE_ONLY_PLACEHOLDER, view_title, None
+    base_url = _page_base_url(view_url)
+    body_html = extract_body_html(node, base_url=base_url)
 
-    return text, view_title, None
+    text_node = _clone_body_node(node)
+    text = clean_body_text(text_node) if text_node is not None else ""
+
+    # 이미지 전용: AI 요약용 body 는 비우고 body_html 만 유지
+    if body_html and not text.strip() and node.find("img"):
+        return "", body_html, view_title, None
+
+    return text, body_html, view_title, None
+
+
+def heuristic_summary_from_title(title: str, *, max_chars: int = 120) -> str:
+    """본문 없을 때 제목만으로 짧은 카드용 요약."""
+    t = (title or "").strip()
+    if not t:
+        return ""
+    if len(t) <= max_chars:
+        return t
+    return t[: max_chars - 1].rstrip() + "…"
 
 
 def _extract_mjc_view_title(soup: BeautifulSoup) -> str:
@@ -566,14 +674,16 @@ def enrich_with_body_and_summary(
     크롤러/백필 양쪽에서 같이 쓸 수 있도록 in-place 패턴.
     """
     url = str(post.get("url") or "")
-    body, view_title, err = fetch_mjc_view_body(
+    body_text, body_html, view_title, err = fetch_mjc_view_body(
         url,
         timeout=fetch_timeout,
         session=session,
     )
     now_iso = datetime.now().isoformat()
+    ai_body = body_text_for_ai(body_text)
 
-    post["body"] = body
+    post["body"] = body_text
+    post["body_html"] = body_html
     post["body_fetched_at"] = now_iso
     if err:
         post["body_fetch_error"] = err
@@ -593,7 +703,8 @@ def enrich_with_body_and_summary(
             if len(vt) > len(list_title) and not vt.endswith("...") and not vt.endswith("…"):
                 post["title"] = vt
 
-    if body:
+    title_for_summary = str(post.get("title") or "")
+    if ai_body:
         api_key = (gemini_api_key or os.environ.get("GEMINI_API_KEY") or "").strip()
         if use_gemini and api_key:
             model_id = (
@@ -604,8 +715,8 @@ def enrich_with_body_and_summary(
             gm, gm_fail = gemini_summarize(
                 api_key=api_key,
                 model=model_id,
-                title=str(post.get("title") or ""),
-                body=body,
+                title=title_for_summary,
+                body=ai_body,
                 timeout=gemini_timeout,
             )
             if gm:
@@ -615,13 +726,15 @@ def enrich_with_body_and_summary(
                 if gm_fail:
                     post["_summarize_fail_reason"] = gm_fail
                 if _gemini_debug_enabled():
-                    tid = str(post.get("title") or "")[:80]
+                    tid = title_for_summary[:80]
                     r = post.get("_summarize_fail_reason") or "skip"
                     _gemini_log(
                         f"→ 휴리스틱 폴백 (Gemini 결과 없음) reason={r!r} title_snip={tid!r}"
                     )
         if not summary:
-            summary = heuristic_summary(body)
+            summary = heuristic_summary(ai_body)
+    elif body_html and title_for_summary.strip():
+        summary = heuristic_summary_from_title(title_for_summary)
     post["summary"] = summary
     post["summary_version"] = summary_version
     post["summary_generated_at"] = now_iso

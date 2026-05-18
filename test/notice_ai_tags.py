@@ -130,7 +130,11 @@ def classify_ai_tags(
 
 
 def enrich_post_dict(post: dict[str, Any], board_id: str) -> None:
-    """post 딕셔너리에 ai_tags, ai_tag_version을 제자리로 넣습니다."""
+    """post 딕셔너리에 ai_tags, ai_tag_version을 제자리로 넣습니다.
+
+    분류 입력은 board_id·category·title·메타 필드만 사용합니다.
+    ``body`` / ``body_html`` 은 사용하지 않습니다.
+    """
     title = str(post.get("title") or "")
     category = str(post.get("category") or "")
     extra_bits: list[str] = []

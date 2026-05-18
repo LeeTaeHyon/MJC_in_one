@@ -22,6 +22,7 @@ import "package:mjc_in_one/services/notice_manager.dart";
 import "package:mjc_in_one/services/mpu_service.dart";
 import "package:mjc_in_one/theme/app_colors.dart";
 import "package:mjc_in_one/theme/app_theme.dart";
+import "package:mjc_in_one/utils/live_clock.dart";
 import "package:mjc_in_one/utils/mpu_program_dday.dart";
 import "package:mjc_in_one/widgets/home_lecture_reminder_card.dart";
 import "package:mjc_in_one/widgets/scroll_to_top_scope.dart";
@@ -74,7 +75,8 @@ class HomeDashboardScreen extends StatefulWidget {
   State<HomeDashboardScreen> createState() => _HomeDashboardScreenState();
 }
 
-class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
+class _HomeDashboardScreenState extends State<HomeDashboardScreen>
+    with WidgetsBindingObserver {
   late Future<List<Map<String, dynamic>>> _combinedNoticeFuture;
   late Future<List<Map<String, dynamic>>> _academicScheduleFuture;
   late Future<List<FoodcourtMenuItem>> _foodcourtMenuFuture;
@@ -93,6 +95,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   List<String> _dashboardSectionOrder = defaultHomeDashboardSectionOrder();
   int _notifBadgeCount = 0;
   int _lectureReminderReloadKey = 0;
+  VoidCallback? _activeMainTabListener;
 
   static const String _prefsReadDashboard = "read_notices_combined_dashboard";
   static const String _mpuWebBaseUrl =
@@ -101,6 +104,8 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    LiveClock.instance.attach();
     _combinedNoticeFuture = _prepareDashboardNotices();
     _academicScheduleFuture =
         NoticeManager().getNotices(boardId: "main_schedule");
@@ -253,6 +258,28 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
         ScrollFabMetrics.viewportHeightForThreshold(_scrollController, context),
       );
     }
+    if (c != null) {
+      _bindActiveMainTabListener(c);
+    }
+  }
+
+  void _bindActiveMainTabListener(ScrollToTopCoordinator coordinator) {
+    if (_activeMainTabListener != null) return;
+    _activeMainTabListener = () {
+      if (!mounted) return;
+      if (coordinator.activeMainTabNotifier.value != MainNavTabIndex.home) {
+        return;
+      }
+      LiveClock.instance.notifyNow();
+    };
+    coordinator.activeMainTabNotifier.addListener(_activeMainTabListener!);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      LiveClock.instance.notifyNow();
+    }
   }
 
   void _scrollContentToTop() {
@@ -268,6 +295,12 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    LiveClock.instance.detach();
+    final VoidCallback? tabListener = _activeMainTabListener;
+    if (tabListener != null) {
+      _scrollToTopCoordinator?.activeMainTabNotifier.removeListener(tabListener);
+    }
     _scrollController.removeListener(_onHomeScrollOffset);
     _scrollToTopCoordinator?.unregisterMainTab(
       MainNavTabIndex.home,

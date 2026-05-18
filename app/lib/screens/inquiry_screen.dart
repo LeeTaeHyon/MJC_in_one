@@ -4,6 +4,7 @@ import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
 import "package:mjc_in_one/services/developer_support_service.dart";
 import "package:mjc_in_one/utils/snack_bar_utils.dart";
+import "package:mjc_in_one/widgets/mjc_floating_pill_cta.dart";
 import "package:shared_preferences/shared_preferences.dart";
 
 /// 사용자가 개발자에게 보내는 문의 유형.
@@ -141,7 +142,7 @@ class _InquiryScreenState extends State<InquiryScreen> {
     final ThemeData theme = Theme.of(context);
     final ColorScheme scheme = theme.colorScheme;
     return Scaffold(
-      backgroundColor: scheme.surface,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text(
           "개발자에게 문의",
@@ -152,123 +153,100 @@ class _InquiryScreenState extends State<InquiryScreen> {
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),
       ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (!kReleaseMode || const bool.fromEnvironment('PREVIEW', defaultValue: false))
-                      _buildDevLogSection(context),
-                    Text(
-                      "어떤 문의를 보내시겠습니까?",
-                      style: theme.textTheme.titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w800),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      "보내주신 내용은 관리자 페이지에서 확인 후 답변드립니다.",
-                      style: theme.textTheme.bodySmall
-                          ?.copyWith(color: scheme.onSurfaceVariant),
-                    ),
-                    const SizedBox(height: 16),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: InquiryType.values.map((t) {
-                        final selected = _type == t;
-                        return ChoiceChip(
-                          label: Text(t.label),
-                          selected: selected,
-                          onSelected: (v) {
-                            if (!v) return;
-                            setState(() => _type = t);
-                          },
-                        );
-                      }).toList(),
-                    ),
-                    const SizedBox(height: 20),
-                    Text(
-                      "문의 내용",
-                      style: theme.textTheme.labelLarge
-                          ?.copyWith(fontWeight: FontWeight.w800),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: _messageCtrl,
-                      focusNode: _messageFocus,
-                      minLines: 5,
-                      maxLines: 12,
-                      maxLength: 1000,
-                      decoration: const InputDecoration(
-                        hintText:
-                            "발생한 상황, 화면, 기대했던 동작 등을 자세히 적어주시면 빠르게 도와드릴 수 있습니다.",
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      "답변 받을 연락처 (선택)",
-                      style: theme.textTheme.labelLarge
-                          ?.copyWith(fontWeight: FontWeight.w800),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: _contactCtrl,
-                      keyboardType: TextInputType.emailAddress,
-                      decoration: const InputDecoration(
-                        hintText: "예: 학교 메일 주소",
-                        border: OutlineInputBorder(),
-                        isDense: true,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          SingleChildScrollView(
+            padding: EdgeInsets.fromLTRB(
+              20,
+              16,
+              20,
+              MjcFloatingCtaLayout.scrollBottomPadding(context),
             ),
-            Container(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
-              decoration: BoxDecoration(
-                color: scheme.surface,
-                border: Border(
-                  top: BorderSide(color: scheme.outlineVariant, width: 1),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (!kReleaseMode ||
+                    const bool.fromEnvironment('PREVIEW', defaultValue: false))
+                  _buildDevLogSection(context),
+                Text(
+                  "어떤 문의를 보내시겠습니까?",
+                  style: theme.textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w800),
                 ),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: FilledButton.icon(
-                      onPressed: _submitting ? null : _submit,
-                      style: FilledButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      icon: _submitting
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.send_rounded, size: 18),
-                      label: Text(
-                        _submitting ? "보내는 중" : "문의 보내기",
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
+                const SizedBox(height: 4),
+                Text(
+                  "보내주신 내용은 관리자 페이지에서 확인 후 답변드립니다.",
+                  style: theme.textTheme.bodySmall
+                      ?.copyWith(color: scheme.onSurfaceVariant),
+                ),
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: InquiryType.values.map((t) {
+                    final selected = _type == t;
+                    return ChoiceChip(
+                      label: Text(t.label),
+                      selected: selected,
+                      onSelected: (v) {
+                        if (!v) return;
+                        setState(() => _type = t);
+                      },
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  "문의 내용",
+                  style: theme.textTheme.labelLarge
+                      ?.copyWith(fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _messageCtrl,
+                  focusNode: _messageFocus,
+                  minLines: 5,
+                  maxLines: 12,
+                  maxLength: 1000,
+                  decoration: const InputDecoration(
+                    hintText:
+                        "발생한 상황, 화면, 기대했던 동작 등을 자세히 적어주시면 빠르게 도와드릴 수 있습니다.",
+                    border: OutlineInputBorder(),
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  "답변 받을 연락처 (선택)",
+                  style: theme.textTheme.labelLarge
+                      ?.copyWith(fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _contactCtrl,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: const InputDecoration(
+                    hintText: "예: 학교 메일 주소",
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+          Positioned(
+            left: MjcFloatingCtaLayout.horizontalInset,
+            right: MjcFloatingCtaLayout.horizontalInset,
+            bottom: MjcFloatingCtaLayout.positionedBottom(context),
+            child: MjcFloatingPillCta(
+              label: _submitting ? "보내는 중" : "문의 보내기",
+              icon: Icons.send_rounded,
+              onTap: _submit,
+              enabled: !_submitting,
+              loading: _submitting,
+            ),
+          ),
+        ],
       ),
     );
   }

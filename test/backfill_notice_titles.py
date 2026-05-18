@@ -132,12 +132,11 @@ def _backfill_one_board(
             if not url:
                 continue
 
-            body, view_title, err = fetch_mjc_view_body(
+            _body, _html, view_title, err = fetch_mjc_view_body(
                 url,
                 timeout=timeout,
                 session=session,
             )
-            _ = body  # unused (title만 필요)
             if err:
                 print(f"[{board_id}] {doc.id} title_backfill_skip err={err} url={url}")
                 processed += 1

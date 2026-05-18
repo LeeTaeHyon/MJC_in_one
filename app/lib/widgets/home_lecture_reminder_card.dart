@@ -1,5 +1,3 @@
-import "dart:async";
-
 import "package:flutter/material.dart";
 import "package:mjc_in_one/debug/app_debug_flags.dart";
 import "package:mjc_in_one/features/timetable/models/timetable_models.dart";
@@ -8,6 +6,7 @@ import "package:mjc_in_one/features/timetable/services/timetable_storage_service
 import "package:mjc_in_one/features/timetable/utils/timetable_next_lecture.dart";
 import "package:mjc_in_one/theme/app_colors.dart";
 import "package:mjc_in_one/theme/app_theme.dart";
+import "package:mjc_in_one/utils/live_clock.dart";
 
 /// 홈 대시보드용 다음 수업 안내. 분 단위 카운트다운이 지나가도록 1분마다 갱신합니다.
 class HomeLectureReminderCard extends StatefulWidget {
@@ -19,20 +18,17 @@ class HomeLectureReminderCard extends StatefulWidget {
 
 class _HomeLectureReminderCardState extends State<HomeLectureReminderCard> {
   late Future<List<ParsedCourseOffering>> _enrolledFuture;
-  Timer? _tickTimer;
 
   @override
   void initState() {
     super.initState();
+    LiveClock.instance.attach();
     _enrolledFuture = TimetableStorageService.loadEnrolled();
-    _tickTimer = Timer.periodic(const Duration(minutes: 1), (_) {
-      if (mounted) setState(() {});
-    });
   }
 
   @override
   void dispose() {
-    _tickTimer?.cancel();
+    LiveClock.instance.detach();
     super.dispose();
   }
 
@@ -139,31 +135,36 @@ class _HomeLectureReminderCardState extends State<HomeLectureReminderCard> {
 
   @override
   Widget build(BuildContext context) {
-    if (_designPreview) {
-      final TimetableSlot slot = _designPreviewSlot();
-      final DateTime now = DateTime.now();
-      final int nowMin = now.hour * 60 + now.minute;
-      final int untilMin = slot.startMinute - nowMin;
-      return _buildCard(context, slot: slot, untilMin: untilMin);
-    }
-    return FutureBuilder<List<ParsedCourseOffering>>(
-      future: _enrolledFuture,
-      builder: (
-        BuildContext context,
-        AsyncSnapshot<List<ParsedCourseOffering>> snapshot,
-      ) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const SizedBox.shrink();
+    return ListenableBuilder(
+      listenable: LiveClock.instance.tick,
+      builder: (BuildContext context, Widget? child) {
+        if (_designPreview) {
+          final TimetableSlot slot = _designPreviewSlot();
+          final DateTime now = DateTime.now();
+          final int nowMin = now.hour * 60 + now.minute;
+          final int untilMin = slot.startMinute - nowMin;
+          return _buildCard(context, slot: slot, untilMin: untilMin);
         }
-        final List<ParsedCourseOffering> enrolled =
-            snapshot.data ?? const <ParsedCourseOffering>[];
-        final TimetableSlot? slot =
-            TimetableNextLecture.nextUpcomingSlotToday(enrolled);
-        if (slot == null) return const SizedBox.shrink();
-        final DateTime now = DateTime.now();
-        final int nowMin = now.hour * 60 + now.minute;
-        final int untilMin = slot.startMinute - nowMin;
-        return _buildCard(context, slot: slot, untilMin: untilMin);
+        return FutureBuilder<List<ParsedCourseOffering>>(
+          future: _enrolledFuture,
+          builder: (
+            BuildContext context,
+            AsyncSnapshot<List<ParsedCourseOffering>> snapshot,
+          ) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const SizedBox.shrink();
+            }
+            final List<ParsedCourseOffering> enrolled =
+                snapshot.data ?? const <ParsedCourseOffering>[];
+            final TimetableSlot? slot =
+                TimetableNextLecture.nextUpcomingSlotToday(enrolled);
+            if (slot == null) return const SizedBox.shrink();
+            final DateTime now = DateTime.now();
+            final int nowMin = now.hour * 60 + now.minute;
+            final int untilMin = slot.startMinute - nowMin;
+            return _buildCard(context, slot: slot, untilMin: untilMin);
+          },
+        );
       },
     );
   }
