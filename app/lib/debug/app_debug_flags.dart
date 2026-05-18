@@ -37,11 +37,11 @@ abstract final class AppDevFeatures {
 
   static bool get scrollFabDebug => active && kScrollFabDebugEnabled;
 
-  /// 첫 실행 안내(테스트 빌드·문의 FAB) — dev 마스터와 무관, const만으로 on/off.
-  static bool get startupTestBuildWarning => kStartupTestBuildWarningEnabled;
+  static bool get startupTestBuildWarning =>
+      active && kStartupTestBuildWarningEnabled;
 
   static bool get startupInquiryFocusOverlay =>
-      kStartupInquiryFocusOverlayEnabled;
+      active && kStartupInquiryFocusOverlayEnabled;
 
   static bool get campusMapMockGps => active && kCampusMapMockGpsEnabled;
 }

@@ -341,23 +341,19 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
   /// 편집 모드에서 분류 칩 자리에 표시 (높이·여백을 칩 줄과 맞춤).
   Widget _buildEditModeDeleteBar(BuildContext context) {
     final ColorScheme scheme = Theme.of(context).colorScheme;
-    const double chipBarVerticalPadding = 4;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: chipBarVerticalPadding),
-      child: SizedBox(
-        height: 44,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Align(
-            alignment: Alignment.centerRight,
-            child: TextButton(
-              onPressed: _confirmDeleteAll,
-              child: Text(
-                "전체 삭제",
-                style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                  color: scheme.error,
-                ),
+    return SizedBox(
+      height: 48,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Align(
+          alignment: Alignment.centerRight,
+          child: TextButton(
+            onPressed: _confirmDeleteAll,
+            child: Text(
+              "전체 삭제",
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                color: scheme.error,
               ),
             ),
           ),
@@ -367,45 +363,52 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
   }
 
   Widget _buildCategoryChips(BuildContext context) {
-    final ColorScheme scheme = Theme.of(context).colorScheme;
-    const double chipBarVerticalPadding = 4;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: chipBarVerticalPadding),
-      child: SizedBox(
-        height: 44,
-        child: ListView.separated(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          itemCount: _categoryLabels.length,
-          separatorBuilder: (_, __) => const SizedBox(width: 8),
-          itemBuilder: (BuildContext context, int i) {
-            final bool selected = _categoryIndex == i;
-            return ChoiceChip(
-              label: Text(_categoryLabels[i]),
-              selected: selected,
-              showCheckmark: false,
-              onSelected: (bool v) {
-                if (!v) return;
-                setState(() => _categoryIndex = i);
-              },
-              selectedColor: scheme.onSurface,
-              backgroundColor: scheme.surface,
-              checkmarkColor: scheme.surface,
-              labelStyle: TextStyle(
-                color: selected ? scheme.surface : scheme.onSurface,
-                fontWeight: FontWeight.w600,
-                fontSize: 13,
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    return SizedBox(
+      height: 48,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        itemCount: _categoryLabels.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (BuildContext context, int i) {
+          final bool selected = _categoryIndex == i;
+          final Color bg = AppColors.noticeFilterChipBackground(
+            isDark: isDark,
+            selected: selected,
+          );
+          final Color fg = AppColors.noticeFilterChipForeground(
+            isDark: isDark,
+            selected: selected,
+          );
+          return Center(
+            child: Material(
+              color: bg,
+              borderRadius: BorderRadius.circular(999),
+              child: InkWell(
+                onTap: () {
+                  if (_categoryIndex == i) return;
+                  setState(() => _categoryIndex = i);
+                },
+                borderRadius: BorderRadius.circular(999),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 6,
+                  ),
+                  child: Text(
+                    _categoryLabels[i],
+                    style: TextStyle(
+                      color: fg,
+                      fontSize: 13,
+                      fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                    ),
+                  ),
+                ),
               ),
-              side: BorderSide(
-                color: scheme.outline.withValues(alpha: selected ? 0.0 : 0.35),
-              ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-            );
-          },
-        ),
+            ),
+          );
+        },
       ),
     );
   }

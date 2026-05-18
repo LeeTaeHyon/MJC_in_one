@@ -69,7 +69,7 @@ const Color _kErrorLight = Color(0xFFD4183D);
 
 /// 공지·바로가기 색상 — **이 클래스만** 수정하면 MJC / CTL / MPU · [main_website_screen] 공지 UI에 반영됩니다.
 ///
-/// - `*Home` : 홈 대시보드 바로가기 카드·아이콘 원색
+/// - `*Home` : 레거시·기타 (홈·더보기 바로가기 accent는 [_kDashboardGradientsLight])
 /// - `*Ui`   : 공지 탭·컬러바·새로고침·검색 (Home보다 연한 톤)
 abstract final class MjcNoticePalette {
   /// 본교 공지 ([main_website_screen], 홈 «본교 공지»).
@@ -92,26 +92,21 @@ abstract final class MjcNoticePalette {
   static const Color readTitleDark = Color(0xFFB8A8C8);
 }
 
-/// [MjcNoticePalette.ctlHome] 별칭 — 홈 바로가기 등.
-const Color kHomeShortcutCtl = MjcNoticePalette.ctlHome;
-
-/// [MjcNoticePalette.mpuHome] 별칭 — 홈 바로가기 등.
-const Color kHomeShortcutMpu = MjcNoticePalette.mpuHome;
-
 const Color _kSourceMjcLight = MjcNoticePalette.mjcUiLight;
 const Color _kSourceCtlLight = MjcNoticePalette.ctlUiLight;
 const Color _kSourceMpuLight = MjcNoticePalette.mpuUiLight;
 const Color _kFoodAccentLight = Color(0xFFE65100);
 const Color _kDeadlineBadgeLight = Color(0xFF0D47A1);
 
-/// 홈 바로가기 카드 우측 상단 accent. [home_dashboard_screen] `_buildGridButtons`.
+/// 홈·더보기 바로가기 accent — [home_dashboard_screen], [more_tab_screen].
+/// 색 변경은 **이 배열(라이트·다크)** 만 수정하면 됩니다.
 const List<List<Color>> _kDashboardGradientsLight = [
-  [MjcNoticePalette.mjcHome], // 0 본교 공지
-  [Color(0xFF0587dd)],
-  [Color(0xFF0039B8)],
-  [Color(0xFF0288D1)], // 3 도서관
-  [Color(0xFF673AB7)], // 4 학사일정
-  [Color(0xFF00897B)], // 5 캠퍼스 약도
+  [Color(0xFF2563EB)], // 0 본교 공지
+  [Color(0xFF7357A0)], // 1 교수학습
+  [Color(0xFFD97706)], // 2 역량관리
+  [Color(0xFF4F46E5)], // 3 도서관
+  [Color(0xFFDC2626)], // 4 학사일정
+  [Color(0xFF0F766E)], // 5 캠퍼스 약도
 ];
 
 // ---- Color tokens (dark) ----
@@ -124,12 +119,12 @@ const Color _kFoodAccentDark = Color(0xFFFFAB91);
 const Color _kDeadlineBadgeDark = Color(0xFF1F4F9A);
 
 const List<List<Color>> _kDashboardGradientsDark = [
-  [MjcNoticePalette.mjcHome], // 0 본교 공지
-  [Color(0xFF0587dd)],
-  [Color(0xFF0039B8)],
-  [Color(0xFF0288D1)], // 3 도서관
-  [Color(0xFF673AB7)], // 4 학사일정
-  [Color(0xFF00897B)], // 5 캠퍼스 약도
+  [Color(0xFF2563EB)], // 0 본교 공지
+  [Color(0xFF7357A0)], // 1 교수학습
+  [Color(0xFFD97706)], // 2 역량관리
+  [Color(0xFF4F46E5)], // 3 도서관
+  [Color(0xFFDC2626)], // 4 학사일정
+  [Color(0xFF0F766E)], // 5 캠퍼스 약도
 ];
 
 const Color _kBottomNavUnselectedDark = Color(0xFF9AA4B2);

@@ -52,6 +52,11 @@ Widget _noticeCategoryAndAiTagsRow({
 }) {
   final ColorScheme scheme = Theme.of(context).colorScheme;
   final bool isDark = Theme.of(context).brightness == Brightness.dark;
+  final MjcComponentTokens components =
+      Theme.of(context).extension<MjcComponentTokens>()!;
+  // 다크: ColorScheme.primary는 너무 어두움 → 하단 공지 서브 네비 pill과 동일 accent.
+  final Color highlightAccent =
+      isDark ? components.bottomNavSelected : scheme.primary;
   final String selected = (selectedAiTag ?? "").trim();
   final bool hasSelected = selected.isNotEmpty && selected != "전체";
   return Wrap(
@@ -78,13 +83,15 @@ Widget _noticeCategoryAndAiTagsRow({
         (String t) {
           final bool highlight = hasSelected && t.trim() == selected;
           final Color bg = highlight
-              ? (isDark
-                  ? scheme.primary.withValues(alpha: 0.28)
-                  : scheme.primary.withValues(alpha: 0.16))
+              ? highlightAccent.withValues(alpha: isDark ? 0.20 : 0.16)
               : scheme.surfaceContainerHighest.withValues(alpha: 0.55);
-          final Color border = highlight ? scheme.primary : scheme.outlineVariant;
+          final Color border = highlight
+              ? (isDark
+                  ? highlightAccent.withValues(alpha: 0.35)
+                  : highlightAccent)
+              : scheme.outlineVariant;
           final Color fg =
-              highlight ? scheme.primary : scheme.onSurfaceVariant;
+              highlight ? highlightAccent : scheme.onSurfaceVariant;
           return Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
             decoration: BoxDecoration(
@@ -1058,14 +1065,14 @@ class _UnifiedNoticeListState extends State<_UnifiedNoticeList> {
             itemBuilder: (BuildContext context, int index) {
               final String label = _aiTagChips[index];
               final bool selected = _aiTagChipSelection == label;
-              final Color bg = selected
-                  ? (isDark ? scheme.primary : const Color(0xFF0F0F0F))
-                  : (isDark
-                      ? scheme.surfaceContainerHighest
-                      : const Color(0xFFF2F2F2));
-              final Color fg = selected
-                  ? (isDark ? scheme.onPrimary : Colors.white)
-                  : (isDark ? scheme.onSurface : const Color(0xFF0F0F0F));
+              final Color bg = AppColors.noticeFilterChipBackground(
+                isDark: isDark,
+                selected: selected,
+              );
+              final Color fg = AppColors.noticeFilterChipForeground(
+                isDark: isDark,
+                selected: selected,
+              );
               return Material(
                 color: bg,
                 borderRadius: BorderRadius.circular(999),
@@ -1794,16 +1801,14 @@ class _NoticeListTabState extends State<_NoticeListTab> {
               final String label = _mainNoticeAiTagChips[index];
               final bool selected =
                   _mainNoticeAiTagChipSelection == label;
-              final Color bg = selected
-                  ? (isDark ? scheme.primary : const Color(0xFF0F0F0F))
-                  : (isDark
-                      ? scheme.surfaceContainerHighest
-                      : const Color(0xFFF2F2F2));
-              final Color fg = selected
-                  ? (isDark ? scheme.onPrimary : Colors.white)
-                  : (isDark
-                      ? scheme.onSurface
-                      : const Color(0xFF0F0F0F));
+              final Color bg = AppColors.noticeFilterChipBackground(
+                isDark: isDark,
+                selected: selected,
+              );
+              final Color fg = AppColors.noticeFilterChipForeground(
+                isDark: isDark,
+                selected: selected,
+              );
               return Material(
                 color: bg,
                 borderRadius: BorderRadius.circular(999),

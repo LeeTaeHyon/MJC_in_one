@@ -17,6 +17,15 @@ import "package:mjc_in_one/theme/app_colors.dart";
 import "package:mjc_in_one/theme/app_theme.dart";
 import "package:mjc_in_one/widgets/scroll_to_top_scope.dart";
 
+BorderSide _moreScreenCardBorderSide(bool isDark) => BorderSide(
+      color: isDark
+          ? Colors.white.withValues(alpha: 0.05)
+          : Colors.black.withValues(alpha: 0.04s),
+    );
+
+Border _moreScreenCardBorder(bool isDark) =>
+    Border.fromBorderSide(_moreScreenCardBorderSide(isDark));
+
 class MoreTabScreen extends StatefulWidget {
   const MoreTabScreen({
     super.key,
@@ -143,6 +152,12 @@ class _MoreTabScreenState extends State<MoreTabScreen> {
                         const SizedBox(height: 18),
                         Builder(
                           builder: (context) {
+                            final MjcSurfaceTokens tokens =
+                                Theme.of(context)
+                                    .extension<MjcSurfaceTokens>()!;
+                            Color dashAccent(int index) =>
+                                tokens.dashboardGradients[index][0];
+
                             final List<_MoreMenuItem> menuItems = [
                               _MoreMenuItem(
                                 icon: Icons.person_outline_rounded,
@@ -154,7 +169,7 @@ class _MoreTabScreenState extends State<MoreTabScreen> {
                               _MoreMenuItem(
                                 icon: Icons.school_outlined,
                                 label: "본교 공지",
-                                color: MjcNoticePalette.mjcHome,
+                                color: dashAccent(0),
                                 isList: _isListView,
                                 onTap: () => _goToMainTab(
                                   MainNavTabIndex.notices,
@@ -164,7 +179,7 @@ class _MoreTabScreenState extends State<MoreTabScreen> {
                               _MoreMenuItem(
                                 icon: Icons.menu_book_outlined,
                                 label: "교수학습",
-                                color: MjcNoticePalette.ctlHome,
+                                color: dashAccent(1),
                                 isList: _isListView,
                                 onTap: () => _goToMainTab(
                                   MainNavTabIndex.notices,
@@ -174,7 +189,7 @@ class _MoreTabScreenState extends State<MoreTabScreen> {
                               _MoreMenuItem(
                                 icon: Icons.emoji_events_outlined,
                                 label: "역량관리",
-                                color: MjcNoticePalette.mpuHome,
+                                color: dashAccent(2),
                                 isList: _isListView,
                                 onTap: () => _goToMainTab(
                                   MainNavTabIndex.notices,
@@ -184,7 +199,7 @@ class _MoreTabScreenState extends State<MoreTabScreen> {
                               _MoreMenuItem(
                                 icon: Icons.local_library_outlined,
                                 label: "도서관",
-                                color: const Color(0xFF2E7D32),
+                                color: dashAccent(3),
                                 isList: _isListView,
                                 onTap: () => _push(const LibraryScreen()),
                               ),
@@ -207,7 +222,7 @@ class _MoreTabScreenState extends State<MoreTabScreen> {
                               _MoreMenuItem(
                                 icon: Icons.event_note_outlined,
                                 label: "학사일정",
-                                color: const Color(0xFF5E35B1),
+                                color: dashAccent(4),
                                 isList: _isListView,
                                 onTap: () => _push(const AcademicScheduleScreen()),
                               ),
@@ -221,7 +236,7 @@ class _MoreTabScreenState extends State<MoreTabScreen> {
                               _MoreMenuItem(
                                 icon: Icons.map_outlined,
                                 label: "캠퍼스 약도",
-                                color: const Color(0xFF00897B),
+                                color: dashAccent(5),
                                 isList: _isListView,
                                 onTap: () => _push(const CampusMapScreen()),
                               ),
@@ -299,20 +314,22 @@ class _AccountCard extends StatelessWidget {
         final MjcSurfaceTokens tokens =
             Theme.of(context).extension<MjcSurfaceTokens>()!;
 
+        const EdgeInsets bannerPadding =
+            EdgeInsets.symmetric(horizontal: 16, vertical: 16);
+
         final Widget row = Row(
           children: [
             CircleAvatar(
-              radius: 25,
-              backgroundColor: isDark
-                  ? tokens.surfaceContainer
-                  : Colors.white.withValues(alpha: 0.18),
+              radius: 22,
+              backgroundColor: Colors.white.withValues(alpha: 0.12),
               child: Icon(
                 signedIn ? Icons.person_rounded : Icons.login_rounded,
+                size: 22,
                 // Dark `ColorScheme.primary` is navy; on `surfaceContainer` the glyph reads too dim.
                 color: isDark ? tokens.sourceMjc : Colors.white,
               ),
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -321,12 +338,12 @@ class _AccountCard extends StatelessWidget {
                     signedIn ? "로그인됨" : "로그인이 필요합니다",
                     style: TextStyle(
                       color: isDark ? scheme.onSurface : Colors.white,
-                      fontSize: 16,
+                      fontSize: 15,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
                   if (signedIn) ...[
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 3),
                     Text(
                       user.email ?? "MJC 계정",
                       maxLines: 1,
@@ -335,7 +352,7 @@ class _AccountCard extends StatelessWidget {
                         color: isDark
                             ? scheme.onSurfaceVariant
                             : Colors.white.withValues(alpha: 0.86),
-                        fontSize: 12,
+                        fontSize: 11,
                       ),
                     ),
                   ],
@@ -350,6 +367,13 @@ class _AccountCard extends StatelessWidget {
                     : Colors.white.withValues(alpha: 0.16),
                 foregroundColor:
                     isDark ? scheme.onPrimary : Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                minimumSize: const Size(0, 36),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                textStyle: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               onPressed: signedIn ? () => onLogout() : onLogin,
               child: Text(signedIn ? "로그아웃" : "로그인"),
@@ -357,36 +381,38 @@ class _AccountCard extends StatelessWidget {
           ],
         );
 
+        const List<BoxShadow> bannerShadow = [
+          BoxShadow(
+            color: Color(0x1A000000), // opacity 0.10
+            blurRadius: 10,
+            offset: Offset(0, 4),
+          ),
+        ];
+
         if (isDark) {
-          return Material(
-            color: scheme.surface,
-            elevation: 1,
-            shadowColor: Colors.black.withValues(alpha: 0.45),
-            borderRadius: BorderRadius.circular(20),
-            clipBehavior: Clip.antiAlias,
-            child: Padding(
-              padding: const EdgeInsets.all(18),
-              child: row,
+          return Container(
+            decoration: BoxDecoration(
+              color: scheme.surface,
+              borderRadius: BorderRadius.circular(20),
+              border: _moreScreenCardBorder(isDark),
+              boxShadow: bannerShadow,
             ),
+            padding: bannerPadding,
+            child: row,
           );
         }
 
         return Container(
-          padding: const EdgeInsets.all(18),
+          padding: bannerPadding,
           decoration: BoxDecoration(
             gradient: const LinearGradient(
-              colors: [Color(0xFF0D47A1), Color(0xFF1976D2)],
+              colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
             borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.primary.withValues(alpha: 0.24),
-                blurRadius: 16,
-                offset: const Offset(0, 8),
-              ),
-            ],
+            border: _moreScreenCardBorder(isDark),
+            boxShadow: bannerShadow,
           ),
           child: row,
         );
@@ -461,7 +487,10 @@ class _MoreMenuItem extends StatelessWidget {
       color: scheme.surface,
       elevation: 1,
       shadowColor: Colors.black.withValues(alpha: isDark ? 0.45 : 0.12),
-      borderRadius: BorderRadius.circular(18),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: _moreScreenCardBorderSide(isDark),
+      ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
@@ -498,22 +527,23 @@ class _MoreMenuItem extends StatelessWidget {
                     ),
                   ],
                 )
-              : Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              : Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(9),
-                      decoration: BoxDecoration(
-                        color: accent.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Icon(icon, color: accent, size: 22),
-                    ),
-                    const Spacer(),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(9),
+                            decoration: BoxDecoration(
+                              color: accent.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(icon, color: accent, size: 22),
+                          ),
+                          const Spacer(),
+                          Text(
                             label,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -523,13 +553,16 @@ class _MoreMenuItem extends StatelessWidget {
                               color: scheme.onSurface,
                             ),
                           ),
-                        ),
-                        Icon(
-                          Icons.chevron_right_rounded,
-                          color: scheme.onSurfaceVariant,
-                          size: 20,
-                        ),
-                      ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Center(
+                      child: Icon(
+                        Icons.chevron_right_rounded,
+                        color: scheme.onSurfaceVariant,
+                        size: 20,
+                      ),
                     ),
                   ],
                 ),

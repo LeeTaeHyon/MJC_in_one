@@ -20,6 +20,45 @@ abstract final class AppColors {
   static const Color surfaceContainerDark = Color(0xFF20242B);
   static const Color cardBorderDark = Color(0xFF2A2A2D);
   static const Color chipBackground = Color(0xFFE3F2FD);
+
+  /// 상단 분류·태그 필터 칩 (메인 공지, 알림 내역).
+  static const Color noticeFilterChipSelectedBgLight = Color(0xFF374151);
+  static const Color noticeFilterChipSelectedBgDark = Color(0xFFE5E7EB);
+  /// 스캐폴드·surface 대비가 보이도록 gray-200 톤 (기존 #F2F2F2는 배경과 거의 동일).
+  static const Color noticeFilterChipUnselectedBgLight = Color(0xFFE5E7EB);
+  static const Color noticeFilterChipUnselectedBgDark = Color(0xFF303035);
+  static const Color noticeFilterChipUnselectedFgLight = Color(0xFF374151);
+  static const Color noticeFilterChipSelectedFgLight = Color(0xFFF3F4F6);
+  static const Color noticeFilterChipUnselectedFgDark = Color(0xFFD1D5DB);
+  static const Color noticeFilterChipSelectedFgDark = Color(0xFF374151);
+
+  static Color noticeFilterChipBackground({
+    required bool isDark,
+    required bool selected,
+  }) {
+    if (selected) {
+      return isDark
+          ? noticeFilterChipSelectedBgDark
+          : noticeFilterChipSelectedBgLight;
+    }
+    return isDark
+        ? noticeFilterChipUnselectedBgDark
+        : noticeFilterChipUnselectedBgLight;
+  }
+
+  static Color noticeFilterChipForeground({
+    required bool isDark,
+    required bool selected,
+  }) {
+    if (selected) {
+      return isDark
+          ? noticeFilterChipSelectedFgDark
+          : noticeFilterChipSelectedFgLight;
+    }
+    return isDark
+        ? noticeFilterChipUnselectedFgDark
+        : noticeFilterChipUnselectedFgLight;
+  }
   static const Color toggleSelected = Color(0xFFE3F2FD);
   static const Color mutedForeground = Color(0xFF717182);
   static const Color mutedForegroundDark = Color(0xFF9CA3AF);
