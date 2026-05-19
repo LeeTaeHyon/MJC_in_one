@@ -20,7 +20,7 @@ import "package:mjc_in_one/widgets/scroll_to_top_scope.dart";
 BorderSide _moreScreenCardBorderSide(bool isDark) => BorderSide(
       color: isDark
           ? Colors.white.withValues(alpha: 0.05)
-          : Colors.black.withValues(alpha: 0.04s),
+          : Colors.black.withValues(alpha: 0.04),
     );
 
 Border _moreScreenCardBorder(bool isDark) =>

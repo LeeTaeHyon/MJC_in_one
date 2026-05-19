@@ -14,6 +14,7 @@ import "package:mjc_in_one/debug/app_debug_flags.dart";
 import "package:mjc_in_one/debug/scroll_fab_debug.dart";
 import "package:mjc_in_one/utils/bookmark_added_feedback.dart";
 import "package:mjc_in_one/widgets/main_navigation_scope.dart";
+import "package:mjc_in_one/widgets/mjc_draggable_segment_pill_bar.dart";
 import "package:mjc_in_one/widgets/scroll_to_top_fab.dart";
 import "package:mjc_in_one/widgets/scroll_to_top_scope.dart";
 import "package:mjc_in_one/theme/app_theme.dart";
@@ -571,72 +572,52 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                   side: BorderSide(color: surfaceTokens.hairline, width: 1),
                 ),
                 clipBehavior: Clip.antiAlias,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 5,
-                    vertical: 3,
-                  ),
-                  child: Row(
-                    children: NoticesSubTab.values.map((tab) {
-                      final bool selected = tab == current;
-                      return Expanded(
-                        child: InkWell(
-                          onTap: () => _noticeSubTab.value = tab,
-                          borderRadius: BorderRadius.circular(28),
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 170),
-                            curve: Curves.easeOutCubic,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 8,
-                            ),
-                            decoration: BoxDecoration(
-                              color: selected
-                                  ? subNavAccent
-                                      .withValues(alpha: isDark ? 0.20 : 0.12)
-                                  : Colors.transparent,
-                              borderRadius: BorderRadius.circular(28),
-                              border: selected
-                                  ? Border.all(
-                                      color: subNavAccent.withValues(
-                                          alpha: isDark ? 0.35 : 0.18),
-                                    )
-                                  : null,
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  tab.icon,
-                                  size: 18,
-                                  color: selected
-                                      ? subNavAccent
-                                      : scheme.onSurfaceVariant,
-                                ),
-                                const SizedBox(width: 6),
-                                Flexible(
-                                  child: Text(
-                                    tab.label,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      color: selected
-                                          ? subNavAccent
-                                          : scheme.onSurfaceVariant,
-                                      fontSize: 13,
-                                      fontWeight: selected
-                                          ? FontWeight.w800
-                                          : FontWeight.w700,
-                                    ),
-                                  ),
-                                ),
-                              ],
+                child: MjcDraggableSegmentPillBar(
+                  segmentCount: NoticesSubTab.values.length,
+                  selectedIndex: current.index,
+                  accentColor: subNavAccent,
+                  isDark: isDark,
+                  onSelectedIndexChanged: (int index) {
+                    _noticeSubTab.value = NoticesSubTab.values[index];
+                  },
+                  segmentBuilder: (context, index, selected, _) {
+                    final NoticesSubTab tab = NoticesSubTab.values[index];
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 8,
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            tab.icon,
+                            size: 18,
+                            color: selected
+                                ? subNavAccent
+                                : scheme.onSurfaceVariant,
+                          ),
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              tab.label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: selected
+                                    ? subNavAccent
+                                    : scheme.onSurfaceVariant,
+                                fontSize: 13,
+                                fontWeight: selected
+                                    ? FontWeight.w800
+                                    : FontWeight.w700,
+                              ),
                             ),
                           ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
+                        ],
+                      ),
+                    );
+                  },
                 ),
               );
             },

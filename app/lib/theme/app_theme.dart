@@ -11,6 +11,16 @@ abstract final class MjcAppTypography {
     Shadow(blurRadius: 6, color: Color(0x66000000)),
   ];
 
+  /// 공지 탭 접힌 히어로 제목 — 단색 accent 배경용 얇은 외곽선.
+  static const Color noticeHeroCollapsedTitleStroke = Color(0x33000000);
+  static const double noticeHeroCollapsedTitleStrokeWidth = 0.75;
+
+  static TextStyle noticeHeroCollapsedTitleFill(TextStyle base) => base.copyWith(
+        color: Colors.white,
+        height: 1.1,
+        shadows: const <Shadow>[],
+      );
+
   /// Collapsed home hero title — «MJC».
   static TextStyle homeHeroCollapsedTitleMjc({required Color color}) =>
       TextStyle(

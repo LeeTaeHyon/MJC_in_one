@@ -1,5 +1,6 @@
 import "package:flutter/material.dart";
 import "package:mjc_in_one/screens/admin/admin_auth_service.dart";
+import "package:mjc_in_one/screens/admin/admin_responsive.dart";
 import "package:mjc_in_one/services/admin_moderation_service.dart";
 import "package:mjc_in_one/utils/snack_bar_utils.dart";
 
@@ -91,95 +92,150 @@ class _AdminPostEditorDialogState extends State<AdminPostEditorDialog> {
     }
   }
 
+  void _cancel() {
+    if (_saving) return;
+    Navigator.of(context).pop(false);
+  }
+
+  Widget _buildForm(ThemeData theme, {required bool isMobile}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (!isMobile) ...[
+          Text(
+            "요약 직접 수정",
+            style: theme.textTheme.titleMedium
+                ?.copyWith(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 4),
+        ],
+        Text(
+          widget.postTitle,
+          style: theme.textTheme.bodyMedium,
+          maxLines: isMobile ? 4 : 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+        const SizedBox(height: 12),
+        Text(
+          "요약",
+          style:
+              theme.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 6),
+        TextField(
+          controller: _summaryCtrl,
+          minLines: 3,
+          maxLines: isMobile ? 8 : 6,
+          maxLength: 600,
+          decoration: const InputDecoration(
+            border: OutlineInputBorder(),
+            hintText: "사용자에게 보여줄 요약",
+          ),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          "본문 (참고용)",
+          style:
+              theme.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 6),
+        Container(
+          constraints: BoxConstraints(maxHeight: isMobile ? 200 : 240),
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            border: Border.all(color: theme.dividerColor),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: SingleChildScrollView(
+            child: SelectableText(
+              widget.currentBody.isEmpty
+                  ? "(본문 없음)"
+                  : widget.currentBody,
+              style: theme.textTheme.bodySmall,
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        if (isMobile)
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              FilledButton.icon(
+                onPressed: _saving ? null : _save,
+                icon: _saving
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.save_outlined, size: 18),
+                label: Text(_saving ? "저장 중" : "저장"),
+              ),
+              const SizedBox(height: 8),
+              OutlinedButton(
+                onPressed: _saving ? null : _cancel,
+                child: const Text("취소"),
+              ),
+            ],
+          )
+        else
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(onPressed: _saving ? null : _cancel, child: const Text("취소")),
+              const SizedBox(width: 8),
+              FilledButton.icon(
+                onPressed: _saving ? null : _save,
+                icon: _saving
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.save_outlined, size: 18),
+                label: Text(_saving ? "저장 중" : "저장"),
+              ),
+            ],
+          ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
+    final bool isMobile = adminIsMobile(context);
+
+    if (isMobile) {
+      return Dialog.fullscreen(
+        child: Scaffold(
+          appBar: AppBar(
+            title: const Text(
+              "요약 직접 수정",
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            leading: IconButton(
+              icon: const Icon(Icons.close),
+              onPressed: _saving ? null : _cancel,
+            ),
+          ),
+          body: SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+              child: _buildForm(theme, isMobile: true),
+            ),
+          ),
+        ),
+      );
+    }
+
     return Dialog(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 720),
         child: Padding(
           padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                "요약 직접 수정",
-                style: theme.textTheme.titleMedium
-                    ?.copyWith(fontWeight: FontWeight.w800),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                widget.postTitle,
-                style: theme.textTheme.bodyMedium,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                "요약",
-                style: theme.textTheme.labelLarge
-                    ?.copyWith(fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 6),
-              TextField(
-                controller: _summaryCtrl,
-                minLines: 3,
-                maxLines: 6,
-                maxLength: 600,
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  hintText: "사용자에게 보여줄 요약",
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                "본문 (참고용)",
-                style: theme.textTheme.labelLarge
-                    ?.copyWith(fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 6),
-              Container(
-                constraints: const BoxConstraints(maxHeight: 240),
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  border: Border.all(color: theme.dividerColor),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: SingleChildScrollView(
-                  child: SelectableText(
-                    widget.currentBody.isEmpty
-                        ? "(본문 없음)"
-                        : widget.currentBody,
-                    style: theme.textTheme.bodySmall,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed:
-                        _saving ? null : () => Navigator.of(context).pop(false),
-                    child: const Text("취소"),
-                  ),
-                  const SizedBox(width: 8),
-                  FilledButton.icon(
-                    onPressed: _saving ? null : _save,
-                    icon: _saving
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.save_outlined, size: 18),
-                    label: Text(_saving ? "저장 중" : "저장"),
-                  ),
-                ],
-              ),
-            ],
-          ),
+          child: _buildForm(theme, isMobile: false),
         ),
       ),
     );

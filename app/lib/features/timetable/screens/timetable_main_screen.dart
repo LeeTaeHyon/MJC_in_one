@@ -293,10 +293,29 @@ class _TimetableMainScreenState extends State<TimetableMainScreen> {
   @override
   Widget build(BuildContext context) {
     final ColorScheme scheme = Theme.of(context).colorScheme;
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    // 라이트: primary AppBar. 다크: 전역 cardDark 대신 홈 헤더와 동일한 파란 톤.
+    final Color appBarBackground =
+        isDark ? const Color(0xFF073A8C) : AppColors.primary;
+    const Color appBarForeground = Colors.white;
+    const TextStyle appBarTextStyle = TextStyle(
+      fontFamily: kPretendardFontFamily,
+      color: appBarForeground,
+      fontWeight: FontWeight.w600,
+    );
+    final Color semesterLabelColor =
+        isDark ? AppColors.switchActiveDark : scheme.primary;
 
     return Scaffold(
       floatingActionButtonAnimator: FloatingActionButtonAnimator.noAnimation,
       appBar: AppBar(
+        backgroundColor: appBarBackground,
+        foregroundColor: appBarForeground,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        titleTextStyle: appBarTextStyle.copyWith(fontSize: 20),
+        toolbarTextStyle: appBarTextStyle,
         title: const Text("시간표"),
         actions: <Widget>[
           if (!_loading)
@@ -309,7 +328,7 @@ class _TimetableMainScreenState extends State<TimetableMainScreen> {
                     fontFamily: kPretendardFontFamily,
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
-                    color: Colors.white,
+                    color: appBarForeground,
                   ),
                 ),
               ),
@@ -333,7 +352,7 @@ class _TimetableMainScreenState extends State<TimetableMainScreen> {
                         fontFamily: kPretendardFontFamily,
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
-                        color: scheme.primary,
+                        color: semesterLabelColor,
                       ),
                     ),
                     const SizedBox(height: 4),

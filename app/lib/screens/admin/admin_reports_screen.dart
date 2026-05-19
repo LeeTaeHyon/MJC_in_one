@@ -2,6 +2,7 @@ import "package:cloud_firestore/cloud_firestore.dart";
 import "package:flutter/material.dart";
 import "package:mjc_in_one/screens/admin/admin_auth_service.dart";
 import "package:mjc_in_one/screens/admin/admin_post_editor_dialog.dart";
+import "package:mjc_in_one/screens/admin/admin_responsive.dart";
 import "package:mjc_in_one/services/admin_moderation_service.dart";
 import "package:mjc_in_one/utils/snack_bar_utils.dart";
 import "package:url_launcher/url_launcher.dart";
@@ -193,16 +194,22 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          padding: EdgeInsets.fromLTRB(
+            adminIsMobile(context) ? 12 : 16,
+            12,
+            adminIsMobile(context) ? 12 : 16,
+            8,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                "신고함",
-                style: theme.textTheme.titleLarge
-                    ?.copyWith(fontWeight: FontWeight.w800),
-              ),
-              const SizedBox(height: 10),
+              if (!adminIsMobile(context))
+                Text(
+                  "신고함",
+                  style: theme.textTheme.titleLarge
+                      ?.copyWith(fontWeight: FontWeight.w800),
+                ),
+              if (!adminIsMobile(context)) const SizedBox(height: 10),
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: SegmentedButton<String>(
@@ -249,7 +256,12 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
                 );
               }
               return ListView.separated(
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+                padding: EdgeInsets.fromLTRB(
+                  adminIsMobile(context) ? 12 : 16,
+                  4,
+                  adminIsMobile(context) ? 12 : 16,
+                  24,
+                ),
                 itemCount: docs.length,
                 separatorBuilder: (_, __) => const SizedBox(height: 10),
                 itemBuilder: (context, i) {
@@ -294,10 +306,138 @@ class _ReportRow extends StatelessWidget {
   final Future<void> Function() onEdit;
   final Future<void> Function(String url) onOpenOriginal;
 
+  Widget _buildActions(
+    BuildContext context,
+    ColorScheme scheme, {
+    required String status,
+  }) {
+    if (!adminIsMobile(context)) {
+      return Wrap(
+        spacing: 8,
+        runSpacing: 6,
+        children: [
+          FilledButton.tonalIcon(
+            onPressed: () => onEdit(),
+            icon: const Icon(Icons.edit_outlined, size: 16),
+            label: const Text("요약 수정"),
+          ),
+          OutlinedButton.icon(
+            onPressed: () => onFlagResummary(),
+            icon: const Icon(Icons.auto_awesome, size: 16),
+            label: const Text("재요약 플래그"),
+          ),
+          if (status != "resolved")
+            TextButton.icon(
+              onPressed: () => onResolve(),
+              icon: const Icon(Icons.check_circle_outline, size: 16),
+              label: const Text("해결 처리"),
+            ),
+          if (status != "ignored")
+            TextButton.icon(
+              onPressed: () => onIgnore(),
+              icon: const Icon(Icons.block, size: 16),
+              label: const Text("무시"),
+            ),
+          if (status != "open")
+            TextButton.icon(
+              onPressed: () => onReopen(),
+              icon: const Icon(Icons.refresh, size: 16),
+              label: const Text("다시 열기"),
+            ),
+          TextButton.icon(
+            onPressed: () => onDelete(),
+            icon: Icon(Icons.delete_outline, size: 16, color: scheme.error),
+            label: Text("삭제", style: TextStyle(color: scheme.error)),
+          ),
+        ],
+      );
+    }
+
+    final List<PopupMenuEntry<String>> menuItems = [];
+    if (status != "ignored") {
+      menuItems.add(
+        const PopupMenuItem(value: "ignore", child: Text("무시")),
+      );
+    }
+    if (status != "open") {
+      menuItems.add(
+        const PopupMenuItem(value: "reopen", child: Text("다시 열기")),
+      );
+    }
+    menuItems.add(
+      PopupMenuItem(
+        value: "delete",
+        child: Text("삭제", style: TextStyle(color: scheme.error)),
+      ),
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        FilledButton.tonalIcon(
+          onPressed: () => onEdit(),
+          icon: const Icon(Icons.edit_outlined, size: 18),
+          label: const Text("요약 수정"),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: () => onFlagResummary(),
+                icon: const Icon(Icons.auto_awesome, size: 16),
+                label: const Text("재요약"),
+              ),
+            ),
+            if (status != "resolved") ...[
+              const SizedBox(width: 8),
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: () => onResolve(),
+                  icon: const Icon(Icons.check_circle_outline, size: 16),
+                  label: const Text("해결"),
+                ),
+              ),
+            ],
+          ],
+        ),
+        if (menuItems.isNotEmpty)
+          Align(
+            alignment: Alignment.centerRight,
+            child: PopupMenuButton<String>(
+              onSelected: (value) {
+                switch (value) {
+                  case "ignore":
+                    onIgnore();
+                  case "reopen":
+                    onReopen();
+                  case "delete":
+                    onDelete();
+                }
+              },
+              itemBuilder: (_) => menuItems,
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.more_horiz, size: 20),
+                    SizedBox(width: 4),
+                    Text("더보기"),
+                  ],
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
     final ColorScheme scheme = theme.colorScheme;
+    final bool isMobile = adminIsMobile(context);
     final data = doc.data() ?? <String, dynamic>{};
     final String boardId = (data["board_id"] as String?) ?? "";
     final String postId = (data["post_id"] as String?) ?? "";
@@ -325,7 +465,7 @@ class _ReportRow extends StatelessWidget {
     };
 
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: EdgeInsets.all(isMobile ? 12 : 14),
       decoration: BoxDecoration(
         color: scheme.surface,
         borderRadius: BorderRadius.circular(10),
@@ -387,23 +527,55 @@ class _ReportRow extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 6),
-          Row(
-            children: [
-              Icon(Icons.flag_outlined, size: 14, color: scheme.error),
-              const SizedBox(width: 4),
-              Text(
-                reasonLabel,
-                style: theme.textTheme.bodySmall?.copyWith(color: scheme.error),
-              ),
-              if (platform.isNotEmpty) ...[
-                const SizedBox(width: 12),
-                Icon(Icons.devices_other,
-                    size: 14, color: scheme.onSurfaceVariant),
-                const SizedBox(width: 4),
-                Text(platform, style: theme.textTheme.bodySmall),
+          if (isMobile)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.flag_outlined, size: 14, color: scheme.error),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        reasonLabel,
+                        style: theme.textTheme.bodySmall
+                            ?.copyWith(color: scheme.error),
+                      ),
+                    ),
+                  ],
+                ),
+                if (platform.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(Icons.devices_other,
+                          size: 14, color: scheme.onSurfaceVariant),
+                      const SizedBox(width: 4),
+                      Text(platform, style: theme.textTheme.bodySmall),
+                    ],
+                  ),
+                ],
               ],
-            ],
-          ),
+            )
+          else
+            Row(
+              children: [
+                Icon(Icons.flag_outlined, size: 14, color: scheme.error),
+                const SizedBox(width: 4),
+                Text(
+                  reasonLabel,
+                  style:
+                      theme.textTheme.bodySmall?.copyWith(color: scheme.error),
+                ),
+                if (platform.isNotEmpty) ...[
+                  const SizedBox(width: 12),
+                  Icon(Icons.devices_other,
+                      size: 14, color: scheme.onSurfaceVariant),
+                  const SizedBox(width: 4),
+                  Text(platform, style: theme.textTheme.bodySmall),
+                ],
+              ],
+            ),
           if (comment.isNotEmpty) ...[
             const SizedBox(height: 6),
             Container(
@@ -416,45 +588,7 @@ class _ReportRow extends StatelessWidget {
             ),
           ],
           const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 6,
-            children: [
-              FilledButton.tonalIcon(
-                onPressed: () => onEdit(),
-                icon: const Icon(Icons.edit_outlined, size: 16),
-                label: const Text("요약 수정"),
-              ),
-              OutlinedButton.icon(
-                onPressed: () => onFlagResummary(),
-                icon: const Icon(Icons.auto_awesome, size: 16),
-                label: const Text("재요약 플래그"),
-              ),
-              if (status != "resolved")
-                TextButton.icon(
-                  onPressed: () => onResolve(),
-                  icon: const Icon(Icons.check_circle_outline, size: 16),
-                  label: const Text("해결 처리"),
-                ),
-              if (status != "ignored")
-                TextButton.icon(
-                  onPressed: () => onIgnore(),
-                  icon: const Icon(Icons.block, size: 16),
-                  label: const Text("무시"),
-                ),
-              if (status != "open")
-                TextButton.icon(
-                  onPressed: () => onReopen(),
-                  icon: const Icon(Icons.refresh, size: 16),
-                  label: const Text("다시 열기"),
-                ),
-              TextButton.icon(
-                onPressed: () => onDelete(),
-                icon: Icon(Icons.delete_outline, size: 16, color: scheme.error),
-                label: Text("삭제", style: TextStyle(color: scheme.error)),
-              ),
-            ],
-          ),
+          _buildActions(context, scheme, status: status),
         ],
       ),
     );

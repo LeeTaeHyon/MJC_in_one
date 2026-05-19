@@ -16,6 +16,7 @@ import "package:mjc_in_one/utils/mpu_program_dday.dart";
 import "package:mjc_in_one/perf_flags.dart";
 import "package:mjc_in_one/widgets/nested_scroll_refresh_indicator.dart";
 import "package:mjc_in_one/widgets/pin_favorite_buttons.dart";
+import "package:mjc_in_one/widgets/collapsed_hero_title.dart";
 import "package:mjc_in_one/widgets/global_notice_search_sheet.dart";
 import "package:mjc_in_one/widgets/notice_filter_sheet.dart";
 import "package:mjc_in_one/widgets/scroll_to_top_scope.dart";
@@ -369,6 +370,13 @@ class _MpuCollapsingHeaderDelegate extends SliverPersistentHeaderDelegate {
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
     final double bannerImageOpacity = (1.0 - u).clamp(0.0, 1.0);
     final ColorScheme scheme = Theme.of(context).colorScheme;
+    final MjcSurfaceTokens tokens =
+        Theme.of(context).extension<MjcSurfaceTokens>()!;
+    final Color expandedHeroColor =
+        isDark ? const Color(0xFF073A8C) : AppColors.primary;
+    final Color collapsedHeroColor = tokens.dashboardGradients[2][0];
+    final Color heroColor =
+        Color.lerp(expandedHeroColor, collapsedHeroColor, u)!;
 
     return SizedBox(
       height: extent,
@@ -382,9 +390,7 @@ class _MpuCollapsingHeaderDelegate extends SliverPersistentHeaderDelegate {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  ColoredBox(
-                    color: isDark ? const Color(0xFF073A8C) : AppColors.primary,
-                  ),
+                  ColoredBox(color: heroColor),
                   Positioned.fill(
                     child: Builder(
                       builder: (BuildContext context) {
@@ -444,19 +450,11 @@ class _MpuCollapsingHeaderDelegate extends SliverPersistentHeaderDelegate {
                                 ignoring: titleOpacity < 0.02,
                                 child: Opacity(
                                   opacity: titleOpacity,
-                                  child: Text(
-                                    "핵심역량관리",
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: Theme.of(context)
+                                  child: CollapsedHeroTitle(
+                                    text: "핵심역량관리",
+                                    baseStyle: Theme.of(context)
                                         .extension<MjcTextTokens>()!
-                                        .appBarTitle
-                                        .copyWith(
-                                          color: Colors.white,
-                                          height: 1.1,
-                                          shadows: MjcAppTypography
-                                              .homeHeroCollapsedTitleShadows,
-                                        ),
+                                        .appBarTitle,
                                   ),
                                 ),
                               ),

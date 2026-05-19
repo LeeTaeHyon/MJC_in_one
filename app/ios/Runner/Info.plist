@@ -28,6 +28,8 @@
 	<true/>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>캠퍼스 약도에서 현재 위치를 표시하기 위해 위치 정보가 필요합니다.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>공지 이미지를 사진 앱에 저장하기 위해 필요합니다.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

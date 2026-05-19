@@ -93,19 +93,20 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
         foregroundColor: scheme.onSurface,
         elevation: 0,
       ),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 380),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 380),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
                 Icon(Icons.shield_outlined, size: 48, color: scheme.primary),
                 const SizedBox(height: 12),
                 Text(
-                  "MJC In One 관리자",
+                  "MJC ONEw 관리자",
                   textAlign: TextAlign.center,
                   style: theme.textTheme.titleLarge
                       ?.copyWith(fontWeight: FontWeight.w800),
@@ -175,7 +176,8 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                           ),
                         ),
                 ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

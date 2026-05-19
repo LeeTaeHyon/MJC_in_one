@@ -4,6 +4,7 @@ import "package:flutter/foundation.dart" show Factory, kIsWeb;
 import "package:flutter/material.dart";
 import "package:flutter/gestures.dart";
 import "package:mjc_in_one/widgets/notice_body_html_platform.dart";
+import "package:mjc_in_one/widgets/notice_html_image_viewer.dart";
 import "package:webview_flutter/webview_flutter.dart";
 
 /// Firestore `body_html` 조각을 앱 테마에 맞춰 WebView 로 렌더합니다.
@@ -28,6 +29,7 @@ class NoticeBodyHtmlView extends StatefulWidget {
 class _NoticeBodyHtmlViewState extends State<NoticeBodyHtmlView> {
   static const double _minHeight = 120;
   static const String _heightChannelName = "FlutterHtmlHeight";
+  static const String _imageTapChannelName = "FlutterHtmlImageTap";
 
   WebViewController? _controller;
   double _webViewHeight = _minHeight;
@@ -105,6 +107,10 @@ class _NoticeBodyHtmlViewState extends State<NoticeBodyHtmlView> {
         _heightChannelName,
         onMessageReceived: _onHeightMessage,
       )
+      ..addJavaScriptChannel(
+        _imageTapChannelName,
+        onMessageReceived: _onImageTapMessage,
+      )
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageFinished: (_) {
@@ -144,6 +150,12 @@ class _NoticeBodyHtmlViewState extends State<NoticeBodyHtmlView> {
       return "${uri.scheme}://${uri.authority}/";
     }
     return raw.endsWith("/") ? raw : "$raw/";
+  }
+
+  void _onImageTapMessage(JavaScriptMessage message) {
+    final String url = message.message.trim();
+    if (url.isEmpty || !mounted) return;
+    unawaited(NoticeHtmlImageViewer.open(context, url));
   }
 
   void _onHeightMessage(JavaScriptMessage message) {
@@ -201,6 +213,7 @@ class _NoticeBodyHtmlViewState extends State<NoticeBodyHtmlView> {
       max-width: 100%;
       height: auto;
       display: block;
+      cursor: pointer;
     }
     a { color: $anchor; }
     table { max-width: 100%; }
@@ -227,12 +240,31 @@ $fragment
   if (window.ResizeObserver) {
     new ResizeObserver(sendHeight).observe(document.body);
   }
-  Array.prototype.forEach.call(document.images, function (img) {
+  function bindImage(img) {
+    if (img.dataset.mjcBound === "1") return;
+    img.dataset.mjcBound = "1";
+    img.addEventListener("click", function (event) {
+      event.preventDefault();
+      event.stopPropagation();
+      var src = img.currentSrc || img.src;
+      if (!src) return;
+      if (window.$_imageTapChannelName) {
+        window.$_imageTapChannelName.postMessage(src);
+        return;
+      }
+      window.open(src, "_blank");
+    });
     if (!img.complete) {
       img.addEventListener("load", sendHeight);
       img.addEventListener("error", sendHeight);
     }
-  });
+  }
+  Array.prototype.forEach.call(document.images, bindImage);
+  if (window.MutationObserver) {
+    new MutationObserver(function () {
+      Array.prototype.forEach.call(document.images, bindImage);
+    }).observe(document.body, { childList: true, subtree: true });
+  }
   sendHeight();
 })();
 </script>

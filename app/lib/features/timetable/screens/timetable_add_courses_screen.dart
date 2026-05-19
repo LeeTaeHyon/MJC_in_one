@@ -598,6 +598,43 @@ class _TimetableAddCoursesScreenState extends State<TimetableAddCoursesScreen> {
     );
   }
 
+  static const double _kFilterResetCircleSize = 36;
+
+  Widget _buildFilterResetCircle(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final MjcComponentTokens components =
+        Theme.of(context).extension<MjcComponentTokens>()!;
+    final MjcSurfaceTokens surfaceTokens =
+        Theme.of(context).extension<MjcSurfaceTokens>()!;
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Material(
+      color: scheme.surface.withValues(alpha: isDark ? 0.98 : 0.96),
+      elevation: 10,
+      shadowColor: components.noticeSubNavShadow,
+      shape: CircleBorder(
+        side: BorderSide(color: surfaceTokens.hairline, width: 1),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Tooltip(
+        message: "필터·검색 초기화",
+        child: InkWell(
+          onTap: _resetFilters,
+          customBorder: const CircleBorder(),
+          child: const SizedBox(
+            width: _kFilterResetCircleSize,
+            height: _kFilterResetCircleSize,
+            child: Icon(
+              Icons.close_rounded,
+              size: 20,
+              color: Colors.red,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _filterPillShell(BuildContext context, {required Widget child}) {
     final ColorScheme scheme = Theme.of(context).colorScheme;
     final MjcComponentTokens components =
@@ -635,24 +672,7 @@ class _TimetableAddCoursesScreenState extends State<TimetableAddCoursesScreen> {
         padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
         children: <Widget>[
           if (_hasActiveFilters) ...<Widget>[
-            _filterPillShell(
-              context,
-              child: Tooltip(
-                message: "필터·검색 초기화",
-                child: InkWell(
-                  onTap: _resetFilters,
-                  borderRadius: BorderRadius.circular(28),
-                  child: const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                    child: Icon(
-                      Icons.close_rounded,
-                      size: 20,
-                      color: Colors.red,
-                    ),
-                  ),
-                ),
-              ),
-            ),
+            _buildFilterResetCircle(context),
             const SizedBox(width: 8),
           ],
           _filterPillShell(

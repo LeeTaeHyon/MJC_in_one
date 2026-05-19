@@ -68,6 +68,24 @@ class AcademicScheduleVisuals {
     }
   }
 
+  static String legendLabel(AcademicScheduleKind kind) => switch (kind) {
+        AcademicScheduleKind.exam => "시험",
+        AcademicScheduleKind.registration => "수강신청",
+        AcademicScheduleKind.grades => "성적",
+        AcademicScheduleKind.scholarship => "장학·등록",
+        AcademicScheduleKind.worship => "예배",
+        AcademicScheduleKind.general => "기타",
+      };
+
+  /// 캘린더 범례에 표시할 종류(우선순위 순, 회색 `general` 제외).
+  static const List<AcademicScheduleKind> calendarLegendKinds = [
+    AcademicScheduleKind.exam,
+    AcademicScheduleKind.registration,
+    AcademicScheduleKind.grades,
+    AcademicScheduleKind.scholarship,
+    AcademicScheduleKind.worship,
+  ];
+
   static bool isImportant(AcademicScheduleKind kind) =>
       kind != AcademicScheduleKind.general;
 

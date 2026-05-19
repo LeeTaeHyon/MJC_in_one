@@ -1,6 +1,7 @@
 import "package:cloud_firestore/cloud_firestore.dart";
 import "package:flutter/material.dart";
 import "package:mjc_in_one/screens/admin/admin_auth_service.dart";
+import "package:mjc_in_one/screens/admin/admin_responsive.dart";
 import "package:mjc_in_one/services/admin_moderation_service.dart";
 import "package:mjc_in_one/utils/snack_bar_utils.dart";
 
@@ -114,16 +115,22 @@ class _AdminInquiriesScreenState extends State<AdminInquiriesScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          padding: EdgeInsets.fromLTRB(
+            adminIsMobile(context) ? 12 : 16,
+            12,
+            adminIsMobile(context) ? 12 : 16,
+            8,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                "문의함",
-                style: theme.textTheme.titleLarge
-                    ?.copyWith(fontWeight: FontWeight.w800),
-              ),
-              const SizedBox(height: 10),
+              if (!adminIsMobile(context))
+                Text(
+                  "문의함",
+                  style: theme.textTheme.titleLarge
+                      ?.copyWith(fontWeight: FontWeight.w800),
+                ),
+              if (!adminIsMobile(context)) const SizedBox(height: 10),
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: SegmentedButton<String>(
@@ -170,7 +177,12 @@ class _AdminInquiriesScreenState extends State<AdminInquiriesScreen> {
                 );
               }
               return ListView.separated(
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+                padding: EdgeInsets.fromLTRB(
+                  adminIsMobile(context) ? 12 : 16,
+                  4,
+                  adminIsMobile(context) ? 12 : 16,
+                  24,
+                ),
                 itemCount: docs.length,
                 separatorBuilder: (_, __) => const SizedBox(height: 10),
                 itemBuilder: (context, i) => _InquiryRow(
@@ -230,10 +242,115 @@ class _InquiryRowState extends State<_InquiryRow> {
     super.dispose();
   }
 
+  Widget _buildActions(BuildContext context, ColorScheme scheme, String status) {
+    if (!adminIsMobile(context)) {
+      return Wrap(
+        spacing: 8,
+        runSpacing: 6,
+        children: [
+          OutlinedButton.icon(
+            onPressed: () => widget.onSaveMemo(_memoCtrl.text.trim()),
+            icon: const Icon(Icons.save_outlined, size: 16),
+            label: const Text("메모 저장"),
+          ),
+          if (status != "resolved")
+            FilledButton.tonalIcon(
+              onPressed: () => widget.onResolve(),
+              icon: const Icon(Icons.check_circle_outline, size: 16),
+              label: const Text("해결 처리"),
+            ),
+          if (status != "ignored")
+            TextButton.icon(
+              onPressed: () => widget.onIgnore(),
+              icon: const Icon(Icons.block, size: 16),
+              label: const Text("무시"),
+            ),
+          if (status != "open")
+            TextButton.icon(
+              onPressed: () => widget.onReopen(),
+              icon: const Icon(Icons.refresh, size: 16),
+              label: const Text("다시 열기"),
+            ),
+          TextButton.icon(
+            onPressed: () => widget.onDelete(),
+            icon: Icon(Icons.delete_outline, size: 16, color: scheme.error),
+            label: Text("삭제", style: TextStyle(color: scheme.error)),
+          ),
+        ],
+      );
+    }
+
+    final List<PopupMenuEntry<String>> menuItems = [];
+    if (status != "ignored") {
+      menuItems.add(
+        const PopupMenuItem(value: "ignore", child: Text("무시")),
+      );
+    }
+    if (status != "open") {
+      menuItems.add(
+        const PopupMenuItem(value: "reopen", child: Text("다시 열기")),
+      );
+    }
+    menuItems.add(
+      PopupMenuItem(
+        value: "delete",
+        child: Text("삭제", style: TextStyle(color: scheme.error)),
+      ),
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        OutlinedButton.icon(
+          onPressed: () => widget.onSaveMemo(_memoCtrl.text.trim()),
+          icon: const Icon(Icons.save_outlined, size: 18),
+          label: const Text("메모 저장"),
+        ),
+        if (status != "resolved") ...[
+          const SizedBox(height: 8),
+          FilledButton.icon(
+            onPressed: () => widget.onResolve(),
+            icon: const Icon(Icons.check_circle_outline, size: 18),
+            label: const Text("해결 처리"),
+          ),
+        ],
+        if (menuItems.isNotEmpty)
+          Align(
+            alignment: Alignment.centerRight,
+            child: PopupMenuButton<String>(
+              onSelected: (value) {
+                switch (value) {
+                  case "ignore":
+                    widget.onIgnore();
+                  case "reopen":
+                    widget.onReopen();
+                  case "delete":
+                    widget.onDelete();
+                }
+              },
+              itemBuilder: (_) => menuItems,
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.more_horiz, size: 20),
+                    SizedBox(width: 4),
+                    Text("더보기"),
+                  ],
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
     final ColorScheme scheme = theme.colorScheme;
+    final bool isMobile = adminIsMobile(context);
     final data = widget.doc.data() ?? <String, dynamic>{};
     final String typeLabel = (data["type_label"] as String?) ??
         (data["type"] as String?) ??
@@ -258,7 +375,7 @@ class _InquiryRowState extends State<_InquiryRow> {
     };
 
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: EdgeInsets.all(isMobile ? 12 : 14),
       decoration: BoxDecoration(
         color: scheme.surface,
         borderRadius: BorderRadius.circular(10),
@@ -323,31 +440,58 @@ class _InquiryRowState extends State<_InquiryRow> {
               child: Text(_expanded ? "접기" : "더 보기"),
             ),
           const SizedBox(height: 6),
-          Wrap(
-            spacing: 12,
-            children: [
-              if (contact.isNotEmpty)
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.alternate_email,
-                        size: 14, color: scheme.onSurfaceVariant),
-                    const SizedBox(width: 4),
-                    SelectableText(contact, style: theme.textTheme.bodySmall),
-                  ],
-                ),
-              if (platform.isNotEmpty)
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.devices_other,
-                        size: 14, color: scheme.onSurfaceVariant),
-                    const SizedBox(width: 4),
-                    Text(platform, style: theme.textTheme.bodySmall),
-                  ],
-                ),
+          if (isMobile) ...[
+            if (contact.isNotEmpty)
+              Row(
+                children: [
+                  Icon(Icons.alternate_email,
+                      size: 14, color: scheme.onSurfaceVariant),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: SelectableText(
+                      contact,
+                      style: theme.textTheme.bodySmall,
+                    ),
+                  ),
+                ],
+              ),
+            if (platform.isNotEmpty) ...[
+              if (contact.isNotEmpty) const SizedBox(height: 4),
+              Row(
+                children: [
+                  Icon(Icons.devices_other,
+                      size: 14, color: scheme.onSurfaceVariant),
+                  const SizedBox(width: 4),
+                  Text(platform, style: theme.textTheme.bodySmall),
+                ],
+              ),
             ],
-          ),
+          ] else
+            Wrap(
+              spacing: 12,
+              children: [
+                if (contact.isNotEmpty)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.alternate_email,
+                          size: 14, color: scheme.onSurfaceVariant),
+                      const SizedBox(width: 4),
+                      SelectableText(contact, style: theme.textTheme.bodySmall),
+                    ],
+                  ),
+                if (platform.isNotEmpty)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.devices_other,
+                          size: 14, color: scheme.onSurfaceVariant),
+                      const SizedBox(width: 4),
+                      Text(platform, style: theme.textTheme.bodySmall),
+                    ],
+                  ),
+              ],
+            ),
           const SizedBox(height: 10),
           TextField(
             controller: _memoCtrl,
@@ -360,41 +504,7 @@ class _InquiryRowState extends State<_InquiryRow> {
             ),
           ),
           const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 6,
-            children: [
-              OutlinedButton.icon(
-                onPressed: () => widget.onSaveMemo(_memoCtrl.text.trim()),
-                icon: const Icon(Icons.save_outlined, size: 16),
-                label: const Text("메모 저장"),
-              ),
-              if (status != "resolved")
-                FilledButton.tonalIcon(
-                  onPressed: () => widget.onResolve(),
-                  icon: const Icon(Icons.check_circle_outline, size: 16),
-                  label: const Text("해결 처리"),
-                ),
-              if (status != "ignored")
-                TextButton.icon(
-                  onPressed: () => widget.onIgnore(),
-                  icon: const Icon(Icons.block, size: 16),
-                  label: const Text("무시"),
-                ),
-              if (status != "open")
-                TextButton.icon(
-                  onPressed: () => widget.onReopen(),
-                  icon: const Icon(Icons.refresh, size: 16),
-                  label: const Text("다시 열기"),
-                ),
-              TextButton.icon(
-                onPressed: () => widget.onDelete(),
-                icon: Icon(Icons.delete_outline,
-                    size: 16, color: scheme.error),
-                label: Text("삭제", style: TextStyle(color: scheme.error)),
-              ),
-            ],
-          ),
+          _buildActions(context, scheme, status),
         ],
       ),
     );

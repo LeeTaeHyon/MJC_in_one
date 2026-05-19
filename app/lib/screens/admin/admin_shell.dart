@@ -4,6 +4,7 @@ import "package:mjc_in_one/screens/admin/admin_auth_service.dart";
 import "package:mjc_in_one/screens/admin/admin_inquiries_screen.dart";
 import "package:mjc_in_one/screens/admin/admin_login_screen.dart";
 import "package:mjc_in_one/screens/admin/admin_reports_screen.dart";
+import "package:mjc_in_one/screens/admin/admin_responsive.dart";
 
 /// 관리자 콘솔 진입점.
 ///
@@ -69,12 +70,21 @@ class _AdminShellState extends State<AdminShell> {
     final ThemeData theme = Theme.of(context);
     final ColorScheme scheme = theme.colorScheme;
     final double width = MediaQuery.sizeOf(context).width;
+    final bool isMobile = adminIsMobile(context);
     final String accountLabel = user.email ?? user.uid;
+    final Widget tabBody = IndexedStack(
+      index: _tab,
+      children: const [
+        AdminReportsScreen(),
+        AdminInquiriesScreen(),
+      ],
+    );
+
     return Scaffold(
       backgroundColor: scheme.surface,
       appBar: AppBar(
         title: Text(
-          width < 520 ? "관리자" : "MJC In One 관리자",
+          isMobile || width < 520 ? "관리자" : "MJC In One 관리자",
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
@@ -83,7 +93,7 @@ class _AdminShellState extends State<AdminShell> {
         foregroundColor: scheme.onSurface,
         elevation: 0,
         actions: [
-          if (width >= 720)
+          if (!isMobile && width >= 720)
             Tooltip(
               message: accountLabel,
               child: Padding(
@@ -124,37 +134,49 @@ class _AdminShellState extends State<AdminShell> {
           ),
         ),
       ),
-      body: Row(
-        children: [
-          NavigationRail(
-            extended: MediaQuery.sizeOf(context).width >= 900,
-            selectedIndex: _tab,
-            onDestinationSelected: (i) => setState(() => _tab = i),
-            destinations: const [
-              NavigationRailDestination(
-                icon: Icon(Icons.report_outlined),
-                selectedIcon: Icon(Icons.report),
-                label: Text("신고함"),
-              ),
-              NavigationRailDestination(
-                icon: Icon(Icons.support_agent_outlined),
-                selectedIcon: Icon(Icons.support_agent),
-                label: Text("문의함"),
-              ),
-            ],
-          ),
-          const VerticalDivider(width: 1),
-          Expanded(
-            child: IndexedStack(
-              index: _tab,
-              children: const [
-                AdminReportsScreen(),
-                AdminInquiriesScreen(),
+      body: isMobile
+          ? tabBody
+          : Row(
+              children: [
+                NavigationRail(
+                  extended: width >= 900,
+                  selectedIndex: _tab,
+                  onDestinationSelected: (i) => setState(() => _tab = i),
+                  destinations: const [
+                    NavigationRailDestination(
+                      icon: Icon(Icons.report_outlined),
+                      selectedIcon: Icon(Icons.report),
+                      label: Text("신고함"),
+                    ),
+                    NavigationRailDestination(
+                      icon: Icon(Icons.support_agent_outlined),
+                      selectedIcon: Icon(Icons.support_agent),
+                      label: Text("문의함"),
+                    ),
+                  ],
+                ),
+                const VerticalDivider(width: 1),
+                Expanded(child: tabBody),
               ],
             ),
-          ),
-        ],
-      ),
+      bottomNavigationBar: isMobile
+          ? NavigationBar(
+              selectedIndex: _tab,
+              onDestinationSelected: (i) => setState(() => _tab = i),
+              destinations: const [
+                NavigationDestination(
+                  icon: Icon(Icons.report_outlined),
+                  selectedIcon: Icon(Icons.report),
+                  label: "신고함",
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.support_agent_outlined),
+                  selectedIcon: Icon(Icons.support_agent),
+                  label: "문의함",
+                ),
+              ],
+            )
+          : null,
     );
   }
 }

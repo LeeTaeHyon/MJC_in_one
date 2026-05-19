@@ -773,8 +773,61 @@ class _CalendarGrid extends StatelessWidget {
               );
             },
           ),
+          const SizedBox(height: 6),
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 10,
+            runSpacing: 4,
+            children: [
+              for (final AcademicScheduleKind kind
+                  in AcademicScheduleVisuals.calendarLegendKinds)
+                _CalendarDotLegend(
+                  color: AcademicScheduleVisuals.of(context, kind).dotColor,
+                  label: AcademicScheduleVisuals.legendLabel(kind),
+                  textColor: scheme.onSurfaceVariant,
+                ),
+            ],
+          ),
         ],
       ),
+    );
+  }
+}
+
+class _CalendarDotLegend extends StatelessWidget {
+  const _CalendarDotLegend({
+    required this.color,
+    required this.label,
+    required this.textColor,
+  });
+
+  final Color color;
+  final String label;
+  final Color textColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 4,
+          height: 4,
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+          ),
+        ),
+        const SizedBox(width: 5),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            color: textColor,
+          ),
+        ),
+      ],
     );
   }
 }
