@@ -4,6 +4,7 @@ import "package:flutter_animate/flutter_animate.dart";
 import "package:mjc_in_one/screens/common_webview_screen.dart";
 import "package:mjc_in_one/theme/app_colors.dart";
 import "package:mjc_in_one/theme/app_theme.dart";
+import "package:mjc_in_one/utils/notice_share_text.dart";
 import "package:mjc_in_one/widgets/mjc_floating_pill_cta.dart";
 import "package:mjc_in_one/widgets/notice_body_html_view.dart";
 import "package:mjc_in_one/widgets/notice_report_sheet.dart";
@@ -93,9 +94,19 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
     );
   }
 
-  Future<void> _shareLink() async {
-    if (_url.isEmpty) return;
-    await Share.share("$_title\n$_url");
+  Future<void> _shareNotice() async {
+    final String text = buildNoticeShareText(
+      title: _title,
+      date: _date,
+      category: _category,
+      url: _url,
+      summary: _summary,
+      body: _body,
+      bodyHtml: _bodyHtml,
+      boardId: widget.boardId,
+    );
+    if (text.trim().isEmpty) return;
+    await Share.share(text);
   }
 
   Future<void> _showReportSheet() async {
@@ -201,12 +212,11 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
               widget.onToggleFavorite?.call();
             },
           ),
-          if (hasUrl)
-            IconButton(
-              tooltip: "공유",
-              icon: const Icon(Icons.share_outlined),
-              onPressed: _shareLink,
-            ),
+          IconButton(
+            tooltip: "공유",
+            icon: const Icon(Icons.share_outlined),
+            onPressed: _shareNotice,
+          ),
         ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1.0),
