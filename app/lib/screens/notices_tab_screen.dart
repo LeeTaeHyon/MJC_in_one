@@ -1,5 +1,6 @@
 import "package:flutter/material.dart";
 import "package:mjc_in_one/screens/ctl_screen.dart";
+import "package:mjc_in_one/screens/department_notices_screen.dart";
 import "package:mjc_in_one/screens/main_website_screen.dart";
 import "package:mjc_in_one/screens/mpu_screen.dart";
 
@@ -7,6 +8,7 @@ enum NoticesSubTab {
   main,
   ctl,
   mpu,
+  dept,
 }
 
 extension NoticesSubTabLabel on NoticesSubTab {
@@ -18,6 +20,8 @@ extension NoticesSubTabLabel on NoticesSubTab {
         return "교수학습";
       case NoticesSubTab.mpu:
         return "역량관리";
+      case NoticesSubTab.dept:
+        return "학과";
     }
   }
 
@@ -29,6 +33,8 @@ extension NoticesSubTabLabel on NoticesSubTab {
         return Icons.menu_book_rounded;
       case NoticesSubTab.mpu:
         return Icons.emoji_events_rounded;
+      case NoticesSubTab.dept:
+        return Icons.groups_outlined;
     }
   }
 }
@@ -85,6 +91,8 @@ class _NoticesTabScreenState extends State<NoticesTabScreen> {
         return const CtlScreen(activeInNoticesTab: true);
       case NoticesSubTab.mpu:
         return const MpuScreen(activeInNoticesTab: true);
+      case NoticesSubTab.dept:
+        return const DepartmentNoticesScreen(activeInNoticesTab: true);
     }
   }
 

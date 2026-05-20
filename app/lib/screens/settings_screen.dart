@@ -2,6 +2,7 @@ import "dart:async";
 
 import "package:flutter/material.dart";
 import "package:mjc_in_one/home_dashboard_prefs.dart";
+import "package:mjc_in_one/lab_prefs.dart";
 import "package:mjc_in_one/main_website_prefs.dart";
 import "package:mjc_in_one/notification_sources.dart";
 import "package:mjc_in_one/screens/common_webview_screen.dart";
@@ -95,6 +96,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   int _estimatedCacheBytes = 0;
   bool _clearingCache = false;
+  bool _labDepartmentNoticesEnabled = false;
 
   static const Duration _adminHiddenTapResetDelay = Duration(seconds: 2);
   int _adminHiddenTapCount = 0;
@@ -194,9 +196,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   /// 설정값 로드
   Future<void> _loadSettings() async {
+    await LabPrefs.ensureLoaded();
     final prefs = await SharedPreferences.getInstance();
     if (!mounted) return;
     setState(() {
+      _labDepartmentNoticesEnabled = LabPrefs.departmentNoticesEnabled.value;
       _allNoticesEnabled = prefs.getBool("allNoticesEnabled") ?? true;
       _keywords = prefs.getStringList("keywords") ?? [];
       final stored = prefs.getStringList(kNotificationSourcesPrefKey);
@@ -984,6 +988,42 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ],
               ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          const _SectionHeader(
+            title: "실험실",
+            icon: Icons.science_outlined,
+          ),
+          const SizedBox(height: 10),
+          _settingsCard(
+            child: SwitchListTile(
+              title: Text(
+                "학과 공지 (실험)",
+                style: _settingsItemTitleStyle(context),
+              ),
+              subtitle: Text(
+                "비공식 참고용 학과 공지 탭을 표시합니다. 일부 학과만 글이 있을 수 있습니다.",
+                style: _settingsSubtitleStyle(context),
+              ),
+              value: _labDepartmentNoticesEnabled,
+              onChanged: (bool value) async {
+                final ScaffoldMessengerState? messenger =
+                    ScaffoldMessenger.maybeOf(context);
+                final EdgeInsets snackMargin = _snackBarMargin(context);
+                await LabPrefs.setDepartmentNoticesEnabled(value);
+                if (!mounted) return;
+                setState(() => _labDepartmentNoticesEnabled = value);
+                if (value) {
+                  messenger?.showSnackBar(
+                    SnackBar(
+                      behavior: SnackBarBehavior.floating,
+                      margin: snackMargin,
+                      content: const Text("공지 탭에 「학과」 메뉴가 표시됩니다."),
+                    ),
+                  );
+                }
+              },
             ),
           ),
           const SizedBox(height: 16),

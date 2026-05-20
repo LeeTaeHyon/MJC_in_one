@@ -1,6 +1,7 @@
 import "package:firebase_auth/firebase_auth.dart";
 import "package:flutter/material.dart";
 import "package:mjc_in_one/screens/admin/admin_auth_service.dart";
+import "package:mjc_in_one/screens/admin/admin_department_posts_screen.dart";
 import "package:mjc_in_one/screens/admin/admin_inquiries_screen.dart";
 import "package:mjc_in_one/screens/admin/admin_login_screen.dart";
 import "package:mjc_in_one/screens/admin/admin_reports_screen.dart";
@@ -77,6 +78,7 @@ class _AdminShellState extends State<AdminShell> {
       children: const [
         AdminReportsScreen(),
         AdminInquiriesScreen(),
+        AdminDepartmentPostsScreen(),
       ],
     );
 
@@ -153,6 +155,11 @@ class _AdminShellState extends State<AdminShell> {
                       selectedIcon: Icon(Icons.support_agent),
                       label: Text("문의함"),
                     ),
+                    NavigationRailDestination(
+                      icon: Icon(Icons.campaign_outlined),
+                      selectedIcon: Icon(Icons.campaign),
+                      label: Text("학과 공지"),
+                    ),
                   ],
                 ),
                 const VerticalDivider(width: 1),
@@ -173,6 +180,11 @@ class _AdminShellState extends State<AdminShell> {
                   icon: Icon(Icons.support_agent_outlined),
                   selectedIcon: Icon(Icons.support_agent),
                   label: "문의함",
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.campaign_outlined),
+                  selectedIcon: Icon(Icons.campaign),
+                  label: "학과 공지",
                 ),
               ],
             )

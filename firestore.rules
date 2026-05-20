@@ -98,5 +98,19 @@ service cloud.firestore {
       allow read: if true;
       allow write: if isAdmin();
     }
+
+    // 학과 공지 (실험): 읽기 공개, 쓰기 관리자만.
+    match /community_notices/{deptSlug} {
+      allow read: if true;
+      allow write: if isAdmin();
+      match /meta/{doc} {
+        allow read: if true;
+        allow write: if isAdmin();
+      }
+      match /posts/{postId} {
+        allow read: if true;
+        allow create, update, delete: if isAdmin();
+      }
+    }
   }
 }

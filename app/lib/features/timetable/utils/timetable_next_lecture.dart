@@ -1,7 +1,7 @@
 import "package:mjc_in_one/features/timetable/models/timetable_models.dart";
 import "package:mjc_in_one/features/timetable/utils/timetable_slot_merge.dart";
 
-/// Today’s current or next class block (merged adjacent periods, local weekday).
+/// Today’s next class block that has not started yet (merged adjacent periods).
 abstract final class TimetableNextLecture {
   static TimetableSlot? nextUpcomingSlotToday(
     List<ParsedCourseOffering> enrolled,
@@ -22,23 +22,18 @@ abstract final class TimetableNextLecture {
     final List<TimetableSlot> merged =
         TimetableSlotMerge.mergeAdjacent(todayRaw);
 
-    TimetableSlot? bestOngoing;
-    int bestOngoingStart = 1 << 30;
+    // 홈 알림은 «아직 시작 전» 수업만 표시합니다. 진행 중·종료된 슬롯은 제외해
+    // 시작 시각이 지난 뒤에도 «곧 시작»이 남는 문제를 막습니다.
     TimetableSlot? bestUpcoming;
     int bestUpcomingStart = 1 << 30;
     for (final TimetableSlot s in merged) {
-      if (s.endMinute <= nowMin) continue;
-      if (s.startMinute <= nowMin) {
-        if (s.startMinute < bestOngoingStart) {
-          bestOngoingStart = s.startMinute;
-          bestOngoing = s;
-        }
-      } else if (s.startMinute < bestUpcomingStart) {
+      if (s.startMinute <= nowMin) continue;
+      if (s.startMinute < bestUpcomingStart) {
         bestUpcomingStart = s.startMinute;
         bestUpcoming = s;
       }
     }
-    return bestOngoing ?? bestUpcoming;
+    return bestUpcoming;
   }
 
   static String formatCountdownKo(int totalMinutes) {

@@ -6,6 +6,8 @@ import "package:flutter/services.dart";
 import "package:mjc_in_one/features/timetable/screens/timetable_main_screen.dart";
 import "package:mjc_in_one/screens/home_dashboard_screen.dart";
 import "package:mjc_in_one/screens/my_page_screen.dart";
+import "package:mjc_in_one/lab_prefs.dart";
+import "package:mjc_in_one/screens/notices_sub_tab_utils.dart";
 import "package:mjc_in_one/screens/notices_tab_screen.dart";
 import "package:mjc_in_one/screens/profile_setup_screen.dart";
 import "package:mjc_in_one/services/auth_service.dart";
@@ -46,9 +48,17 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       ValueNotifier<NoticesSubTab>(NoticesSubTab.main);
   StreamSubscription<User?>? _authHydrateSubscription;
 
+  void _onLabDepartmentNoticesChanged() {
+    if (!LabPrefs.departmentNoticesEnabled.value &&
+        _noticeSubTab.value == NoticesSubTab.dept) {
+      _noticeSubTab.value = NoticesSubTab.main;
+    }
+  }
+
   @override
   void initState() {
     super.initState();
+    LabPrefs.departmentNoticesEnabled.addListener(_onLabDepartmentNoticesChanged);
     _authHydrateSubscription =
         AuthService.instance.authStateChanges().listen((User? user) async {
       if (user == null) return;
@@ -281,6 +291,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
   @override
   void dispose() {
+    LabPrefs.departmentNoticesEnabled
+        .removeListener(_onLabDepartmentNoticesChanged);
     _noticeSubNavRevealTimer?.cancel();
     _authHydrateSubscription?.cancel();
     _noticeSubTab.dispose();
@@ -330,7 +342,12 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     int? myPageBookmarkTabIndex,
   }) {
     if (noticesSubTab != null) {
-      _noticeSubTab.value = noticesSubTab;
+      if (noticesSubTab == NoticesSubTab.dept &&
+          !LabPrefs.departmentNoticesEnabled.value) {
+        _noticeSubTab.value = NoticesSubTab.main;
+      } else {
+        _noticeSubTab.value = noticesSubTab;
+      }
     }
     if (index == MainNavTabIndex.mypage && myPageBookmarkTabIndex != null) {
       _myPageBookmarkTabIndex = myPageBookmarkTabIndex.clamp(0, 1);
@@ -560,65 +577,76 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         constraints: const BoxConstraints(maxWidth: 430),
         child: SizedBox(
           height: _noticeSubNavHeight,
-          child: ValueListenableBuilder<NoticesSubTab>(
-            valueListenable: _noticeSubTab,
-            builder: (context, current, _) {
-              return Material(
-                color: scheme.surface.withValues(alpha: isDark ? 0.98 : 0.96),
-                elevation: 10,
-                shadowColor: _components.noticeSubNavShadow,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(28),
-                  side: BorderSide(color: surfaceTokens.hairline, width: 1),
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: MjcDraggableSegmentPillBar(
-                  segmentCount: NoticesSubTab.values.length,
-                  selectedIndex: current.index,
-                  accentColor: subNavAccent,
-                  isDark: isDark,
-                  onSelectedIndexChanged: (int index) {
-                    _noticeSubTab.value = NoticesSubTab.values[index];
-                  },
-                  segmentBuilder: (context, index, selected, _) {
-                    final NoticesSubTab tab = NoticesSubTab.values[index];
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 8,
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            tab.icon,
-                            size: 18,
-                            color: selected
-                                ? subNavAccent
-                                : scheme.onSurfaceVariant,
+          child: ValueListenableBuilder<bool>(
+            valueListenable: LabPrefs.departmentNoticesEnabled,
+            builder: (context, labEnabled, _) {
+              final List<NoticesSubTab> visibleTabs =
+                  visibleNoticeSubTabs(labEnabled);
+              return ValueListenableBuilder<NoticesSubTab>(
+                valueListenable: _noticeSubTab,
+                builder: (context, current, __) {
+                  final int selectedIndex =
+                      visibleIndexOfNoticeSubTab(visibleTabs, current);
+                  return Material(
+                    color:
+                        scheme.surface.withValues(alpha: isDark ? 0.98 : 0.96),
+                    elevation: 10,
+                    shadowColor: _components.noticeSubNavShadow,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(28),
+                      side: BorderSide(color: surfaceTokens.hairline, width: 1),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: MjcDraggableSegmentPillBar(
+                      segmentCount: visibleTabs.length,
+                      selectedIndex: selectedIndex,
+                      accentColor: subNavAccent,
+                      isDark: isDark,
+                      onSelectedIndexChanged: (int index) {
+                        _noticeSubTab.value =
+                            noticeSubTabFromVisibleIndex(visibleTabs, index);
+                      },
+                      segmentBuilder: (context, index, selected, ___) {
+                        final NoticesSubTab tab = visibleTabs[index];
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 8,
                           ),
-                          const SizedBox(width: 6),
-                          Flexible(
-                            child: Text(
-                              tab.label,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                tab.icon,
+                                size: 18,
                                 color: selected
                                     ? subNavAccent
                                     : scheme.onSurfaceVariant,
-                                fontSize: 13,
-                                fontWeight: selected
-                                    ? FontWeight.w800
-                                    : FontWeight.w700,
                               ),
-                            ),
+                              const SizedBox(width: 6),
+                              Flexible(
+                                child: Text(
+                                  tab.label,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: selected
+                                        ? subNavAccent
+                                        : scheme.onSurfaceVariant,
+                                    fontSize: 13,
+                                    fontWeight: selected
+                                        ? FontWeight.w800
+                                        : FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
+                        );
+                      },
+                    ),
+                  );
+                },
               );
             },
           ),

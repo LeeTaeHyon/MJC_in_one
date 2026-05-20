@@ -1,11 +1,11 @@
 {
-    "name": "mio_notice",
-    "short_name": "mio_notice",
+    "name": "MJC ONE",
+    "short_name": "MJC ONE",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "명지전문대학 통합 어플리케이션",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

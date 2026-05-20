@@ -3,6 +3,7 @@ import "package:firebase_core/firebase_core.dart";
 import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
 import "package:mjc_in_one/firebase_options.dart";
+import "package:mjc_in_one/lab_prefs.dart";
 import "package:mjc_in_one/notification_history_prefs.dart";
 import "package:mjc_in_one/notification_sources.dart";
 import "package:mjc_in_one/screens/admin/admin_shell.dart";
@@ -109,7 +110,7 @@ Future<void> _processAndShowNotification(RemoteMessage message) async {
   }
 }
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // 백그라운드 메시지 핸들러는 [runApp] 전에 등록해야 한다.
@@ -120,6 +121,8 @@ void main() {
   startFirebaseAppServices(
     onForegroundMessage: _processAndShowNotification,
   );
+
+  await LabPrefs.ensureLoaded();
 
   runApp(const MioNoticeApp());
 }
@@ -192,7 +195,7 @@ class _MioNoticeAppState extends State<MioNoticeApp>
               navigatorObservers: ScrollFabDebug.enabled
                   ? <NavigatorObserver>[ScrollFabDebug.navigatorObserver]
                   : const <NavigatorObserver>[],
-              title: "명지전문대학 공지",
+              title: "MJC ONE",
               theme: buildMjcTheme(),
               darkTheme: buildMjcDarkTheme(),
               themeMode: mode,

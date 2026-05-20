@@ -1,0 +1,61 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isAdmin() {
+      return request.auth != null
+        && firestore.exists(/databases/(default)/documents/admin/users)
+        && firestore.get(/databases/(default)/documents/admin/users)
+            .data.uids.hasAny([request.auth.uid]);
+    }
+
+    function isCommunityImageWrite() {
+      return isAdmin()
+        && request.resource.size < 512 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    function isAllowedAttachmentName(fileName) {
+      return fileName.matches('.*\\.pdf')
+        || fileName.matches('.*\\.PDF')
+        || fileName.matches('.*\\.hwp')
+        || fileName.matches('.*\\.HWP')
+        || fileName.matches('.*\\.hwpx')
+        || fileName.matches('.*\\.HWPX')
+        || fileName.matches('.*\\.zip')
+        || fileName.matches('.*\\.ZIP');
+    }
+
+    function isCommunityAttachmentWrite(name) {
+      return isAdmin()
+        && request.resource.size < 10 * 1024 * 1024
+        && isAllowedAttachmentName(name)
+        && (
+          request.resource.contentType == 'application/pdf'
+          || request.resource.contentType == 'application/zip'
+          || request.resource.contentType == 'application/x-zip-compressed'
+          || request.resource.contentType.matches('application/.*hwp.*')
+          || request.resource.contentType.matches('application/.*hancom.*')
+          || request.resource.contentType == 'application/octet-stream'
+        );
+    }
+
+    match /community_notices/{deptSlug}/{postId}/images/{fileName} {
+      allow read: if true;
+      allow write: if isCommunityImageWrite();
+      allow delete: if isAdmin();
+    }
+
+    match /community_notices/{deptSlug}/{postId}/attachments/{fileName} {
+      allow read: if true;
+      allow write: if isCommunityAttachmentWrite(fileName);
+      allow delete: if isAdmin();
+    }
+
+    match /community_notices/{deptSlug}/{postId}/{fileName} {
+      allow read: if true;
+      allow write: if isCommunityImageWrite();
+      allow delete: if isAdmin();
+    }
+  }
+}

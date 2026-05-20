@@ -106,7 +106,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                 Icon(Icons.shield_outlined, size: 48, color: scheme.primary),
                 const SizedBox(height: 12),
                 Text(
-                  "MJC ONEw 관리자",
+                  "MJC ONE 관리자",
                   textAlign: TextAlign.center,
                   style: theme.textTheme.titleLarge
                       ?.copyWith(fontWeight: FontWeight.w800),
