@@ -8,10 +8,13 @@ class CollapsedHeroTitle extends StatelessWidget {
     super.key,
     required this.text,
     required this.baseStyle,
+    this.icon,
   });
 
   final String text;
   final TextStyle baseStyle;
+  /// 하단 공지 서브 pill과 동일한 아이콘 ([NoticesSubTab.icon]).
+  final IconData? icon;
 
   @override
   Widget build(BuildContext context) {
@@ -22,7 +25,7 @@ class CollapsedHeroTitle extends StatelessWidget {
         ..strokeWidth = MjcAppTypography.noticeHeroCollapsedTitleStrokeWidth
         ..color = MjcAppTypography.noticeHeroCollapsedTitleStroke,
     );
-    return Stack(
+    final Widget title = Stack(
       alignment: AlignmentDirectional.centerStart,
       children: <Widget>[
         Text(
@@ -37,6 +40,29 @@ class CollapsedHeroTitle extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
           style: fill,
         ),
+      ],
+    );
+
+    if (icon == null) return title;
+
+    final double iconSize = fill.fontSize ?? 20;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: <Widget>[
+        Icon(
+          icon,
+          size: iconSize,
+          color: Colors.white,
+          shadows: const <Shadow>[
+            Shadow(
+              color: MjcAppTypography.noticeHeroCollapsedTitleStroke,
+              blurRadius: 4,
+            ),
+          ],
+        ),
+        const SizedBox(width: 8),
+        Flexible(child: title),
       ],
     );
   }

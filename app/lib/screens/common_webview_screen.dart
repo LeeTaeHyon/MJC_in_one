@@ -12,10 +12,14 @@ class CommonWebViewScreen extends StatefulWidget {
   final String url;
   final String title;
 
+  /// [onPageFinished] 이후 WebView에서 실행할 JS (예: MPU 프로그램 위치로 스크롤).
+  final String? postLoadJavaScript;
+
   const CommonWebViewScreen({
     super.key,
     required this.url,
     required this.title,
+    this.postLoadJavaScript,
   });
 
   @override
@@ -83,6 +87,7 @@ class _CommonWebViewScreenState extends State<CommonWebViewScreen> {
             _syncNavigationHistory();
             if (!kIsWeb) {
               _installWebViewScrollReporter();
+              _runPostLoadJavaScript();
             }
           },
           onWebResourceError: (WebResourceError error) {
@@ -93,6 +98,16 @@ class _CommonWebViewScreenState extends State<CommonWebViewScreen> {
       ..loadRequest(Uri.parse(widget.url));
 
     _controller = controller;
+  }
+
+  Future<void> _runPostLoadJavaScript() async {
+    final String? script = widget.postLoadJavaScript?.trim();
+    if (script == null || script.isEmpty) return;
+    try {
+      await _controller.runJavaScript(script);
+    } catch (e) {
+      debugPrint("common webview postLoadJavaScript: $e");
+    }
   }
 
   Future<void> _installWebViewScrollReporter() async {

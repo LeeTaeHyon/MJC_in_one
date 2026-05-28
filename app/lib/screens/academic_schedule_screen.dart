@@ -9,6 +9,9 @@ import "package:mjc_in_one/theme/app_colors.dart";
 import "package:shared_preferences/shared_preferences.dart";
 import "package:url_launcher/url_launcher.dart";
 
+const Color _kScheduleSectionTitleLight = Color(0xFF374151);
+const Color _kScheduleSectionTitleDark = Color(0xFFF5F5F5);
+
 class AcademicScheduleScreen extends StatefulWidget {
   const AcademicScheduleScreen({super.key});
 
@@ -164,23 +167,21 @@ class _AcademicScheduleScreenState extends State<AcademicScheduleScreen> {
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
               children: [
                 if (semesters.isNotEmpty) ...[
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: SegmentedButton<String>(
-                      segments: semesters
-                          .map(
-                            (semester) => ButtonSegment<String>(
-                              value: semester,
-                              label: Text(semester),
-                            ),
-                          )
-                          .toList(),
-                      selected: {selected!},
-                      onSelectionChanged: (Set<String> value) {
-                        if (value.isEmpty) return;
-                        setState(() => _selectedSemester = value.first);
-                      },
-                    ),
+                  SegmentedButton<String>(
+                    expandedInsets: EdgeInsets.zero,
+                    segments: semesters
+                        .map(
+                          (semester) => ButtonSegment<String>(
+                            value: semester,
+                            label: Text(semester),
+                          ),
+                        )
+                        .toList(),
+                    selected: {selected!},
+                    onSelectionChanged: (Set<String> value) {
+                      if (value.isEmpty) return;
+                      setState(() => _selectedSemester = value.first);
+                    },
                   ),
                   const SizedBox(height: 16),
                 ],
@@ -246,6 +247,9 @@ class _MonthHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color sectionTitleColor =
+        isDark ? _kScheduleSectionTitleDark : _kScheduleSectionTitleLight;
     final RegExpMatch? m =
         RegExp(r"^(\d{4})-(\d{2})$").firstMatch(yearMonth);
     final String label = m == null
@@ -253,10 +257,10 @@ class _MonthHeader extends StatelessWidget {
         : "${m.group(1)}년 ${int.parse(m.group(2)!)}월";
     return Text(
       label,
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 18,
         fontWeight: FontWeight.w900,
-        color: AppColors.primary,
+        color: sectionTitleColor,
       ),
     );
   }
@@ -398,6 +402,10 @@ class _CalendarView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color sectionTitleColor =
+        isDark ? _kScheduleSectionTitleDark : _kScheduleSectionTitleLight;
+
     final List<({DateTime start, DateTime end, Map<String, dynamic> item})>
         ranges = [];
     for (final Map<String, dynamic> item in items) {
@@ -438,14 +446,11 @@ class _CalendarView extends StatelessWidget {
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
       children: [
-        _CalendarGrid(
+        _SwipeableCalendarGrid(
           focusedMonth: focused,
           selectedDate: selectedDate,
           ranges: ranges,
-          onPrev: () =>
-              onMonthChanged(DateTime(focused.year, focused.month - 1)),
-          onNext: () =>
-              onMonthChanged(DateTime(focused.year, focused.month + 1)),
+          onMonthChanged: onMonthChanged,
           onDateTap: (date) {
             if (selectedDate != null && _dateOnly(selectedDate!) == date) {
               onDateSelected(null);
@@ -461,10 +466,10 @@ class _CalendarView extends StatelessWidget {
               Text(
                 "${selectedDate!.year}년 "
                 "${selectedDate!.month}월 ${selectedDate!.day}일",
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w900,
-                  color: AppColors.primary,
+                  color: sectionTitleColor,
                 ),
               ),
               const Spacer(),
@@ -508,10 +513,10 @@ class _CalendarView extends StatelessWidget {
             children: [
               Text(
                 "${focused.year}년 ${focused.month}월 일정",
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w900,
-                  color: AppColors.primary,
+                  color: sectionTitleColor,
                 ),
               ),
               const Spacer(),
@@ -556,13 +561,12 @@ class _CalendarView extends StatelessWidget {
   }
 }
 
-class _CalendarGrid extends StatelessWidget {
-  const _CalendarGrid({
+class _SwipeableCalendarGrid extends StatefulWidget {
+  const _SwipeableCalendarGrid({
     required this.focusedMonth,
     required this.selectedDate,
     required this.ranges,
-    required this.onPrev,
-    required this.onNext,
+    required this.onMonthChanged,
     required this.onDateTap,
   });
 
@@ -570,9 +574,211 @@ class _CalendarGrid extends StatelessWidget {
   final DateTime? selectedDate;
   final List<({DateTime start, DateTime end, Map<String, dynamic> item})>
       ranges;
-  final VoidCallback onPrev;
-  final VoidCallback onNext;
+  final ValueChanged<DateTime> onMonthChanged;
   final ValueChanged<DateTime> onDateTap;
+
+  @override
+  State<_SwipeableCalendarGrid> createState() => _SwipeableCalendarGridState();
+}
+
+class _SwipeableCalendarGridState extends State<_SwipeableCalendarGrid> {
+  static const int _initialPage = 12000;
+  static const Duration _pageAnimDuration = Duration(milliseconds: 280);
+  static const Curve _pageAnimCurve = Curves.easeOutCubic;
+  static const double _gridAspectRatio = 0.85;
+  static const int _maxWeekRows = 6;
+
+  late final PageController _pageController;
+  late final DateTime _baseMonth;
+
+  @override
+  void initState() {
+    super.initState();
+    _baseMonth =
+        DateTime(widget.focusedMonth.year, widget.focusedMonth.month);
+    _pageController = PageController(initialPage: _initialPage);
+  }
+
+  @override
+  void didUpdateWidget(covariant _SwipeableCalendarGrid oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final DateTime oldMonth =
+        DateTime(oldWidget.focusedMonth.year, oldWidget.focusedMonth.month);
+    final DateTime nextMonth =
+        DateTime(widget.focusedMonth.year, widget.focusedMonth.month);
+    if (oldMonth == nextMonth) return;
+
+    final int currentPage = _pageController.hasClients
+        ? (_pageController.page?.round() ?? _initialPage)
+        : _initialPage;
+    final DateTime displayedMonth = _monthAt(currentPage);
+    if (displayedMonth.year == nextMonth.year &&
+        displayedMonth.month == nextMonth.month) {
+      return;
+    }
+
+    final int targetPage = _initialPage + _monthOffset(nextMonth);
+    if (_pageController.hasClients) {
+      _pageController.jumpToPage(targetPage);
+    }
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  int _monthOffset(DateTime month) {
+    return (month.year - _baseMonth.year) * 12 +
+        (month.month - _baseMonth.month);
+  }
+
+  DateTime _monthAt(int page) {
+    return DateTime(_baseMonth.year, _baseMonth.month + (page - _initialPage));
+  }
+
+  double _pageHeight(double width) {
+    const double weekdayRowHeight = 30;
+    final double cellWidth = width / 7;
+    final double cellHeight = cellWidth / _gridAspectRatio;
+    return weekdayRowHeight + _maxWeekRows * cellHeight;
+  }
+
+  void _goToPreviousMonth() {
+    _pageController.previousPage(
+      duration: _pageAnimDuration,
+      curve: _pageAnimCurve,
+    );
+  }
+
+  void _goToNextMonth() {
+    _pageController.nextPage(
+      duration: _pageAnimDuration,
+      curve: _pageAnimCurve,
+    );
+  }
+
+  void _handlePageChanged(int page) {
+    widget.onMonthChanged(_monthAt(page));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.40 : 0.08),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 14),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final double pageHeight = _pageHeight(constraints.maxWidth);
+          return Column(
+            children: [
+              SizedBox(
+                height: 48,
+                child: Row(
+                  children: [
+                    IconButton(
+                      onPressed: _goToPreviousMonth,
+                      icon: const Icon(Icons.chevron_left_rounded),
+                      tooltip: "이전 달",
+                    ),
+                    Expanded(
+                      child: AnimatedBuilder(
+                        animation: _pageController,
+                        builder: (context, _) {
+                          final double page = _pageController.hasClients
+                              ? (_pageController.page ??
+                                  _initialPage.toDouble())
+                              : _initialPage.toDouble();
+                          final DateTime month = _monthAt(page.round());
+                          return Text(
+                            "${month.year}년 ${month.month}월",
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: _goToNextMonth,
+                      icon: const Icon(Icons.chevron_right_rounded),
+                      tooltip: "다음 달",
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(
+                height: pageHeight,
+                child: PageView.builder(
+                  controller: _pageController,
+                  onPageChanged: _handlePageChanged,
+                  itemBuilder: (context, index) {
+                    return _CalendarMonthPage(
+                      focusedMonth: _monthAt(index),
+                      selectedDate: widget.selectedDate,
+                      ranges: widget.ranges,
+                      onDateTap: widget.onDateTap,
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 6),
+              Wrap(
+                alignment: WrapAlignment.center,
+                spacing: 10,
+                runSpacing: 4,
+                children: [
+                  for (final AcademicScheduleKind kind
+                      in AcademicScheduleVisuals.calendarLegendKinds)
+                    _CalendarDotLegend(
+                      color: AcademicScheduleVisuals.of(context, kind).dotColor,
+                      label: AcademicScheduleVisuals.legendLabel(kind),
+                      textColor: scheme.onSurfaceVariant,
+                    ),
+                ],
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _CalendarMonthPage extends StatelessWidget {
+  const _CalendarMonthPage({
+    required this.focusedMonth,
+    required this.selectedDate,
+    required this.ranges,
+    required this.onDateTap,
+  });
+
+  final DateTime focusedMonth;
+  final DateTime? selectedDate;
+  final List<({DateTime start, DateTime end, Map<String, dynamic> item})>
+      ranges;
+  final ValueChanged<DateTime> onDateTap;
+
+  static const List<String> _dayLabels = ["일", "월", "화", "수", "목", "금", "토"];
+  static const double _gridAspectRatio = 0.85;
+  static const int _maxWeekRows = 6;
 
   AcademicScheduleKind _kindOf(Map<String, dynamic> item) =>
       AcademicScheduleClassifier.kindOf(item);
@@ -580,218 +786,175 @@ class _CalendarGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ColorScheme scheme = Theme.of(context).colorScheme;
-    final bool isDark = Theme.of(context).brightness == Brightness.dark;
 
     final DateTime first = focusedMonth;
     final int leadingBlanks = first.weekday % 7; // Sunday=0
     final int daysInMonth =
         DateTime(focusedMonth.year, focusedMonth.month + 1, 0).day;
-    final int totalCells =
-        ((leadingBlanks + daysInMonth) / 7).ceil() * 7;
+    final int totalCells = _maxWeekRows * 7;
     final DateTime today = _CalendarView._dateOnly(DateTime.now());
     final DateTime? selDay =
         selectedDate == null ? null : _CalendarView._dateOnly(selectedDate!);
 
-    const List<String> dayLabels = ["일", "월", "화", "수", "목", "금", "토"];
-
-    return Container(
-      decoration: BoxDecoration(
-        color: scheme.surface,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color:
-                Colors.black.withValues(alpha: isDark ? 0.40 : 0.08),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 14),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              IconButton(
-                onPressed: onPrev,
-                icon: const Icon(Icons.chevron_left_rounded),
-                tooltip: "이전 달",
-              ),
-              Expanded(
-                child: Center(
-                  child: Text(
-                    "${focusedMonth.year}년 ${focusedMonth.month}월",
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                ),
-              ),
-              IconButton(
-                onPressed: onNext,
-                icon: const Icon(Icons.chevron_right_rounded),
-                tooltip: "다음 달",
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Row(
-            children: List<Widget>.generate(7, (i) {
-              final Color color = i == 0
-                  ? Colors.redAccent
-                  : (i == 6 ? AppColors.primary : scheme.onSurfaceVariant);
-              return Expanded(
-                child: Center(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 6),
-                    child: Text(
-                      dayLabels[i],
-                      style: TextStyle(
-                        color: color,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            }),
-          ),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: totalCells,
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 7,
-              childAspectRatio: 0.85,
-            ),
-            itemBuilder: (context, index) {
-              final int dayNum = index - leadingBlanks + 1;
-              if (dayNum < 1 || dayNum > daysInMonth) {
-                return const SizedBox.shrink();
-              }
-              final DateTime date =
-                  DateTime(focusedMonth.year, focusedMonth.month, dayNum);
-              final List<({DateTime start, DateTime end, Map<String, dynamic> item})>
-                  hits = ranges
-                      .where((r) =>
-                          !date.isBefore(r.start) && !date.isAfter(r.end))
-                      .toList();
-              final bool hasEvent = hits.isNotEmpty;
-              final bool isSelected = selDay != null && selDay == date;
-              final List<Map<String, dynamic>> hitItems =
-                  hits.map((h) => h.item).toList();
-              final List<AcademicScheduleKind> kinds = hitItems
-                  .map(_kindOf)
-                  .toList()
-                ..sort((a, b) => AcademicScheduleVisuals.priority(a)
-                    .compareTo(AcademicScheduleVisuals.priority(b)));
-
-              final List<AcademicScheduleKind> uniqueKinds = <AcademicScheduleKind>[];
-              for (final k in kinds) {
-                if (!uniqueKinds.contains(k)) uniqueKinds.add(k);
-                if (uniqueKinds.length >= 3) break;
-              }
-
-              final bool hasImportant =
-                  uniqueKinds.any(AcademicScheduleVisuals.isImportant);
-              final List<Color> dotColors = uniqueKinds.map((k) {
-                if (isSelected) return Colors.white;
-                return AcademicScheduleVisuals.of(context, k).dotColor;
-              }).toList();
-              final bool isToday = date == today;
-              final int weekday = index % 7;
-              final Color textColor = isSelected
-                  ? Colors.white
-                  : (weekday == 0
-                      ? Colors.redAccent
-                      : (weekday == 6
-                          ? AppColors.primary
-                          : scheme.onSurface));
-              return InkWell(
-                onTap: () => onDateTap(date),
-                borderRadius: BorderRadius.circular(10),
+    return Column(
+      children: [
+        Row(
+          children: List<Widget>.generate(7, (i) {
+            final Color color = i == 0
+                ? Colors.redAccent
+                : (i == 6 ? AppColors.primary : scheme.onSurfaceVariant);
+            return Expanded(
+              child: Center(
                 child: Padding(
-                  padding: const EdgeInsets.all(2),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? AppColors.primary
-                          : (hasEvent
-                              ? AcademicScheduleVisuals.calendarDayBackground(
-                                  context: context,
-                                  hasEvent: hasEvent,
-                                  hasImportant: hasImportant,
-                                )
-                              : Colors.transparent),
-                      borderRadius: BorderRadius.circular(10),
-                      border: isToday && !isSelected
-                          ? Border.all(
-                              color: AppColors.primary.withValues(alpha: 0.55),
-                              width: 1.2,
-                            )
-                          : null,
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Text(
+                    _dayLabels[i],
+                    style: TextStyle(
+                      color: color,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 12,
                     ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          "$dayNum",
-                          style: TextStyle(
-                            color: textColor,
-                            fontWeight: hasEvent || isSelected || isToday
-                                ? FontWeight.w800
-                                : FontWeight.w600,
-                            fontSize: 13,
-                          ),
+                  ),
+                ),
+              ),
+            );
+          }),
+        ),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final double cellWidth = constraints.maxWidth / 7;
+            final double cellHeight = cellWidth / _gridAspectRatio;
+            return SizedBox(
+              height: _maxWeekRows * cellHeight,
+              child: GridView.builder(
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: totalCells,
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 7,
+                  childAspectRatio: _gridAspectRatio,
+                ),
+                itemBuilder: (context, index) {
+                  final int dayNum = index - leadingBlanks + 1;
+                  if (dayNum < 1 || dayNum > daysInMonth) {
+                    return const SizedBox.shrink();
+                  }
+                  final DateTime date =
+                      DateTime(focusedMonth.year, focusedMonth.month, dayNum);
+                  final List<
+                          ({
+                            DateTime start,
+                            DateTime end,
+                            Map<String, dynamic> item
+                          })>
+                      hits = ranges
+                          .where((r) =>
+                              !date.isBefore(r.start) && !date.isAfter(r.end))
+                          .toList();
+                  final bool hasEvent = hits.isNotEmpty;
+                  final bool isSelected = selDay != null && selDay == date;
+                  final List<Map<String, dynamic>> hitItems =
+                      hits.map((h) => h.item).toList();
+                  final List<AcademicScheduleKind> kinds = hitItems
+                      .map(_kindOf)
+                      .toList()
+                    ..sort((a, b) => AcademicScheduleVisuals.priority(a)
+                        .compareTo(AcademicScheduleVisuals.priority(b)));
+
+                  final List<AcademicScheduleKind> uniqueKinds =
+                      <AcademicScheduleKind>[];
+                  for (final k in kinds) {
+                    if (!uniqueKinds.contains(k)) uniqueKinds.add(k);
+                    if (uniqueKinds.length >= 3) break;
+                  }
+
+                  final bool hasImportant =
+                      uniqueKinds.any(AcademicScheduleVisuals.isImportant);
+                  final List<Color> dotColors = uniqueKinds.map((k) {
+                    if (isSelected) return Colors.white;
+                    return AcademicScheduleVisuals.of(context, k).dotColor;
+                  }).toList();
+                  final bool isToday = date == today;
+                  final int weekday = index % 7;
+                  final Color textColor = isSelected
+                      ? Colors.white
+                      : (weekday == 0
+                          ? Colors.redAccent
+                          : (weekday == 6
+                              ? AppColors.primary
+                              : scheme.onSurface));
+                  return InkWell(
+                    onTap: () => onDateTap(date),
+                    borderRadius: BorderRadius.circular(10),
+                    child: Padding(
+                      padding: const EdgeInsets.all(2),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? AppColors.primary
+                              : (hasEvent
+                                  ? AcademicScheduleVisuals
+                                      .calendarDayBackground(
+                                      context: context,
+                                      hasEvent: hasEvent,
+                                      hasImportant: hasImportant,
+                                    )
+                                  : Colors.transparent),
+                          borderRadius: BorderRadius.circular(10),
+                          border: isToday && !isSelected
+                              ? Border.all(
+                                  color: AppColors.primary
+                                      .withValues(alpha: 0.55),
+                                  width: 1.2,
+                                )
+                              : null,
                         ),
-                        const SizedBox(height: 3),
-                        if (hasEvent)
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: List<Widget>.generate(
-                              dotColors.length.clamp(1, 3),
-                              (i) => Padding(
-                                padding: EdgeInsets.only(
-                                    left: i == 0 ? 0 : 3),
-                                child: Container(
-                                  width: 4,
-                                  height: 4,
-                                  decoration: BoxDecoration(
-                                    color: dotColors[i],
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              "$dayNum",
+                              style: TextStyle(
+                                color: textColor,
+                                fontWeight:
+                                    hasEvent || isSelected || isToday
+                                        ? FontWeight.w800
+                                        : FontWeight.w600,
+                                fontSize: 13,
                               ),
                             ),
-                          )
-                        else
-                          const SizedBox(height: 4),
-                      ],
+                            const SizedBox(height: 3),
+                            if (hasEvent)
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: List<Widget>.generate(
+                                  dotColors.length.clamp(1, 3),
+                                  (i) => Padding(
+                                    padding: EdgeInsets.only(
+                                        left: i == 0 ? 0 : 3),
+                                    child: Container(
+                                      width: 4,
+                                      height: 4,
+                                      decoration: BoxDecoration(
+                                        color: dotColors[i],
+                                        shape: BoxShape.circle,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              )
+                            else
+                              const SizedBox(height: 4),
+                          ],
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-              );
-            },
-          ),
-          const SizedBox(height: 6),
-          Wrap(
-            alignment: WrapAlignment.center,
-            spacing: 10,
-            runSpacing: 4,
-            children: [
-              for (final AcademicScheduleKind kind
-                  in AcademicScheduleVisuals.calendarLegendKinds)
-                _CalendarDotLegend(
-                  color: AcademicScheduleVisuals.of(context, kind).dotColor,
-                  label: AcademicScheduleVisuals.legendLabel(kind),
-                  textColor: scheme.onSurfaceVariant,
-                ),
-            ],
-          ),
-        ],
-      ),
+                  );
+                },
+              ),
+            );
+          },
+        ),
+      ],
     );
   }
 }

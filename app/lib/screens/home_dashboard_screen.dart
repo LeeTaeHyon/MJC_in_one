@@ -23,6 +23,8 @@ import "package:mjc_in_one/services/mpu_service.dart";
 import "package:mjc_in_one/theme/app_colors.dart";
 import "package:mjc_in_one/theme/app_theme.dart";
 import "package:mjc_in_one/utils/live_clock.dart";
+import "package:mjc_in_one/utils/mjc_dialog.dart";
+import "package:mjc_in_one/utils/mjc_snack_bar.dart";
 import "package:mjc_in_one/utils/mpu_program_dday.dart";
 import "package:mjc_in_one/widgets/home_lecture_reminder_card.dart";
 import "package:mjc_in_one/widgets/scroll_to_top_scope.dart";
@@ -62,6 +64,7 @@ const double _kPinnedBrandRowContentHeight = _kPinnedBrandVerticalInset +
 const Color _kHomeDarkTitleText = Color(0xFFF5F5F5);
 const Color _kHomeDarkBodyText = Color(0xFFD4D4D4);
 const Color _kHomeDarkMoreText = Color(0xFFA3A3A3);
+const Color _kHomeLightMoreText = Color(0xFF9CA3AF);
 
 class HomeDashboardScreen extends StatefulWidget {
   final void Function(int, {NoticesSubTab? noticesSubTab}) onNavigate;
@@ -181,9 +184,11 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
     return Theme.of(context).colorScheme.onSurfaceVariant;
   }
 
-  ButtonStyle? _homeMoreButtonStyle(BuildContext context) {
-    if (Theme.of(context).brightness != Brightness.dark) return null;
-    return TextButton.styleFrom(foregroundColor: _kHomeDarkMoreText);
+  ButtonStyle _homeMoreButtonStyle(BuildContext context) {
+    final Color color = Theme.of(context).brightness == Brightness.dark
+        ? _kHomeDarkMoreText
+        : _kHomeLightMoreText;
+    return TextButton.styleFrom(foregroundColor: color);
   }
 
   List<HomeDashboardSection> _orderedEnabledSections() {
@@ -952,6 +957,8 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
     final MjcSurfaceTokens tokens =
         Theme.of(context).extension<MjcSurfaceTokens>()!;
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color foodAccent = tokens.foodAccent;
+    final Color foodTint = foodAccent.withValues(alpha: isDark ? 0.22 : 0.12);
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
       child: FutureBuilder<List<FoodcourtMenuItem>>(
@@ -965,90 +972,76 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
             elevation: 1.5,
             shadowColor: Colors.black.withValues(alpha: isDark ? 0.45 : 0.12),
             borderRadius: BorderRadius.circular(16),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 48,
-                        height: 48,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFF7043)
-                              .withValues(alpha: isDark ? 0.22 : 0.12),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: Icon(
-                          Icons.ramen_dining_rounded,
-                          color: tokens.foodAccent,
-                        ),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: _openFoodcourtMenuScreen,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: foodTint,
+                        borderRadius: BorderRadius.circular(14),
                       ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              "오늘의 학식",
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                                color: _homeBodyTextColor(context),
-                              ),
+                      child: Icon(
+                        Icons.ramen_dining_rounded,
+                        color: foodAccent,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "오늘의 학식",
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: _homeBodyTextColor(context),
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              loading
-                                  ? "메뉴 불러오는 중"
-                                  : "메뉴가 고민되시나요?",
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w700,
-                                height: 1.2,
-                                color: _homeTitleTextColor(context),
-                              ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            "오늘 뭐 먹지?",
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              height: 1.2,
+                              color: _homeTitleTextColor(context),
                             ),
-                          ],
-                        ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            loading ? "메뉴 불러오는 중" : "랜덤 메뉴 추천받기",
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: _homeBodyTextColor(context),
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: FilledButton.icon(
-                          onPressed: loading
-                              ? null
-                              : () => _recommendFoodcourtMenu(items),
-                          icon: const Icon(Icons.casino_rounded),
-                          label: const Text("오늘 뭐 먹지?"),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: _openFoodcourtMenuScreen,
-                          style: isDark
-                              ? OutlinedButton.styleFrom(
-                                  foregroundColor: AppColors.switchActiveDark,
-                                  side: BorderSide(
-                                    color: AppColors.switchActiveDark
-                                        .withValues(alpha: 0.55),
-                                  ),
-                                )
-                              : null,
-                          icon: const Icon(Icons.restaurant_menu_rounded),
-                          label: const Text("전체 메뉴"),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+                    ),
+                    const SizedBox(width: 8),
+                    _FoodcourtDiceButton(
+                      foodAccent: foodAccent,
+                      foodTint: foodTint,
+                      enabled: !loading,
+                      onTap: () => _recommendFoodcourtMenu(items),
+                    ),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      color: scheme.onSurfaceVariant.withValues(alpha: 0.72),
+                    ),
+                  ],
+                ),
               ),
             ),
           );
@@ -1059,19 +1052,13 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
 
   void _recommendFoodcourtMenu(List<FoodcourtMenuItem> items) {
     if (items.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("추천할 학식 메뉴가 없습니다.")),
-      );
+      showMjcSnackBar(context, message: "추천할 학식 메뉴가 없습니다.");
       return;
     }
-    showDialog<void>(
-      context: context,
-      builder: (context) {
-        return _FoodcourtSlotMachineDialog(
-          items: items,
-          random: _foodRandom,
-        );
-      },
+    showMjcFoodcourtRecommendDialog(
+      context,
+      items: items,
+      random: _foodRandom,
     );
   }
 
@@ -1603,166 +1590,123 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
   }
 }
 
-class _FoodcourtSlotMachineDialog extends StatefulWidget {
-  const _FoodcourtSlotMachineDialog({
-    required this.items,
-    required this.random,
+class _FoodcourtDiceButton extends StatefulWidget {
+  const _FoodcourtDiceButton({
+    required this.onTap,
+    required this.foodAccent,
+    required this.foodTint,
+    this.enabled = true,
   });
 
-  final List<FoodcourtMenuItem> items;
-  final Random random;
+  final VoidCallback? onTap;
+  final Color foodAccent;
+  final Color foodTint;
+  final bool enabled;
 
   @override
-  State<_FoodcourtSlotMachineDialog> createState() =>
-      _FoodcourtSlotMachineDialogState();
+  State<_FoodcourtDiceButton> createState() => _FoodcourtDiceButtonState();
 }
 
-class _FoodcourtSlotMachineDialogState
-    extends State<_FoodcourtSlotMachineDialog> {
-  Timer? _timer;
-  late FoodcourtMenuItem _currentItem;
-  bool _spinning = false;
-  int _tick = 0;
+class _FoodcourtDiceButtonState extends State<_FoodcourtDiceButton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _wiggleController;
+  late final Animation<double> _wiggle;
+  Timer? _idleTimer;
 
   @override
   void initState() {
     super.initState();
-    _currentItem = _pickRandom();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _startSpin();
+    _wiggleController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    );
+    _wiggle = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 0, end: -0.15), weight: 1),
+      TweenSequenceItem(tween: Tween(begin: -0.15, end: 0.15), weight: 2),
+      TweenSequenceItem(tween: Tween(begin: 0.15, end: 0), weight: 1),
+    ]).animate(CurvedAnimation(
+      parent: _wiggleController,
+      curve: Curves.easeInOut,
+    ));
+
+    if (widget.enabled) {
+      _startIdleAnimation();
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _FoodcourtDiceButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.enabled && !oldWidget.enabled) {
+      _startIdleAnimation();
+    } else if (!widget.enabled && oldWidget.enabled) {
+      _idleTimer?.cancel();
+    }
+  }
+
+  void _startIdleAnimation() {
+    _idleTimer?.cancel();
+    _idleTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+      if (!mounted || !widget.enabled) return;
+      _wiggleController.forward(from: 0);
+    });
+    Future<void>.delayed(const Duration(milliseconds: 800), () {
+      if (mounted && widget.enabled) {
+        _wiggleController.forward(from: 0);
+      }
     });
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
+    _idleTimer?.cancel();
+    _wiggleController.dispose();
     super.dispose();
   }
 
-  FoodcourtMenuItem _pickRandom() {
-    return widget.items[widget.random.nextInt(widget.items.length)];
-  }
-
-  void _startSpin() {
-    if (_spinning) return;
-    _timer?.cancel();
-    setState(() {
-      _spinning = true;
-      _tick = 0;
-    });
-
-    _timer = Timer.periodic(const Duration(milliseconds: 55), (timer) {
-      if (!mounted) {
-        timer.cancel();
-        return;
-      }
-
-      final int nextTick = _tick + 1;
-      final bool done = nextTick >= 12;
-      setState(() {
-        _tick = nextTick;
-        _currentItem = _pickRandom();
-        _spinning = !done;
-      });
-
-      if (done) timer.cancel();
-    });
+  void _handleTap() {
+    if (widget.onTap == null) return;
+    _wiggleController.forward(from: 0);
+    widget.onTap!();
   }
 
   @override
   Widget build(BuildContext context) {
-    final ColorScheme scheme = Theme.of(context).colorScheme;
-    final MjcSurfaceTokens tokens =
-        Theme.of(context).extension<MjcSurfaceTokens>()!;
-    final bool isDark = Theme.of(context).brightness == Brightness.dark;
-    return AlertDialog(
-      title: Text(
-        "오늘 뭐 먹지?",
-        style: TextStyle(
-          color: isDark ? _kHomeDarkTitleText : scheme.onSurface,
-        ),
-      ),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: widget.enabled ? _handleTap : null,
+        child: AnimatedBuilder(
+          animation: _wiggle,
+          builder: (context, child) {
+            return Transform.rotate(
+              angle: _wiggle.value,
+              child: child,
+            );
+          },
+          child: Container(
+            width: 48,
+            height: 48,
+            padding: const EdgeInsets.all(5),
             decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: isDark ? 0.18 : 0.08),
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(
-                color: tokens.cardBorder,
+              shape: BoxShape.circle,
+              color: widget.foodTint,
+            ),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: widget.foodAccent,
+              ),
+              child: const Icon(
+                Icons.casino_rounded,
+                color: Colors.white,
+                size: 22,
               ),
             ),
-            child: Column(
-              children: [
-                Text(
-                  _spinning ? "두구두구..." : "오늘은 이거 어때요?",
-                  style: TextStyle(
-                    color: isDark ? _kHomeDarkBodyText : scheme.onSurfaceVariant,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 90),
-                  transitionBuilder: (child, animation) {
-                    final Animation<Offset> offset = Tween<Offset>(
-                      begin: const Offset(0, 0.45),
-                      end: Offset.zero,
-                    ).animate(animation);
-                    return ClipRect(
-                      child: SlideTransition(
-                        position: offset,
-                        child: FadeTransition(opacity: animation, child: child),
-                      ),
-                    );
-                  },
-                  child: Text(
-                    _currentItem.menu,
-                    key: ValueKey("${_currentItem.shop}-${_currentItem.menu}"),
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w900,
-                      height: 1.15,
-                      color: isDark ? _kHomeDarkTitleText : scheme.onSurface,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                AnimatedOpacity(
-                  opacity: _spinning ? 0.35 : 1,
-                  duration: const Duration(milliseconds: 180),
-                  child: Text(
-                    "${_currentItem.shop} • ${_currentItem.formattedPrice}",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: isDark ? _kHomeDarkBodyText : scheme.onSurfaceVariant,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ],
-            ),
           ),
-        ],
+        ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text("닫기"),
-        ),
-        FilledButton.icon(
-          onPressed: _spinning ? null : _startSpin,
-          icon: const Icon(Icons.casino_rounded),
-          label: Text(_spinning ? "고르는 중" : "또 뭐먹지"),
-        ),
-      ],
     );
   }
 }

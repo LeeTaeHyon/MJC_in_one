@@ -498,7 +498,7 @@ class _DepartmentCollapsingHeaderDelegate
                   const double titleLeft = 24;
                   final double collapsedTitleTop = (ih - titleSize * 1.15) / 2;
                   final double titleReveal =
-                      ((u - 0.70) / 0.30).clamp(0.0, 1.0);
+                      ((t - 0.92) / 0.08).clamp(0.0, 1.0);
                   final double titleOpacity =
                       Curves.easeOutCubic.transform(titleReveal);
                   return Stack(
@@ -513,7 +513,8 @@ class _DepartmentCollapsingHeaderDelegate
                           child: Opacity(
                             opacity: titleOpacity,
                             child: CollapsedHeroTitle(
-                              text: "학과 공지",
+                              icon: Icons.groups_outlined,
+                              text: "학과 공지사항",
                               baseStyle: Theme.of(context)
                                   .extension<MjcTextTokens>()!
                                   .appBarTitle,

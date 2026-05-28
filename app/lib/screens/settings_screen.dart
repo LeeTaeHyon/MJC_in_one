@@ -3,19 +3,21 @@ import "dart:async";
 import "package:flutter/material.dart";
 import "package:mjc_in_one/home_dashboard_prefs.dart";
 import "package:mjc_in_one/lab_prefs.dart";
+import "package:mjc_in_one/lecture_reminder_notification_prefs.dart";
 import "package:mjc_in_one/main_website_prefs.dart";
 import "package:mjc_in_one/notification_sources.dart";
 import "package:mjc_in_one/screens/common_webview_screen.dart";
 import "package:mjc_in_one/screens/inquiry_screen.dart";
 import "package:mjc_in_one/screens/keyword_notification_settings_screen.dart";
 import "package:mjc_in_one/screens/open_source_licenses_screen.dart";
+import "package:mjc_in_one/screens/phone_permissions_screen.dart";
 import "package:mjc_in_one/services/app_cache_service.dart";
+import "package:mjc_in_one/services/lecture_reminder_notification_service.dart";
 import "package:mjc_in_one/services/app_config_service.dart";
 import "package:mjc_in_one/services/notice_filter.dart";
 import "package:mjc_in_one/services/user_data_repository.dart";
 import "package:mjc_in_one/theme/theme_mode_scope.dart";
 import "package:mjc_in_one/utils/mjc_snack_bar.dart";
-import "package:mjc_in_one/utils/snack_bar_utils.dart";
 import "package:mjc_in_one/widgets/safe_tooltip.dart";
 import "package:mjc_in_one/widgets/scroll_to_top_fab.dart";
 import "package:mjc_in_one/widgets/scroll_to_top_scope.dart";
@@ -83,6 +85,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String _privacyPolicyUrl = _privacyPolicyUrlFallback;
 
   bool _allNoticesEnabled = true;
+  bool _lectureReminderNotificationEnabled = false;
   List<String> _keywords = [];
   List<String> _enabledSources = List<String>.from(kNotificationSourceIds);
   Set<String> _homeDashboardEnabledSections =
@@ -202,6 +205,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() {
       _labDepartmentNoticesEnabled = LabPrefs.departmentNoticesEnabled.value;
       _allNoticesEnabled = prefs.getBool("allNoticesEnabled") ?? true;
+      _lectureReminderNotificationEnabled =
+          prefs.getBool(kLectureReminderNotificationEnabledPrefKey) ?? false;
       _keywords = prefs.getStringList("keywords") ?? [];
       final stored = prefs.getStringList(kNotificationSourcesPrefKey);
       if (stored == null || stored.isEmpty) {
@@ -325,14 +330,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
     if (next.isEmpty) {
       if (mounted) {
-        SnackBarUtils.showUnique(
+        showUniqueMjcSnackBar(
           context,
           key: "settings_sources_min_one",
-          snackBar: SnackBar(
-            behavior: SnackBarBehavior.floating,
-            margin: _snackBarMargin(context),
-            content: const Text("알림 출처는 최소 하나 선택해야 합니다."),
-          ),
+          message: "알림 출처는 최소 하나 선택해야 합니다.",
+          margin: _snackBarMargin(context),
         );
       }
       return;
@@ -395,53 +397,58 @@ class _SettingsScreenState extends State<SettingsScreen> {
       await _loadLinksConfig();
       await _refreshEstimatedCacheSize();
       if (!mounted) return;
-      SnackBarUtils.showUnique(
+      showUniqueMjcSnackBar(
         context,
         key: "settings_cache_cleared",
-        snackBar: SnackBar(
-          behavior: SnackBarBehavior.floating,
-          margin: _snackBarMargin(context),
-          content: const Text("캐시 데이터를 삭제했습니다."),
-        ),
+        message: "캐시 데이터를 삭제했습니다.",
+        margin: _snackBarMargin(context),
       );
     } catch (_) {
       if (!mounted) return;
-      SnackBarUtils.showUnique(
+      showUniqueMjcSnackBar(
         context,
         key: "settings_cache_clear_failed",
-        snackBar: SnackBar(
-          behavior: SnackBarBehavior.floating,
-          margin: _snackBarMargin(context),
-          content: const Text("캐시 삭제에 실패했습니다. 잠시 후 다시 시도해 주세요."),
-        ),
+        message: "캐시 삭제에 실패했습니다. 잠시 후 다시 시도해 주세요.",
+        margin: _snackBarMargin(context),
       );
     } finally {
       if (mounted) setState(() => _clearingCache = false);
     }
   }
 
-  Widget _buildFilterChipGroup({
-    required List<String> options,
-    required List<String> selected,
-    required ValueChanged<String> onEnabled,
-    required ValueChanged<String> onDisabled,
-  }) {
-    return Align(
-      alignment: AlignmentDirectional.topStart,
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        alignment: WrapAlignment.start,
-        crossAxisAlignment: WrapCrossAlignment.start,
-        children: options.map((String value) {
-          final bool isSelected = selected.contains(value);
-          return FilterChip(
-            label: Text(value),
-            selected: isSelected,
-            onSelected: (bool next) =>
-                next ? onEnabled(value) : onDisabled(value),
-          );
-        }).toList(),
+  Widget _buildNotificationSourceSelector() {
+    final Set<String> selected =
+        _selectedNotificationSourceChipLabels().toSet();
+    return SizedBox(
+      width: double.infinity,
+      child: SegmentedButton<String>(
+        expandedInsets: EdgeInsets.zero,
+        multiSelectionEnabled: true,
+        emptySelectionAllowed: true,
+        segments: kNotificationSourceChipLabels
+            .map(
+              (String label) => ButtonSegment<String>(
+                value: label,
+                label: Text(
+                  notificationSourceDisplayLabel(label),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                icon: Icon(notificationSourceDisplayIcon(label)),
+              ),
+            )
+            .toList(),
+        selected: selected,
+        onSelectionChanged: (Set<String> next) {
+          for (final String label in kNotificationSourceChipLabels) {
+            final bool wasSelected = selected.contains(label);
+            final bool isSelected = next.contains(label);
+            if (wasSelected != isSelected) {
+              _toggleNotificationSourceChip(label, isSelected);
+              return;
+            }
+          }
+        },
       ),
     );
   }
@@ -486,14 +493,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
       next.remove(section.id);
       if (next.isEmpty) {
         if (mounted) {
-          SnackBarUtils.showUnique(
+          showUniqueMjcSnackBar(
             context,
             key: "settings_home_dashboard_sections_min_one",
-            snackBar: SnackBar(
-              behavior: SnackBarBehavior.floating,
-              margin: _snackBarMargin(context),
-              content: const Text("홈 대시보드 요소는 최소 하나 선택해야 합니다."),
-            ),
+            message: "홈 대시보드 요소는 최소 하나 선택해야 합니다.",
+            margin: _snackBarMargin(context),
           );
         }
         return;
@@ -732,25 +736,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
             const SizedBox(height: 12),
-            SegmentedButton<MainWebsiteNoticeViewMode>(
-              segments: const [
-                ButtonSegment<MainWebsiteNoticeViewMode>(
-                  value: MainWebsiteNoticeViewMode.tabs,
-                  label: Text("3탭"),
-                  icon: Icon(Icons.tab_rounded),
-                ),
-                ButtonSegment<MainWebsiteNoticeViewMode>(
-                  value: MainWebsiteNoticeViewMode.unified,
-                  label: Text("통합"),
-                  icon: Icon(Icons.view_agenda_outlined),
-                ),
-              ],
-              selected: {_mainWebsiteNoticeViewMode},
-              onSelectionChanged: (s) {
-                final next =
-                    s.isEmpty ? MainWebsiteNoticeViewMode.tabs : s.first;
-                _setMainWebsiteNoticeViewMode(next);
-              },
+            SizedBox(
+              width: double.infinity,
+              child: SegmentedButton<MainWebsiteNoticeViewMode>(
+                expandedInsets: EdgeInsets.zero,
+                segments: const [
+                  ButtonSegment<MainWebsiteNoticeViewMode>(
+                    value: MainWebsiteNoticeViewMode.tabs,
+                    label: Text("3탭"),
+                    icon: Icon(Icons.tab_rounded),
+                  ),
+                  ButtonSegment<MainWebsiteNoticeViewMode>(
+                    value: MainWebsiteNoticeViewMode.unified,
+                    label: Text("통합"),
+                    icon: Icon(Icons.view_agenda_outlined),
+                  ),
+                ],
+                selected: {_mainWebsiteNoticeViewMode},
+                onSelectionChanged: (s) {
+                  final next =
+                      s.isEmpty ? MainWebsiteNoticeViewMode.tabs : s.first;
+                  _setMainWebsiteNoticeViewMode(next);
+                },
+              ),
             ),
           ],
         ),
@@ -842,17 +850,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         Padding(
                           padding:
                               const EdgeInsets.fromLTRB(16, 0, 16, 14),
-                          child: _buildFilterChipGroup(
-                            options: kNoticeFilterSourceOptions,
-                            selected:
-                                _selectedNotificationSourceChipLabels(),
-                            onEnabled: (value) =>
-                                _toggleNotificationSourceChip(
-                                    value, true),
-                            onDisabled: (value) =>
-                                _toggleNotificationSourceChip(
-                                    value, false),
-                          ),
+                          child: _buildNotificationSourceSelector(),
                         ),
                       ],
                     ),
@@ -888,6 +886,53 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ],
               ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: _settingsCard(
+              child: SwitchListTile(
+                title: Text(
+                  "강의 알림 (알림 패널)",
+                  style: _settingsItemTitleStyle(context),
+                ),
+                subtitle: Text(
+                  "시간표의 다음 수업까지 남은 시간을 알림 패널에 표시합니다. "
+                  "Android는 알림에 실시간 카운트다운이 표시됩니다.",
+                  style: _settingsSubtitleStyle(context),
+                ),
+                value: _lectureReminderNotificationEnabled,
+                onChanged: (bool value) async {
+                  final EdgeInsets snackMargin = _snackBarMargin(context);
+                  if (value) {
+                    final bool granted =
+                        await LectureReminderNotificationService.instance
+                            .requestPermissions();
+                    if (!mounted) return;
+                    if (!granted) {
+                      showUniqueMjcSnackBar(
+                        context,
+                        key: "settings_lecture_reminder_permission",
+                        message: "알림 권한이 필요합니다. 시스템 설정에서 허용해 주세요.",
+                        margin: snackMargin,
+                      );
+                      return;
+                    }
+                  }
+                  await LectureReminderNotificationService.instance
+                      .setEnabled(value);
+                  if (!mounted) return;
+                  setState(() => _lectureReminderNotificationEnabled = value);
+                  showUniqueMjcSnackBar(
+                    context,
+                    key: "settings_lecture_reminder_${value ? "on" : "off"}",
+                    message: value
+                        ? "강의 알림이 알림 패널에 표시됩니다."
+                        : "강의 알림 패널 표시를 껐습니다.",
+                    margin: snackMargin,
+                  );
+                },
+              ),
             ),
           ),
           Padding(
@@ -960,31 +1005,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  SegmentedButton<ThemeMode>(
-                    segments: const [
-                      ButtonSegment<ThemeMode>(
-                        value: ThemeMode.light,
-                        label: Text("라이트"),
-                        icon: Icon(Icons.light_mode_outlined),
-                      ),
-                      ButtonSegment<ThemeMode>(
-                        value: ThemeMode.dark,
-                        label: Text("다크"),
-                        icon: Icon(Icons.dark_mode_outlined),
-                      ),
-                      ButtonSegment<ThemeMode>(
-                        value: ThemeMode.system,
-                        label: Text("자동"),
-                        icon: Icon(Icons.settings_suggest_outlined),
-                      ),
-                    ],
-                    selected: {themeMode},
-                    onSelectionChanged: (s) {
-                      final ThemeMode next =
-                          s.isEmpty ? ThemeMode.system : s.first;
-                      if (themeController == null) return;
-                      themeController.setAndPersist(next);
-                    },
+                  SizedBox(
+                    width: double.infinity,
+                    child: SegmentedButton<ThemeMode>(
+                      expandedInsets: EdgeInsets.zero,
+                      segments: const [
+                        ButtonSegment<ThemeMode>(
+                          value: ThemeMode.light,
+                          label: Text("라이트"),
+                          icon: Icon(Icons.light_mode_outlined),
+                        ),
+                        ButtonSegment<ThemeMode>(
+                          value: ThemeMode.dark,
+                          label: Text("다크"),
+                          icon: Icon(Icons.dark_mode_outlined),
+                        ),
+                        ButtonSegment<ThemeMode>(
+                          value: ThemeMode.system,
+                          label: Text("자동"),
+                          icon: Icon(Icons.settings_suggest_outlined),
+                        ),
+                      ],
+                      selected: {themeMode},
+                      onSelectionChanged: (s) {
+                        final ThemeMode next =
+                            s.isEmpty ? ThemeMode.system : s.first;
+                        if (themeController == null) return;
+                        themeController.setAndPersist(next);
+                      },
+                    ),
                   ),
                 ],
               ),
@@ -1008,19 +1057,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               value: _labDepartmentNoticesEnabled,
               onChanged: (bool value) async {
-                final ScaffoldMessengerState? messenger =
-                    ScaffoldMessenger.maybeOf(context);
                 final EdgeInsets snackMargin = _snackBarMargin(context);
                 await LabPrefs.setDepartmentNoticesEnabled(value);
                 if (!mounted) return;
                 setState(() => _labDepartmentNoticesEnabled = value);
                 if (value) {
-                  messenger?.showSnackBar(
-                    SnackBar(
-                      behavior: SnackBarBehavior.floating,
-                      margin: snackMargin,
-                      content: const Text("공지 탭에 「학과」 메뉴가 표시됩니다."),
-                    ),
+                  showMjcSnackBar(
+                    context,
+                    message: "공지 탭에 「학과」 메뉴가 표시됩니다.",
+                    margin: snackMargin,
                   );
                 }
               },
@@ -1063,6 +1108,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _settingsCard(
             child: Column(
               children: [
+                ListTile(
+                  title: Text(
+                    "휴대폰 권한",
+                    style: _settingsItemTitleStyle(context),
+                  ),
+                  subtitle: Text(
+                    "알림·위치·배터리 등 권한 상태 확인",
+                    style: _settingsSubtitleStyle(context),
+                  ),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () {
+                    Navigator.of(context).push<void>(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const PhonePermissionsScreen(),
+                      ),
+                    );
+                  },
+                ),
+                _hairlineDivider(),
                 ListTile(
                   title: Text(
                     "앱 버전",

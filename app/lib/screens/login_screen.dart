@@ -211,7 +211,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          "에 오신 것을 환영합니다!",
+                          "명지전문대학교 소식과 정보를 한곳에서 확인할 수 있는 앱입니다.",
                           style: TextStyle(
                             color: Colors.white.withValues(alpha: 0.88),
                             fontSize: 13,

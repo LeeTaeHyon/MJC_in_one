@@ -1,5 +1,6 @@
 import "package:flutter/material.dart";
 import "package:mjc_in_one/features/timetable/models/timetable_models.dart";
+import "package:mjc_in_one/services/lecture_reminder_notification_service.dart";
 import "package:mjc_in_one/features/timetable/screens/timetable_add_courses_screen.dart";
 import "package:mjc_in_one/features/timetable/services/timetable_official_service.dart";
 import "package:mjc_in_one/features/timetable/services/timetable_storage_service.dart";
@@ -49,6 +50,7 @@ class _TimetableMainScreenState extends State<TimetableMainScreen> {
       );
     }
     await _reload();
+    await LectureReminderNotificationService.instance.refreshNow();
   }
 
   List<TimetableSlot> get _gridSlots => _enrolled

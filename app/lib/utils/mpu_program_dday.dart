@@ -45,6 +45,20 @@ DateTime? mpuApplicationDeadlineDate(Map<String, dynamic> data) {
   return mpuLastCalendarDateInText(mpuApplicationPeriodRaw(data));
 }
 
+/// MPU 사이트 `.d-day` 배지 (`D-14`, `D+88` 등). 양수=마감 전 남은 일, 음수=마감 후 경과 일.
+int? mpuSiteSignedDDay(Map<String, dynamic> data) {
+  final String raw = (data["d_day"] ?? "").toString().trim().toUpperCase();
+  if (raw.isEmpty) {
+    return null;
+  }
+  final RegExpMatch? match = RegExp(r"^D([+-])(\d+)$").firstMatch(raw);
+  if (match == null) {
+    return null;
+  }
+  final int days = int.parse(match.group(2)!);
+  return match.group(1) == "-" ? days : -days;
+}
+
 int _calendarDaysUntil(DateTime endDay) {
   final DateTime now = DateTime.now();
   final DateTime today = DateTime(now.year, now.month, now.day);
@@ -52,8 +66,12 @@ int _calendarDaysUntil(DateTime endDay) {
   return end.difference(today).inDays;
 }
 
-/// 신청 기간 문자열의 마감일(가장 늦은 날)까지 남은 달력 일 수. 파싱 불가 시 null.
+/// 신청 마감 기준 D-day. 사이트 `d_day` 우선, 없으면 신청 기간 문자열 파싱.
 int? mpuEffectiveDaysUntilDeadline(Map<String, dynamic> data) {
+  final int? site = mpuSiteSignedDDay(data);
+  if (site != null) {
+    return site;
+  }
   final DateTime? deadline = mpuApplicationDeadlineDate(data);
   if (deadline == null) {
     return null;
@@ -63,6 +81,10 @@ int? mpuEffectiveDaysUntilDeadline(Map<String, dynamic> data) {
 
 /// 마감/완료 탭: 신청 마감일 이후 경과 일 수 (당일=0).
 int? mpuDaysElapsedSinceDeadline(Map<String, dynamic> data) {
+  final int? site = mpuSiteSignedDDay(data);
+  if (site != null && site < 0) {
+    return -site;
+  }
   final DateTime? deadline = mpuApplicationDeadlineDate(data);
   if (deadline == null) {
     return null;

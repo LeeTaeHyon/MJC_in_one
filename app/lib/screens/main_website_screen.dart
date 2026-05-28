@@ -32,6 +32,9 @@ List<String> _parseAiTagsForList(Map<String, dynamic> data) {
 }
 
 /// `test/notice_ai_tags.py`의 ALLOWED_TAGS와 동일 순서(「전체」는 UI 전용).
+const Color _kNoticeAiTagBorderDark = Color(0xFFA3A3A3);
+const Color _kNoticeAiTagBorderLight = Color(0xFF9CA3AF);
+
 const List<String> kMainNoticeAiTagFilterChips = <String>[
   "전체",
   "학사/수업",
@@ -90,7 +93,7 @@ Widget _noticeCategoryAndAiTagsRow({
               ? (isDark
                   ? highlightAccent.withValues(alpha: 0.35)
                   : highlightAccent)
-              : scheme.outlineVariant;
+              : (isDark ? _kNoticeAiTagBorderDark : _kNoticeAiTagBorderLight);
           final Color fg =
               highlight ? highlightAccent : scheme.onSurfaceVariant;
           return Container(
@@ -570,6 +573,11 @@ class _MainWebsiteCollapsingHeaderDelegate
   final bool overlapsContent;
 
   static const double _collapsedBar = 52;
+  static const Color _overlayTop = Color(0xFF0043A1);
+  static const Color _overlayBottom = Color(0xFF005AB5);
+  /// Collapsed 시 배너 패턴이 은은하게 비치도록 overlay 불투명도 (~8–10%).
+  static const double _collapsedOverlayOpacity = 0.90;
+
   double get _bottomHeight => bottom?.preferredSize.height ?? 0;
 
   @override
@@ -588,17 +596,25 @@ class _MainWebsiteCollapsingHeaderDelegate
         (maxExtent - shrinkOffset).clamp(minExtent, maxExtent);
     final double range = maxExtent - minExtent;
     final double t = range > 0 ? (shrinkOffset / range).clamp(0.0, 1.0) : 0.0;
+    // Overlay는 easeOutCubic — 스크롤 초반부터 자연스럽게 응축되는 느낌.
+    final double overlayT = Curves.easeOutCubic.transform(t);
     final double u = Curves.easeInOut.transform(t);
     final double heroH = extent - _bottomHeight;
-    final bool isDark = Theme.of(context).brightness == Brightness.dark;
-    final double bannerImageOpacity = (1.0 - u).clamp(0.0, 1.0);
-    final MjcSurfaceTokens tokens =
-        Theme.of(context).extension<MjcSurfaceTokens>()!;
-    final Color expandedHeroColor =
-        isDark ? const Color(0xFF073A8C) : AppColors.primary;
-    final Color collapsedHeroColor = tokens.dashboardGradients[0][0];
-    final Color heroColor =
-        Color.lerp(expandedHeroColor, collapsedHeroColor, u)!;
+    final double overlayOpacity =
+        lerpDouble(0.0, _collapsedOverlayOpacity, overlayT)!;
+    final Color overlayBase = _overlayTop;
+    final Alignment imageAlignment = Alignment.lerp(
+      Alignment.center,
+      const Alignment(0, -0.35),
+      overlayT,
+    )!;
+    final double bannerScale = lerpDouble(1.04, 1.02, overlayT)!;
+    // 글씨 아래 얇은 띠만 막고, 상단은 패턴이 은은히 보이도록 하단만 살짝 더 덮음.
+    final double bottomOverlayOpacity = lerpDouble(
+      overlayOpacity,
+      (overlayOpacity + 0.08).clamp(0.0, 0.98),
+      Curves.easeIn.transform(((t - 0.90) / 0.10).clamp(0.0, 1.0)),
+    )!;
 
     return SizedBox(
       height: extent,
@@ -612,7 +628,7 @@ class _MainWebsiteCollapsingHeaderDelegate
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  ColoredBox(color: heroColor),
+                  ColoredBox(color: overlayBase),
                   Positioned.fill(
                     child: Builder(
                       builder: (BuildContext context) {
@@ -624,12 +640,13 @@ class _MainWebsiteCollapsingHeaderDelegate
                         final int ch = ((topPadding + heroBody) * dpr)
                             .round()
                             .clamp(1, 4096);
-                        return Opacity(
-                          opacity: bannerImageOpacity,
+                        return Transform.scale(
+                          scale: bannerScale,
+                          alignment: imageAlignment,
                           child: Image.asset(
                             "assets/images/mjc.png",
                             fit: BoxFit.cover,
-                            alignment: Alignment.center,
+                            alignment: imageAlignment,
                             width: double.infinity,
                             height: double.infinity,
                             cacheWidth: cw,
@@ -639,6 +656,22 @@ class _MainWebsiteCollapsingHeaderDelegate
                           ),
                         );
                       },
+                    ),
+                  ),
+                  Positioned.fill(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: <Color>[
+                            _overlayTop.withValues(alpha: overlayOpacity),
+                            _overlayBottom.withValues(
+                              alpha: bottomOverlayOpacity,
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                   SafeArea(
@@ -658,7 +691,7 @@ class _MainWebsiteCollapsingHeaderDelegate
                         final double collapsedTitleTop =
                             (ih - titleSize * 1.15) / 2;
                         final double titleReveal =
-                            ((u - 0.70) / 0.30).clamp(0.0, 1.0);
+                            ((t - 0.92) / 0.08).clamp(0.0, 1.0);
                         final double titleOpacity = Curves.easeOutCubic
                             .transform(titleReveal);
                         return Stack(
@@ -673,7 +706,8 @@ class _MainWebsiteCollapsingHeaderDelegate
                                 child: Opacity(
                                   opacity: titleOpacity,
                                   child: CollapsedHeroTitle(
-                                    text: "본교 공지",
+                                    icon: Icons.school_rounded,
+                                    text: "본교 공지사항",
                                     baseStyle: Theme.of(context)
                                         .extension<MjcTextTokens>()!
                                         .appBarTitle,

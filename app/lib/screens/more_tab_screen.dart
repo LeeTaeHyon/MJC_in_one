@@ -15,6 +15,8 @@ import "package:mjc_in_one/services/auth_service.dart";
 import "package:mjc_in_one/services/user_data_repository.dart";
 import "package:mjc_in_one/theme/app_colors.dart";
 import "package:mjc_in_one/theme/app_theme.dart";
+import "package:mjc_in_one/utils/mjc_dialog.dart";
+import "package:mjc_in_one/utils/mjc_snack_bar.dart";
 import "package:mjc_in_one/widgets/scroll_to_top_scope.dart";
 
 BorderSide _moreScreenCardBorderSide(bool isDark) => BorderSide(
@@ -101,14 +103,18 @@ class _MoreTabScreenState extends State<MoreTabScreen> {
     navigate(tabIndex, noticesSubTab: noticesSubTab);
   }
 
+  Future<void> _confirmSignOut() async {
+    final bool? confirmed = await showMjcLogoutDialog(context);
+    if (confirmed != true || !mounted) return;
+    await _signOut();
+  }
+
   Future<void> _signOut() async {
     await UserDataRepository.instance.pushSnapshotToCloud();
     await clearMpuProfile();
     await AuthService.instance.signOut();
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("로그아웃되었습니다.")),
-    );
+    showMjcSnackBar(context, message: "로그아웃되었습니다.");
   }
 
   @override
@@ -147,7 +153,7 @@ class _MoreTabScreenState extends State<MoreTabScreen> {
                       children: [
                         _AccountCard(
                           onLogin: () => _push(const LoginScreen()),
-                          onLogout: _signOut,
+                          onLogout: _confirmSignOut,
                         ),
                         const SizedBox(height: 18),
                         Builder(

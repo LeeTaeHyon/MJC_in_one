@@ -2,6 +2,10 @@ import "package:flutter/material.dart";
 import "package:mjc_in_one/theme/app_theme.dart";
 import "package:mjc_in_one/utils/snack_bar_utils.dart";
 
+/// MJC 앱 공통 SnackBar 스타일.
+///
+/// 새 SnackBar는 [showMjcSnackBar] 또는 [showUniqueMjcSnackBar]만 사용합니다.
+/// `SnackBar(...)` 직접 생성은 피하세요.
 /// 다크 모드 스낵바 배경.
 const Color kMjcSnackBarBackgroundDark = Color(0xFF424242);
 

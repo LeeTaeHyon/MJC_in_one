@@ -1,3 +1,4 @@
+import "package:flutter/material.dart";
 import "package:mjc_in_one/services/app_config_service.dart";
 
 /// FCM data `source` 값과 설정에 저장하는 출처 id (mjc / ctl / mpu).
@@ -37,6 +38,34 @@ String notificationSourceChipLabelFromId(String sourceId) {
       return "MPU";
     default:
       return "";
+  }
+}
+
+/// 설정·알림 UI용 출처 표시 라벨 (공지 하단 탭과 동일한 이름).
+String notificationSourceDisplayLabel(String chipLabel) {
+  switch (chipLabel) {
+    case "MJC":
+      return "본교 공지";
+    case "CTL":
+      return "교수학습";
+    case "MPU":
+      return "역량관리";
+    default:
+      return chipLabel;
+  }
+}
+
+/// 설정·알림 UI용 출처 아이콘 ([NoticesSubTab] 하단 공지 탭과 동일).
+IconData notificationSourceDisplayIcon(String chipLabel) {
+  switch (chipLabel) {
+    case "MJC":
+      return Icons.school_rounded;
+    case "CTL":
+      return Icons.menu_book_rounded;
+    case "MPU":
+      return Icons.emoji_events_rounded;
+    default:
+      return Icons.notifications_outlined;
   }
 }
 

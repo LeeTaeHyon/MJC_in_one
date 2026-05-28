@@ -13,6 +13,7 @@ import "package:mjc_in_one/services/notice_manager.dart";
 import "package:mjc_in_one/services/user_data_repository.dart";
 import "package:mjc_in_one/theme/app_colors.dart";
 import "package:mjc_in_one/theme/app_theme.dart";
+import "package:mjc_in_one/utils/mjc_dialog.dart";
 import "package:mjc_in_one/utils/notice_bookmark_key.dart";
 import "package:mjc_in_one/widgets/profile_form.dart";
 import "package:mjc_in_one/widgets/scroll_to_top_fab.dart";
@@ -21,6 +22,7 @@ import "package:shared_preferences/shared_preferences.dart";
 import "package:url_launcher/url_launcher.dart";
 
 const Color _myPageDarkNeutralAccent = Color(0xFFF5F5F5);
+const Color _logoutActionColor = Color(0xFFE65100);
 
 class MyPageScreen extends StatefulWidget {
   const MyPageScreen({
@@ -370,6 +372,12 @@ class _MyPageScreenState extends State<MyPageScreen> {
         const SnackBar(content: Text("프로필 정보를 저장했습니다.")),
       );
     }
+  }
+
+  Future<void> _confirmSignOut() async {
+    final bool? confirmed = await showMjcLogoutDialog(context);
+    if (confirmed != true || !mounted) return;
+    await _signOut();
   }
 
   Future<void> _signOut() async {
@@ -821,7 +829,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
                       _myPageCard(
                         child: InkWell(
                           borderRadius: BorderRadius.circular(12),
-                          onTap: signedIn ? _signOut : _openLogin,
+                          onTap: signedIn ? _confirmSignOut : _openLogin,
                           child: SizedBox(
                             height: 56,
                             width: double.infinity,
@@ -833,7 +841,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
                                       ? Icons.logout_rounded
                                       : Icons.login_rounded,
                                   color: signedIn
-                                      ? const Color(0xFFD4183D)
+                                      ? _logoutActionColor
                                       : loginActionColor,
                                 ),
                                 const SizedBox(width: 10),
@@ -841,7 +849,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
                                   signedIn ? "로그아웃" : "로그인",
                                   style: TextStyle(
                                     color: signedIn
-                                        ? const Color(0xFFD4183D)
+                                        ? _logoutActionColor
                                         : loginActionColor,
                                     fontWeight: FontWeight.w900,
                                   ),

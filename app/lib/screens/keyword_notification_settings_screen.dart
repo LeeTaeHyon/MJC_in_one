@@ -119,10 +119,12 @@ class _KeywordNotificationSettingsScreenState
   }
 
   void _onKeywordSettings(String keyword) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
+      backgroundColor: scheme.surface,
       builder: (ctx) => _KeywordDetailSheet(keyword: keyword),
     );
   }
@@ -412,6 +414,7 @@ class _KeywordDetailSheetState extends State<_KeywordDetailSheet> {
     }
     return _selectedSourceIds
         .map(notificationSourceChipLabelFromId)
+        .map(notificationSourceDisplayLabel)
         .where((s) => s.isNotEmpty)
         .join(", ");
   }
@@ -466,26 +469,44 @@ class _KeywordDetailSheetState extends State<_KeywordDetailSheet> {
           ),
           const SizedBox(height: 6),
           Text(
-            "선택하지 않으면 MJC·CTL·MPU 전체에서 알림을 받습니다. · $_sourceSummary",
+            "선택하지 않으면 본교 공지·교수학습·역량관리 전체에서 알림을 받습니다. · $_sourceSummary",
             style: theme.textTheme.bodySmall?.copyWith(
               color: scheme.onSurfaceVariant,
               height: 1.35,
             ),
           ),
           const SizedBox(height: 12),
-          Align(
-            alignment: AlignmentDirectional.centerStart,
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: kNotificationSourceChipLabels.map((String label) {
-                final bool selected = _selectedSourceChipLabels().contains(label);
-                return FilterChip(
-                  label: Text(label),
-                  selected: selected,
-                  onSelected: (bool next) => _toggleSource(label, next),
-                );
-              }).toList(),
+          SizedBox(
+            width: double.infinity,
+            child: SegmentedButton<String>(
+              expandedInsets: EdgeInsets.zero,
+              multiSelectionEnabled: true,
+              emptySelectionAllowed: true,
+              segments: kNotificationSourceChipLabels
+                  .map(
+                    (String label) => ButtonSegment<String>(
+                      value: label,
+                      label: Text(
+                        notificationSourceDisplayLabel(label),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      icon: Icon(notificationSourceDisplayIcon(label)),
+                    ),
+                  )
+                  .toList(),
+              selected: _selectedSourceChipLabels().toSet(),
+              onSelectionChanged: (Set<String> next) {
+                final Set<String> selected = _selectedSourceChipLabels().toSet();
+                for (final String label in kNotificationSourceChipLabels) {
+                  final bool wasSelected = selected.contains(label);
+                  final bool isSelected = next.contains(label);
+                  if (wasSelected != isSelected) {
+                    _toggleSource(label, isSelected);
+                    return;
+                  }
+                }
+              },
             ),
           ),
           const SizedBox(height: 24),
@@ -497,7 +518,7 @@ class _KeywordDetailSheetState extends State<_KeywordDetailSheet> {
           ),
           const SizedBox(height: 6),
           Text(
-            "제목·본문에 아래 단어가 함께 있으면 이 키워드 알림을 보내지 않습니다.",
+            "제목·본문에 아래 단어가 함께 있으면 이 키워드 알림을 보내지 않습니다. (최대 10개)",
             style: theme.textTheme.bodySmall?.copyWith(
               color: scheme.onSurfaceVariant,
               height: 1.35,

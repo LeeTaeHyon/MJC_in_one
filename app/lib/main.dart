@@ -1,4 +1,5 @@
 import "dart:convert";
+
 import "package:firebase_core/firebase_core.dart";
 import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
@@ -12,6 +13,7 @@ import "package:mjc_in_one/screens/intro_screen.dart";
 import "package:mjc_in_one/services/keyword_notification_detail.dart";
 import "package:mjc_in_one/services/deep_link_handler.dart";
 import "package:mjc_in_one/services/firebase_app_startup.dart";
+import "package:mjc_in_one/services/lecture_reminder_notification_service.dart";
 import "package:mjc_in_one/services/user_data_repository.dart";
 import "package:mjc_in_one/theme/app_theme.dart";
 import "package:mjc_in_one/theme/theme_mode_scope.dart";
@@ -21,6 +23,8 @@ import "package:mjc_in_one/widgets/scroll_to_top_scope.dart";
 import "package:firebase_messaging/firebase_messaging.dart";
 import "package:flutter_local_notifications/flutter_local_notifications.dart";
 import "package:shared_preferences/shared_preferences.dart";
+import "package:timezone/data/latest.dart" as tz_data;
+import "package:timezone/timezone.dart" as tz;
 
 // 백그라운드 메시지 핸들러 (반드시 최상단 전역 함수로 작성해야 함)
 @pragma('vm:entry-point')
@@ -113,6 +117,9 @@ Future<void> _processAndShowNotification(RemoteMessage message) async {
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  tz_data.initializeTimeZones();
+  tz.setLocalLocation(tz.getLocation("Asia/Seoul"));
+
   // 백그라운드 메시지 핸들러는 [runApp] 전에 등록해야 한다.
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
@@ -145,6 +152,7 @@ class _MioNoticeAppState extends State<MioNoticeApp>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    LectureReminderNotificationService.instance.startIfEnabled();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       DeepLinkHandler.instance.start(_navigatorKey);
@@ -166,6 +174,12 @@ class _MioNoticeAppState extends State<MioNoticeApp>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      LectureReminderNotificationService.instance.refreshNow();
+    }
+    if (state == AppLifecycleState.paused) {
+      LectureReminderNotificationService.instance.refreshNow();
+    }
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.inactive) {
       UserDataRepository.instance.pushSnapshotToCloud();
@@ -175,6 +189,7 @@ class _MioNoticeAppState extends State<MioNoticeApp>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    LectureReminderNotificationService.instance.dispose();
     DeepLinkHandler.instance.dispose();
     super.dispose();
   }

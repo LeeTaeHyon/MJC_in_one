@@ -13,8 +13,8 @@ class MjcDraggableSegmentPillBar extends StatefulWidget {
     required this.segmentBuilder,
     required this.accentColor,
     required this.isDark,
-    this.horizontalPadding = 5,
-    this.verticalPadding = 3,
+    this.horizontalPadding = 4,
+    this.verticalPadding = 4,
     this.thumbScaleDragging = 1.08,
     this.contentScaleDragging = 1.06,
   });
@@ -212,6 +212,10 @@ class _MjcDraggableSegmentPillBarState extends State<MjcDraggableSegmentPillBar>
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
+          final double trackHeight =
+              constraints.maxHeight > 0 ? constraints.maxHeight : 36;
+          final BorderRadius trackRadius =
+              BorderRadius.circular(trackHeight / 2);
           final double trackWidth = constraints.maxWidth;
           final double segmentWidth = trackWidth / _count;
           final int previewIndex = _dragging && _dragThumbLeft != null
@@ -237,8 +241,7 @@ class _MjcDraggableSegmentPillBarState extends State<MjcDraggableSegmentPillBar>
               builder: (context, _) {
                 return SizedBox(
                   key: _trackKey,
-                  height:
-                      constraints.maxHeight > 0 ? constraints.maxHeight : 38,
+                  height: trackHeight,
                   child: Stack(
                     clipBehavior: Clip.none,
                     children: [
@@ -257,7 +260,7 @@ class _MjcDraggableSegmentPillBarState extends State<MjcDraggableSegmentPillBar>
                                     ? null
                                     : () =>
                                         widget.onSelectedIndexChanged(index),
-                                borderRadius: BorderRadius.circular(28),
+                                borderRadius: trackRadius,
                                 splashColor: accent.withValues(alpha: 0.12),
                                 highlightColor:
                                     accent.withValues(alpha: 0.06),
@@ -295,17 +298,10 @@ class _MjcDraggableSegmentPillBarState extends State<MjcDraggableSegmentPillBar>
                               decoration: BoxDecoration(
                                 color: accent.withValues(
                                   alpha: isDark
-                                      ? 0.20 + 0.02 * _emphasisController.value
-                                      : 0.12 + 0.02 * _emphasisController.value,
+                                      ? 0.22 + 0.02 * _emphasisController.value
+                                      : 0.14 + 0.02 * _emphasisController.value,
                                 ),
-                                borderRadius: BorderRadius.circular(28),
-                                border: Border.all(
-                                  color: accent.withValues(
-                                    alpha: isDark
-                                        ? 0.35 + 0.05 * _emphasisController.value
-                                        : 0.18 + 0.04 * _emphasisController.value,
-                                  ),
-                                ),
+                                borderRadius: trackRadius,
                                 boxShadow: _emphasisController.value > 0.01
                                     ? <BoxShadow>[
                                         BoxShadow(

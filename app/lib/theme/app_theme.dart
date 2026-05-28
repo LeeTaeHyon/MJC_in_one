@@ -157,6 +157,7 @@ const Color _kSurfaceContainerHighDark = Color(0xFF303035);
 const Color _kOnSurfaceDark = Color(0xE6FFFFFF);
 const Color _kErrorDark = Color(0xFFFF6B7A);
 const Color _kCardDarkAlt = Color(0xFF16181C);
+const Color _kDialogSurfaceDark = Color(0xFF24282E);
 @immutable
 class MjcTextTokens extends ThemeExtension<MjcTextTokens> {
   const MjcTextTokens({
@@ -513,6 +514,15 @@ ThemeData buildMjcTheme() {
     listTileTheme: const ListTileThemeData(
       contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
     ),
+    dialogTheme: DialogThemeData(
+      backgroundColor: Colors.white,
+      elevation: 1,
+      shadowColor: Colors.black.withValues(alpha: 0.08),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 32),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+      ),
+    ),
   );
 }
 
@@ -639,6 +649,15 @@ ThemeData buildMjcDarkTheme() {
     ),
     listTileTheme: const ListTileThemeData(
       contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+    ),
+    dialogTheme: DialogThemeData(
+      backgroundColor: _kDialogSurfaceDark,
+      elevation: 0,
+      shadowColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 32),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+      ),
     ),
   );
 }

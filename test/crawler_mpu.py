@@ -103,9 +103,14 @@ def crawl_programs() -> list[dict]:
         if not title:
             continue
 
-        # 강제로 ID 만들기: 없으면 제목+신청일 해시
-        if not prog_id:
-            raw_str = f"{title}_{reg_date}"
+        # 동일 이미지 ID(6274 등)로 분반만 다른 프로그램이 여러 개 있어 분반·일정으로 구분
+        disambig = hashlib.md5(
+            f"{branch}|{reg_date}|{edu_date}".encode("utf-8")
+        ).hexdigest()[:8]
+        if prog_id:
+            prog_id = f"{prog_id}_{disambig}"
+        else:
+            raw_str = f"{title}|{branch}|{reg_date}|{edu_date}"
             prog_id = hashlib.md5(raw_str.encode("utf-8")).hexdigest()[:10]
             
         full_img_url = ""
@@ -145,6 +150,7 @@ def save_to_firestore(db, programs: list[dict]):
     batch = db.batch()
     new_count = 0
     updated_count = 0
+    notified_ids: set[str] = set()
 
     # 각 프로그램을 순회
     for prog in programs:
@@ -152,9 +158,10 @@ def save_to_firestore(db, programs: list[dict]):
         doc_ref = prog_col.document(prog["id"])
         
         # 새로운 프로그램이면 FCM 발송 (단, 최초 수집이 아닐 때만)
-        if prog["id"] not in existing_ids:
+        if prog["id"] not in existing_ids and prog["id"] not in notified_ids:
             if existing_ids:
                 send_fcm_notice(prog)
+            notified_ids.add(prog["id"])
             new_count += 1
         # 여기서 기존 문서가 있는지 체크하는 것은 읽기 비용이 들지만
         # 새 글 알림 등을 위해 체크할 수도 있습니다.

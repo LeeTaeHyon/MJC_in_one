@@ -593,7 +593,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                     elevation: 10,
                     shadowColor: _components.noticeSubNavShadow,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(28),
+                      borderRadius:
+                          BorderRadius.circular(_noticeSubNavHeight / 2),
                       side: BorderSide(color: surfaceTokens.hairline, width: 1),
                     ),
                     clipBehavior: Clip.antiAlias,

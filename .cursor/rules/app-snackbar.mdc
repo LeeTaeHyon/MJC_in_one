@@ -1,0 +1,40 @@
+---
+description: MJC 앱 SnackBar는 공통 헬퍼(showMjcSnackBar)만 사용
+globs: app/**/*.dart
+alwaysApply: false
+---
+
+# SnackBar
+
+`app/lib/utils/mjc_snack_bar.dart`가 앱 공통 SnackBar 스타일의 단일 진입점입니다.
+
+## 규칙
+
+- `SnackBar(...)`를 직접 만들거나 `ScaffoldMessenger.showSnackBar`에 넘기지 않습니다.
+- 일반 안내: `showMjcSnackBar(context, message: ...)`
+- 같은 메시지 중복 방지: `showUniqueMjcSnackBar(context, key: ..., message: ...)`
+- 설정 탭 등 하단 네비 위에 띄울 때: `margin`을 함께 전달합니다.
+
+## 예시
+
+```dart
+// ❌ BAD — 테마 기본 SnackBar (디자인 불일치)
+SnackBarUtils.showUnique(
+  context,
+  key: "example",
+  snackBar: SnackBar(
+    behavior: SnackBarBehavior.floating,
+    content: const Text("메시지"),
+  ),
+);
+
+// ✅ GOOD
+showUniqueMjcSnackBar(
+  context,
+  key: "example",
+  message: "메시지",
+  margin: _snackBarMargin(context),
+);
+```
+
+액션 버튼이 필요하면 `actionLabel` / `onAction`을 사용합니다.

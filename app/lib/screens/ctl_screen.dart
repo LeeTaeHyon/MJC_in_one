@@ -8,7 +8,6 @@ import "package:mjc_in_one/screens/common_webview_screen.dart";
 import "package:mjc_in_one/services/notice_filter.dart";
 import "package:mjc_in_one/services/notice_manager.dart";
 import "package:mjc_in_one/services/user_data_repository.dart";
-import "package:mjc_in_one/theme/app_colors.dart";
 import "package:mjc_in_one/theme/app_theme.dart";
 import "package:mjc_in_one/utils/bookmark_added_feedback.dart";
 import "package:mjc_in_one/perf_flags.dart";
@@ -336,6 +335,9 @@ class _CtlCollapsingHeaderDelegate extends SliverPersistentHeaderDelegate {
   final VoidCallback onSearch;
 
   static const double _collapsedBar = 52;
+  static const Color _overlayTop = Color(0xFF593E73);
+  static const Color _overlayBottom = Color(0xFF73558D);
+  static const double _collapsedOverlayOpacity = 0.90;
 
   double get _tabBarHeight => tabBar.preferredSize.height;
 
@@ -355,18 +357,25 @@ class _CtlCollapsingHeaderDelegate extends SliverPersistentHeaderDelegate {
         (maxExtent - shrinkOffset).clamp(minExtent, maxExtent);
     final double range = maxExtent - minExtent;
     final double t = range > 0 ? (shrinkOffset / range).clamp(0.0, 1.0) : 0.0;
+    final double overlayT = Curves.easeOutCubic.transform(t);
     final double u = Curves.easeInOut.transform(t);
     final double heroH = extent - _tabBarHeight;
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
-    final double bannerImageOpacity = (1.0 - u).clamp(0.0, 1.0);
     final ColorScheme scheme = Theme.of(context).colorScheme;
-    final MjcSurfaceTokens tokens =
-        Theme.of(context).extension<MjcSurfaceTokens>()!;
-    final Color expandedHeroColor =
-        isDark ? const Color(0xFF073A8C) : AppColors.primary;
-    final Color collapsedHeroColor = tokens.dashboardGradients[1][0];
-    final Color heroColor =
-        Color.lerp(expandedHeroColor, collapsedHeroColor, u)!;
+    final double overlayOpacity =
+        lerpDouble(0.0, _collapsedOverlayOpacity, overlayT)!;
+    final Color overlayBase = _overlayTop;
+    final Alignment imageAlignment = Alignment.lerp(
+      Alignment.center,
+      const Alignment(0, -0.35),
+      overlayT,
+    )!;
+    final double bannerScale = lerpDouble(1.04, 1.02, overlayT)!;
+    final double bottomOverlayOpacity = lerpDouble(
+      overlayOpacity,
+      (overlayOpacity + 0.08).clamp(0.0, 0.98),
+      Curves.easeIn.transform(((t - 0.90) / 0.10).clamp(0.0, 1.0)),
+    )!;
 
     return SizedBox(
       height: extent,
@@ -380,7 +389,7 @@ class _CtlCollapsingHeaderDelegate extends SliverPersistentHeaderDelegate {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  ColoredBox(color: heroColor),
+                  ColoredBox(color: overlayBase),
                   Positioned.fill(
                     child: Builder(
                       builder: (BuildContext context) {
@@ -394,12 +403,13 @@ class _CtlCollapsingHeaderDelegate extends SliverPersistentHeaderDelegate {
                         final int ch = ((topPadding + heroBody) * dpr)
                             .round()
                             .clamp(1, 4096);
-                        return Opacity(
-                          opacity: bannerImageOpacity,
+                        return Transform.scale(
+                          scale: bannerScale,
+                          alignment: imageAlignment,
                           child: Image.asset(
                             "assets/images/ctl.png",
                             fit: BoxFit.cover,
-                            alignment: Alignment.center,
+                            alignment: imageAlignment,
                             width: double.infinity,
                             height: double.infinity,
                             cacheWidth: cw,
@@ -409,6 +419,22 @@ class _CtlCollapsingHeaderDelegate extends SliverPersistentHeaderDelegate {
                           ),
                         );
                       },
+                    ),
+                  ),
+                  Positioned.fill(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: <Color>[
+                            _overlayTop.withValues(alpha: overlayOpacity),
+                            _overlayBottom.withValues(
+                              alpha: bottomOverlayOpacity,
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                   SafeArea(
@@ -428,7 +454,7 @@ class _CtlCollapsingHeaderDelegate extends SliverPersistentHeaderDelegate {
                         final double collapsedTitleTop =
                             (ih - titleSize * 1.15) / 2;
                         final double titleReveal =
-                            ((u - 0.70) / 0.30).clamp(0.0, 1.0);
+                            ((t - 0.92) / 0.08).clamp(0.0, 1.0);
                         final double titleOpacity = Curves.easeOutCubic
                             .transform(titleReveal);
                         return Stack(
@@ -443,6 +469,7 @@ class _CtlCollapsingHeaderDelegate extends SliverPersistentHeaderDelegate {
                                 child: Opacity(
                                   opacity: titleOpacity,
                                   child: CollapsedHeroTitle(
+                                    icon: Icons.menu_book_rounded,
                                     text: "교수학습센터",
                                     baseStyle: Theme.of(context)
                                         .extension<MjcTextTokens>()!

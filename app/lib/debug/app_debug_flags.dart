@@ -7,19 +7,19 @@ import "package:flutter/foundation.dart";
 const bool kAppDevFeaturesEnabled = false;
 
 /// 앱 전역 문의(피드백) FAB — [main.dart] `MaterialApp.builder`
-const bool kGlobalInquiryFabEnabled = true;
+const bool kGlobalInquiryFabEnabled = false;
 
 /// 홈 강의 알림 카드 — 수업 없어도 샘플 카드 표시 (디자인 확인)
 const bool kLectureReminderDesignPreview = true;
 
 /// 맨 위로 FAB 중복 디버깅 — [scroll_fab_debug.dart]
-const bool kScrollFabDebugEnabled = true;
+const bool kScrollFabDebugEnabled = false;
 
 /// 앱 첫 진입 시 테스트 빌드 안내 다이얼로그 — [main_navigation_screen.dart]
-const bool kStartupTestBuildWarningEnabled = true;
+const bool kStartupTestBuildWarningEnabled = false;
 
 /// 첫 진입 시 문의(피드백) FAB 포커스 오버레이 — [main_navigation_screen.dart]
-const bool kStartupInquiryFocusOverlayEnabled = true;
+const bool kStartupInquiryFocusOverlayEnabled = false;
 
 /// 캠퍼스 약도 — 집에서 테스트용 가짜 GPS(모의 위치) — [campus_map_screen.dart]
 const bool kCampusMapMockGpsEnabled = true;
