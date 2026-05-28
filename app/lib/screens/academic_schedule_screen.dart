@@ -19,7 +19,7 @@ class AcademicScheduleScreen extends StatefulWidget {
 class _AcademicScheduleScreenState extends State<AcademicScheduleScreen> {
   late Future<List<Map<String, dynamic>>> _scheduleFuture;
   String? _selectedSemester;
-  bool _calendarView = false;
+  bool _calendarView = true;
   DateTime? _focusedMonth;
   DateTime? _selectedDate;
 
@@ -32,6 +32,8 @@ class _AcademicScheduleScreenState extends State<AcademicScheduleScreen> {
   @override
   void initState() {
     super.initState();
+    _focusedMonth = _todayMonthOnly;
+    _selectedDate = _todayDateOnly;
     _scheduleFuture = NoticeManager().getNotices(boardId: "main_schedule");
     _loadViewPreference();
   }
@@ -39,7 +41,7 @@ class _AcademicScheduleScreenState extends State<AcademicScheduleScreen> {
   Future<void> _loadViewPreference() async {
     try {
       final SharedPreferences prefs = await SharedPreferences.getInstance();
-      final bool calendar = prefs.getBool(_prefCalendarView) ?? false;
+      final bool calendar = prefs.getBool(_prefCalendarView) ?? true;
       if (!mounted) return;
       setState(() {
         _calendarView = calendar;
@@ -49,7 +51,7 @@ class _AcademicScheduleScreenState extends State<AcademicScheduleScreen> {
         }
       });
     } catch (_) {
-      // ignore: if prefs fail, default remains list view
+      // ignore: if prefs fail, default remains calendar view
     }
   }
 
