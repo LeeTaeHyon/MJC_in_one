@@ -891,53 +891,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           Padding(
             padding: const EdgeInsets.only(top: 12),
             child: _settingsCard(
-              child: SwitchListTile(
-                title: Text(
-                  "강의 알림 (알림 패널)",
-                  style: _settingsItemTitleStyle(context),
-                ),
-                subtitle: Text(
-                  "시간표의 다음 수업까지 남은 시간을 알림 패널에 표시합니다. "
-                  "Android는 알림에 실시간 카운트다운이 표시됩니다.",
-                  style: _settingsSubtitleStyle(context),
-                ),
-                value: _lectureReminderNotificationEnabled,
-                onChanged: (bool value) async {
-                  final EdgeInsets snackMargin = _snackBarMargin(context);
-                  if (value) {
-                    final bool granted =
-                        await LectureReminderNotificationService.instance
-                            .requestPermissions();
-                    if (!mounted) return;
-                    if (!granted) {
-                      showUniqueMjcSnackBar(
-                        context,
-                        key: "settings_lecture_reminder_permission",
-                        message: "알림 권한이 필요합니다. 시스템 설정에서 허용해 주세요.",
-                        margin: snackMargin,
-                      );
-                      return;
-                    }
-                  }
-                  await LectureReminderNotificationService.instance
-                      .setEnabled(value);
-                  if (!mounted) return;
-                  setState(() => _lectureReminderNotificationEnabled = value);
-                  showUniqueMjcSnackBar(
-                    context,
-                    key: "settings_lecture_reminder_${value ? "on" : "off"}",
-                    message: value
-                        ? "강의 알림이 알림 패널에 표시됩니다."
-                        : "강의 알림 패널 표시를 껐습니다.",
-                    margin: snackMargin,
-                  );
-                },
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(top: 12),
-            child: _settingsCard(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -1046,29 +999,77 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           const SizedBox(height: 10),
           _settingsCard(
-            child: SwitchListTile(
-              title: Text(
-                "학과 공지 (실험)",
-                style: _settingsItemTitleStyle(context),
-              ),
-              subtitle: Text(
-                "비공식 참고용 학과 공지 탭을 표시합니다. 일부 학과만 글이 있을 수 있습니다.",
-                style: _settingsSubtitleStyle(context),
-              ),
-              value: _labDepartmentNoticesEnabled,
-              onChanged: (bool value) async {
-                final EdgeInsets snackMargin = _snackBarMargin(context);
-                await LabPrefs.setDepartmentNoticesEnabled(value);
-                if (!mounted) return;
-                setState(() => _labDepartmentNoticesEnabled = value);
-                if (value) {
-                  showMjcSnackBar(
-                    context,
-                    message: "공지 탭에 「학과」 메뉴가 표시됩니다.",
-                    margin: snackMargin,
-                  );
-                }
-              },
+            child: Column(
+              children: [
+                SwitchListTile(
+                  title: Text(
+                    "학과 공지 (실험)",
+                    style: _settingsItemTitleStyle(context),
+                  ),
+                  subtitle: Text(
+                    "비공식 참고용 학과 공지 탭을 표시합니다. 일부 학과만 글이 있을 수 있습니다.",
+                    style: _settingsSubtitleStyle(context),
+                  ),
+                  value: _labDepartmentNoticesEnabled,
+                  onChanged: (bool value) async {
+                    final EdgeInsets snackMargin = _snackBarMargin(context);
+                    await LabPrefs.setDepartmentNoticesEnabled(value);
+                    if (!mounted) return;
+                    setState(() => _labDepartmentNoticesEnabled = value);
+                    if (value) {
+                      showMjcSnackBar(
+                        context,
+                        message: "공지 탭에 「학과」 메뉴가 표시됩니다.",
+                        margin: snackMargin,
+                      );
+                    }
+                  },
+                ),
+                _hairlineDivider(),
+                SwitchListTile(
+                  title: Text(
+                    "강의 알림 (실험)",
+                    style: _settingsItemTitleStyle(context),
+                  ),
+                  subtitle: Text(
+                    "시간표의 다음 수업까지 남은 시간을 알림 패널에 표시합니다. "
+                    "기능이 불완전할 수 있습니다.",
+                    style: _settingsSubtitleStyle(context),
+                  ),
+                  value: _lectureReminderNotificationEnabled,
+                  onChanged: (bool value) async {
+                    final EdgeInsets snackMargin = _snackBarMargin(context);
+                    if (value) {
+                      final bool granted =
+                          await LectureReminderNotificationService.instance
+                              .requestPermissions();
+                      if (!mounted) return;
+                      if (!granted) {
+                        showUniqueMjcSnackBar(
+                          context,
+                          key: "settings_lecture_reminder_permission",
+                          message: "알림 권한이 필요합니다. 시스템 설정에서 허용해 주세요.",
+                          margin: snackMargin,
+                        );
+                        return;
+                      }
+                    }
+                    await LectureReminderNotificationService.instance
+                        .setEnabled(value);
+                    if (!mounted) return;
+                    setState(
+                        () => _lectureReminderNotificationEnabled = value);
+                    showUniqueMjcSnackBar(
+                      context,
+                      key: "settings_lecture_reminder_${value ? "on" : "off"}",
+                      message: value
+                          ? "강의 알림이 알림 패널에 표시됩니다."
+                          : "강의 알림 패널 표시를 껐습니다.",
+                      margin: snackMargin,
+                    );
+                  },
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 16),

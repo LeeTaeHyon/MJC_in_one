@@ -83,14 +83,11 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
     final ThemeData theme = Theme.of(context);
     final ColorScheme scheme = theme.colorScheme;
     return Scaffold(
-      backgroundColor: scheme.surface,
       appBar: AppBar(
         title: const Text(
           "관리자 로그인",
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
-        backgroundColor: scheme.surface,
-        foregroundColor: scheme.onSurface,
         elevation: 0,
       ),
       body: SafeArea(

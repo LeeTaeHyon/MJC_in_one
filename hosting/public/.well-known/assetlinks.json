@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.example.mio_notice",
+      "sha256_cert_fingerprints": [
+        "74:2C:7D:55:96:D0:96:B6:8E:59:EC:DE:5B:29:A0:D6:69:F6:1E:0B:79:35:EC:0D:E5:C2:5B:CD:AB:10:35:F0"
+      ]
+    }
+  }
+]

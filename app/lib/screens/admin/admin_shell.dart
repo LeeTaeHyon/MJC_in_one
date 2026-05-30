@@ -83,7 +83,6 @@ class _AdminShellState extends State<AdminShell> {
     );
 
     return Scaffold(
-      backgroundColor: scheme.surface,
       appBar: AppBar(
         title: Text(
           isMobile || width < 520 ? "관리자" : "MJC In One 관리자",
@@ -91,8 +90,6 @@ class _AdminShellState extends State<AdminShell> {
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
-        backgroundColor: scheme.surface,
-        foregroundColor: scheme.onSurface,
         elevation: 0,
         actions: [
           if (!isMobile && width >= 720)
@@ -214,11 +211,8 @@ class _NotAdminScaffold extends StatelessWidget {
     final ThemeData theme = Theme.of(context);
     final ColorScheme scheme = theme.colorScheme;
     return Scaffold(
-      backgroundColor: scheme.surface,
       appBar: AppBar(
         title: const Text("관리자 권한 필요"),
-        backgroundColor: scheme.surface,
-        foregroundColor: scheme.onSurface,
         elevation: 0,
       ),
       body: Center(

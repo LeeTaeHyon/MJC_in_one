@@ -11,6 +11,7 @@
     "ignore": [
       "firebase.json",
       "**/.*",
+      "!**/.well-known/**",
       "**/node_modules/**"
     ],
     "rewrites": [
@@ -21,6 +22,10 @@
       {
         "source": "/terms",
         "destination": "/terms.html"
+      },
+      {
+        "source": "/login",
+        "destination": "/login.html"
       }
     ]
   }

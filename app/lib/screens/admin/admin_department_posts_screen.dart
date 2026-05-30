@@ -5,6 +5,7 @@ import "package:mjc_in_one/screens/admin/admin_responsive.dart";
 import "package:mjc_in_one/services/community_notice_service.dart";
 import "package:mjc_in_one/services/department_slug_registry.dart";
 import "package:mjc_in_one/services/departments_list_service.dart";
+import "package:mjc_in_one/utils/mjc_snack_bar.dart";
 
 /// 관리자 — 학과 공지 목록·작성.
 class AdminDepartmentPostsScreen extends StatefulWidget {
@@ -71,12 +72,7 @@ class _AdminDepartmentPostsScreenState extends State<AdminDepartmentPostsScreen>
       ),
     );
     if (ok == true && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          behavior: SnackBarBehavior.floating,
-          content: Text("저장했습니다."),
-        ),
-      );
+      showMjcSnackBar(context, message: "저장했습니다.");
     }
   }
 
@@ -103,7 +99,6 @@ class _AdminDepartmentPostsScreenState extends State<AdminDepartmentPostsScreen>
       ),
     );
     if (ok != true) return;
-    final data = doc.data();
     await _communityService.deletePost(
       deptSlug: slug,
       postId: doc.id,
@@ -116,133 +111,160 @@ class _AdminDepartmentPostsScreenState extends State<AdminDepartmentPostsScreen>
     final ColorScheme scheme = theme.colorScheme;
     final bool isMobile = adminIsMobile(context);
     final String? slug = _deptSlug;
+    final double safeBottom = MediaQuery.paddingOf(context).bottom;
 
-    return Scaffold(
-      backgroundColor: scheme.surface,
-      floatingActionButton: slug != null && _selectedDepartment != null
-          ? FloatingActionButton.extended(
-              onPressed: () => _openEditor(),
-              icon: const Icon(Icons.add),
-              label: const Text("글 작성"),
-            )
-          : null,
-      body: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: EdgeInsets.fromLTRB(isMobile ? 12 : 16, 12, isMobile ? 12 : 16, 8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    final bool canWrite = slug != null && _selectedDepartment != null;
+
+    return Material(
+      color: scheme.surface,
+      child: Stack(
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(
-                "학과 공지",
-                style: theme.textTheme.titleLarge
-                    ?.copyWith(fontWeight: FontWeight.w800),
-              ),
-              const SizedBox(height: 10),
-              DropdownButtonFormField<String>(
-                key: ValueKey<String>(_selectedDepartment ?? "admin_dept_empty"),
-                initialValue: _selectedDepartment,
-                isExpanded: true,
-                decoration: InputDecoration(
-                  labelText: "학과",
-                  isDense: true,
-                  border: const OutlineInputBorder(),
-                  helperText: _loadingDepartments ? "불러오는 중…" : null,
+              Padding(
+                padding: EdgeInsets.fromLTRB(
+                  isMobile ? 12 : 16,
+                  12,
+                  isMobile ? 12 : 16,
+                  8,
                 ),
-                items: [
-                  for (final String d in _departments)
-                    DropdownMenuItem<String>(value: d, child: Text(d)),
-                ],
-                onChanged: _loadingDepartments
-                    ? null
-                    : (String? value) async {
-                        setState(() => _selectedDepartment = value);
-                        await _resolveSlug();
-                      },
-              ),
-              const SizedBox(height: 10),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: SegmentedButton<String>(
-                  segments: const [
-                    ButtonSegment(value: "all", label: Text("전체")),
-                    ButtonSegment(value: "published", label: Text("게시")),
-                    ButtonSegment(value: "hidden", label: Text("숨김")),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "학과 공지",
+                      style: theme.textTheme.titleLarge
+                          ?.copyWith(fontWeight: FontWeight.w800),
+                    ),
+                    const SizedBox(height: 10),
+                    DropdownButtonFormField<String>(
+                      key: ValueKey<String>(
+                        _selectedDepartment ?? "admin_dept_empty",
+                      ),
+                      initialValue: _selectedDepartment,
+                      isExpanded: true,
+                      decoration: InputDecoration(
+                        labelText: "학과",
+                        isDense: true,
+                        border: const OutlineInputBorder(),
+                        helperText: _loadingDepartments ? "불러오는 중…" : null,
+                      ),
+                      items: [
+                        for (final String d in _departments)
+                          DropdownMenuItem<String>(value: d, child: Text(d)),
+                      ],
+                      onChanged: _loadingDepartments
+                          ? null
+                          : (String? value) async {
+                              setState(() => _selectedDepartment = value);
+                              await _resolveSlug();
+                            },
+                    ),
+                    const SizedBox(height: 10),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: SegmentedButton<String>(
+                        segments: const [
+                          ButtonSegment(value: "all", label: Text("전체")),
+                          ButtonSegment(value: "published", label: Text("게시")),
+                          ButtonSegment(value: "hidden", label: Text("숨김")),
+                        ],
+                        selected: {_statusFilter},
+                        onSelectionChanged: (s) =>
+                            setState(() => _statusFilter = s.first),
+                      ),
+                    ),
                   ],
-                  selected: {_statusFilter},
-                  onSelectionChanged: (s) =>
-                      setState(() => _statusFilter = s.first),
                 ),
+              ),
+              Expanded(
+                child: slug == null
+                    ? const Center(child: Text("학과 slug를 찾을 수 없습니다."))
+                    : StreamBuilder<
+                        List<QueryDocumentSnapshot<Map<String, dynamic>>>>(
+                        stream: _communityService.streamAdminPosts(
+                          slug,
+                          statusFilter: _statusFilter,
+                        ),
+                        builder: (context, snap) {
+                          if (snap.hasError) {
+                            return Center(
+                              child: Text(
+                                "불러오기 실패: ${snap.error}",
+                                style: TextStyle(color: scheme.error),
+                              ),
+                            );
+                          }
+                          if (!snap.hasData) {
+                            return const Center(
+                              child: CircularProgressIndicator(),
+                            );
+                          }
+                          final docs = snap.data!;
+                          if (docs.isEmpty) {
+                            return const Center(child: Text("글이 없습니다."));
+                          }
+                          return ListView.separated(
+                            padding: EdgeInsets.fromLTRB(
+                              isMobile ? 12 : 16,
+                              4,
+                              isMobile ? 12 : 16,
+                              canWrite ? (safeBottom + 88) : (safeBottom + 24),
+                            ),
+                            itemCount: docs.length,
+                            separatorBuilder: (_, __) =>
+                                const SizedBox(height: 8),
+                            itemBuilder: (context, i) {
+                              final doc = docs[i];
+                              final data = doc.data();
+                              final String status =
+                                  (data["status"] as String?) ?? "published";
+                              return ListTile(
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                  side: BorderSide(color: scheme.outlineVariant),
+                                ),
+                                title: Text(
+                                  (data["title"] as String?) ?? "",
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                subtitle: Text(
+                                  "${data["author"] ?? ""} · ${data["date"] ?? ""} · $status",
+                                ),
+                                isThreeLine: true,
+                                onTap: () => _openEditor(
+                                  postId: doc.id,
+                                  data: data,
+                                ),
+                                trailing: IconButton(
+                                  icon: Icon(
+                                    Icons.delete_outline,
+                                    color: scheme.error,
+                                  ),
+                                  onPressed: () => _deletePost(doc),
+                                ),
+                              );
+                            },
+                          );
+                        },
+                      ),
               ),
             ],
           ),
-        ),
-        Expanded(
-          child: slug == null
-              ? const Center(child: Text("학과 slug를 찾을 수 없습니다."))
-              : StreamBuilder<List<QueryDocumentSnapshot<Map<String, dynamic>>>>(
-                  stream: _communityService.streamAdminPosts(
-                    slug,
-                    statusFilter: _statusFilter,
-                  ),
-                  builder: (context, snap) {
-                    if (snap.hasError) {
-                      return Center(
-                        child: Text(
-                          "불러오기 실패: ${snap.error}",
-                          style: TextStyle(color: scheme.error),
-                        ),
-                      );
-                    }
-                    if (!snap.hasData) {
-                      return const Center(child: CircularProgressIndicator());
-                    }
-                    final docs = snap.data!;
-                    if (docs.isEmpty) {
-                      return const Center(child: Text("글이 없습니다."));
-                    }
-                    return ListView.separated(
-                      padding: EdgeInsets.fromLTRB(
-                        isMobile ? 12 : 16,
-                        4,
-                        isMobile ? 12 : 16,
-                        88,
-                      ),
-                      itemCount: docs.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 8),
-                      itemBuilder: (context, i) {
-                        final doc = docs[i];
-                        final data = doc.data();
-                        final String status =
-                            (data["status"] as String?) ?? "published";
-                        return ListTile(
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            side: BorderSide(color: scheme.outlineVariant),
-                          ),
-                          title: Text(
-                            (data["title"] as String?) ?? "",
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          subtitle: Text(
-                            "${data["author"] ?? ""} · ${data["date"] ?? ""} · $status",
-                          ),
-                          isThreeLine: true,
-                          onTap: () => _openEditor(postId: doc.id, data: data),
-                          trailing: IconButton(
-                            icon: Icon(Icons.delete_outline, color: scheme.error),
-                            onPressed: () => _deletePost(doc),
-                          ),
-                        );
-                      },
-                    );
-                  },
-                ),
-        ),
-      ],
-    ),
+          if (canWrite)
+            Positioned(
+              right: 16,
+              bottom: safeBottom + 16,
+              child: FloatingActionButton.extended(
+                onPressed: () => _openEditor(),
+                icon: const Icon(Icons.add),
+                label: const Text("글 작성"),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
