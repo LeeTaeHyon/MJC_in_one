@@ -36,7 +36,6 @@ class _ProfileFormState extends State<ProfileForm> {
   late final TextEditingController _nameController;
   late final TextEditingController _departmentController;
   late final TextEditingController _studentIdController;
-  late final TextEditingController _mileageController;
   List<String> _departments = const [];
   String? _selectedDepartment;
   String? _selectedGrade;
@@ -52,7 +51,6 @@ class _ProfileFormState extends State<ProfileForm> {
     _nameController = TextEditingController(text: profile.name);
     _departmentController = TextEditingController(text: profile.department);
     _studentIdController = TextEditingController(text: profile.studentId);
-    _mileageController = TextEditingController(text: profile.mileage);
     _selectedGrade =
         _gradeOptions.contains(profile.grade) ? profile.grade : null;
     _loadDepartments();
@@ -63,7 +61,6 @@ class _ProfileFormState extends State<ProfileForm> {
     _nameController.dispose();
     _departmentController.dispose();
     _studentIdController.dispose();
-    _mileageController.dispose();
     super.dispose();
   }
 
@@ -113,7 +110,7 @@ class _ProfileFormState extends State<ProfileForm> {
       department: department,
       grade: (_selectedGrade ?? "").trim(),
       studentId: _studentIdController.text.trim(),
-      mileage: _mileageController.text.trim(),
+      mileage: widget.initialProfile.mileage.trim(),
     );
 
     try {
@@ -214,17 +211,6 @@ class _ProfileFormState extends State<ProfileForm> {
               labelText: "학번",
               hintText: "학번을 입력하세요",
               prefixIcon: Icon(Icons.numbers_rounded),
-            ),
-          ),
-          const SizedBox(height: 12),
-          TextFormField(
-            controller: _mileageController,
-            keyboardType: TextInputType.number,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            decoration: const InputDecoration(
-              labelText: "마일리지",
-              hintText: "마일리지를 입력하세요",
-              prefixIcon: Icon(Icons.stars_rounded),
             ),
           ),
           const SizedBox(height: 18),

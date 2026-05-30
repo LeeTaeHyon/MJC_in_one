@@ -12,9 +12,12 @@ import "package:mjc_in_one/services/department_slug_registry.dart";
 import "package:mjc_in_one/services/departments_list_service.dart";
 import "package:mjc_in_one/theme/app_colors.dart";
 import "package:mjc_in_one/theme/app_theme.dart";
+import "package:mjc_in_one/utils/community_notice_bookmarks.dart";
+import "package:mjc_in_one/utils/notice_bookmark_key.dart";
 import "package:mjc_in_one/widgets/collapsed_hero_title.dart";
 import "package:mjc_in_one/widgets/community_notice_list_tile.dart";
 import "package:mjc_in_one/widgets/scroll_to_top_scope.dart";
+import "package:shared_preferences/shared_preferences.dart";
 
 /// 학과 공지 목록 (실험실).
 class DepartmentNoticesScreen extends StatefulWidget {
@@ -37,6 +40,9 @@ class _DepartmentNoticesScreenState extends State<DepartmentNoticesScreen> {
   String? _selectedDepartment;
   String? _deptSlug;
   String? _slugError;
+  Set<String> _readIds = <String>{};
+  Set<String> _pinnedKeys = <String>{};
+  Set<String> _favoriteKeys = <String>{};
 
   ScrollToTopCoordinator? _scrollToTopCoordinator;
   bool _registeredMainTab = false;
@@ -83,6 +89,7 @@ class _DepartmentNoticesScreenState extends State<DepartmentNoticesScreen> {
         _deptSlug = null;
         _slugError = null;
       });
+      await _loadNoticePrefs();
       return;
     }
     final String? slug = await _slugRegistry.slugForDisplayName(name);
@@ -95,6 +102,62 @@ class _DepartmentNoticesScreenState extends State<DepartmentNoticesScreen> {
     if (slug != null && LabPrefs.selectedDepartment.value != name) {
       await LabPrefs.setSelectedDepartment(name);
     }
+    await _loadNoticePrefs();
+  }
+
+  String? get _boardId {
+    final String? slug = _deptSlug;
+    if (slug == null || slug.isEmpty) return null;
+    return departmentNoticeBoardId(slug);
+  }
+
+  Future<void> _loadNoticePrefs() async {
+    final String? boardId = _boardId;
+    if (boardId == null) {
+      if (!mounted) return;
+      setState(() {
+        _readIds = <String>{};
+        _pinnedKeys = <String>{};
+        _favoriteKeys = <String>{};
+      });
+      return;
+    }
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() {
+      _readIds = (prefs.getStringList("read_notices_$boardId") ?? []).toSet();
+      _pinnedKeys =
+          (prefs.getStringList("pinned_notices_$boardId") ?? []).toSet();
+      _favoriteKeys =
+          (prefs.getStringList("favorite_notices_$boardId") ?? []).toSet();
+    });
+  }
+
+  Future<void> _markAsRead(String postId) async {
+    final String? boardId = _boardId;
+    if (boardId == null || postId.isEmpty || _readIds.contains(postId)) {
+      return;
+    }
+    final prefs = await SharedPreferences.getInstance();
+    final Set<String> next = {..._readIds, postId};
+    if (mounted) setState(() => _readIds = next);
+    await prefs.setStringList("read_notices_$boardId", next.toList());
+  }
+
+  Future<void> _togglePinned(String key) async {
+    final String? boardId = _boardId;
+    if (boardId == null) return;
+    final Set<String> next =
+        await toggleCommunityNoticePinned(context, boardId, key);
+    if (mounted) setState(() => _pinnedKeys = next);
+  }
+
+  Future<void> _toggleFavorite(String key) async {
+    final String? boardId = _boardId;
+    if (boardId == null) return;
+    final Set<String> next =
+        await toggleCommunityNoticeFavorite(context, boardId, key);
+    if (mounted) setState(() => _favoriteKeys = next);
   }
 
   @override
@@ -171,23 +234,40 @@ class _DepartmentNoticesScreenState extends State<DepartmentNoticesScreen> {
   }
 
   void _openDetail(Map<String, dynamic> data) {
+    final String? boardId = _boardId;
+    if (boardId == null) return;
+    final String postId = (data["id"] as String?) ?? "";
+    final String key = departmentNoticeBookmarkKey(boardId, data);
+    final bool isPinned = _pinnedKeys.contains(key);
+    final bool isFavorite = _favoriteKeys.contains(key);
     final List<CommunityNoticeMediaItem> images =
         CommunityNoticePostMedia.imagesFromPost(data);
     final List<CommunityNoticeMediaItem> attachments =
         CommunityNoticePostMedia.attachmentsFromPost(data);
-    Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(
-        builder: (_) => DepartmentNoticeDetailScreen(
-          title: (data["title"] as String?) ?? "",
-          author: (data["author"] as String?) ?? "",
-          date: (data["date"] as String?) ?? "",
-          body: (data["body"] as String?) ?? "",
-          images: images,
-          attachments: attachments,
-          sourceNote: data["source_note"] as String?,
+
+    Future<void> open() async {
+      await _markAsRead(postId);
+      if (!mounted) return;
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute<void>(
+          builder: (_) => DepartmentNoticeDetailScreen(
+            title: (data["title"] as String?) ?? "",
+            author: (data["author"] as String?) ?? "",
+            date: (data["date"] as String?) ?? "",
+            body: (data["body"] as String?) ?? "",
+            images: images,
+            attachments: attachments,
+            sourceNote: data["source_note"] as String?,
+            isPinned: isPinned,
+            isFavorite: isFavorite,
+            onTogglePinned: () => _togglePinned(key),
+            onToggleFavorite: () => _toggleFavorite(key),
+          ),
         ),
-      ),
-    );
+      );
+    }
+
+    open();
   }
 
   Widget _buildDisclaimerBanner() {
@@ -344,6 +424,7 @@ class _DepartmentNoticesScreenState extends State<DepartmentNoticesScreen> {
 
   Widget _buildPostsSliver() {
     final String slug = _deptSlug!;
+    final String boardId = departmentNoticeBoardId(slug);
     return StreamBuilder<List<QueryDocumentSnapshot<Map<String, dynamic>>>>(
       stream: _communityService.streamPublishedPosts(slug),
       builder: (context, snap) {
@@ -384,12 +465,36 @@ class _DepartmentNoticesScreenState extends State<DepartmentNoticesScreen> {
             ),
           );
         }
+
+        final List<QueryDocumentSnapshot<Map<String, dynamic>>> pinnedDocs =
+            <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+        final List<QueryDocumentSnapshot<Map<String, dynamic>>> restDocs =
+            <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+        for (final QueryDocumentSnapshot<Map<String, dynamic>> doc in docs) {
+          final Map<String, dynamic> data = {...doc.data(), "id": doc.id};
+          final String key = departmentNoticeBookmarkKey(boardId, data);
+          if (_pinnedKeys.contains(key)) {
+            pinnedDocs.add(doc);
+          } else {
+            restDocs.add(doc);
+          }
+        }
+        final List<QueryDocumentSnapshot<Map<String, dynamic>>> orderedDocs =
+            <QueryDocumentSnapshot<Map<String, dynamic>>>[
+          ...pinnedDocs,
+          ...restDocs,
+        ];
+
         return SliverPadding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
           sliver: SliverList(
             delegate: SliverChildBuilderDelegate(
               (context, index) {
-                final Map<String, dynamic> data = docs[index].data();
+                final QueryDocumentSnapshot<Map<String, dynamic>> doc =
+                    orderedDocs[index];
+                final Map<String, dynamic> data = {...doc.data(), "id": doc.id};
+                final String postId = doc.id;
+                final String key = departmentNoticeBookmarkKey(boardId, data);
                 final List<CommunityNoticeMediaItem> images =
                     CommunityNoticePostMedia.imagesFromPost(data);
                 final CommunityNoticeMediaItem? thumb =
@@ -400,10 +505,15 @@ class _DepartmentNoticesScreenState extends State<DepartmentNoticesScreen> {
                   date: (data["date"] as String?) ?? "",
                   imageUrl: thumb?.url,
                   imageStoragePath: thumb?.storagePath,
+                  isRead: _readIds.contains(postId),
+                  isPinned: _pinnedKeys.contains(key),
+                  isFavorite: _favoriteKeys.contains(key),
+                  onTogglePinned: () => _togglePinned(key),
+                  onToggleFavorite: () => _toggleFavorite(key),
                   onTap: () => _openDetail(data),
                 );
               },
-              childCount: docs.length,
+              childCount: orderedDocs.length,
             ),
           ),
         );

@@ -42,7 +42,7 @@ class AuthService {
     final ActionCodeSettings settings = ActionCodeSettings(
       url: "https://mjcinone.web.app/login",
       handleCodeInApp: true,
-      androidPackageName: "com.example.mio_notice",
+      androidPackageName: "com.myeongji.mio.mioNotice",
       androidInstallApp: true,
       androidMinimumVersion: "1",
     );

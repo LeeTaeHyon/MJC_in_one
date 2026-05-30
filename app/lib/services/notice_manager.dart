@@ -10,11 +10,23 @@ class NoticeManager {
   final Map<String, List<Map<String, dynamic>>> _cache = {};
   final Map<String, bool> _isLoading = {};
   final Map<String, Future<List<Map<String, dynamic>>>> _inFlight = {};
+  final Map<String, DateTime> _lastNetworkFetchAt = <String, DateTime>{};
+
+  /// [forceRefresh] 연타 시 Firestore read를 줄이기 위한 보드별 쿨다운.
+  static const Duration forceRefreshCooldown = Duration(minutes: 5);
 
   Future<List<Map<String, dynamic>>> getNotices({
     required String boardId,
     bool forceRefresh = false,
   }) async {
+    if (forceRefresh &&
+        _cache.containsKey(boardId) &&
+        _cache[boardId] != null &&
+        _isWithinForceRefreshCooldown(boardId)) {
+      debugPrint("새로고침 쿨다운 — 캐시 반환: $boardId");
+      return _cache[boardId]!;
+    }
+
     if (!forceRefresh &&
         _cache.containsKey(boardId) &&
         _cache[boardId] != null) {
@@ -90,6 +102,7 @@ class NoticeManager {
         results.sort((a, b) => (b["date"] ?? "").compareTo(a["date"] ?? ""));
 
         _cache[boardId] = results;
+        _lastNetworkFetchAt[boardId] = DateTime.now();
         return results;
       }
 
@@ -172,8 +185,15 @@ class NoticeManager {
     }
   }
 
+  bool _isWithinForceRefreshCooldown(String boardId) {
+    final DateTime? last = _lastNetworkFetchAt[boardId];
+    if (last == null) return false;
+    return DateTime.now().difference(last) < forceRefreshCooldown;
+  }
+
   void clearCache() {
     _cache.clear();
     _isLoading.clear();
+    _lastNetworkFetchAt.clear();
   }
 }

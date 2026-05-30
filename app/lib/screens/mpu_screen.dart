@@ -10,6 +10,7 @@ import "package:mjc_in_one/services/notice_manager.dart";
 import "package:mjc_in_one/services/user_data_repository.dart";
 import "package:mjc_in_one/theme/app_theme.dart";
 import "package:mjc_in_one/utils/bookmark_added_feedback.dart";
+import "package:mjc_in_one/utils/notice_list_refresh_guard.dart";
 import "package:mjc_in_one/utils/mpu_program_dday.dart";
 import "package:mjc_in_one/perf_flags.dart";
 import "package:mjc_in_one/widgets/nested_scroll_refresh_indicator.dart";
@@ -193,6 +194,19 @@ class _MpuScreenState extends State<MpuScreen> {
           if (!mounted) return;
           await openMpuPortalForProgram(context, item);
         },
+        boardIdFor: (_) => "mpu_programs",
+        noticeKeyFor: (item) {
+          final String title = (item["title"] ?? "").toString().trim();
+          final String branch = (item["branch"] ?? "").toString().trim();
+          final String dDay = (item["d_day"] ?? "").toString().trim();
+          final String date =
+              (item["reg_date"] ?? item["date"] ?? "").toString().trim();
+          return "$title|$branch|$dDay|$date";
+        },
+        trailingFor: (item) => MpuDeadlineHomeStyleBadge(
+          data: item,
+          compactSecondLineFontSize: 14,
+        ),
         chipFor: (item) {
           final String b = (item["branch"] ?? "").toString().trim();
           return b.isEmpty ? "핵심역량" : b;
@@ -703,11 +717,21 @@ class _MpuListTabState extends State<_MpuListTab> {
 
   Future<void> _handleRefresh() async {
     await _loadNoticeFilter();
+    final bool forceRefresh =
+        NoticeListRefreshGuard.allowForceRefresh("mpu_programs");
     setState(() {
-      _mpuFuture = NoticeManager()
-          .getNotices(boardId: "mpu_programs", forceRefresh: true);
+      _mpuFuture = NoticeManager().getNotices(
+        boardId: "mpu_programs",
+        forceRefresh: forceRefresh,
+      );
     });
     await _mpuFuture;
+    if (!forceRefresh && mounted) {
+      NoticeListRefreshGuard.showThrottledMessage(
+        context,
+        key: "mpu_programs_refresh_throttled",
+      );
+    }
   }
 
   @override
@@ -815,49 +839,25 @@ class _MpuListTabState extends State<_MpuListTab> {
               final bool isPinned = _pinnedKeys.contains(key);
               final bool isFavorite = _favoriteKeys.contains(key);
               final Widget card = RepaintBoundary(
-                child: _buildMpuCard(context, data, itemKey: key),
-              );
-              final Widget dDayBadge = widget.showCompleted
-                  ? Opacity(
-                      opacity: 0.55,
-                      child: MpuDeadlineHomeStyleBadge(
-                        data: data,
-                        elapsed: true,
-                      ),
-                    )
-                  : MpuDeadlineHomeStyleBadge(data: data);
-              final Widget overlaid = Stack(
-                children: [
-                  card,
-                  Positioned(
-                    right: 16,
-                    top: 10,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        PinFavoriteButtons(
-                          isPinned: isPinned,
-                          isFavorite: isFavorite,
-                          onTogglePinned: () => _togglePinned(key),
-                          onToggleFavorite: () => _toggleFavorite(key),
-                        ),
-                        const SizedBox(height: 8),
-                        dDayBadge,
-                      ],
-                    ),
-                  ),
-                ],
+                child: _buildMpuCard(
+                  context,
+                  data,
+                  itemKey: key,
+                  isPinned: isPinned,
+                  isFavorite: isFavorite,
+                  onTogglePinned: () => _togglePinned(key),
+                  onToggleFavorite: () => _toggleFavorite(key),
+                ),
               );
               final bool animate = _entrance.shouldAnimateList &&
                   index < _MpuListEntrance.maxAnimatedItems;
               if (animate) {
-                return overlaid.animate().fadeIn(
+                return card.animate().fadeIn(
                       delay: (index * 24).clamp(0, 240).ms,
                       duration: 240.ms,
                     );
               }
-              return overlaid;
+              return card;
             },
             childCount: ordered.length,
           ),
@@ -866,120 +866,14 @@ class _MpuListTabState extends State<_MpuListTab> {
     ];
   }
 
-  Widget _mpuProgramDetailsBlock(
-    BuildContext context, {
-    required Map<String, dynamic> data,
-    required String title,
-    required List<String> tagLabels,
-    required String fallbackLabel,
-    required Color titleColor,
-    required Color chipBackground,
-    required Color chipForeground,
-  }) {
-    final ColorScheme scheme = Theme.of(context).colorScheme;
-    final Color secondaryText = scheme.onSurfaceVariant;
-    final String reg =
-        (data["reg_date"] ?? data["date"] ?? "").toString().trim();
-    final String edu = (data["edu_date"] ?? "").toString().trim();
-
-    final List<String> chips = tagLabels.isNotEmpty
-        ? tagLabels
-        : <String>[
-            fallbackLabel.trim().isEmpty ? "핵심역량" : fallbackLabel.trim(),
-          ];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Wrap(
-          spacing: 6,
-          runSpacing: 6,
-          children: <Widget>[
-            for (final String label in chips)
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: chipBackground,
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    color: chipForeground,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Text(
-          title,
-          style: TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.bold,
-            color: titleColor,
-            height: 1.3,
-          ),
-        ),
-        if (reg.isNotEmpty) ...<Widget>[
-          const SizedBox(height: 10),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Icon(
-                Icons.calendar_today_outlined,
-                size: 14,
-                color: secondaryText,
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  "신청: $reg",
-                  style: TextStyle(
-                    color: secondaryText,
-                    fontSize: 13,
-                    height: 1.35,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-        if (edu.isNotEmpty) ...<Widget>[
-          const SizedBox(height: 6),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Icon(
-                Icons.school_outlined,
-                size: 14,
-                color: secondaryText,
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  "교육: $edu",
-                  style: TextStyle(
-                    color: secondaryText,
-                    fontSize: 13,
-                    height: 1.35,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ],
-    );
-  }
-
   Widget _buildMpuCard(
     BuildContext context,
     Map<String, dynamic> data, {
     required String itemKey,
+    required bool isPinned,
+    required bool isFavorite,
+    required VoidCallback onTogglePinned,
+    required VoidCallback onToggleFavorite,
   }) {
     final ColorScheme scheme = Theme.of(context).colorScheme;
     final MjcSurfaceTokens tokens =
@@ -999,8 +893,12 @@ class _MpuListTabState extends State<_MpuListTab> {
     final Color stripColor = widget.showCompleted
         ? completedColor
         : (isRead ? scheme.onSurfaceVariant : accent);
+    final Color dateColor = scheme.onSurfaceVariant;
     final String title = data["title"] ?? "";
     final String branch = data["branch"] ?? "";
+    final String reg =
+        (data["reg_date"] ?? data["date"] ?? "").toString().trim();
+    final String edu = (data["edu_date"] ?? "").toString().trim();
     final List<String> tags = switch (data["tags"]) {
       final List<dynamic> raw => raw.map((e) => e.toString().trim()).toList(),
       _ => const <String>[],
@@ -1013,93 +911,316 @@ class _MpuListTabState extends State<_MpuListTab> {
           return trimmed.startsWith("#") ? trimmed : "#$trimmed";
         })
         .toList();
+    final String typeLabel =
+        branch.trim().isEmpty ? "핵심역량" : branch.trim();
+
+    final Widget dDayBadge = widget.showCompleted
+        ? Opacity(
+            opacity: 0.55,
+            child: MpuDeadlineHomeStyleBadge(
+              data: data,
+              elapsed: true,
+              compactSecondLineFontSize: 14,
+            ),
+          )
+        : MpuDeadlineHomeStyleBadge(
+            data: data,
+            compactSecondLineFontSize: 14,
+          );
+
+    Widget buildStack(List<Widget> children) {
+      children.addAll([
+        Positioned(
+          right: 12,
+          top: 10,
+          child: PinFavoriteButtons(
+            isPinned: isPinned,
+            isFavorite: isFavorite,
+            onTogglePinned: onTogglePinned,
+            onToggleFavorite: onToggleFavorite,
+          ),
+        ),
+        Positioned(
+          right: 12,
+          bottom: 16,
+          child: dDayBadge,
+        ),
+      ]);
+      return Stack(children: children);
+    }
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: const EdgeInsets.only(bottom: 12),
       child: Material(
         color:
             widget.showCompleted ? scheme.surfaceContainerLow : scheme.surface,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         elevation: (widget.showCompleted || _lowRaster) ? 0 : 2,
         shadowColor: _lowRaster
             ? Colors.transparent
             : Colors.black.withValues(alpha: isDark ? 0.45 : 0.12),
         clipBehavior: _lowRaster ? Clip.hardEdge : Clip.none,
         child: InkWell(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(12),
           onTap: () async {
             await _markAsRead(itemKey);
             if (!context.mounted) return;
             await openMpuPortalForProgram(context, data);
           },
-          child: (_lowRaster)
-              ? Stack(
-                  children: <Widget>[
+          child: _lowRaster
+              ? buildStack([
+                  Positioned(
+                    left: 0,
+                    top: 0,
+                    bottom: 0,
+                    child: Container(
+                      width: 4,
+                      decoration: BoxDecoration(
+                        color: stripColor,
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(12),
+                          bottomLeft: Radius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 80, 80),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: chipBackground,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                typeLabel,
+                                style: TextStyle(
+                                  color: chipForeground,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            ...tagLabels.map(
+                              (label) => Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: chipBackground,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  label,
+                                  style: TextStyle(
+                                    color: chipForeground,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: titleColor,
+                            height: 1.4,
+                          ),
+                        ),
+                        if (reg.isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.calendar_today_outlined,
+                                size: 14,
+                                color: dateColor,
+                              ),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  "신청: $reg",
+                                  style: TextStyle(
+                                    color: dateColor,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                        if (edu.isNotEmpty) ...[
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.school_outlined,
+                                size: 14,
+                                color: dateColor,
+                              ),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  "교육: $edu",
+                                  style: TextStyle(
+                                    color: dateColor,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ])
+              : ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  clipBehavior: Clip.hardEdge,
+                  child: buildStack([
                     Positioned(
                       left: 0,
                       top: 0,
                       bottom: 0,
                       child: Container(
-                        width: 5,
+                        width: 4,
                         decoration: BoxDecoration(
                           color: stripColor,
                           borderRadius: const BorderRadius.only(
-                            topLeft: Radius.circular(16),
-                            bottomLeft: Radius.circular(16),
+                            topLeft: Radius.circular(12),
+                            bottomLeft: Radius.circular(12),
                           ),
                         ),
                       ),
                     ),
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 18, 88, 18),
-                      child: _mpuProgramDetailsBlock(
-                        context,
-                        data: data,
-                        title: title,
-                        tagLabels: tagLabels,
-                        fallbackLabel: branch,
-                        titleColor: titleColor,
-                        chipBackground: chipBackground,
-                        chipForeground: chipForeground,
-                      ),
-                    ),
-                  ],
-                )
-              : ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  clipBehavior: Clip.hardEdge,
-                  child: Stack(
-                    children: <Widget>[
-                      Positioned(
-                        left: 0,
-                        top: 0,
-                        bottom: 0,
-                        child: Container(
-                          width: 5,
-                          decoration: BoxDecoration(
-                            color: stripColor,
-                            borderRadius: const BorderRadius.only(
-                              topLeft: Radius.circular(16),
-                              bottomLeft: Radius.circular(16),
+                      padding: const EdgeInsets.fromLTRB(20, 16, 80, 80),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 6,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: chipBackground,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  typeLabel,
+                                  style: TextStyle(
+                                    color: chipForeground,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                              ...tagLabels.map(
+                                (label) => Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: chipBackground,
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    label,
+                                    style: TextStyle(
+                                      color: chipForeground,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            title,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: titleColor,
+                              height: 1.4,
                             ),
                           ),
-                        ),
+                          if (reg.isNotEmpty) ...[
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.calendar_today_outlined,
+                                  size: 14,
+                                  color: dateColor,
+                                ),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    "신청: $reg",
+                                    style: TextStyle(
+                                      color: dateColor,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                          if (edu.isNotEmpty) ...[
+                            const SizedBox(height: 6),
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.school_outlined,
+                                  size: 14,
+                                  color: dateColor,
+                                ),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    "교육: $edu",
+                                    style: TextStyle(
+                                      color: dateColor,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ],
                       ),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 18, 88, 18),
-                        child: _mpuProgramDetailsBlock(
-                          context,
-                          data: data,
-                          title: title,
-                          tagLabels: tagLabels,
-                          fallbackLabel: branch,
-                          titleColor: titleColor,
-                          chipBackground: chipBackground,
-                          chipForeground: chipForeground,
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ]),
                 ),
         ),
       ),

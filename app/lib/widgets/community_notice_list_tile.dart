@@ -2,6 +2,7 @@ import "package:flutter/material.dart";
 import "package:mjc_in_one/perf_flags.dart";
 import "package:mjc_in_one/theme/app_theme.dart";
 import "package:mjc_in_one/widgets/community_notice_image.dart";
+import "package:mjc_in_one/widgets/pin_favorite_buttons.dart";
 
 /// 학과 공지 목록 카드 ([MainWebsiteScreen] 공지 카드와 동일 레이아웃).
 class CommunityNoticeListTile extends StatelessWidget {
@@ -13,6 +14,11 @@ class CommunityNoticeListTile extends StatelessWidget {
     this.imageUrl,
     this.imageStoragePath,
     required this.onTap,
+    this.isRead = false,
+    this.isPinned = false,
+    this.isFavorite = false,
+    this.onTogglePinned,
+    this.onToggleFavorite,
   });
 
   final String title;
@@ -21,6 +27,11 @@ class CommunityNoticeListTile extends StatelessWidget {
   final String? imageUrl;
   final String? imageStoragePath;
   final VoidCallback onTap;
+  final bool isRead;
+  final bool isPinned;
+  final bool isFavorite;
+  final VoidCallback? onTogglePinned;
+  final VoidCallback? onToggleFavorite;
 
   @override
   Widget build(BuildContext context) {
@@ -31,11 +42,16 @@ class CommunityNoticeListTile extends StatelessWidget {
     final Color chipBackground =
         tokens.sourceMjc.withValues(alpha: isDark ? 0.18 : 0.12);
     final Color chipForeground = tokens.sourceMjc;
-    final Color titleColor = scheme.onSurface;
+    final Color accentColor =
+        isRead ? scheme.onSurfaceVariant : tokens.sourceMjc;
+    final Color titleColor =
+        isRead ? tokens.noticeReadTitle : scheme.onSurface;
     final Color metaColor = scheme.onSurfaceVariant;
     const bool lowRaster = kPerfLowRasterMode;
     final bool hasThumb = (imageUrl ?? "").isNotEmpty ||
         (imageStoragePath ?? "").isNotEmpty;
+    final bool showPinFavorite =
+        onTogglePinned != null && onToggleFavorite != null;
 
     final Widget cardBody = Stack(
       children: [
@@ -46,7 +62,7 @@ class CommunityNoticeListTile extends StatelessWidget {
           child: Container(
             width: 4,
             decoration: BoxDecoration(
-              color: tokens.sourceMjc,
+              color: accentColor,
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(12),
                 bottomLeft: Radius.circular(12),
@@ -56,97 +72,115 @@ class CommunityNoticeListTile extends StatelessWidget {
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-          child: Row(
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: chipBackground,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        "학과 공지",
-                        style: TextStyle(
-                          color: chipForeground,
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
                     ),
-                    const SizedBox(height: 12),
-                    Text(
-                      title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+                    decoration: BoxDecoration(
+                      color: chipBackground,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      "학과 공지",
                       style: TextStyle(
-                        fontSize: 16,
+                        color: chipForeground,
+                        fontSize: 11,
                         fontWeight: FontWeight.bold,
-                        color: titleColor,
-                        height: 1.4,
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    Row(
+                  ),
+                  const Spacer(),
+                  if (showPinFavorite)
+                    PinFavoriteButtons(
+                      isPinned: isPinned,
+                      isFavorite: isFavorite,
+                      onTogglePinned: onTogglePinned!,
+                      onToggleFavorite: onToggleFavorite!,
+                    ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(
-                          Icons.person_outline,
-                          size: 14,
-                          color: metaColor,
-                        ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            author,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: metaColor,
-                              fontSize: 13,
-                            ),
+                        Text(
+                          title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: titleColor,
+                            height: 1.4,
                           ),
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.person_outline,
+                              size: 14,
+                              color: metaColor,
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                author,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: metaColor,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.calendar_today_outlined,
+                              size: 14,
+                              color: metaColor,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              date,
+                              style: TextStyle(
+                                color: metaColor,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.calendar_today_outlined,
-                          size: 14,
-                          color: metaColor,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          date,
-                          style: TextStyle(
-                            color: metaColor,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
+                  ),
+                  if (hasThumb) ...[
+                    const SizedBox(width: 12),
+                    CommunityNoticeImage(
+                      imageUrl: imageUrl,
+                      imageStoragePath: imageStoragePath,
+                      width: 56,
+                      height: 56,
+                      fit: BoxFit.cover,
+                      borderRadius: BorderRadius.circular(8),
                     ),
                   ],
-                ),
+                ],
               ),
-              if (hasThumb) ...[
-                const SizedBox(width: 12),
-                CommunityNoticeImage(
-                  imageUrl: imageUrl,
-                  imageStoragePath: imageStoragePath,
-                  width: 56,
-                  height: 56,
-                  fit: BoxFit.cover,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ],
             ],
           ),
         ),

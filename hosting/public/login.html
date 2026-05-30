@@ -70,6 +70,11 @@
         text-decoration: none;
         font-weight: 600;
       }
+
+      a.button[aria-disabled="true"] {
+        pointer-events: none;
+        opacity: 0.55;
+      }
     </style>
   </head>
   <body>
@@ -80,7 +85,32 @@
         아래 버튼으로 앱을 열거나, 이미 설치되어 있다면 메일의 링크를 다시
         눌러 주세요.
       </p>
-      <a class="button" href="mjcinone://login">앱에서 열기</a>
+      <a class="button" id="open-app" href="#" aria-disabled="true">
+        메일 링크를 다시 눌러 주세요
+      </a>
     </main>
+    <script>
+      (function () {
+        const href = window.location.href;
+        const appLink =
+          "mjcinone://login?link=" + encodeURIComponent(href);
+        const button = document.getElementById("open-app");
+
+        const hasAuthParams =
+          href.includes("oobCode=") ||
+          href.includes("oobCode%3D") ||
+          href.includes("mode=signIn") ||
+          href.includes("mode%3DsignIn");
+
+        if (hasAuthParams) {
+          if (button) {
+            button.href = appLink;
+            button.textContent = "앱에서 열기";
+            button.removeAttribute("aria-disabled");
+          }
+          window.location.replace(appLink);
+        }
+      })();
+    </script>
   </body>
 </html>

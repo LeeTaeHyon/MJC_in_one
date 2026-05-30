@@ -2,8 +2,9 @@ import "dart:io" show Platform;
 
 import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
+import "package:mjc_in_one/debug/app_debug_flags.dart";
 import "package:mjc_in_one/services/developer_support_service.dart";
-import "package:mjc_in_one/utils/snack_bar_utils.dart";
+import "package:mjc_in_one/utils/mjc_snack_bar.dart";
 import "package:mjc_in_one/widgets/mjc_floating_pill_cta.dart";
 import "package:shared_preferences/shared_preferences.dart";
 
@@ -17,6 +18,13 @@ enum InquiryType {
   final String value;
   final String label;
   const InquiryType(this.value, this.label);
+
+  IconData get icon => switch (this) {
+        InquiryType.bug => Icons.bug_report_outlined,
+        InquiryType.suggestion => Icons.lightbulb_outline_rounded,
+        InquiryType.general => Icons.chat_bubble_outline_rounded,
+        InquiryType.other => Icons.more_horiz_rounded,
+      };
 }
 
 const String _kInquiryCooldownKey = "developer_inquiry_last_at";
@@ -67,13 +75,10 @@ class _InquiryScreenState extends State<InquiryScreen> {
       final remain =
           (_kInquiryCooldown.inMilliseconds - elapsedMs) ~/ 1000 + 1;
       if (mounted) {
-        SnackBarUtils.showUnique(
+        showUniqueMjcSnackBar(
           context,
           key: "inquiry_cooldown",
-          snackBar: SnackBar(
-            behavior: SnackBarBehavior.floating,
-            content: Text("문의는 잠시 후 다시 보낼 수 있습니다. ($remain초)"),
-          ),
+          message: "문의는 잠시 후 다시 보낼 수 있습니다. ($remain초)",
         );
       }
       return false;
@@ -85,13 +90,10 @@ class _InquiryScreenState extends State<InquiryScreen> {
     if (_submitting) return;
     final String msg = _messageCtrl.text.trim();
     if (msg.length < 5) {
-      SnackBarUtils.showUnique(
+      showUniqueMjcSnackBar(
         context,
         key: "inquiry_too_short",
-        snackBar: const SnackBar(
-          behavior: SnackBarBehavior.floating,
-          content: Text("문의 내용을 5자 이상 입력해 주세요."),
-        ),
+        message: "문의 내용을 5자 이상 입력해 주세요.",
       );
       return;
     }
@@ -113,26 +115,20 @@ class _InquiryScreenState extends State<InquiryScreen> {
       );
 
       if (!mounted) return;
-      SnackBarUtils.showUnique(
+      showUniqueMjcSnackBar(
         context,
         key: "inquiry_submitted",
-        snackBar: const SnackBar(
-          behavior: SnackBarBehavior.floating,
-          content: Text("문의가 접수되었습니다. 빠르게 확인하겠습니다."),
-        ),
+        message: "문의가 접수되었습니다. 빠르게 확인하겠습니다.",
       );
       Navigator.of(context).pop();
     } catch (e) {
       debugPrint("inquiry submit error: $e");
       if (!mounted) return;
       setState(() => _submitting = false);
-      SnackBarUtils.showUnique(
+      showUniqueMjcSnackBar(
         context,
         key: "inquiry_failed",
-        snackBar: const SnackBar(
-          behavior: SnackBarBehavior.floating,
-          content: Text("문의를 보내지 못했습니다. 잠시 후 다시 시도해 주세요."),
-        ),
+        message: "문의를 보내지 못했습니다. 잠시 후 다시 시도해 주세요.",
       );
     }
   }
@@ -146,12 +142,22 @@ class _InquiryScreenState extends State<InquiryScreen> {
       appBar: AppBar(
         title: const Text(
           "개발자에게 문의",
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
         ),
         backgroundColor: scheme.primary,
         foregroundColor: Colors.white,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1.0),
+          child: Container(
+            color: scheme.outline.withValues(alpha: 0.4),
+            height: 1.0,
+          ),
+        ),
       ),
       body: Stack(
         fit: StackFit.expand,
@@ -161,89 +167,264 @@ class _InquiryScreenState extends State<InquiryScreen> {
               20,
               16,
               20,
-              MjcFloatingCtaLayout.scrollBottomPadding(context),
+              MjcFloatingCtaLayout.scrollBottomPadding(
+                context,
+                buttonHeight: MjcFloatingCtaLayout.compactHeight,
+              ),
             ),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                if (!kReleaseMode ||
-                    const bool.fromEnvironment('PREVIEW', defaultValue: false))
+                if (AppDevFeatures.inquiryDevLogSection) ...[
                   _buildDevLogSection(context),
-                Text(
-                  "어떤 문의를 보내시겠습니까?",
-                  style: theme.textTheme.titleMedium
-                      ?.copyWith(fontWeight: FontWeight.w800),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  "보내주신 내용은 관리자 페이지에서 확인 후 답변드립니다.",
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(color: scheme.onSurfaceVariant),
-                ),
+                  const SizedBox(height: 16),
+                ],
+                _buildInquiryGuideCard(theme, scheme),
                 const SizedBox(height: 16),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: InquiryType.values.map((t) {
-                    final selected = _type == t;
-                    return ChoiceChip(
-                      label: Text(t.label),
-                      selected: selected,
-                      onSelected: (v) {
-                        if (!v) return;
-                        setState(() => _type = t);
-                      },
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 20),
-                Text(
-                  "문의 내용",
-                  style: theme.textTheme.labelLarge
-                      ?.copyWith(fontWeight: FontWeight.w800),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: _messageCtrl,
-                  focusNode: _messageFocus,
-                  minLines: 5,
-                  maxLines: 12,
-                  maxLength: 1000,
-                  decoration: const InputDecoration(
-                    hintText:
-                        "발생한 상황, 화면, 기대했던 동작 등을 자세히 적어주시면 빠르게 도와드릴 수 있습니다.",
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  "답변 받을 연락처 (선택)",
-                  style: theme.textTheme.labelLarge
-                      ?.copyWith(fontWeight: FontWeight.w800),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: _contactCtrl,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(
-                    hintText: "예: 학교 메일 주소",
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                  ),
-                ),
+                _buildFormCard(theme, scheme),
               ],
             ),
           ),
           Positioned(
-            left: MjcFloatingCtaLayout.horizontalInset,
-            right: MjcFloatingCtaLayout.horizontalInset,
+            left: 0,
+            right: 0,
             bottom: MjcFloatingCtaLayout.positionedBottom(context),
-            child: MjcFloatingPillCta(
-              label: _submitting ? "보내는 중" : "문의 보내기",
-              icon: Icons.send_rounded,
-              onTap: _submit,
-              enabled: !_submitting,
-              loading: _submitting,
+            child: Center(
+              child: MjcFloatingPillCta(
+                variant: MjcFloatingPillCtaVariant.primaryCompact,
+                label: _submitting ? "보내는 중" : "문의 보내기",
+                icon: Icons.send_rounded,
+                onTap: _submit,
+                enabled: !_submitting,
+                loading: _submitting,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  BoxDecoration _surfaceCardDecoration(
+    ColorScheme scheme, {
+    required bool isDark,
+  }) {
+    return BoxDecoration(
+      color: scheme.surface,
+      borderRadius: BorderRadius.circular(12),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: isDark ? 0.45 : 0.05),
+          blurRadius: 2,
+          offset: const Offset(0, 1),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSectionTitle(
+    ThemeData theme,
+    ColorScheme scheme, {
+    required IconData icon,
+    required String title,
+  }) {
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: scheme.onSurfaceVariant),
+        const SizedBox(width: 6),
+        Text(
+          title,
+          style: theme.textTheme.labelLarge?.copyWith(
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ],
+    );
+  }
+
+  InputDecoration _fieldDecoration(
+    ColorScheme scheme, {
+    required String hintText,
+  }) {
+    final OutlineInputBorder border = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: BorderSide.none,
+    );
+    return InputDecoration(
+      hintText: hintText,
+      filled: true,
+      fillColor: scheme.surfaceContainerLow,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      border: border,
+      enabledBorder: border,
+      focusedBorder: border,
+    );
+  }
+
+  Widget _buildFormCard(ThemeData theme, ColorScheme scheme) {
+    final bool isDark = theme.brightness == Brightness.dark;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: _surfaceCardDecoration(scheme, isDark: isDark),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSectionTitle(
+            theme,
+            scheme,
+            icon: Icons.category_outlined,
+            title: "문의 종류",
+          ),
+          const SizedBox(height: 12),
+          Container(
+            decoration: BoxDecoration(
+              color: scheme.surfaceContainerLow,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<InquiryType>(
+                value: _type,
+                isExpanded: true,
+                icon: Icon(
+                  Icons.expand_more_rounded,
+                  color: scheme.onSurfaceVariant,
+                ),
+                borderRadius: BorderRadius.circular(12),
+                items: InquiryType.values
+                    .map(
+                      (type) => DropdownMenuItem<InquiryType>(
+                        value: type,
+                        child: Row(
+                          children: [
+                            Icon(type.icon, size: 18),
+                            const SizedBox(width: 8),
+                            Text(type.label),
+                          ],
+                        ),
+                      ),
+                    )
+                    .toList(),
+                selectedItemBuilder: (context) => InquiryType.values
+                    .map(
+                      (type) => Align(
+                        alignment: Alignment.centerLeft,
+                        child: Row(
+                          children: [
+                            Icon(
+                              type.icon,
+                              size: 18,
+                              color: scheme.onSurface,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              type.label,
+                              style: theme.textTheme.bodyMedium,
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (InquiryType? value) {
+                  if (value == null) return;
+                  setState(() => _type = value);
+                },
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          _buildSectionTitle(
+            theme,
+            scheme,
+            icon: Icons.edit_outlined,
+            title: "문의 내용",
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _messageCtrl,
+            focusNode: _messageFocus,
+            minLines: 5,
+            maxLines: 12,
+            maxLength: 1000,
+            style: theme.textTheme.bodyMedium?.copyWith(height: 1.5),
+            decoration: _fieldDecoration(
+              scheme,
+              hintText:
+                  "발생한 상황, 화면, 기대했던 동작 등을 자세히 적어주시면 빠르게 도와드릴 수 있습니다.",
+            ),
+          ),
+          const SizedBox(height: 16),
+          _buildSectionTitle(
+            theme,
+            scheme,
+            icon: Icons.mail_outline_rounded,
+            title: "답변 받을 연락처 (선택)",
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _contactCtrl,
+            keyboardType: TextInputType.emailAddress,
+            decoration: _fieldDecoration(
+              scheme,
+              hintText: "예: 학교 메일 주소",
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInquiryGuideCard(ThemeData theme, ColorScheme scheme) {
+    const List<String> bullets = <String>[
+      "접수 후 순차적으로 확인해 답변드립니다.",
+      "MJC ONE 앱 이용과 관련된 내용만 보내 주세요.",
+      "학번, 비밀번호 등 민감한 개인정보는 작성하지 말아 주세요.",
+    ];
+
+    final bool isDark = theme.brightness == Brightness.dark;
+    final TextStyle bulletStyle = theme.textTheme.bodySmall!.copyWith(
+      color: scheme.onSurfaceVariant,
+      height: 1.45,
+    );
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: _surfaceCardDecoration(scheme, isDark: isDark).copyWith(
+        border: Border.all(
+          color: scheme.primary.withValues(alpha: 0.28),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSectionTitle(
+            theme,
+            scheme,
+            icon: Icons.info_outline_rounded,
+            title: "문의 전 확인해 주세요",
+          ),
+          const SizedBox(height: 10),
+          ...bullets.map(
+            (text) => Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text(
+                      "•",
+                      style: bulletStyle.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(child: Text(text, style: bulletStyle)),
+                ],
+              ),
             ),
           ),
         ],
@@ -252,23 +433,21 @@ class _InquiryScreenState extends State<InquiryScreen> {
   }
 
   Widget _buildDevLogSection(BuildContext context) {
-    final ColorScheme scheme = Theme.of(context).colorScheme;
-    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme scheme = theme.colorScheme;
+    final bool isDark = theme.brightness == Brightness.dark;
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 24),
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: _surfaceCardDecoration(scheme, isDark: isDark),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Icon(Icons.bug_report, color: scheme.primary),
-              const SizedBox(width: 8),
-              const Text(
-                "개발 로그 (Test Build)",
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
-              ),
-            ],
+          _buildSectionTitle(
+            theme,
+            scheme,
+            icon: Icons.bug_report_outlined,
+            title: "개발 로그 (Test Build)",
           ),
           const SizedBox(height: 12),
           StreamBuilder<List<Map<String, dynamic>>>(
@@ -305,15 +484,14 @@ class _InquiryScreenState extends State<InquiryScreen> {
                         return "";
                       }();
 
-                      return Material(
-                        color: isDark
-                            ? const Color(0xFF2A2A35)
-                            : const Color(0xFFF0F4F8),
-                        borderRadius: BorderRadius.circular(14),
-                        elevation: 0,
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
+                      return Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: scheme.surfaceContainerHighest
+                              .withValues(alpha: 0.55),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
@@ -348,8 +526,7 @@ class _InquiryScreenState extends State<InquiryScreen> {
                               ],
                             ],
                           ),
-                        ),
-                      );
+                        );
                     },
                   ),
                   if (items.length > 1) ...[
@@ -379,8 +556,6 @@ class _InquiryScreenState extends State<InquiryScreen> {
               );
             },
           ),
-          const SizedBox(height: 8),
-          Divider(color: scheme.outlineVariant),
         ],
       ),
     );

@@ -1,6 +1,24 @@
 /// 고정·즐겨찾기 SharedPreferences 키 후보.
 ///
 /// 화면마다 저장 형식이 조금씩 달라, 마이페이지에서는 후보 전체를 검사합니다.
+const String kDepartmentNoticeBoardPrefix = "dept_";
+
+/// 학과 공지 Firestore `community_notices/{deptSlug}` 게시판 ID.
+String departmentNoticeBoardId(String deptSlug) =>
+    "$kDepartmentNoticeBoardPrefix${deptSlug.trim()}";
+
+/// 학과 공지 고정·즐겨찾기 키.
+String departmentNoticeBookmarkKey(
+  String boardId,
+  Map<String, dynamic> data,
+) {
+  final String id = (data["id"] ?? "").toString().trim();
+  if (id.isNotEmpty) return "$boardId|$id";
+  final String title = (data["title"] ?? "").toString().trim();
+  final String date = (data["date"] ?? "").toString().trim();
+  return "$boardId|$title|$date";
+}
+
 Set<String> noticeBookmarkKeyCandidates(
   String boardId,
   Map<String, dynamic> data,
@@ -28,6 +46,11 @@ Set<String> noticeBookmarkKeyCandidates(
     if (altDate != date) {
       keys.add("$title|$branch|$dDay|$altDate");
     }
+    return keys;
+  }
+
+  if (boardId.startsWith(kDepartmentNoticeBoardPrefix)) {
+    keys.add(departmentNoticeBookmarkKey(boardId, data));
     return keys;
   }
 

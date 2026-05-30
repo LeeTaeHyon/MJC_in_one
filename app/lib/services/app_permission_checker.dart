@@ -4,9 +4,9 @@ import "package:firebase_messaging/firebase_messaging.dart";
 import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
 import "package:flutter_local_notifications/flutter_local_notifications.dart";
-import "package:gal/gal.dart";
 import "package:geolocator/geolocator.dart";
 import "package:mjc_in_one/services/lecture_reminder_notification_platform.dart";
+import "package:mjc_in_one/services/lecture_reminder_notification_service.dart";
 
 enum MjcPermissionState {
   granted,
@@ -56,8 +56,10 @@ class MjcPermissionInfo {
 
 /// 앱 기능별 휴대폰 권한 상태 확인·요청.
 abstract final class AppPermissionChecker {
-  static final FlutterLocalNotificationsPlugin _flnp =
-      FlutterLocalNotificationsPlugin();
+  static Future<FlutterLocalNotificationsPlugin> _notificationPlugin() async {
+    await LectureReminderNotificationService.instance.ensureInitialized();
+    return LectureReminderNotificationService.instance.notificationsPlugin;
+  }
 
   static Future<List<MjcPermissionInfo>> loadAll() async {
     if (kIsWeb) {
@@ -75,7 +77,6 @@ abstract final class AppPermissionChecker {
     final List<MjcPermissionInfo> items = <MjcPermissionInfo>[
       await _checkNotification(),
       await _checkLocation(),
-      await _checkPhotoSave(),
     ];
 
     if (Platform.isAndroid) {
@@ -89,9 +90,10 @@ abstract final class AppPermissionChecker {
     MjcPermissionState state = MjcPermissionState.notDetermined;
 
     if (Platform.isAndroid) {
-      await ensureLectureReminderNotificationChannel(_flnp);
+      final FlutterLocalNotificationsPlugin plugin =
+          await _notificationPlugin();
       final bool granted =
-          await checkLectureReminderNotificationGranted(_flnp);
+          await checkLectureReminderNotificationGranted(plugin);
       state = granted ? MjcPermissionState.granted : MjcPermissionState.denied;
     } else if (Platform.isIOS) {
       final NotificationSettings settings =
@@ -115,8 +117,8 @@ abstract final class AppPermissionChecker {
   }
 
   static Future<MjcPermissionInfo> _checkExactAlarm() async {
-    await ensureLectureReminderNotificationChannel(_flnp);
-    final bool granted = await checkLectureReminderExactAlarmGranted(_flnp);
+    final FlutterLocalNotificationsPlugin plugin = await _notificationPlugin();
+    final bool granted = await checkLectureReminderExactAlarmGranted(plugin);
     return MjcPermissionInfo(
       id: "exact_alarm",
       title: "정확한 알람",
@@ -132,7 +134,7 @@ abstract final class AppPermissionChecker {
 
     final bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
-      return MjcPermissionInfo(
+      return const MjcPermissionInfo(
         id: "location",
         title: "위치",
         description: "캠퍼스 약도에서 현재 위치를 표시할 때 필요합니다.",
@@ -160,55 +162,47 @@ abstract final class AppPermissionChecker {
     );
   }
 
-  static Future<MjcPermissionInfo> _checkPhotoSave() async {
-    MjcPermissionState state = MjcPermissionState.notDetermined;
-
-    try {
-      final bool hasAccess = await Gal.hasAccess(toAlbum: true);
-      state =
-          hasAccess ? MjcPermissionState.granted : MjcPermissionState.denied;
-    } catch (_) {
-      state = MjcPermissionState.notSupported;
-    }
-
-    return MjcPermissionInfo(
-      id: "photos",
-      title: "사진 저장",
-      description: "공지 이미지를 갤러리에 저장할 때 필요합니다.",
-      icon: Icons.photo_library_outlined,
-      state: state,
-    );
-  }
-
-  static Future<void> request(String id) async {
-    if (kIsWeb) return;
+  /// 시스템 권한 UI를 띄운 뒤 허용되었으면 true.
+  static Future<bool> request(String id) async {
+    if (kIsWeb) return false;
 
     switch (id) {
       case "notification":
         if (Platform.isAndroid) {
-          await ensureLectureReminderNotificationChannel(_flnp);
-          await _flnp
+          final FlutterLocalNotificationsPlugin plugin =
+              await _notificationPlugin();
+          final bool? granted = await plugin
               .resolvePlatformSpecificImplementation<
                   AndroidFlutterLocalNotificationsPlugin>()
               ?.requestNotificationsPermission();
-          return;
+          return granted ?? false;
         }
         if (Platform.isIOS) {
-          await FirebaseMessaging.instance.requestPermission();
-          return;
+          final NotificationSettings settings =
+              await FirebaseMessaging.instance.requestPermission();
+          return settings.authorizationStatus ==
+                  AuthorizationStatus.authorized ||
+              settings.authorizationStatus ==
+                  AuthorizationStatus.provisional;
         }
+        return false;
       case "exact_alarm":
-        if (Platform.isAndroid) {
-          await ensureLectureReminderNotificationChannel(_flnp);
-          await _flnp
-              .resolvePlatformSpecificImplementation<
-                  AndroidFlutterLocalNotificationsPlugin>()
-              ?.requestExactAlarmsPermission();
-        }
+        if (!Platform.isAndroid) return false;
+        final FlutterLocalNotificationsPlugin plugin =
+            await _notificationPlugin();
+        final bool? granted = await plugin
+            .resolvePlatformSpecificImplementation<
+                AndroidFlutterLocalNotificationsPlugin>()
+            ?.requestExactAlarmsPermission();
+        if (granted != null) return granted;
+        return checkLectureReminderExactAlarmGranted(plugin);
       case "location":
-        await Geolocator.requestPermission();
-      case "photos":
-        await Gal.requestAccess(toAlbum: true);
+        final LocationPermission permission =
+            await Geolocator.requestPermission();
+        return permission == LocationPermission.always ||
+            permission == LocationPermission.whileInUse;
+      default:
+        return false;
     }
   }
 

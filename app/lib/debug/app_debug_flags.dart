@@ -10,7 +10,7 @@ const bool kAppDevFeaturesEnabled = false;
 const bool kGlobalInquiryFabEnabled = false;
 
 /// 홈 강의 알림 카드 — 수업 없어도 샘플 카드 표시 (디자인 확인)
-const bool kLectureReminderDesignPreview = true;
+const bool kLectureReminderDesignPreview = false;
 
 /// 맨 위로 FAB 중복 디버깅 — [scroll_fab_debug.dart]
 const bool kScrollFabDebugEnabled = false;
@@ -21,8 +21,11 @@ const bool kStartupTestBuildWarningEnabled = false;
 /// 첫 진입 시 문의(피드백) FAB 포커스 오버레이 — [main_navigation_screen.dart]
 const bool kStartupInquiryFocusOverlayEnabled = false;
 
+/// 문의 화면 상단 개발 로그(Test Build) — [inquiry_screen.dart]
+const bool kInquiryDevLogSectionEnabled = false;
+
 /// 캠퍼스 약도 — 집에서 테스트용 가짜 GPS(모의 위치) — [campus_map_screen.dart]
-const bool kCampusMapMockGpsEnabled = true;
+const bool kCampusMapMockGpsEnabled = false;
 
 /// 개발용 기능 on/off (마스터 + release 가드).
 abstract final class AppDevFeatures {
@@ -42,6 +45,9 @@ abstract final class AppDevFeatures {
 
   static bool get startupInquiryFocusOverlay =>
       active && kStartupInquiryFocusOverlayEnabled;
+
+  static bool get inquiryDevLogSection =>
+      active && kInquiryDevLogSectionEnabled;
 
   static bool get campusMapMockGps => active && kCampusMapMockGpsEnabled;
 }

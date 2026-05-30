@@ -75,24 +75,29 @@ class _PhonePermissionsScreenState extends State<PhonePermissionsScreen>
     if (_requestingId != null) return;
     setState(() => _requestingId = item.id);
     try {
-      if (item.shouldOpenSettings) {
+      if (item.isGranted || item.shouldOpenSettings) {
         await AppPermissionChecker.openSystemSettings(item.id);
       } else if (item.canRequest) {
-        await AppPermissionChecker.request(item.id);
+        final bool granted = await AppPermissionChecker.request(item.id);
+        // 정확한 알람: request()가 이미 전용 설정 화면을 연다. 실패 시 앱 설정만.
+        if (!granted && item.id != "exact_alarm") {
+          await AppPermissionChecker.openSystemSettings(item.id);
+        }
       } else {
         await AppPermissionChecker.openSystemSettings(item.id);
       }
-      await _refresh(showLoading: false);
     } finally {
-      if (mounted) setState(() => _requestingId = null);
+      if (mounted) {
+        setState(() => _requestingId = null);
+        await _refresh(showLoading: false);
+      }
     }
   }
 
   String _actionLabel(MjcPermissionInfo item) {
     if (item.isGranted) return "설정 열기";
     if (item.shouldOpenSettings) return "기기 설정";
-    if (item.canRequest) return "허용 요청";
-    return "설정 열기";
+    return "허용 요청";
   }
 
   Color _statusColor(BuildContext context, MjcPermissionInfo item) {

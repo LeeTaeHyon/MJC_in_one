@@ -15,12 +15,14 @@ void _showBookmarkPinFavoriteSnackBar(
   required String message,
   String? actionLabel,
   VoidCallback? onAction,
+  EdgeInsetsGeometry? margin,
 }) {
   showMjcSnackBar(
     context,
     message: message,
     actionLabel: actionLabel,
     onAction: onAction,
+    margin: margin,
     onShown: () => bookmarkSnackBarSubnavSuppressionCount.value++,
     onClosed: () {
       final int n = bookmarkSnackBarSubnavSuppressionCount.value;
@@ -59,11 +61,13 @@ void _openMyPageFromBookmarkSnackBar(
 void showBookmarkAddedSnackBar(
   BuildContext context, {
   required bool openPinnedTab,
+  EdgeInsetsGeometry? margin,
 }) {
   _showBookmarkPinFavoriteSnackBar(
     context,
     message: openPinnedTab ? "고정되었습니다." : "저장되었습니다.",
     actionLabel: "마이페이지에서 확인",
+    margin: margin,
     onAction: () => _openMyPageFromBookmarkSnackBar(
       context,
       openPinnedTab: openPinnedTab,
@@ -75,9 +79,11 @@ void showBookmarkAddedSnackBar(
 void showBookmarkRemovedSnackBar(
   BuildContext context, {
   required bool wasPinned,
+  EdgeInsetsGeometry? margin,
 }) {
   _showBookmarkPinFavoriteSnackBar(
     context,
     message: wasPinned ? "상단 고정을 해제했습니다." : "즐겨찾기를 해제했습니다.",
+    margin: margin,
   );
 }

@@ -1,8 +1,7 @@
 import "dart:async";
 
-import "package:flutter/foundation.dart" show Factory, kIsWeb;
+import "package:flutter/foundation.dart" show kIsWeb;
 import "package:flutter/material.dart";
-import "package:flutter/gestures.dart";
 import "package:mjc_in_one/widgets/notice_body_html_platform.dart";
 import "package:mjc_in_one/widgets/notice_html_image_viewer.dart";
 import "package:webview_flutter/webview_flutter.dart";
@@ -43,7 +42,8 @@ class _NoticeBodyHtmlViewState extends State<NoticeBodyHtmlView> {
     if (kIsWeb) {
       _registerWebFrame();
     } else {
-      _initController();
+      _createController();
+      unawaited(_reloadContent());
     }
   }
 
@@ -81,14 +81,10 @@ class _NoticeBodyHtmlViewState extends State<NoticeBodyHtmlView> {
         oldWidget.htmlFragment != widget.htmlFragment ||
         oldWidget.baseUrl != widget.baseUrl) {
       _heightDebounce?.cancel();
-      setState(() {
-        _webViewHeight = _minHeight;
-        _isLoading = true;
-      });
       if (kIsWeb) {
         _registerWebFrame();
       } else {
-        _initController();
+        unawaited(_reloadContent());
       }
     }
   }
@@ -99,7 +95,9 @@ class _NoticeBodyHtmlViewState extends State<NoticeBodyHtmlView> {
     super.dispose();
   }
 
-  void _initController() {
+  void _createController() {
+    if (_controller != null) return;
+
     final WebViewController controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(widget.colorScheme.surface)
@@ -115,6 +113,14 @@ class _NoticeBodyHtmlViewState extends State<NoticeBodyHtmlView> {
         NavigationDelegate(
           onPageFinished: (_) {
             if (!mounted) return;
+            final WebViewController? webController = _controller;
+            if (webController != null) {
+              unawaited(
+                webController.runJavaScript(
+                  "window.__mjcSendHeight && window.__mjcSendHeight();",
+                ),
+              );
+            }
             setState(() => _isLoading = false);
           },
           onWebResourceError: (WebResourceError error) {
@@ -133,11 +139,24 @@ class _NoticeBodyHtmlViewState extends State<NoticeBodyHtmlView> {
       );
 
     _controller = controller;
-    unawaited(
-      controller.loadHtmlString(
-        _buildWrapperHtml(widget.htmlFragment),
-        baseUrl: _resolvedBaseUrl(),
-      ),
+  }
+
+  Future<void> _reloadContent() async {
+    _createController();
+    final WebViewController? controller = _controller;
+    if (controller == null) return;
+
+    if (mounted) {
+      setState(() {
+        _webViewHeight = _minHeight;
+        _isLoading = true;
+      });
+    }
+
+    await controller.setBackgroundColor(widget.colorScheme.surface);
+    await controller.loadHtmlString(
+      _buildWrapperHtml(widget.htmlFragment),
+      baseUrl: _resolvedBaseUrl(),
     );
   }
 
@@ -163,7 +182,7 @@ class _NoticeBodyHtmlViewState extends State<NoticeBodyHtmlView> {
     if (next == null || next <= 0) return;
     final double clamped = next < _minHeight ? _minHeight : next;
     _heightDebounce?.cancel();
-    _heightDebounce = Timer(const Duration(milliseconds: 60), () {
+    _heightDebounce = Timer(const Duration(milliseconds: 120), () {
       if (!mounted) return;
       if ((_webViewHeight - clamped).abs() < 2) {
         if (_isLoading) setState(() => _isLoading = false);
@@ -201,6 +220,7 @@ class _NoticeBodyHtmlViewState extends State<NoticeBodyHtmlView> {
       padding: 0;
       background-color: $bg;
       color: $fg;
+      overflow: hidden;
     }
     body {
       padding: 12px;
@@ -224,22 +244,31 @@ $fragment
 <script>
 (function () {
   var debounceTimer;
+  var lastSentHeight = 0;
+  function measureHeight() {
+    var body = document.body;
+    var html = document.documentElement;
+    return Math.ceil(Math.max(
+      body.getBoundingClientRect().height || 0,
+      body.offsetHeight || 0,
+      body.scrollHeight || 0,
+      html.offsetHeight || 0,
+      html.scrollHeight || 0
+    ));
+  }
   function sendHeight() {
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(function () {
-      var h = Math.max(
-        document.documentElement.scrollHeight || 0,
-        document.body.scrollHeight || 0
-      );
+      var h = measureHeight();
+      if (Math.abs(h - lastSentHeight) < 2) return;
+      lastSentHeight = h;
       if (window.$_heightChannelName) {
-        window.$_heightChannelName.postMessage(String(h + 8));
+        window.$_heightChannelName.postMessage(String(h));
       }
-    }, 60);
+    }, 120);
   }
+  window.__mjcSendHeight = sendHeight;
   window.addEventListener("load", sendHeight);
-  if (window.ResizeObserver) {
-    new ResizeObserver(sendHeight).observe(document.body);
-  }
   function bindImage(img) {
     if (img.dataset.mjcBound === "1") return;
     img.dataset.mjcBound = "1";
@@ -332,20 +361,7 @@ $fragment
         children: [
           SizedBox(
             height: _webViewHeight,
-            child: WebViewWidget(
-              key: ValueKey<String>(
-                "${widget.brightness.name}|${widget.htmlFragment.hashCode}",
-              ),
-              controller: controller,
-              gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
-                Factory<VerticalDragGestureRecognizer>(
-                  () => VerticalDragGestureRecognizer(),
-                ),
-                Factory<HorizontalDragGestureRecognizer>(
-                  () => HorizontalDragGestureRecognizer(),
-                ),
-              },
-            ),
+            child: WebViewWidget(controller: controller),
           ),
           if (_isLoading)
             Positioned.fill(

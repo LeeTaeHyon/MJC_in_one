@@ -25,6 +25,7 @@ import "package:mjc_in_one/theme/app_theme.dart";
 import "package:mjc_in_one/utils/live_clock.dart";
 import "package:mjc_in_one/utils/mjc_dialog.dart";
 import "package:mjc_in_one/utils/mjc_snack_bar.dart";
+import "package:mjc_in_one/utils/notice_list_refresh_guard.dart";
 import "package:mjc_in_one/utils/mpu_program_dday.dart";
 import "package:mjc_in_one/widgets/home_lecture_reminder_card.dart";
 import "package:mjc_in_one/widgets/scroll_to_top_scope.dart";
@@ -39,8 +40,11 @@ const double _kHomeBlueOverlapPull = 22;
 /// 파란 헤더 위로 올라오는 바로가기 배경의 상단 라운드.
 const double _kQuickShortcutsBackgroundTopRadius = 24;
 
-/// 바로가기 카드 위 여백(파란 헤더와 첫 카드 사이, 회색 패널 안).
-const double _kQuickShortcutsTopInset = 10;
+/// 홈 대시보드 섹션 사이 세로 간격(셔틀·학식 등 카드형 섹션과 동일).
+const double _kHomeSectionGap = 14;
+
+/// 바로가기 패널 안 카드 그리드 위·아래 여백(동일).
+const double _kQuickShortcutsVerticalInset = 10;
 
 /// 회색 바로가기 패널 바깥 좌우 여백. 0이면 패널이 스크롤 영역 가로로 꽉 참.
 const double _kQuickShortcutsPanelHorizontalMargin = 12;
@@ -209,12 +213,19 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
     return out;
   }
 
-  Widget _buildSection(HomeDashboardSection section, BuildContext context) {
+  Widget _buildSection(
+    HomeDashboardSection section,
+    BuildContext context, {
+    bool quickButtonsHasSectionAbove = false,
+  }) {
     switch (section) {
       case HomeDashboardSection.lectureReminder:
         return _buildLectureReminderSection(context);
       case HomeDashboardSection.quickButtons:
-        return _buildGridButtons(context);
+        return _buildGridButtons(
+          context,
+          hasSectionAbove: quickButtonsHasSectionAbove,
+        );
       case HomeDashboardSection.shuttle:
         return _buildShuttleSection(context);
       case HomeDashboardSection.foodcourt:
@@ -304,7 +315,8 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
     LiveClock.instance.detach();
     final VoidCallback? tabListener = _activeMainTabListener;
     if (tabListener != null) {
-      _scrollToTopCoordinator?.activeMainTabNotifier.removeListener(tabListener);
+      _scrollToTopCoordinator?.activeMainTabNotifier
+          .removeListener(tabListener);
     }
     _scrollController.removeListener(_onHomeScrollOffset);
     _scrollToTopCoordinator?.unregisterMainTab(
@@ -347,14 +359,16 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
 
   Future<void> _handleRefresh() async {
     await _loadNoticeFilter();
+    final bool forceRefresh =
+        NoticeListRefreshGuard.allowForceRefresh("home_dashboard");
     setState(() {
       _combinedNoticeFuture = NoticeManager().getNotices(
         boardId: "combined_dashboard",
-        forceRefresh: true,
+        forceRefresh: forceRefresh,
       );
       _academicScheduleFuture = NoticeManager().getNotices(
         boardId: "main_schedule",
-        forceRefresh: true,
+        forceRefresh: forceRefresh,
       );
       _foodcourtMenuFuture = _foodcourtMenuService.load();
       _mpuProfileFuture = loadMpuProfile();
@@ -365,6 +379,12 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
       _academicScheduleFuture,
       _foodcourtMenuFuture,
     ]);
+    if (!forceRefresh && mounted) {
+      NoticeListRefreshGuard.showThrottledMessage(
+        context,
+        key: "home_dashboard_refresh_throttled",
+      );
+    }
   }
 
   @override
@@ -501,9 +521,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
-                            _notifBadgeCount > 99
-                                ? "99+"
-                                : "$_notifBadgeCount",
+                            _notifBadgeCount > 99 ? "99+" : "$_notifBadgeCount",
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 8,
@@ -548,7 +566,8 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
               user,
               profileName: profile?.name,
             );
-            final List<HomeDashboardSection> sections = _orderedEnabledSections();
+            final List<HomeDashboardSection> sections =
+                _orderedEnabledSections();
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               mainAxisSize: MainAxisSize.min,
@@ -601,13 +620,12 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
                   offset: const Offset(0, -_kHomeBlueOverlapPull),
                   child: Column(
                     children: <Widget>[
-                      if (sections.isNotEmpty &&
-                          sections.first != HomeDashboardSection.lectureReminder &&
-                          sections.first != HomeDashboardSection.quickButtons &&
-                          sections.first != HomeDashboardSection.recentNotices)
-                        const SizedBox(height: 16),
-                      for (final HomeDashboardSection s in sections)
-                        _buildSection(s, context),
+                      for (int i = 0; i < sections.length; i++)
+                        _buildHomeSectionAt(
+                          sections[i],
+                          context,
+                          index: i,
+                        ),
                       const SizedBox(height: 50),
                     ],
                   ),
@@ -617,6 +635,55 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
           },
         );
       },
+    );
+  }
+
+  Widget _buildHomeSectionAt(
+    HomeDashboardSection section,
+    BuildContext context, {
+    required int index,
+  }) {
+    final Widget child = _buildSection(
+      section,
+      context,
+      quickButtonsHasSectionAbove:
+          section == HomeDashboardSection.quickButtons && index > 0,
+    );
+    if (index != 0 || section == HomeDashboardSection.quickButtons) {
+      return child;
+    }
+    return _buildTopOverlapSectionBackground(context, child);
+  }
+
+  Widget _buildTopOverlapSectionBackground(
+    BuildContext context,
+    Widget child,
+  ) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color homeMutedBg =
+        isDark ? AppColors.scaffoldMutedDark : AppColors.scaffoldMuted;
+    return Stack(
+      children: <Widget>[
+        Positioned.fill(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: _kQuickShortcutsPanelHorizontalMargin,
+            ),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: homeMutedBg,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(_kQuickShortcutsBackgroundTopRadius),
+                ),
+              ),
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(top: _kQuickShortcutsVerticalInset),
+          child: child,
+        ),
+      ],
     );
   }
 
@@ -637,7 +704,9 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
     return "사용자";
   }
 
-  Widget _buildShuttleSection(BuildContext context) {
+  Widget _buildShuttleSection(
+    BuildContext context,
+  ) {
     final DateTime now = DateTime.now();
     final bool isWeekend =
         now.weekday == DateTime.saturday || now.weekday == DateTime.sunday;
@@ -648,74 +717,73 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
     final MjcSurfaceTokens tokens =
         Theme.of(context).extension<MjcSurfaceTokens>()!;
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
-      child: Opacity(
-        opacity: 0.72,
-        child: Material(
-          color: scheme.surface,
-          elevation: 1.5,
-          shadowColor: Colors.black.withValues(alpha: isDark ? 0.45 : 0.12),
-          borderRadius: BorderRadius.circular(16),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-            child: Row(
-              children: [
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: tokens.surfaceContainer,
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Icon(
-                    Icons.directions_bus_filled_outlined,
-                    color: scheme.onSurfaceVariant.withValues(alpha: 0.72),
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "셔틀버스",
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: _homeBodyTextColor(context),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        "주말입니다",
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w900,
-                          height: 1.2,
-                          color: _homeTitleTextColor(context),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        "주말에는 셔틀버스 정보가 비활성화됩니다.",
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: _homeBodyTextColor(context),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+    final Widget card = Material(
+      color: scheme.surface,
+      elevation: 1.5,
+      shadowColor: Colors.black.withValues(alpha: isDark ? 0.45 : 0.12),
+      borderRadius: BorderRadius.circular(16),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: tokens.surfaceContainer,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(
+                Icons.directions_bus_filled_outlined,
+                color: scheme.onSurfaceVariant.withValues(alpha: 0.72),
+              ),
             ),
-          ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "셔틀버스",
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: _homeBodyTextColor(context),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    "주말입니다",
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w900,
+                      height: 1.2,
+                      color: _homeTitleTextColor(context),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    "주말에는 셔틀버스 정보가 비활성화됩니다.",
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: _homeBodyTextColor(context),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
+    );
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, _kHomeSectionGap),
+      child: card,
     );
   }
 
@@ -725,7 +793,10 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
     );
   }
 
-  Widget _buildGridButtons(BuildContext context) {
+  Widget _buildGridButtons(
+    BuildContext context, {
+    bool hasSectionAbove = false,
+  }) {
     final MjcSurfaceTokens tokens =
         Theme.of(context).extension<MjcSurfaceTokens>()!;
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
@@ -791,34 +862,38 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
             ),
           ],
         ),
-        const SizedBox(height: 8),
       ],
     );
+
+    final BorderRadius panelRadius = hasSectionAbove
+        ? BorderRadius.circular(_kQuickShortcutsBackgroundTopRadius)
+        : const BorderRadius.vertical(
+            top: Radius.circular(_kQuickShortcutsBackgroundTopRadius),
+          );
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         _kQuickShortcutsPanelHorizontalMargin,
         0,
         _kQuickShortcutsPanelHorizontalMargin,
-        20,
+        _kHomeSectionGap,
       ),
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: homeMutedBg,
-          borderRadius: const BorderRadius.vertical(
-            top: Radius.circular(_kQuickShortcutsBackgroundTopRadius),
-          ),
+          borderRadius: panelRadius,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
-            const SizedBox(height: _kQuickShortcutsTopInset),
+            const SizedBox(height: _kQuickShortcutsVerticalInset),
             Padding(
               padding: const EdgeInsets.symmetric(
                 horizontal: _kQuickShortcutsGridHorizontalPadding,
               ),
               child: cardRows,
             ),
+            const SizedBox(height: _kQuickShortcutsVerticalInset),
           ],
         ),
       ),
@@ -1104,7 +1179,8 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
 
             if (items.isEmpty) {
               return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                 child: Text(
                   "진행 중인 일정이 없습니다.",
                   style: TextStyle(color: _homeBodyTextColor(context)),
@@ -1260,7 +1336,8 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
               )
             else if (upcoming.isEmpty)
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                 child: Text(
                   "예정된 학사일정이 없습니다.",
                   style: TextStyle(color: _homeBodyTextColor(context)),

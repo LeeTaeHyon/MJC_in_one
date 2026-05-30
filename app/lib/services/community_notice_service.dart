@@ -51,6 +51,18 @@ class CommunityNoticeService {
         .map((snap) => snap.docs);
   }
 
+  Future<List<QueryDocumentSnapshot<Map<String, dynamic>>>> fetchPublishedPosts(
+    String deptSlug, {
+    int limit = 100,
+  }) async {
+    final QuerySnapshot<Map<String, dynamic>> snap = await _boardRef(deptSlug)
+        .where("status", isEqualTo: "published")
+        .orderBy("created_at", descending: true)
+        .limit(limit)
+        .get();
+    return snap.docs;
+  }
+
   Stream<List<QueryDocumentSnapshot<Map<String, dynamic>>>> streamAdminPosts(
     String deptSlug, {
     String? statusFilter,

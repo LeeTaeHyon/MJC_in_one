@@ -13,6 +13,7 @@ import "package:mjc_in_one/services/user_data_repository.dart";
 import "package:mjc_in_one/theme/app_colors.dart";
 import "package:mjc_in_one/theme/app_theme.dart";
 import "package:mjc_in_one/utils/bookmark_added_feedback.dart";
+import "package:mjc_in_one/utils/notice_list_refresh_guard.dart";
 import "package:mjc_in_one/perf_flags.dart";
 import "package:mjc_in_one/widgets/nested_scroll_refresh_indicator.dart";
 import "package:mjc_in_one/widgets/pin_favorite_buttons.dart";
@@ -45,6 +46,170 @@ const List<String> kMainNoticeAiTagFilterChips = <String>[
   "정책/지원사업/대외홍보",
   "기타",
 ];
+
+/// 본교 공지 상단 AI 분류 캡슐 (목업: 선택=브랜드 블루·흰 글자, 미선택=연한 회색).
+const Color _kMainAiTagChipUnselectedBgLight = Color(0xFFF0F2F5);
+const Color _kMainAiTagChipUnselectedFgLight = Color(0xFF4B5563);
+
+Color _mainAiTagChipBackground(BuildContext context, bool selected) {
+  final bool isDark = Theme.of(context).brightness == Brightness.dark;
+  if (selected) {
+    return isDark ? AppColors.primary : AppColors.primary;
+  }
+  return isDark ? const Color(0xFF303035) : _kMainAiTagChipUnselectedBgLight;
+}
+
+Color _mainAiTagChipForeground(BuildContext context, bool selected) {
+  final bool isDark = Theme.of(context).brightness == Brightness.dark;
+  if (selected) {
+    return Colors.white;
+  }
+  return isDark ? const Color(0xFFD1D5DB) : _kMainAiTagChipUnselectedFgLight;
+}
+
+Future<void> _showMainAiTagChipPickerSheet({
+  required BuildContext context,
+  required List<String> chips,
+  required String currentSelection,
+  required ValueChanged<String> onSelected,
+}) async {
+  final String? picked = await showModalBottomSheet<String>(
+    context: context,
+    showDragHandle: true,
+    builder: (BuildContext sheetContext) {
+      final ColorScheme scheme = Theme.of(sheetContext).colorScheme;
+      return SafeArea(
+        child: ListView.separated(
+          shrinkWrap: true,
+          padding: const EdgeInsets.fromLTRB(8, 0, 8, 16),
+          itemCount: chips.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 4),
+          itemBuilder: (BuildContext context, int index) {
+            final String label = chips[index];
+            final bool selected = currentSelection == label;
+            return ListTile(
+              title: Text(label),
+              trailing: selected ? Icon(Icons.check_rounded, color: scheme.primary) : null,
+              selected: selected,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              onTap: () => Navigator.pop(sheetContext, label),
+            );
+          },
+        ),
+      );
+    },
+  );
+  if (picked == null || picked == currentSelection) return;
+  onSelected(picked);
+}
+
+Widget _buildMainAiTagFilterChip({
+  required BuildContext context,
+  required String label,
+  required bool selected,
+  required VoidCallback onTap,
+}) {
+  final Color bg = _mainAiTagChipBackground(context, selected);
+  final Color fg = _mainAiTagChipForeground(context, selected);
+  return Material(
+    color: bg,
+    animationDuration: Duration.zero,
+    borderRadius: BorderRadius.circular(999),
+    child: InkWell(
+      splashFactory: NoSplash.splashFactory,
+      highlightColor: Colors.transparent,
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(999),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: fg,
+            fontSize: 13,
+            fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+Widget _buildMainAiTagChipMenuButton({
+  required BuildContext context,
+  required VoidCallback onPressed,
+}) {
+  final bool isDark = Theme.of(context).brightness == Brightness.dark;
+  final Color iconColor =
+      isDark ? const Color(0xFFD1D5DB) : _kMainAiTagChipUnselectedFgLight;
+  return Material(
+    color: isDark ? const Color(0xFF303035) : Colors.white,
+    elevation: isDark ? 0 : 2,
+    shadowColor: Colors.black.withValues(alpha: 0.12),
+    borderRadius: BorderRadius.circular(12),
+    child: InkWell(
+      onTap: onPressed,
+      borderRadius: BorderRadius.circular(12),
+      child: SizedBox(
+        width: 40,
+        height: 36,
+        child: Icon(Icons.menu_rounded, size: 22, color: iconColor),
+      ),
+    ),
+  );
+}
+
+Widget _buildMainAiTagChipBar({
+  required BuildContext context,
+  required List<String> chips,
+  required String selection,
+  required ValueChanged<String> onSelect,
+}) {
+  final ColorScheme scheme = Theme.of(context).colorScheme;
+  return Material(
+    color: scheme.surface,
+    child: SizedBox(
+      height: 52,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 12, 8),
+        child: Row(
+          children: <Widget>[
+            Expanded(
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: chips.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                itemBuilder: (BuildContext context, int index) {
+                  final String label = chips[index];
+                  final bool selected = selection == label;
+                  return _buildMainAiTagFilterChip(
+                    context: context,
+                    label: label,
+                    selected: selected,
+                    onTap: () {
+                      if (selected) return;
+                      onSelect(label);
+                    },
+                  );
+                },
+              ),
+            ),
+            const SizedBox(width: 8),
+            _buildMainAiTagChipMenuButton(
+              context: context,
+              onPressed: () => _showMainAiTagChipPickerSheet(
+                context: context,
+                chips: chips,
+                currentSelection: selection,
+                onSelected: onSelect,
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
 
 Widget _noticeCategoryAndAiTagsRow({
   required BuildContext context,
@@ -419,6 +584,9 @@ class _MainWebsiteScreenState extends State<MainWebsiteScreen> {
         items: items,
         accentColor: tokens.sourceMjc,
         openItem: _openNoticeFromGlobalSearch,
+        boardIdFor: _globalSearchBoardIdOf,
+        noticeKeyFor: (item) =>
+            _globalSearchNoticeKey(_globalSearchBoardIdOf(item), item),
         chipFor: (item) {
           final String cat = (item["category"] ?? "").toString().trim();
           if (cat.isNotEmpty) return cat;
@@ -1053,10 +1221,18 @@ class _UnifiedNoticeListState extends State<_UnifiedNoticeList> {
 
   Future<void> _handleRefresh() async {
     await _loadNoticeFilter();
+    final bool forceRefresh =
+        NoticeListRefreshGuard.allowForceRefresh("main_website_unified");
     setState(() {
-      _noticeFuture = _loadAllNotices(forceRefresh: true);
+      _noticeFuture = _loadAllNotices(forceRefresh: forceRefresh);
     });
     await _noticeFuture;
+    if (!forceRefresh && mounted) {
+      NoticeListRefreshGuard.showThrottledMessage(
+        context,
+        key: "main_website_unified_refresh_throttled",
+      );
+    }
   }
 
   List<Map<String, dynamic>> _applyAiTagChipFilter(List<Map<String, dynamic>> rows) {
@@ -1075,62 +1251,11 @@ class _UnifiedNoticeListState extends State<_UnifiedNoticeList> {
   }
 
   Widget _buildAiTagChipBar(BuildContext context) {
-    final ColorScheme scheme = Theme.of(context).colorScheme;
-    final bool isDark = Theme.of(context).brightness == Brightness.dark;
-    return Material(
-      color: scheme.surface,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(
-              color: scheme.outlineVariant.withValues(alpha: 0.35),
-            ),
-          ),
-        ),
-        child: SizedBox(
-          height: 48,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            itemCount: _aiTagChips.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 8),
-            itemBuilder: (BuildContext context, int index) {
-              final String label = _aiTagChips[index];
-              final bool selected = _aiTagChipSelection == label;
-              final Color bg = AppColors.noticeFilterChipBackground(
-                isDark: isDark,
-                selected: selected,
-              );
-              final Color fg = AppColors.noticeFilterChipForeground(
-                isDark: isDark,
-                selected: selected,
-              );
-              return Material(
-                color: bg,
-                borderRadius: BorderRadius.circular(999),
-                child: InkWell(
-                  onTap: () {
-                    if (_aiTagChipSelection == label) return;
-                    setState(() => _aiTagChipSelection = label);
-                  },
-                  borderRadius: BorderRadius.circular(999),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                    child: Text(
-                      label,
-                      style: TextStyle(
-                        color: fg,
-                        fontSize: 13,
-                        fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-      ),
+    return _buildMainAiTagChipBar(
+      context: context,
+      chips: _aiTagChips,
+      selection: _aiTagChipSelection,
+      onSelect: (String label) => setState(() => _aiTagChipSelection = label),
     );
   }
 
@@ -1772,11 +1897,22 @@ class _NoticeListTabState extends State<_NoticeListTab> {
 
   Future<void> _handleRefresh() async {
     await _loadNoticeFilter();
+    final bool forceRefresh = NoticeListRefreshGuard.allowForceRefresh(
+      "main_website_tab_${widget.boardId}",
+    );
     setState(() {
-      _noticeFuture = NoticeManager()
-          .getNotices(boardId: widget.boardId, forceRefresh: true);
+      _noticeFuture = NoticeManager().getNotices(
+        boardId: widget.boardId,
+        forceRefresh: forceRefresh,
+      );
     });
     await _noticeFuture;
+    if (!forceRefresh && mounted) {
+      NoticeListRefreshGuard.showThrottledMessage(
+        context,
+        key: "main_website_tab_${widget.boardId}_refresh_throttled",
+      );
+    }
   }
 
   Future<void> _markAsRead(String id) async {
@@ -1810,67 +1946,12 @@ class _NoticeListTabState extends State<_NoticeListTab> {
   }
 
   Widget _buildMainNoticeAiTagChipBar(BuildContext context) {
-    final ColorScheme scheme = Theme.of(context).colorScheme;
-    final bool isDark = Theme.of(context).brightness == Brightness.dark;
-    return Material(
-      color: scheme.surface,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(
-              color: scheme.outlineVariant.withValues(alpha: 0.35),
-            ),
-          ),
-        ),
-        child: SizedBox(
-          height: 48,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            itemCount: _mainNoticeAiTagChips.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 8),
-            itemBuilder: (BuildContext context, int index) {
-              final String label = _mainNoticeAiTagChips[index];
-              final bool selected =
-                  _mainNoticeAiTagChipSelection == label;
-              final Color bg = AppColors.noticeFilterChipBackground(
-                isDark: isDark,
-                selected: selected,
-              );
-              final Color fg = AppColors.noticeFilterChipForeground(
-                isDark: isDark,
-                selected: selected,
-              );
-              return Material(
-                color: bg,
-                borderRadius: BorderRadius.circular(999),
-                child: InkWell(
-                  onTap: () {
-                    if (_mainNoticeAiTagChipSelection == label) return;
-                    setState(() => _mainNoticeAiTagChipSelection = label);
-                  },
-                  borderRadius: BorderRadius.circular(999),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 6,
-                    ),
-                    child: Text(
-                      label,
-                      style: TextStyle(
-                        color: fg,
-                        fontSize: 13,
-                        fontWeight:
-                            selected ? FontWeight.w600 : FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-      ),
+    return _buildMainAiTagChipBar(
+      context: context,
+      chips: _mainNoticeAiTagChips,
+      selection: _mainNoticeAiTagChipSelection,
+      onSelect: (String label) =>
+          setState(() => _mainNoticeAiTagChipSelection = label),
     );
   }
 

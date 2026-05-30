@@ -70,7 +70,7 @@ class CampusMapViewState extends State<CampusMapView> {
           children: [
             TileLayer(
               urlTemplate: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-              userAgentPackageName: "com.example.mio_notice",
+              userAgentPackageName: "com.myeongji.mio.mioNotice",
             ),
             MarkerLayer(markers: markers),
             RichAttributionWidget(

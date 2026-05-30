@@ -115,7 +115,7 @@ class ProfileSetupScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          "MPU 가져오기가 되지 않아도 이름, 학과, 학년, 학번, 마일리지를 직접 설정할 수 있습니다.",
+                          "MPU 가져오기가 되지 않아도 이름, 학과, 학년, 학번을 직접 설정할 수 있습니다.",
                           style: TextStyle(
                             color: scheme.onSurface.withValues(alpha: 0.68),
                             fontWeight: FontWeight.w600,

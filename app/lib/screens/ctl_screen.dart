@@ -10,6 +10,7 @@ import "package:mjc_in_one/services/notice_manager.dart";
 import "package:mjc_in_one/services/user_data_repository.dart";
 import "package:mjc_in_one/theme/app_theme.dart";
 import "package:mjc_in_one/utils/bookmark_added_feedback.dart";
+import "package:mjc_in_one/utils/notice_list_refresh_guard.dart";
 import "package:mjc_in_one/perf_flags.dart";
 import "package:mjc_in_one/widgets/nested_scroll_refresh_indicator.dart";
 import "package:mjc_in_one/widgets/pin_favorite_buttons.dart";
@@ -200,8 +201,23 @@ class _CtlScreenState extends State<CtlScreen> {
             );
           }
         },
+        boardIdFor: (item) {
+          final String type = (item["_searchType"] ?? "").toString();
+          return type == "센터 공지사항" ? "ctl_notice" : "ctl_programs";
+        },
+        noticeKeyFor: (item) {
+          final String url =
+              (item["link"] ?? item["url"] ?? "").toString().trim();
+          final String title = (item["title"] ?? "").toString().trim();
+          final String date =
+              (item["reg_date"] ?? item["date"] ?? "").toString().trim();
+          return "$url|$title|$date";
+        },
         chipFor: (item) {
           final String t = (item["_searchType"] ?? "").toString().trim();
+          if (t == "센터 공지사항") return "센터 공지";
+          final String status = (item["status"] ?? "").toString().trim();
+          if (status.isNotEmpty) return status;
           return t.isEmpty ? "CTL" : t;
         },
         dateFor: (item) {
@@ -210,9 +226,9 @@ class _CtlScreenState extends State<CtlScreen> {
           final String s = (item["status"] ?? "").toString().trim();
           final String op = (item["op_period"] ?? "").toString().trim();
           final List<String> parts = <String>[];
-          if (s.isNotEmpty) parts.add(s);
           if (op.isNotEmpty) parts.add("진행: $op");
           if (d.isNotEmpty) parts.add("신청: $d");
+          if (parts.isEmpty && s.isNotEmpty) parts.add(s);
           return parts.join(" · ");
         },
         searchTextFor: (item) {
@@ -715,12 +731,24 @@ class _CtlListTabState extends State<_CtlListTab> {
 
   Future<void> _handleRefresh() async {
     await _loadNoticeFilter();
+    final String boardId =
+        widget.isProgram ? "ctl_programs" : "ctl_notice";
+    final bool forceRefresh = NoticeListRefreshGuard.allowForceRefresh(
+      "ctl_tab_$boardId",
+    );
     setState(() {
       _ctlFuture = NoticeManager().getNotices(
-          boardId: widget.isProgram ? "ctl_programs" : "ctl_notice",
-          forceRefresh: true);
+        boardId: boardId,
+        forceRefresh: forceRefresh,
+      );
     });
     await _ctlFuture;
+    if (!forceRefresh && mounted) {
+      NoticeListRefreshGuard.showThrottledMessage(
+        context,
+        key: "ctl_tab_${boardId}_refresh_throttled",
+      );
+    }
   }
 
   @override
@@ -809,32 +837,24 @@ class _CtlListTabState extends State<_CtlListTab> {
               final bool isPinned = _pinnedKeys.contains(key);
               final bool isFavorite = _favoriteKeys.contains(key);
               final Widget card = RepaintBoundary(
-                child: _buildCtlCard(context, data),
-              );
-              final Widget overlaid = Stack(
-                children: [
-                  card,
-                  Positioned(
-                    right: 12,
-                    top: 10,
-                    child: PinFavoriteButtons(
-                      isPinned: isPinned,
-                      isFavorite: isFavorite,
-                      onTogglePinned: () => _togglePinned(key),
-                      onToggleFavorite: () => _toggleFavorite(key),
-                    ),
-                  ),
-                ],
+                child: _buildCtlCard(
+                  context,
+                  data,
+                  isPinned: isPinned,
+                  isFavorite: isFavorite,
+                  onTogglePinned: () => _togglePinned(key),
+                  onToggleFavorite: () => _toggleFavorite(key),
+                ),
               );
               final bool animate = _entrance.shouldAnimateList &&
                   index < _CtlListEntrance.maxAnimatedItems;
               if (animate) {
-                return overlaid.animate().fadeIn(
+                return card.animate().fadeIn(
                       delay: (index * 24).clamp(0, 240).ms,
                       duration: 240.ms,
                     );
               }
-              return overlaid;
+              return card;
             },
             childCount: ordered.length,
           ),
@@ -843,7 +863,14 @@ class _CtlListTabState extends State<_CtlListTab> {
     ];
   }
 
-  Widget _buildCtlCard(BuildContext context, Map<String, dynamic> data) {
+  Widget _buildCtlCard(
+    BuildContext context,
+    Map<String, dynamic> data, {
+    required bool isPinned,
+    required bool isFavorite,
+    required VoidCallback onTogglePinned,
+    required VoidCallback onToggleFavorite,
+  }) {
     final ColorScheme scheme = Theme.of(context).colorScheme;
     final MjcSurfaceTokens tokens =
         Theme.of(context).extension<MjcSurfaceTokens>()!;
@@ -851,7 +878,8 @@ class _CtlListTabState extends State<_CtlListTab> {
     final Color readTitleColor = tokens.noticeReadTitle;
     final Color accent = tokens.sourceCtl;
     final Color chipBackground = accent.withValues(alpha: isDark ? 0.18 : 0.12);
-    final Color secondaryText = scheme.onSurfaceVariant;
+    final Color chipForeground = accent;
+    final Color dateColor = scheme.onSurfaceVariant;
     final String title = data["title"] ?? "";
     final String date = data["reg_date"] ?? data["date"] ?? "";
     final String opPeriod = data["op_period"] ?? "";
@@ -861,6 +889,25 @@ class _CtlListTabState extends State<_CtlListTab> {
     final bool isRead = _readKeys.contains(readKey);
     final Color stripColor = isRead ? scheme.onSurfaceVariant : accent;
     final Color titleColor = isRead ? readTitleColor : scheme.onSurface;
+    final String typeLabel = widget.isProgram
+        ? (status.trim().isEmpty ? "학습 프로그램" : status.trim())
+        : "센터 공지";
+
+    Widget buildStack(List<Widget> children) {
+      children.add(
+        Positioned(
+          right: 12,
+          top: 10,
+          child: PinFavoriteButtons(
+            isPinned: isPinned,
+            isFavorite: isFavorite,
+            onTogglePinned: onTogglePinned,
+            onToggleFavorite: onToggleFavorite,
+          ),
+        ),
+      );
+      return Stack(children: children);
+    }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -888,9 +935,99 @@ class _CtlListTabState extends State<_CtlListTab> {
                           CommonWebViewScreen(url: url, title: title)));
             }
           },
-          child: (_lowRaster)
-              ? Stack(
-                  children: [
+          child: _lowRaster
+              ? buildStack([
+                  Positioned(
+                    left: 0,
+                    top: 0,
+                    bottom: 0,
+                    child: Container(
+                      width: 4,
+                      decoration: BoxDecoration(
+                        color: stripColor,
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(12),
+                          bottomLeft: Radius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: chipBackground,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            typeLabel,
+                            style: TextStyle(
+                              color: chipForeground,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: titleColor,
+                            height: 1.4,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        if (widget.isProgram && opPeriod.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 6),
+                            child: Row(
+                              children: [
+                                Icon(Icons.timer_outlined,
+                                    size: 14, color: dateColor),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    "진행: $opPeriod",
+                                    style: TextStyle(
+                                      color: dateColor,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        Row(
+                          children: [
+                            Icon(Icons.calendar_today_outlined,
+                                size: 14, color: dateColor),
+                            const SizedBox(width: 6),
+                            Text(
+                              date.trim().isEmpty
+                                  ? "—"
+                                  : "신청: $date",
+                              style:
+                                  TextStyle(color: dateColor, fontSize: 13),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ])
+              : ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  clipBehavior: Clip.hardEdge,
+                  child: buildStack([
                     Positioned(
                       left: 0,
                       top: 0,
@@ -907,41 +1044,27 @@ class _CtlListTabState extends State<_CtlListTab> {
                       ),
                     ),
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 16, 48, 16),
+                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
-                            children: [
-                              if (widget.isProgram)
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 3),
-                                  margin: const EdgeInsets.only(right: 8),
-                                  decoration: BoxDecoration(
-                                    color: chipBackground,
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: Text(
-                                    status,
-                                    style: TextStyle(
-                                      color: accent,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                              Text(
-                                "CTL",
-                                style: TextStyle(
-                                  color: secondaryText,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: chipBackground,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              typeLabel,
+                              style: TextStyle(
+                                color: chipForeground,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
                               ),
-                            ],
+                            ),
                           ),
-                          const SizedBox(height: 10),
+                          const SizedBox(height: 12),
                           Text(
                             title,
                             maxLines: 2,
@@ -953,165 +1076,45 @@ class _CtlListTabState extends State<_CtlListTab> {
                               height: 1.4,
                             ),
                           ),
-                          const SizedBox(height: 10),
+                          const SizedBox(height: 12),
                           if (widget.isProgram && opPeriod.isNotEmpty)
                             Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
+                              padding: const EdgeInsets.only(bottom: 6),
                               child: Row(
                                 children: [
                                   Icon(Icons.timer_outlined,
-                                      size: 14, color: accent),
+                                      size: 14, color: dateColor),
                                   const SizedBox(width: 6),
                                   Expanded(
                                     child: Text(
                                       "진행: $opPeriod",
                                       style: TextStyle(
-                                        color: accent,
+                                        color: dateColor,
                                         fontSize: 13,
-                                        fontWeight: FontWeight.w500,
                                       ),
                                     ),
-                                  )
+                                  ),
                                 ],
                               ),
                             ),
                           Row(
                             children: [
                               Icon(Icons.calendar_today_outlined,
-                                  size: 14, color: secondaryText),
+                                  size: 14, color: dateColor),
                               const SizedBox(width: 6),
                               Text(
-                                "신청: $date",
-                                style: TextStyle(
-                                    color: secondaryText, fontSize: 13),
-                              )
+                                date.trim().isEmpty
+                                    ? "—"
+                                    : "신청: $date",
+                                style:
+                                    TextStyle(color: dateColor, fontSize: 13),
+                              ),
                             ],
                           ),
                         ],
                       ),
                     ),
-                    Positioned(
-                      right: 12,
-                      top: 0,
-                      bottom: 0,
-                      child: Icon(Icons.chevron_right,
-                          color: secondaryText, size: 24),
-                    ),
-                  ],
-                )
-              : ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  clipBehavior: Clip.hardEdge,
-                  child: Stack(
-                    children: [
-                      Positioned(
-                        left: 0,
-                        top: 0,
-                        bottom: 0,
-                        child: Container(
-                          width: 4,
-                          decoration: BoxDecoration(
-                            color: stripColor,
-                            borderRadius: const BorderRadius.only(
-                              topLeft: Radius.circular(12),
-                              bottomLeft: Radius.circular(12),
-                            ),
-                          ),
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 16, 48, 16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                if (widget.isProgram)
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 8, vertical: 3),
-                                    margin: const EdgeInsets.only(right: 8),
-                                    decoration: BoxDecoration(
-                                      color: chipBackground,
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: Text(
-                                      status,
-                                      style: TextStyle(
-                                        color: accent,
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                Text(
-                                  "CTL",
-                                  style: TextStyle(
-                                    color: secondaryText,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 10),
-                            Text(
-                              title,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: titleColor,
-                                height: 1.4,
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            if (widget.isProgram && opPeriod.isNotEmpty)
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 8),
-                                child: Row(
-                                  children: [
-                                    Icon(Icons.timer_outlined,
-                                        size: 14, color: accent),
-                                    const SizedBox(width: 6),
-                                    Expanded(
-                                      child: Text(
-                                        "진행: $opPeriod",
-                                        style: TextStyle(
-                                          color: accent,
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    )
-                                  ],
-                                ),
-                              ),
-                            Row(
-                              children: [
-                                Icon(Icons.calendar_today_outlined,
-                                    size: 14, color: secondaryText),
-                                const SizedBox(width: 6),
-                                Text(
-                                  "신청: $date",
-                                  style: TextStyle(
-                                      color: secondaryText, fontSize: 13),
-                                )
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                      Positioned(
-                        right: 12,
-                        top: 0,
-                        bottom: 0,
-                        child: Icon(Icons.chevron_right,
-                            color: secondaryText, size: 24),
-                      ),
-                    ],
-                  ),
+                  ]),
                 ),
         ),
       ),

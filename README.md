@@ -38,7 +38,7 @@
 
 1. [Flutter](https://docs.flutter.dev/get-started/install) 설치 (SDK는 `app/pubspec.yaml`의 `environment.sdk`에 맞출 것). 저장소에 [FVM](https://fvm.app/) 설정(`.fvm/`, `.fvmrc`)이 있으면 FVM으로 버전 맞추면 됩니다.  
 2. Firebase: 앱은 `firebase_options.dart`와(예: Android) `google-services.json` 등이 필요합니다. 저장소 정책에 따라 파일이 포함되지 않을 수 있으므로, [FlutterFire CLI](https://firebase.google.com/docs/flutter/setup)로 `flutterfire configure` 등 **본인 프로젝트에 맞게 생성**합니다.  
-3. Firebase Auth 매직 링크 로그인을 쓰려면 Firebase Console에서 Email link(passwordless)를 켜고, Authorized domains에 `mjcinone.web.app`/`mjcinone.firebaseapp.com`을 확인한 뒤 Hosting의 `.well-known/assetlinks.json`에 Android 패키지 `com.example.mio_notice`와 디버그/릴리스 SHA-256을 등록합니다.
+3. Firebase Auth 매직 링크 로그인을 쓰려면 Firebase Console에서 Email link(passwordless)를 켜고, Authorized domains에 `mjcinone.web.app`/`mjcinone.firebaseapp.com`을 확인한 뒤 Hosting의 `.well-known/assetlinks.json`에 Android 패키지 `com.myeongji.mio.mioNotice`와 디버그/릴리스 SHA-256을 등록합니다.
 4. 터미널에서:
 
 ```bash

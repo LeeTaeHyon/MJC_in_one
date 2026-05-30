@@ -10,6 +10,7 @@ import "package:mjc_in_one/notification_sources.dart";
 import "package:mjc_in_one/screens/admin/admin_shell.dart";
 import "package:mjc_in_one/screens/inquiry_screen.dart";
 import "package:mjc_in_one/screens/intro_screen.dart";
+import "package:mjc_in_one/screens/main_navigation_screen.dart";
 import "package:mjc_in_one/services/keyword_notification_detail.dart";
 import "package:mjc_in_one/services/deep_link_handler.dart";
 import "package:mjc_in_one/services/firebase_app_startup.dart";
@@ -131,6 +132,10 @@ Future<void> main() async {
 
   await LabPrefs.ensureLoaded();
 
+  await DeepLinkHandler.instance.captureInitialLink();
+  await waitForFirebaseStartup();
+  await DeepLinkHandler.instance.processPendingAuthLink();
+
   runApp(const MioNoticeApp());
 }
 
@@ -176,6 +181,7 @@ class _MioNoticeAppState extends State<MioNoticeApp>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       LectureReminderNotificationService.instance.refreshNow();
+      DeepLinkHandler.instance.onAppResumed();
     }
     if (state == AppLifecycleState.paused) {
       LectureReminderNotificationService.instance.refreshNow();
@@ -272,7 +278,9 @@ class _MioNoticeAppState extends State<MioNoticeApp>
                   ],
                 );
               },
-              home: const IntroScreen(),
+              home: DeepLinkHandler.instance.skipIntro
+                  ? const MainNavigationScreen()
+                  : const IntroScreen(),
             );
           },
         ),

@@ -11,6 +11,8 @@ const String kLectureReminderChannelName = "강의 알림";
 const String kLectureReminderChannelDescription =
     "시간표에 등록된 다음 수업 시작까지 남은 시간을 알려줍니다.";
 
+bool _lectureReminderPluginInitialized = false;
+
 NotificationDetails lectureReminderNotificationDetails({
   int? classStartEpochMs,
 }) {
@@ -44,14 +46,17 @@ NotificationDetails lectureReminderNotificationDetails({
 Future<void> ensureLectureReminderNotificationChannel(
   FlutterLocalNotificationsPlugin plugin,
 ) async {
-  const AndroidInitializationSettings androidInit =
-      AndroidInitializationSettings("@mipmap/ic_launcher");
-  const DarwinInitializationSettings iosInit = DarwinInitializationSettings();
-  const InitializationSettings initSettings = InitializationSettings(
-    android: androidInit,
-    iOS: iosInit,
-  );
-  await plugin.initialize(initSettings);
+  if (!_lectureReminderPluginInitialized) {
+    const AndroidInitializationSettings androidInit =
+        AndroidInitializationSettings("@mipmap/ic_launcher");
+    const DarwinInitializationSettings iosInit = DarwinInitializationSettings();
+    const InitializationSettings initSettings = InitializationSettings(
+      android: androidInit,
+      iOS: iosInit,
+    );
+    await plugin.initialize(initSettings);
+    _lectureReminderPluginInitialized = true;
+  }
 
   await plugin
       .resolvePlatformSpecificImplementation<

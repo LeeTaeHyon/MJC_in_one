@@ -88,7 +88,7 @@
 
                     android:host="mjcinone.web.app"
 
-                    android:pathPrefix="/__/auth/action" />
+                    android:pathPrefix="/__/auth" />
 
             </intent-filter>
 
@@ -106,7 +106,7 @@
 
                     android:host="mjcinone.firebaseapp.com"
 
-                    android:pathPrefix="/__/auth/action" />
+                    android:pathPrefix="/__/auth" />
 
             </intent-filter>
 

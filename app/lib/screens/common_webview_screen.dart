@@ -63,7 +63,10 @@ class _CommonWebViewScreenState extends State<CommonWebViewScreen> {
   @override
   void initState() {
     super.initState();
-    final WebViewController controller = WebViewController()
+    final WebViewController controller =
+        WebViewController.fromPlatformCreationParams(
+      const PlatformWebViewControllerCreationParams(),
+    )
       ..setJavaScriptMode(JavaScriptMode.unrestricted);
 
     if (!kIsWeb) {

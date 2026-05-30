@@ -1,3 +1,5 @@
+import "dart:async";
+
 import "package:flutter/foundation.dart" show kIsWeb;
 import "package:flutter/material.dart";
 import "package:flutter_animate/flutter_animate.dart";
@@ -10,6 +12,9 @@ import "package:mjc_in_one/widgets/notice_body_html_view.dart";
 import "package:mjc_in_one/widgets/notice_report_sheet.dart";
 import "package:share_plus/share_plus.dart";
 import "package:url_launcher/url_launcher.dart";
+
+const Color _kNoticeAiTagBorderDark = Color(0xFFA3A3A3);
+const Color _kNoticeAiTagBorderLight = Color(0xFF9CA3AF);
 
 /// 공지 상세(요약 미리보기) 화면.
 ///
@@ -46,6 +51,8 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
 
   late bool _isPinned;
   late bool _isFavorite;
+  bool _ctaVisible = true;
+  Timer? _ctaRevealTimer;
 
   String get _id => (widget.notice["id"] as String?) ?? "";
   String get _title {
@@ -70,6 +77,41 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
         .map((e) => e.toString())
         .where((s) => s.trim().isNotEmpty)
         .toList(growable: false);
+  }
+
+  @override
+  void dispose() {
+    _ctaRevealTimer?.cancel();
+    super.dispose();
+  }
+
+  void _hideCtaDuringScroll() {
+    _ctaRevealTimer?.cancel();
+    if (_ctaVisible) {
+      setState(() => _ctaVisible = false);
+    }
+  }
+
+  void _scheduleCtaReveal() {
+    _ctaRevealTimer?.cancel();
+    _ctaRevealTimer = Timer(const Duration(milliseconds: 320), () {
+      if (!mounted) return;
+      if (!_ctaVisible) {
+        setState(() => _ctaVisible = true);
+      }
+    });
+  }
+
+  bool _handleScrollNotification(ScrollNotification notification) {
+    if (notification is ScrollStartNotification ||
+        notification is ScrollUpdateNotification ||
+        notification is OverscrollNotification) {
+      _hideCtaDuringScroll();
+      _scheduleCtaReveal();
+    } else if (notification is ScrollEndNotification) {
+      _scheduleCtaReveal();
+    }
+    return false;
   }
 
   @override
@@ -176,7 +218,7 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
         title: const Text(
           "공지 상세",
           style: TextStyle(
-            fontSize: 16,
+            fontSize: 20,
             fontWeight: FontWeight.bold,
             color: Colors.white,
           ),
@@ -229,41 +271,63 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          ListView(
-            padding: EdgeInsets.fromLTRB(
-              20,
-              16,
-              20,
-              MjcFloatingCtaLayout.scrollBottomPadding(context),
-            ),
-            children: [
-              _buildHeaderCard(theme, scheme, tokens),
-              const SizedBox(height: 16),
-              _buildSummaryCard(theme, scheme),
-              if (_hasBodyHtml) ...[
-                const SizedBox(height: 16),
-                NoticeBodyHtmlView(
-                  htmlFragment: _bodyHtml,
-                  baseUrl: _noticePageBaseUrl(),
-                  colorScheme: scheme,
-                  brightness: theme.brightness,
+          NotificationListener<ScrollNotification>(
+            onNotification: _handleScrollNotification,
+            child: ListView(
+              padding: EdgeInsets.fromLTRB(
+                20,
+                16,
+                20,
+                MjcFloatingCtaLayout.scrollBottomPadding(
+                  context,
+                  buttonHeight: MjcFloatingCtaLayout.compactHeight,
                 ),
-              ],
-              if (_body.isNotEmpty && !_hasBodyHtml) ...[
+              ),
+              children: [
+                _buildHeaderCard(theme, scheme, tokens),
                 const SizedBox(height: 16),
-                _buildBodyPreviewCard(theme, scheme),
+                _buildSummaryCard(theme, scheme),
+                if (_hasBodyHtml) ...[
+                  const SizedBox(height: 16),
+                  NoticeBodyHtmlView(
+                    htmlFragment: _bodyHtml,
+                    baseUrl: _noticePageBaseUrl(),
+                    colorScheme: scheme,
+                    brightness: theme.brightness,
+                  ),
+                ],
+                if (_body.isNotEmpty && !_hasBodyHtml) ...[
+                  const SizedBox(height: 16),
+                  _buildBodyPreviewCard(theme, scheme),
+                ],
               ],
-            ],
+            ),
           ),
           Positioned(
-            left: MjcFloatingCtaLayout.horizontalInset,
-            right: MjcFloatingCtaLayout.horizontalInset,
+            left: 0,
+            right: 0,
             bottom: MjcFloatingCtaLayout.positionedBottom(context),
-            child: MjcFloatingPillCta(
-              label: "본문 확인",
-              icon: Icons.open_in_new_rounded,
-              onTap: _openOriginal,
-              enabled: hasUrl,
+            child: IgnorePointer(
+              ignoring: !_ctaVisible,
+              child: AnimatedSlide(
+                offset: _ctaVisible ? Offset.zero : const Offset(0, 0.55),
+                duration: const Duration(milliseconds: 240),
+                curve: Curves.easeOutCubic,
+                child: AnimatedOpacity(
+                  opacity: _ctaVisible ? 1 : 0,
+                  duration: const Duration(milliseconds: 180),
+                  curve: Curves.easeOutCubic,
+                  child: Center(
+                    child: MjcFloatingPillCta(
+                      variant: MjcFloatingPillCtaVariant.primaryCompact,
+                      label: "본문 보기",
+                      icon: Icons.description_outlined,
+                      onTap: _openOriginal,
+                      enabled: hasUrl,
+                    ),
+                  ),
+                ),
+              ),
             ),
           ),
         ],
@@ -326,7 +390,11 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
                     color: scheme.surfaceContainerHighest
                         .withValues(alpha: 0.55),
                     borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: scheme.outlineVariant),
+                    border: Border.all(
+                      color: isDark
+                          ? _kNoticeAiTagBorderDark
+                          : _kNoticeAiTagBorderLight,
+                    ),
                   ),
                   child: Text(
                     t,

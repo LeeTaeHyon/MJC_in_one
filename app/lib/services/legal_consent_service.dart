@@ -90,13 +90,29 @@ class LegalConsentService {
 
   Future<String> resolveTermsUrl() async {
     final String? url = await AppConfigService.loadLink("termsOfServiceUrl");
-    final String trimmed = (url ?? "").trim();
-    return trimmed.isEmpty ? kTermsOfServiceUrlFallback : trimmed;
+    return _normalizeLegalUrl(url, kTermsOfServiceUrlFallback);
   }
 
   Future<String> resolvePrivacyUrl() async {
     final String? url = await AppConfigService.loadLink("privacyPolicyUrl");
-    final String trimmed = (url ?? "").trim();
-    return trimmed.isEmpty ? kPrivacyPolicyUrlFallback : trimmed;
+    return _normalizeLegalUrl(url, kPrivacyPolicyUrlFallback);
   }
+}
+
+String _normalizeLegalUrl(String? raw, String fallback) {
+  final String trimmed = (raw ?? "").trim();
+  if (trimmed.isEmpty) return fallback;
+
+  final Uri? uri = Uri.tryParse(trimmed);
+  if (uri == null) return fallback;
+
+  if (uri.hasScheme && (uri.scheme == "http" || uri.scheme == "https")) {
+    return trimmed;
+  }
+
+  if (trimmed.startsWith("/")) {
+    return "https://mjcinone.web.app$trimmed";
+  }
+
+  return fallback;
 }

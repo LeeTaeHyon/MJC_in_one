@@ -13,7 +13,7 @@ import "package:mjc_in_one/screens/open_source_licenses_screen.dart";
 import "package:mjc_in_one/screens/phone_permissions_screen.dart";
 import "package:mjc_in_one/services/app_cache_service.dart";
 import "package:mjc_in_one/services/lecture_reminder_notification_service.dart";
-import "package:mjc_in_one/services/app_config_service.dart";
+import "package:mjc_in_one/services/legal_consent_service.dart";
 import "package:mjc_in_one/services/notice_filter.dart";
 import "package:mjc_in_one/services/user_data_repository.dart";
 import "package:mjc_in_one/theme/theme_mode_scope.dart";
@@ -80,10 +80,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   /// 설정 화면 본문·카드 구분용 (참고 UI와 유사한 톤).
   static const Color _pageBackground = Color(0xFFF5F7F9);
   static const Color _cardBorder = Color(0xFFEDEDED);
-  static const String _privacyPolicyUrlFallback =
-      "https://mjcinone.web.app/privacy";
-  String _privacyPolicyUrl = _privacyPolicyUrlFallback;
-
   bool _allNoticesEnabled = true;
   bool _lectureReminderNotificationEnabled = false;
   List<String> _keywords = [];
@@ -109,7 +105,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void initState() {
     super.initState();
     _loadSettings();
-    _loadLinksConfig();
     _refreshEstimatedCacheSize();
     _scrollController.addListener(_onSettingsScroll);
   }
@@ -124,14 +119,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  Future<void> _loadLinksConfig() async {
-    try {
-      final String? url = await AppConfigService.loadLink("privacyPolicyUrl");
-      if (!mounted || url == null) return;
-      setState(() => _privacyPolicyUrl = url);
-    } catch (_) {
-      // Keep fallback.
-    }
+  Future<void> _openPrivacyPolicy() async {
+    final NavigatorState navigator = Navigator.of(context);
+    final String url =
+        await LegalConsentService.instance.resolvePrivacyUrl();
+    if (!mounted) return;
+    navigator.push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => CommonWebViewScreen(
+          url: url,
+          title: "개인정보처리방침",
+        ),
+      ),
+    );
   }
 
   void _onSettingsScroll() {
@@ -394,7 +394,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() => _clearingCache = true);
     try {
       await AppCacheService.clearAppCache();
-      await _loadLinksConfig();
       await _refreshEstimatedCacheSize();
       if (!mounted) return;
       showUniqueMjcSnackBar(
@@ -677,7 +676,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 "홈 화면에 표시할 카드/섹션을 선택할 수 있습니다.",
                 style: _settingsSubtitleStyle(
                   context,
-                  fontSize: 13,
+                  fontSize: 12,
                   height: 1.35,
                 ),
               ),
@@ -728,10 +727,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const SizedBox(height: 6),
             Text(
-              "공지/학사/장학을 3탭으로 볼지, 한 게시판으로 통합해 볼지 선택합니다.",
+              "본교 공지사항을 탭으로 나눠 볼지, 한 게시판으로 통합해서 볼지 선택합니다.",
               style: _settingsSubtitleStyle(
                 context,
-                fontSize: 13,
+                fontSize: 12,
                 height: 1.35,
               ),
             ),
@@ -743,7 +742,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 segments: const [
                   ButtonSegment<MainWebsiteNoticeViewMode>(
                     value: MainWebsiteNoticeViewMode.tabs,
-                    label: Text("3탭"),
+                    label: Text("탭"),
                     icon: Icon(Icons.tab_rounded),
                   ),
                   ButtonSegment<MainWebsiteNoticeViewMode>(
@@ -1007,7 +1006,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     style: _settingsItemTitleStyle(context),
                   ),
                   subtitle: Text(
-                    "비공식 참고용 학과 공지 탭을 표시합니다. 일부 학과만 글이 있을 수 있습니다.",
+                    "비공식 참고용 학과 공지 탭을 표시합니다.\n일부 학과만 글이 있을 수 있습니다.",
                     style: _settingsSubtitleStyle(context),
                   ),
                   value: _labDepartmentNoticesEnabled,
@@ -1032,7 +1031,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     style: _settingsItemTitleStyle(context),
                   ),
                   subtitle: Text(
-                    "시간표의 다음 수업까지 남은 시간을 알림 패널에 표시합니다. "
+                    "다음 수업까지 남은 시간을 알림 패널에 표시합니다.\n"
                     "기능이 불완전할 수 있습니다.",
                     style: _settingsSubtitleStyle(context),
                   ),
@@ -1181,16 +1180,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     style: _settingsSubtitleStyle(context),
                   ),
                   trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () {
-                    Navigator.of(context).push<void>(
-                      MaterialPageRoute<void>(
-                        builder: (context) => CommonWebViewScreen(
-                          url: _privacyPolicyUrl,
-                          title: "개인정보처리방침",
-                        ),
-                      ),
-                    );
-                  },
+                  onTap: _openPrivacyPolicy,
                 ),
               ],
             ),

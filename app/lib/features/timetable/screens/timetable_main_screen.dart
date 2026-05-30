@@ -4,6 +4,7 @@ import "package:mjc_in_one/services/lecture_reminder_notification_service.dart";
 import "package:mjc_in_one/features/timetable/screens/timetable_add_courses_screen.dart";
 import "package:mjc_in_one/features/timetable/services/timetable_official_service.dart";
 import "package:mjc_in_one/features/timetable/services/timetable_storage_service.dart";
+import "package:mjc_in_one/features/timetable/utils/timetable_credits.dart";
 import "package:mjc_in_one/features/timetable/widgets/timetable_offering_schedule_text_block.dart";
 import "package:mjc_in_one/features/timetable/widgets/timetable_week_grid.dart";
 import "package:mjc_in_one/theme/app_colors.dart";
@@ -20,6 +21,7 @@ class TimetableMainScreen extends StatefulWidget {
 class _TimetableMainScreenState extends State<TimetableMainScreen> {
   List<ParsedCourseOffering> _enrolled = const <ParsedCourseOffering>[];
   bool _loading = true;
+  bool _openingCatalog = false;
   final TimetableOfficialCatalogService _officialService =
       TimetableOfficialCatalogService();
 
@@ -75,28 +77,8 @@ class _TimetableMainScreenState extends State<TimetableMainScreen> {
     return list;
   }
 
-  static double _parseCredits(String raw) {
-    final String s = raw.trim();
-    if (s.isEmpty) return 0;
-    final double? direct = double.tryParse(s);
-    if (direct != null) return direct;
-    final RegExpMatch? m = RegExp(r"(\d+(?:\.\d+)?)").firstMatch(s);
-    if (m == null) return 0;
-    return double.tryParse(m.group(1)!) ?? 0;
-  }
-
-  double get _totalCredits =>
-      _enrolled.fold(0.0, (double sum, ParsedCourseOffering o) {
-        return sum + _parseCredits(o.credits);
-      });
-
-  String get _totalCreditsLabel {
-    final double total = _totalCredits;
-    if (total == total.roundToDouble()) {
-      return "${total.toInt()}학점";
-    }
-    return "${total.toStringAsFixed(1)}학점";
-  }
+  String get _totalCreditsLabel =>
+      formatTotalCreditsLabel(totalCreditsFromOfferings(_enrolled));
 
   ParsedCourseOffering? _offeringForSlot(TimetableSlot s) {
     for (final ParsedCourseOffering o in _enrolled) {
@@ -105,8 +87,61 @@ class _TimetableMainScreenState extends State<TimetableMainScreen> {
     return null;
   }
 
+  void _showCatalogLoadingDialog() {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext ctx) {
+        final ColorScheme scheme = Theme.of(ctx).colorScheme;
+        return PopScope(
+          canPop: false,
+          child: Dialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  const SizedBox(
+                    width: 36,
+                    height: 36,
+                    child: CircularProgressIndicator(strokeWidth: 3),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    "강의 목록을 불러오는 중",
+                    style: TextStyle(
+                      fontFamily: kPretendardFontFamily,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: scheme.onSurface,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _openOfficialCatalog() async {
-    final List<ParsedCourseOffering> catalog = await _officialService.load();
+    if (_openingCatalog) return;
+    setState(() => _openingCatalog = true);
+    _showCatalogLoadingDialog();
+
+    List<ParsedCourseOffering> catalog;
+    try {
+      catalog = await _officialService.load();
+    } finally {
+      if (mounted) {
+        Navigator.of(context).pop();
+        setState(() => _openingCatalog = false);
+      }
+    }
     if (!mounted) return;
     if (catalog.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -384,7 +419,7 @@ class _TimetableMainScreenState extends State<TimetableMainScreen> {
           ? null
           : FloatingActionButton(
               heroTag: null,
-              onPressed: _openOfficialCatalog,
+              onPressed: _openingCatalog ? null : _openOfficialCatalog,
               tooltip: "시간표 추가",
               backgroundColor: AppColors.primary,
               foregroundColor: AppColors.timetableSlotOnColor,

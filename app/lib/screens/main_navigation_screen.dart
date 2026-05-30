@@ -1,4 +1,5 @@
 import "dart:async";
+import "dart:ui" show ImageFilter;
 
 import "package:firebase_auth/firebase_auth.dart";
 import "package:flutter/material.dart";
@@ -30,7 +31,9 @@ class MainNavigationScreen extends StatefulWidget {
 }
 
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
-  static const double _bottomNavHeight = 70;
+  static const double _bottomNavHeight = 82;
+  static const double _bottomNavBarHeight = 64;
+  static const double _bottomNavContentLiftFactor = 0.05;
   static const double _noticeSubNavHeight = 44;
   static const double _noticeSubNavBottomGap = 8;
   static const double _noticeSubNavFabGap = 16;
@@ -47,6 +50,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   final ValueNotifier<NoticesSubTab> _noticeSubTab =
       ValueNotifier<NoticesSubTab>(NoticesSubTab.main);
   StreamSubscription<User?>? _authHydrateSubscription;
+  bool _initialAuthEventHandled = false;
 
   void _onLabDepartmentNoticesChanged() {
     if (!LabPrefs.departmentNoticesEnabled.value &&
@@ -58,9 +62,22 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   @override
   void initState() {
     super.initState();
-    LabPrefs.departmentNoticesEnabled.addListener(_onLabDepartmentNoticesChanged);
+    LabPrefs.departmentNoticesEnabled
+        .addListener(_onLabDepartmentNoticesChanged);
     _authHydrateSubscription =
         AuthService.instance.authStateChanges().listen((User? user) async {
+      // 첫 이벤트는 앱 재실행 시 기존 세션 복원이므로 프로필 입력을 띄우지 않는다.
+      if (!_initialAuthEventHandled) {
+        _initialAuthEventHandled = true;
+        if (user == null) return;
+        try {
+          await UserDataRepository.instance.hydrateFromCloudOnLogin(user);
+        } catch (e, st) {
+          debugPrint("hydrateFromCloudOnLogin: $e\n$st");
+        }
+        return;
+      }
+
       if (user == null) return;
       try {
         await UserDataRepository.instance.hydrateFromCloudOnLogin(user);
@@ -72,7 +89,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     });
     _syncScrollCoordinatorTab();
 
-    // 앱 첫 진입 시 테스트 빌드 안내 팝업 및 피드백 버튼 포커싱 띄우기
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkTestBuildWarning();
     });
@@ -89,64 +105,64 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       if (!mounted) return;
 
       if (showTestBuildDialog) {
-      // 1. 테스트 빌드 안내 팝업 표시
-      await showDialog<void>(
-        context: context,
-        barrierDismissible: false,
-        builder: (ctx) {
-          final scheme = Theme.of(ctx).colorScheme;
-          return PopScope(
-            canPop: false,
-            child: Dialog(
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20)),
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.science_rounded,
-                        size: 48, color: scheme.primary),
-                    const SizedBox(height: 16),
-                    const Text(
-                      "테스트 빌드 안내",
-                      style: TextStyle(
-                          fontSize: 20, fontWeight: FontWeight.w800),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      "본 앱은 테스트 빌드이며, 오류나 오탈자가 발생할 수 있고 서비스 이용이 원활하지 않을 수 있습니다.",
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 15,
-                        height: 1.4,
-                        color: scheme.onSurfaceVariant,
+        // 1. 테스트 빌드 안내 팝업 표시
+        await showDialog<void>(
+          context: context,
+          barrierDismissible: false,
+          builder: (ctx) {
+            final scheme = Theme.of(ctx).colorScheme;
+            return PopScope(
+              canPop: false,
+              child: Dialog(
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20)),
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.science_rounded,
+                          size: 48, color: scheme.primary),
+                      const SizedBox(height: 16),
+                      const Text(
+                        "테스트 빌드 안내",
+                        style: TextStyle(
+                            fontSize: 20, fontWeight: FontWeight.w800),
                       ),
-                    ),
-                    const SizedBox(height: 24),
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton(
-                        style: FilledButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12)),
+                      const SizedBox(height: 12),
+                      Text(
+                        "본 앱은 테스트 빌드이며, 오류나 오탈자가 발생할 수 있고 서비스 이용이 원활하지 않을 수 있습니다.",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 15,
+                          height: 1.4,
+                          color: scheme.onSurfaceVariant,
                         ),
-                        onPressed: () {
-                          Navigator.of(ctx).pop();
-                        },
-                        child: const Text("이해했습니다",
-                            style: TextStyle(
-                                fontWeight: FontWeight.bold, fontSize: 16)),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 24),
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton(
+                          style: FilledButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                          ),
+                          onPressed: () {
+                            Navigator.of(ctx).pop();
+                          },
+                          child: const Text("이해했습니다",
+                              style: TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 16)),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          );
-        },
-      );
+            );
+          },
+        );
       }
 
       await prefs.setBool("test_build_warning_shown", true);
@@ -397,102 +413,103 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       child: ValueListenableBuilder<int>(
         valueListenable: bookmarkSnackBarSubnavSuppressionCount,
         builder: (context, snackbarSuppression, _) {
-          final bool showNoticeSubChrome =
-              _index == MainNavTabIndex.notices &&
-                  _noticeSubNavVisible &&
-                  snackbarSuppression == 0;
+          final bool showNoticeSubChrome = _index == MainNavTabIndex.notices &&
+              _noticeSubNavVisible &&
+              snackbarSuppression == 0;
           return PopScope(
-          canPop: false,
-          onPopInvokedWithResult: _onSystemPopInvoked,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              Scaffold(
-                backgroundColor: scaffoldBackground,
-                body: Stack(
-                  children: [
-                    // 1. 메인 콘텐츠 영역 – 탭 전환 시 새로 생성(상태 유지하지 않음) + 전환 애니메이션.
-                    Positioned.fill(
-                      child: ColoredBox(
-                        color: scaffoldBackground,
-                        child: NotificationListener<ScrollNotification>(
-                          onNotification: _handleMainScrollNotification,
-                          child: AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 220),
-                            switchInCurve: Curves.easeOutCubic,
-                            switchOutCurve: Curves.easeInCubic,
-                            layoutBuilder: (Widget? currentChild,
-                                List<Widget> previousChildren) {
-                              return Stack(
-                                fit: StackFit.expand,
-                                children: <Widget>[
-                                  ...previousChildren,
-                                  if (currentChild != null) currentChild,
-                                ],
-                              );
-                            },
-                            transitionBuilder: (child, animation) {
-                              final CurvedAnimation fade = CurvedAnimation(
-                                parent: animation,
-                                curve: Curves.easeOutCubic,
-                              );
-                              // 기본 페이드 인/아웃만 사용 (슬라이드 제거).
-                              return FadeTransition(opacity: fade, child: child);
-                            },
-                            child: KeyedSubtree(
-                              key: ValueKey<Object>(_mainTabChildKey(_index)),
-                              child: _buildMainTab(_index),
+            canPop: false,
+            onPopInvokedWithResult: _onSystemPopInvoked,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                Scaffold(
+                  backgroundColor: scaffoldBackground,
+                  extendBody: true,
+                  body: Stack(
+                    children: [
+                      // 1. 메인 콘텐츠 영역 – 탭 전환 시 새로 생성(상태 유지하지 않음) + 전환 애니메이션.
+                      Positioned.fill(
+                        child: ColoredBox(
+                          color: scaffoldBackground,
+                          child: NotificationListener<ScrollNotification>(
+                            onNotification: _handleMainScrollNotification,
+                            child: AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 220),
+                              switchInCurve: Curves.easeOutCubic,
+                              switchOutCurve: Curves.easeInCubic,
+                              layoutBuilder: (Widget? currentChild,
+                                  List<Widget> previousChildren) {
+                                return Stack(
+                                  fit: StackFit.expand,
+                                  children: <Widget>[
+                                    ...previousChildren,
+                                    if (currentChild != null) currentChild,
+                                  ],
+                                );
+                              },
+                              transitionBuilder: (child, animation) {
+                                final CurvedAnimation fade = CurvedAnimation(
+                                  parent: animation,
+                                  curve: Curves.easeOutCubic,
+                                );
+                                // 기본 페이드 인/아웃만 사용 (슬라이드 제거).
+                                return FadeTransition(
+                                    opacity: fade, child: child);
+                              },
+                              child: KeyedSubtree(
+                                key: ValueKey<Object>(_mainTabChildKey(_index)),
+                                child: _buildMainTab(_index),
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
+                  bottomNavigationBar: _buildBottomAppBar(),
                 ),
-                bottomNavigationBar: _buildBottomAppBar(),
-              ),
-              Positioned(
-                left: 18,
-                right: 18,
-                bottom: MediaQuery.paddingOf(context).bottom +
-                    _bottomNavHeight +
-                    _noticeSubNavBottomGap,
-                child: IgnorePointer(
-                  ignoring: !showNoticeSubChrome,
-                  child: AnimatedSlide(
-                    offset: showNoticeSubChrome
-                        ? Offset.zero
-                        : const Offset(0, 0.55),
-                    duration: const Duration(milliseconds: 240),
-                    curve: Curves.easeOutCubic,
-                    child: AnimatedOpacity(
-                      opacity: showNoticeSubChrome ? 1 : 0,
-                      duration: const Duration(milliseconds: 180),
+                Positioned(
+                  left: 18,
+                  right: 18,
+                  bottom: MediaQuery.paddingOf(context).bottom +
+                      _bottomNavHeight +
+                      _noticeSubNavBottomGap,
+                  child: IgnorePointer(
+                    ignoring: !showNoticeSubChrome,
+                    child: AnimatedSlide(
+                      offset: showNoticeSubChrome
+                          ? Offset.zero
+                          : const Offset(0, 0.55),
+                      duration: const Duration(milliseconds: 240),
                       curve: Curves.easeOutCubic,
-                      child: _buildNoticeSubNav(),
+                      child: AnimatedOpacity(
+                        opacity: showNoticeSubChrome ? 1 : 0,
+                        duration: const Duration(milliseconds: 180),
+                        curve: Curves.easeOutCubic,
+                        child: _buildNoticeSubNav(),
+                      ),
                     ),
                   ),
                 ),
-              ),
-              AnimatedPositioned(
-                duration: const Duration(milliseconds: 220),
-                curve: Curves.easeOutCubic,
-                right: 14,
-                bottom: MediaQuery.paddingOf(context).bottom +
-                    _bottomNavHeight +
-                    10 +
-                    (showNoticeSubChrome
-                        ? _noticeSubNavBottomGap +
-                            _noticeSubNavHeight +
-                            _noticeSubNavFabGap
-                        : 0),
-                child: ScrollToTopFab(
-                  debugTag: ScrollFabDebug.enabled ? "mainNav" : null,
+                AnimatedPositioned(
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.easeOutCubic,
+                  right: 14,
+                  bottom: MediaQuery.paddingOf(context).bottom +
+                      _bottomNavHeight +
+                      10 +
+                      (showNoticeSubChrome
+                          ? _noticeSubNavBottomGap +
+                              _noticeSubNavHeight +
+                              _noticeSubNavFabGap
+                          : 0),
+                  child: ScrollToTopFab(
+                    debugTag: ScrollFabDebug.enabled ? "mainNav" : null,
+                  ),
                 ),
-              ),
-            ],
-          ),
-        );
+              ],
+            ),
+          );
         },
       ),
     );
@@ -500,65 +517,98 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
   Widget _buildBottomAppBar() {
     final ColorScheme scheme = Theme.of(context).colorScheme;
-    final MjcSurfaceTokens tokens =
+    final MjcSurfaceTokens surfaceTokens =
         Theme.of(context).extension<MjcSurfaceTokens>()!;
-    return ColoredBox(
-      color: scheme.surface,
-      child: SafeArea(
-        top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Divider(
-              height: 1,
-              thickness: 1,
-              color: tokens.hairline,
-            ),
-            SizedBox(
-              height: _bottomNavHeight,
-              child: BottomAppBar(
-                height: _bottomNavHeight,
-                color: scheme.surface,
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Expanded(
-                      child: _buildNavTab(
-                        MainNavTabIndex.home,
-                        Icons.home_outlined,
-                        Icons.home,
-                        "홈",
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color barColor =
+        scheme.surface.withValues(alpha: isDark ? 0.88 : 0.82);
+    return SafeArea(
+      top: false,
+      child: SizedBox(
+        height: _bottomNavHeight,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 430),
+              child: SizedBox(
+                height: _bottomNavBarHeight,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    borderRadius:
+                        BorderRadius.circular(_bottomNavBarHeight / 2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black
+                            .withValues(alpha: isDark ? 0.46 : 0.16),
+                        blurRadius: 26,
+                        spreadRadius: -8,
+                        offset: const Offset(0, 12),
+                      ),
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius:
+                        BorderRadius.circular(_bottomNavBarHeight / 2),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                      child: Material(
+                        color: barColor,
+                        shape: RoundedRectangleBorder(
+                          borderRadius:
+                              BorderRadius.circular(_bottomNavBarHeight / 2),
+                          side: BorderSide(
+                            color: surfaceTokens.hairline.withValues(
+                              alpha: isDark ? 0.62 : 0.76,
+                            ),
+                            width: 1,
+                          ),
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Expanded(
+                              child: _buildNavTab(
+                                MainNavTabIndex.home,
+                                Icons.home_outlined,
+                                Icons.home,
+                                "홈",
+                              ),
+                            ),
+                            Expanded(
+                              child: _buildNavTab(
+                                MainNavTabIndex.notices,
+                                Icons.campaign_outlined,
+                                Icons.campaign_rounded,
+                                "공지",
+                              ),
+                            ),
+                            Expanded(
+                              child: _buildNavTab(
+                                MainNavTabIndex.timetable,
+                                Icons.calendar_month_outlined,
+                                Icons.calendar_month_rounded,
+                                "시간표",
+                              ),
+                            ),
+                            Expanded(
+                              child: _buildNavTab(
+                                MainNavTabIndex.mypage,
+                                Icons.person_outline_rounded,
+                                Icons.person_rounded,
+                                "마이페이지",
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                    Expanded(
-                      child: _buildNavTab(
-                        MainNavTabIndex.notices,
-                        Icons.campaign_outlined,
-                        Icons.campaign_rounded,
-                        "공지",
-                      ),
-                    ),
-                    Expanded(
-                      child: _buildNavTab(
-                        MainNavTabIndex.timetable,
-                        Icons.calendar_month_outlined,
-                        Icons.calendar_month_rounded,
-                        "시간표",
-                      ),
-                    ),
-                    Expanded(
-                      child: _buildNavTab(
-                        MainNavTabIndex.mypage,
-                        Icons.person_outline_rounded,
-                        Icons.person_rounded,
-                        "마이페이지",
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -656,9 +706,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     );
   }
 
-  /// 탭 영역 대부분을 터치/리플로 인식하되, 탭 사이에는 약간의 숨 쉴 공간을 둡니다.
-  static const double _navTabHitWidthFactor = 0.92;
-
   Widget _buildNavTab(
     int index,
     IconData icon,
@@ -667,30 +714,16 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     int badgeCount = 0,
   }) {
     final bool isSelected = _index == index;
-    final Color rippleAccent = _components.bottomNavSelected;
     return Center(
-      child: FractionallySizedBox(
-        widthFactor: _navTabHitWidthFactor,
-        heightFactor: 1,
-        child: Material(
-          color: Colors.transparent,
-          borderRadius: BorderRadius.circular(16),
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            onTap: () => _onMenuItemClick(index),
-            borderRadius: BorderRadius.circular(16),
-            splashColor: rippleAccent.withValues(alpha: 0.14),
-            highlightColor: rippleAccent.withValues(alpha: 0.06),
-            child: SizedBox.expand(
-              child: _buildNavTabContent(
-                isSelected,
-                icon,
-                selectedIcon,
-                label,
-                badgeCount,
-              ),
-            ),
-          ),
+      child: Transform.translate(
+        offset: const Offset(0, -_bottomNavBarHeight * _bottomNavContentLiftFactor),
+        child: _buildNavTabContent(
+          isSelected,
+          icon,
+          selectedIcon,
+          label,
+          badgeCount,
+          onIconTap: () => _onMenuItemClick(index),
         ),
       ),
     );
@@ -701,65 +734,82 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     IconData icon,
     IconData selectedIcon,
     String label,
-    int badgeCount,
-  ) {
+    int badgeCount, {
+    required VoidCallback onIconTap,
+  }) {
     final ColorScheme scheme = Theme.of(context).colorScheme;
     final Color selectedColor = _components.bottomNavSelected;
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Stack(
-              clipBehavior: Clip.none,
-              children: [
-                isSelected
-                    ? BouncyIcon(
-                        selectedIcon,
-                        color: selectedColor,
-                        size: 22,
-                      )
-                    : Icon(icon, color: scheme.onSurfaceVariant, size: 22),
-                if (badgeCount > 0)
-                  Positioned(
-                    right: -7,
-                    top: -6,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 5,
-                        vertical: 1,
-                      ),
-                      decoration: BoxDecoration(
-                        color: scheme.error,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Text(
-                        badgeCount > 99 ? "99+" : "$badgeCount",
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 9,
-                          fontWeight: FontWeight.w800,
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 1),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Material(
+            color: Colors.transparent,
+            shape: const StadiumBorder(),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: onIconTap,
+              customBorder: const StadiumBorder(),
+              splashColor:
+                  selectedColor.withValues(alpha: isDark ? 0.22 : 0.16),
+              highlightColor:
+                  selectedColor.withValues(alpha: isDark ? 0.10 : 0.07),
+              child: SizedBox(
+                width: 48,
+                height: 36,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  alignment: Alignment.center,
+                  children: [
+                    isSelected
+                        ? BouncyIcon(
+                            selectedIcon,
+                            color: selectedColor,
+                            size: 22,
+                          )
+                        : Icon(icon, color: scheme.onSurfaceVariant, size: 22),
+                    if (badgeCount > 0)
+                      Positioned(
+                        right: 2,
+                        top: 0,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 5,
+                            vertical: 1,
+                          ),
+                          decoration: BoxDecoration(
+                            color: scheme.error,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            badgeCount > 99 ? "99+" : "$badgeCount",
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                  ),
-              ],
-            ),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                height: 1.05,
-                color: isSelected
-                    ? selectedColor
-                    : _components.bottomNavUnselected,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  ],
+                ),
               ),
             ),
-          ],
-        ),
+          ),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              height: 1.05,
+              color:
+                  isSelected ? selectedColor : _components.bottomNavUnselected,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
+        ],
       ),
     );
   }

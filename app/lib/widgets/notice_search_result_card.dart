@@ -1,8 +1,12 @@
 import "package:flutter/material.dart";
 import "package:mjc_in_one/perf_flags.dart";
 import "package:mjc_in_one/theme/app_theme.dart";
+import "package:mjc_in_one/widgets/pin_favorite_buttons.dart";
+
+const Color _kNoticeAiTagBorderDark = Color(0xFFA3A3A3);
+const Color _kNoticeAiTagBorderLight = Color(0xFF9CA3AF);
+
 /// 메인 공지 리스트(`MainWebsiteScreen` 카드)와 동일한 톤의 검색 결과 카드입니다.
-/// 핀/즐겨찾기 버튼은 검색 맥락에서 생략합니다.
 class NoticeSearchResultCard extends StatelessWidget {
   const NoticeSearchResultCard({
     super.key,
@@ -13,6 +17,11 @@ class NoticeSearchResultCard extends StatelessWidget {
     required this.accentColor,
     required this.onTap,
     this.isRead = false,
+    this.isPinned = false,
+    this.isFavorite = false,
+    this.onTogglePinned,
+    this.onToggleFavorite,
+    this.trailing,
   });
 
   final String title;
@@ -22,6 +31,12 @@ class NoticeSearchResultCard extends StatelessWidget {
   final Color accentColor;
   final VoidCallback onTap;
   final bool isRead;
+  final bool isPinned;
+  final bool isFavorite;
+  final VoidCallback? onTogglePinned;
+  final VoidCallback? onToggleFavorite;
+  /// 카드 우측 하단 등에 추가로 붙일 위젯 (예: MPU D-day 배지).
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -39,6 +54,35 @@ class NoticeSearchResultCard extends StatelessWidget {
     final Color titleColor = isRead ? readTitleColor : scheme.onSurface;
     final Color dateColor = scheme.onSurfaceVariant;
     const bool lowRaster = kPerfLowRasterMode;
+    final bool showPinFavorite =
+        onTogglePinned != null && onToggleFavorite != null;
+
+    Widget buildStack(List<Widget> stackChildren) {
+      if (showPinFavorite) {
+        stackChildren.add(
+          Positioned(
+            right: 12,
+            top: 10,
+            child: PinFavoriteButtons(
+              isPinned: isPinned,
+              isFavorite: isFavorite,
+              onTogglePinned: onTogglePinned!,
+              onToggleFavorite: onToggleFavorite!,
+            ),
+          ),
+        );
+      }
+      if (trailing != null) {
+        stackChildren.add(
+          Positioned(
+            right: 12,
+            bottom: 16,
+            child: trailing!,
+          ),
+        );
+      }
+      return Stack(children: stackChildren);
+    }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -54,8 +98,46 @@ class NoticeSearchResultCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           onTap: onTap,
           child: lowRaster
-              ? Stack(
-                  children: [
+              ? buildStack([
+                  Positioned(
+                    left: 0,
+                    top: 0,
+                    bottom: 0,
+                    child: Container(
+                      width: 4,
+                      decoration: BoxDecoration(
+                        color: stripColor,
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(12),
+                          bottomLeft: Radius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      20,
+                      16,
+                      trailing != null ? 80 : 20,
+                      trailing != null ? 80 : 16,
+                    ),
+                    child: _cardBody(
+                      context: context,
+                      chip: chip,
+                      chipBackground: chipBackground,
+                      chipForeground: chipForeground,
+                      aiTags: aiTags,
+                      displayTitle: displayTitle,
+                      titleColor: titleColor,
+                      dateLine: dateLine,
+                      dateColor: dateColor,
+                    ),
+                  ),
+                ])
+              : ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  clipBehavior: Clip.hardEdge,
+                  child: buildStack([
                     Positioned(
                       left: 0,
                       top: 0,
@@ -72,7 +154,12 @@ class NoticeSearchResultCard extends StatelessWidget {
                       ),
                     ),
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+                      padding: EdgeInsets.fromLTRB(
+                        20,
+                        16,
+                        trailing != null ? 80 : 20,
+                        trailing != null ? 80 : 16,
+                      ),
                       child: _cardBody(
                         context: context,
                         chip: chip,
@@ -85,44 +172,7 @@ class NoticeSearchResultCard extends StatelessWidget {
                         dateColor: dateColor,
                       ),
                     ),
-                  ],
-                )
-              : ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  clipBehavior: Clip.hardEdge,
-                  child: Stack(
-                    children: [
-                      Positioned(
-                        left: 0,
-                        top: 0,
-                        bottom: 0,
-                        child: Container(
-                          width: 4,
-                          decoration: BoxDecoration(
-                            color: stripColor,
-                            borderRadius: const BorderRadius.only(
-                              topLeft: Radius.circular(12),
-                              bottomLeft: Radius.circular(12),
-                            ),
-                          ),
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-                        child: _cardBody(
-                          context: context,
-                          chip: chip,
-                          chipBackground: chipBackground,
-                          chipForeground: chipForeground,
-                          aiTags: aiTags,
-                          displayTitle: displayTitle,
-                          titleColor: titleColor,
-                          dateLine: dateLine,
-                          dateColor: dateColor,
-                        ),
-                      ),
-                    ],
-                  ),
+                  ]),
                 ),
         ),
       ),
@@ -141,6 +191,9 @@ class NoticeSearchResultCard extends StatelessWidget {
     required Color dateColor,
   }) {
     final ColorScheme scheme = Theme.of(context).colorScheme;
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color aiTagBorder =
+        isDark ? _kNoticeAiTagBorderDark : _kNoticeAiTagBorderLight;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -170,7 +223,7 @@ class NoticeSearchResultCard extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: scheme.surfaceContainerHighest.withValues(alpha: 0.55),
                   borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: scheme.outlineVariant),
+                  border: Border.all(color: aiTagBorder),
                 ),
                 child: Text(
                   t,

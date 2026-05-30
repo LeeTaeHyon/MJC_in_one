@@ -1,4 +1,5 @@
 import "package:flutter/material.dart";
+import "package:mjc_in_one/theme/app_colors.dart";
 
 /// 로그인 등에서 필수 약관·개인정보(국외 이전 포함) 동의 체크박스.
 class LegalConsentRow extends StatelessWidget {
@@ -18,6 +19,9 @@ class LegalConsentRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ColorScheme cs = Theme.of(context).colorScheme;
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color linkColor =
+        isDark ? AppColors.switchActiveDark : cs.primary;
     final TextStyle bodyStyle = TextStyle(
       fontSize: 13,
       height: 1.45,
@@ -28,10 +32,10 @@ class LegalConsentRow extends StatelessWidget {
       padding: EdgeInsets.zero,
       minimumSize: Size.zero,
       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      foregroundColor: cs.primary,
+      foregroundColor: linkColor,
       textStyle: bodyStyle.copyWith(
         decoration: TextDecoration.underline,
-        decorationColor: cs.primary.withValues(alpha: 0.55),
+        decorationColor: linkColor.withValues(alpha: 0.55),
       ),
     );
 

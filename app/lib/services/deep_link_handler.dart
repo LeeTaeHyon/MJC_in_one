@@ -4,8 +4,10 @@ import "package:app_links/app_links.dart";
 import "package:flutter/material.dart";
 import "package:mjc_in_one/screens/profile_setup_screen.dart";
 import "package:mjc_in_one/services/auth_service.dart";
+import "package:mjc_in_one/services/firebase_app_startup.dart";
 import "package:mjc_in_one/services/user_data_repository.dart";
 
+/// Firebase 이메일 매직 링크 딥링크 처리.
 class DeepLinkHandler {
   DeepLinkHandler._();
 
@@ -15,17 +17,67 @@ class DeepLinkHandler {
   StreamSubscription<Uri>? _subscription;
   GlobalKey<NavigatorState>? _navigatorKey;
   String? _lastHandledLink;
+  String? _queuedSnackBarMessage;
+  Uri? _pendingUri;
+  bool _openedViaAuthLink = false;
+  bool _needsProfileSetupAfterLogin = false;
+
+  /// 매직 링크로 앱이 열렸으면 인트로(Lottie)를 건너뛴다.
+  bool get skipIntro => _openedViaAuthLink || _needsProfileSetupAfterLogin;
+
+  /// [runApp] 전에 호출해 cold start 링크를 놓치지 않는다.
+  Future<void> captureInitialLink() async {
+    _pendingUri ??= await _appLinks.getInitialLink();
+    if (_pendingUri != null) {
+      _openedViaAuthLink = true;
+      debugPrint("DeepLinkHandler: captured initial link $_pendingUri");
+    }
+  }
+
+  /// Firebase 초기화 직후, UI 전에 로그인을 시도한다.
+  Future<bool> processPendingAuthLink() async {
+    final Uri? uri = _pendingUri;
+    if (uri == null) return false;
+    _pendingUri = null;
+    final bool signedIn = await _handleUri(uri, showErrors: false);
+    if (signedIn) {
+      _needsProfileSetupAfterLogin = true;
+    }
+    return signedIn;
+  }
 
   Future<void> start(GlobalKey<NavigatorState> navigatorKey) async {
     _navigatorKey = navigatorKey;
+    _flushQueuedSnackBar();
+
     _subscription ??= _appLinks.uriLinkStream.listen(
-      _handleUri,
-      onError: (Object error) => _showSnackBar("로그인 링크 처리 중 오류가 발생했습니다."),
+      (Uri uri) => _handleUri(uri),
+      onError: (Object error) {
+        debugPrint("DeepLinkHandler stream error: $error");
+        _queueSnackBar("로그인 링크 처리 중 오류가 발생했습니다.");
+      },
     );
 
-    final Uri? initialUri = await _appLinks.getInitialLink();
-    if (initialUri != null) {
-      await _handleUri(initialUri);
+    final Uri? latestUri = await _appLinks.getLatestLink();
+    if (latestUri != null) {
+      debugPrint("DeepLinkHandler: latest link $latestUri");
+      await _handleUri(latestUri);
+    }
+
+    if (_needsProfileSetupAfterLogin) {
+      _needsProfileSetupAfterLogin = false;
+      final NavigatorState? navigator = _navigatorKey?.currentState;
+      if (navigator != null) {
+        await ProfileSetupScreen.maybePush(navigator);
+      }
+    }
+  }
+
+  Future<void> onAppResumed() async {
+    final Uri? latestUri = await _appLinks.getLatestLink();
+    if (latestUri != null) {
+      debugPrint("DeepLinkHandler: resumed with link $latestUri");
+      await _handleUri(latestUri);
     }
   }
 
@@ -34,44 +86,111 @@ class DeepLinkHandler {
     _subscription = null;
   }
 
-  Future<void> _handleUri(Uri uri) async {
-    final String link = _extractFirebaseEmailLink(uri);
-    if (link.isEmpty || link == _lastHandledLink) return;
-    _lastHandledLink = link;
+  Future<bool> _handleUri(Uri uri, {bool showErrors = true}) async {
+    debugPrint("DeepLinkHandler: received $uri");
+
+    final List<String> candidates = _collectEmailLinkCandidates(uri);
+    if (candidates.isEmpty) {
+      debugPrint("DeepLinkHandler: no auth link candidates in $uri");
+      return false;
+    }
+
+    await waitForFirebaseStartup();
 
     final AuthService auth = AuthService.instance;
-    if (!auth.isSignInLink(link)) return;
+    String? matchedLink;
+    for (final String candidate in candidates) {
+      if (candidate == _lastHandledLink) continue;
+      if (auth.isSignInLink(candidate)) {
+        matchedLink = candidate;
+        break;
+      }
+    }
+
+    if (matchedLink == null) {
+      debugPrint(
+        "DeepLinkHandler: no sign-in link among ${candidates.length} candidates",
+      );
+      return false;
+    }
 
     try {
-      final credential = await auth.completeSignIn(link);
+      final credential = await auth.completeSignIn(matchedLink);
+      _lastHandledLink = matchedLink;
       final user = credential.user;
       if (user != null) {
         await UserDataRepository.instance.hydrateFromCloudOnLogin(user);
       }
+      _needsProfileSetupAfterLogin = true;
       _popLoginRouteIfPossible();
-      _showSnackBar("로그인되었습니다.");
+      _queueSnackBar("로그인되었습니다.");
+      _flushQueuedSnackBar();
       final NavigatorState? navigator = _navigatorKey?.currentState;
       if (navigator != null) {
         await ProfileSetupScreen.maybePush(navigator);
+        _needsProfileSetupAfterLogin = false;
       }
+      return true;
     } on MissingPendingEmailException {
-      _showSnackBar("먼저 이 기기에서 로그인 링크를 요청해 주세요.");
+      if (showErrors) {
+        _queueSnackBar("먼저 이 기기에서 로그인 링크를 요청해 주세요.");
+        _flushQueuedSnackBar();
+      } else {
+        debugPrint("DeepLinkHandler: pending email missing for $matchedLink");
+      }
     } on MjcDomainException {
-      _showSnackBar("@mjc.ac.kr 이메일만 로그인할 수 있습니다.");
-    } catch (_) {
-      _showSnackBar("로그인 링크가 만료되었거나 유효하지 않습니다.");
+      _queueSnackBar("@mjc.ac.kr 이메일만 로그인할 수 있습니다.");
+      _flushQueuedSnackBar();
+    } catch (error, stackTrace) {
+      debugPrint("DeepLinkHandler sign-in failed: $error\n$stackTrace");
+      if (showErrors) {
+        _queueSnackBar("로그인 링크가 만료되었거나 유효하지 않습니다.");
+        _flushQueuedSnackBar();
+      }
     }
+    return false;
   }
 
-  String _extractFirebaseEmailLink(Uri uri) {
-    if (uri.scheme == "mjcinone" && uri.host == "login") {
-      final String? embedded = uri.queryParameters["link"];
-      if (embedded != null && embedded.trim().isNotEmpty) {
-        return Uri.decodeComponent(embedded);
+  List<String> _collectEmailLinkCandidates(Uri uri) {
+    final Set<String> seen = <String>{};
+    final List<String> queue = <String>[uri.toString()];
+    final List<String> results = <String>[];
+
+    while (queue.isNotEmpty) {
+      final String raw = queue.removeAt(0);
+      if (raw.trim().isEmpty || !seen.add(raw)) continue;
+
+      if (_looksLikeEmailSignInLink(raw)) {
+        results.add(raw);
       }
-      return "";
+
+      Uri parsed;
+      try {
+        parsed = Uri.parse(raw);
+      } catch (_) {
+        continue;
+      }
+
+      for (final String key in const <String>["link", "continueUrl"]) {
+        final String? nested = parsed.queryParameters[key];
+        if (nested == null || nested.trim().isEmpty) continue;
+        queue.add(Uri.decodeComponent(nested));
+      }
+
+      if (parsed.scheme == "mjcinone" && parsed.host == "login") {
+        final String? embedded = parsed.queryParameters["link"];
+        if (embedded != null && embedded.trim().isNotEmpty) {
+          queue.add(Uri.decodeComponent(embedded));
+        }
+      }
     }
-    return uri.toString();
+
+    return results;
+  }
+
+  bool _looksLikeEmailSignInLink(String link) {
+    return (link.contains("mode=signIn") || link.contains("mode%3DsignIn")) &&
+        (link.contains("oobCode=") || link.contains("oobCode%3D"));
   }
 
   void _popLoginRouteIfPossible() {
@@ -81,7 +200,15 @@ class DeepLinkHandler {
     }
   }
 
-  void _showSnackBar(String message) {
+  void _queueSnackBar(String message) {
+    _queuedSnackBarMessage = message;
+  }
+
+  void _flushQueuedSnackBar() {
+    final String? message = _queuedSnackBarMessage;
+    if (message == null) return;
+    _queuedSnackBarMessage = null;
+
     final BuildContext? context = _navigatorKey?.currentContext;
     if (context == null) return;
     final ScaffoldMessengerState? messenger =

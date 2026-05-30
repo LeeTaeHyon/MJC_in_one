@@ -23,6 +23,9 @@ final class LectureReminderNotificationService {
   final FlutterLocalNotificationsPlugin _flnp =
       FlutterLocalNotificationsPlugin();
 
+  /// 알림·정확한 알람 권한 확인/요청은 이 인스턴스만 사용한다.
+  FlutterLocalNotificationsPlugin get notificationsPlugin => _flnp;
+
   Timer? _foregroundRefreshTimer;
   bool _initialized = false;
 

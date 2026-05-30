@@ -13,7 +13,8 @@ class HomeLectureReminderCard extends StatefulWidget {
   const HomeLectureReminderCard({super.key});
 
   @override
-  State<HomeLectureReminderCard> createState() => _HomeLectureReminderCardState();
+  State<HomeLectureReminderCard> createState() =>
+      _HomeLectureReminderCardState();
 }
 
 class _HomeLectureReminderCardState extends State<HomeLectureReminderCard> {
@@ -61,7 +62,7 @@ class _HomeLectureReminderCardState extends State<HomeLectureReminderCard> {
         TimetableNextLecture.formatRemainingKo(untilMin);
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+      padding: const EdgeInsets.fromLTRB(24, 0, 24, 14),
       child: Material(
         color: scheme.surface,
         elevation: 1,
