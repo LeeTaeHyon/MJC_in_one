@@ -973,57 +973,55 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
                     .withValues(alpha: isDark ? 0.85 : 0.55),
               ),
             ),
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                Positioned(
-                  top: 0,
-                  right: 0,
-                  child: ClipPath(
-                    clipper: const _TopRightDiagonalClipper(),
-                    child: Container(
-                      width: 42,
-                      height: 42,
-                      color: accent,
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(
+                          icon,
+                          color: accent,
+                          size: isDark ? 20 : 24,
+                        ),
+                        const Spacer(),
+                        Text(
+                          title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: isDark ? _kHomeDarkTitleText : lightTitle,
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: -0.3,
+                          ),
+                        ),
+                        Text(
+                          sub,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: isDark ? _kHomeDarkBodyText : lightSub,
+                            fontSize: 9.5,
+                            letterSpacing: -0.2,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(
-                        icon,
-                        color: accent,
-                        size: isDark ? 20 : 24,
-                      ),
-                      const Spacer(),
-                      Text(
-                        title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: isDark ? _kHomeDarkTitleText : lightTitle,
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: -0.3,
-                        ),
-                      ),
-                      Text(
-                        sub,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: isDark ? _kHomeDarkBodyText : lightSub,
-                          fontSize: 9.5,
-                          letterSpacing: -0.2,
-                        ),
-                      ),
-                    ],
+                  const SizedBox(width: 4),
+                  Center(
+                    child: Icon(
+                      Icons.chevron_right_rounded,
+                      color: scheme.onSurfaceVariant,
+                      size: 20,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -1819,20 +1817,4 @@ class _HoverFeedbackState extends State<_HoverFeedback> {
       ),
     );
   }
-}
-
-class _TopRightDiagonalClipper extends CustomClipper<Path> {
-  const _TopRightDiagonalClipper();
-
-  @override
-  Path getClip(Size size) {
-    return Path()
-      ..moveTo(size.width, 0)
-      ..lineTo(size.width, size.height)
-      ..lineTo(0, 0)
-      ..close();
-  }
-
-  @override
-  bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
 }

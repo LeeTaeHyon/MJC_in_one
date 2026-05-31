@@ -49,24 +49,16 @@ const List<String> kMainNoticeAiTagFilterChips = <String>[
   "기타",
 ];
 
-/// 본교 공지 상단 AI 분류 캡슐 (목업: 선택=브랜드 블루·흰 글자, 미선택=연한 회색).
-const Color _kMainAiTagChipUnselectedBgLight = Color(0xFFF0F2F5);
-const Color _kMainAiTagChipUnselectedFgLight = Color(0xFF4B5563);
+const double _kMainAiTagFilterBarHeight = 52;
+const double _kMainAiTagFilterIndicatorHeight = 3;
 
-Color _mainAiTagChipBackground(BuildContext context, bool selected) {
-  final bool isDark = Theme.of(context).brightness == Brightness.dark;
+/// 본교 공지 상단 AI 분류 탭 (선택=브랜드 블루·하단 밑줄, 미선택=보조 텍스트).
+Color _mainAiTagFilterForeground(BuildContext context, bool selected) {
+  final ColorScheme scheme = Theme.of(context).colorScheme;
   if (selected) {
-    return isDark ? AppColors.primary : AppColors.primary;
+    return AppColors.primary;
   }
-  return isDark ? const Color(0xFF303035) : _kMainAiTagChipUnselectedBgLight;
-}
-
-Color _mainAiTagChipForeground(BuildContext context, bool selected) {
-  final bool isDark = Theme.of(context).brightness == Brightness.dark;
-  if (selected) {
-    return Colors.white;
-  }
-  return isDark ? const Color(0xFFD1D5DB) : _kMainAiTagChipUnselectedFgLight;
+  return scheme.onSurfaceVariant;
 }
 
 Future<void> _showMainAiTagChipPickerSheet({
@@ -114,26 +106,37 @@ Widget _buildMainAiTagFilterChip({
   required bool selected,
   required VoidCallback onTap,
 }) {
-  final Color bg = _mainAiTagChipBackground(context, selected);
-  final Color fg = _mainAiTagChipForeground(context, selected);
-  return Material(
-    color: bg,
-    animationDuration: Duration.zero,
-    borderRadius: BorderRadius.circular(999),
-    child: InkWell(
-      splashFactory: NoSplash.splashFactory,
-      highlightColor: Colors.transparent,
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(999),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: fg,
-            fontSize: 13,
-            fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+  final Color fg = _mainAiTagFilterForeground(context, selected);
+  return InkWell(
+    splashFactory: NoSplash.splashFactory,
+    highlightColor: Colors.transparent,
+    onTap: onTap,
+    child: Container(
+      height: _kMainAiTagFilterBarHeight,
+      alignment: Alignment.center,
+      padding: const EdgeInsets.fromLTRB(
+        8,
+        0,
+        8,
+        _kMainAiTagFilterIndicatorHeight,
+      ),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+            color: selected ? AppColors.primary : Colors.transparent,
+            width: _kMainAiTagFilterIndicatorHeight,
           ),
+        ),
+      ),
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.fade,
+        softWrap: false,
+        style: TextStyle(
+          color: fg,
+          fontSize: 14,
+          fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
         ),
       ),
     ),
@@ -144,23 +147,14 @@ Widget _buildMainAiTagChipMenuButton({
   required BuildContext context,
   required VoidCallback onPressed,
 }) {
-  final bool isDark = Theme.of(context).brightness == Brightness.dark;
-  final Color iconColor =
-      isDark ? const Color(0xFFD1D5DB) : _kMainAiTagChipUnselectedFgLight;
-  return Material(
-    color: isDark ? const Color(0xFF303035) : Colors.white,
-    elevation: isDark ? 0 : 2,
-    shadowColor: Colors.black.withValues(alpha: 0.12),
-    borderRadius: BorderRadius.circular(12),
-    child: InkWell(
-      onTap: onPressed,
-      borderRadius: BorderRadius.circular(12),
-      child: SizedBox(
-        width: 40,
-        height: 36,
-        child: Icon(Icons.menu_rounded, size: 22, color: iconColor),
-      ),
-    ),
+  final ColorScheme scheme = Theme.of(context).colorScheme;
+  return IconButton(
+    visualDensity: VisualDensity.compact,
+    padding: EdgeInsets.zero,
+    constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+    tooltip: "주제 더보기",
+    onPressed: onPressed,
+    icon: Icon(Icons.menu_rounded, size: 22, color: scheme.onSurfaceVariant),
   );
 }
 
@@ -174,20 +168,23 @@ Widget _buildMainAiTagChipBar({
   return Material(
     color: scheme.surface,
     child: SizedBox(
-      height: 52,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 12, 8),
-        child: Row(
-          children: <Widget>[
-            Expanded(
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: chips.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 8),
-                itemBuilder: (BuildContext context, int index) {
-                  final String label = chips[index];
-                  final bool selected = selection == label;
-                  return _buildMainAiTagFilterChip(
+      height: _kMainAiTagFilterBarHeight,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          Expanded(
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              clipBehavior: Clip.none,
+              padding: const EdgeInsets.only(left: 16),
+              itemCount: chips.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 12),
+              itemBuilder: (BuildContext context, int index) {
+                final String label = chips[index];
+                final bool selected = selection == label;
+                return SizedBox(
+                  height: _kMainAiTagFilterBarHeight,
+                  child: _buildMainAiTagFilterChip(
                     context: context,
                     label: label,
                     selected: selected,
@@ -195,22 +192,26 @@ Widget _buildMainAiTagChipBar({
                       if (selected) return;
                       onSelect(label);
                     },
-                  );
-                },
-              ),
+                  ),
+                );
+              },
             ),
-            const SizedBox(width: 8),
-            _buildMainAiTagChipMenuButton(
-              context: context,
-              onPressed: () => _showMainAiTagChipPickerSheet(
+          ),
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: Center(
+              child: _buildMainAiTagChipMenuButton(
                 context: context,
-                chips: chips,
-                currentSelection: selection,
-                onSelected: onSelect,
+                onPressed: () => _showMainAiTagChipPickerSheet(
+                  context: context,
+                  chips: chips,
+                  currentSelection: selection,
+                  onSelected: onSelect,
+                ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     ),
   );

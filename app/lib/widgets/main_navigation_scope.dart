@@ -10,23 +10,36 @@ typedef MainNavigationNavigate = void Function(
 /// [MainNavigationScreen] floating bottom bar 레이아웃 상수.
 abstract final class MainNavLayout {
   static const double barHeight = 82;
+  static const double barPillHeight = 64;
+  static const double barInnerBottomPadding = 10;
   static const double scrollBottomGap = 8;
+  /// 하단 navbar pill 좌·우 inset ([MainNavigationScreen] padding과 동일).
+  static const double barHorizontalInset = 14;
 
-  /// overlay(공지 서브 nav, FAB 등) 배치용 — navbar + safe area.
+  /// overlay(공지 서브 nav, FAB 등) 배치용 — navbar 컨테이너 + safe area.
+  /// [MediaQuery.viewPadding] 사용 — 메인 탭 body는 padding.bottom이 0으로 strip됩니다.
   static double bottomInset(BuildContext context) =>
-      barHeight + MediaQuery.paddingOf(context).bottom;
+      barHeight + MediaQuery.viewPaddingOf(context).bottom;
 
-  /// 메인 탭 안 nested Scaffold FAB — navbar 위 여백(px). 이 값만 키우면 FAB가 위로 올라갑니다.
-  static const double fabGapAboveNav = 16;
+  /// navbar pill 상단 — FAB는 이 기준으로 [fabGapAboveNav]만큼 위에 둡니다.
+  static double navPillTopFromBottom(BuildContext context) =>
+      MediaQuery.viewPaddingOf(context).bottom +
+      barInnerBottomPadding +
+      barPillHeight;
 
-  /// Scaffold 기본 FAB 하단 inset(16)을 감안한 FAB [Padding.bottom].
-  static double fabBottomPadding(BuildContext context) {
+  /// 메인 탭 안 FAB — navbar pill 위 여백(px). 줄이면 FAB가 내려갑니다.
+  static const double fabGapAboveNav = 32;
+
+  /// Stack [Positioned] FAB bottom.
+  static double fabBottomOffset(BuildContext context) {
     if (MainNavigationScope.maybeNavigate(context) == null) {
-      return 0;
+      return MediaQuery.viewPaddingOf(context).bottom + 16;
     }
-    const double scaffoldFabInset = 16;
-    return barHeight + fabGapAboveNav - scaffoldFabInset;
+    return navPillTopFromBottom(context) + fabGapAboveNav;
   }
+
+  /// 시간표 FAB 지름 — 스크롤 하단 여백 계산용.
+  static const double timetableFabSize = 58;
 
   /// 스크롤 맨 아래 여백 — pill 높이만. safe area는 navbar가 처리합니다.
   static double scrollBottomExtra(BuildContext context) {

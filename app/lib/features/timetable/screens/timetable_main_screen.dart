@@ -10,6 +10,7 @@ import "package:mjc_in_one/features/timetable/widgets/timetable_week_grid.dart";
 import "package:mjc_in_one/theme/app_colors.dart";
 import "package:mjc_in_one/theme/app_theme.dart";
 import "package:mjc_in_one/widgets/main_navigation_scope.dart";
+import "package:mjc_in_one/widgets/safe_tooltip.dart";
 
 /// Saved weekly timetable + import / OCR placeholder.
 class TimetableMainScreen extends StatefulWidget {
@@ -329,6 +330,44 @@ class _TimetableMainScreenState extends State<TimetableMainScreen> {
     );
   }
 
+  Widget _buildAddFab(BuildContext context) {
+    final bool enabled = !_openingCatalog;
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Material(
+      elevation: 6,
+      shadowColor: Colors.black.withValues(alpha: isDark ? 0.50 : 0.26),
+      shape: const CircleBorder(),
+      color: enabled
+          ? AppColors.primary
+          : AppColors.primary.withValues(alpha: 0.55),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: enabled ? _openOfficialCatalog : null,
+        splashColor: Colors.white.withValues(alpha: 0.28),
+        highlightColor: Colors.white.withValues(alpha: 0.14),
+        child: SafeTooltip(
+          message: "시간표 추가",
+          child: Semantics(
+            button: true,
+            label: "시간표 추가",
+            enabled: enabled,
+            child: const SizedBox(
+              width: MainNavLayout.timetableFabSize,
+              height: MainNavLayout.timetableFabSize,
+              child: Icon(
+                Icons.edit_rounded,
+                color: AppColors.timetableSlotOnColor,
+                size: 28,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final ColorScheme scheme = Theme.of(context).colorScheme;
@@ -346,7 +385,6 @@ class _TimetableMainScreenState extends State<TimetableMainScreen> {
         isDark ? AppColors.switchActiveDark : scheme.primary;
 
     return Scaffold(
-      floatingActionButtonAnimator: FloatingActionButtonAnimator.noAnimation,
       appBar: AppBar(
         backgroundColor: appBarBackground,
         foregroundColor: appBarForeground,
@@ -374,71 +412,69 @@ class _TimetableMainScreenState extends State<TimetableMainScreen> {
             ),
         ],
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _reload,
-              color: AppColors.primary,
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: EdgeInsets.fromLTRB(
-                  12,
-                  12,
-                  12,
-                  12 + MainNavLayout.scrollBottomExtra(context) + 48,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: <Widget>[
-                    Text(
-                      "이번 학기",
-                      style: TextStyle(
-                        fontFamily: kPretendardFontFamily,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: semesterLabelColor,
+      body: Stack(
+        children: <Widget>[
+          Positioned.fill(
+            child: _loading
+                ? const Center(child: CircularProgressIndicator())
+                : RefreshIndicator(
+                    onRefresh: _reload,
+                    color: AppColors.primary,
+                    child: SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: EdgeInsets.fromLTRB(
+                        12,
+                        12,
+                        12,
+                        12 +
+                            MainNavLayout.scrollBottomExtra(context) +
+                            MainNavLayout.timetableFabSize +
+                            MainNavLayout.fabGapAboveNav,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: <Widget>[
+                          Text(
+                            "이번 학기",
+                            style: TextStyle(
+                              fontFamily: kPretendardFontFamily,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: semesterLabelColor,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            "내 시간표",
+                            style: TextStyle(
+                              fontFamily: kPretendardFontFamily,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w900,
+                              color: scheme.onSurface,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          TimetableWeekGrid(
+                            slots: _gridSlots,
+                            onSlotTap: _onSlotTap,
+                            professorByOfferingId: _professorByOfferingId,
+                            startHour: 9,
+                            endHour: 18,
+                          ),
+                          _buildRemoteExamCourseList(context),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      "내 시간표",
-                      style: TextStyle(
-                        fontFamily: kPretendardFontFamily,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w900,
-                        color: scheme.onSurface,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    TimetableWeekGrid(
-                      slots: _gridSlots,
-                      onSlotTap: _onSlotTap,
-                      professorByOfferingId: _professorByOfferingId,
-                      startHour: 9,
-                      endHour: 18,
-                    ),
-                    _buildRemoteExamCourseList(context),
-                  ],
-                ),
-              ),
+                  ),
+          ),
+          if (!_loading)
+            Positioned(
+              right: MainNavLayout.barHorizontalInset,
+              bottom: MainNavLayout.fabBottomOffset(context),
+              child: _buildAddFab(context),
             ),
-      floatingActionButton: _loading
-          ? null
-          : Padding(
-              padding: EdgeInsets.only(
-                bottom: MainNavLayout.fabBottomPadding(context),
-              ),
-              child: FloatingActionButton(
-                heroTag: null,
-                onPressed: _openingCatalog ? null : _openOfficialCatalog,
-                tooltip: "시간표 추가",
-                backgroundColor: AppColors.primary,
-                foregroundColor: AppColors.timetableSlotOnColor,
-                splashColor: Colors.transparent,
-                highlightElevation: 6,
-                child: const Icon(Icons.edit_rounded),
-              ),
-            ),
+        ],
+      ),
     );
   }
 }
