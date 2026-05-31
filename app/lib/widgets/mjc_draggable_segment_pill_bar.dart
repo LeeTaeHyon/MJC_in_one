@@ -17,6 +17,7 @@ class MjcDraggableSegmentPillBar extends StatefulWidget {
     this.verticalPadding = 4,
     this.thumbScaleDragging = 1.08,
     this.contentScaleDragging = 1.06,
+    this.showThumbWhenIdle = true,
   });
 
   final int segmentCount;
@@ -35,6 +36,10 @@ class MjcDraggableSegmentPillBar extends StatefulWidget {
   final double thumbScaleDragging;
   final double contentScaleDragging;
 
+  /// false면 thumb 없이 아이콘 색만 바뀌고, 손을 뗀 뒤에는 배경이 남지 않습니다.
+  /// 드래그하는 동안에만 thumb가 보입니다.
+  final bool showThumbWhenIdle;
+
   @override
   State<MjcDraggableSegmentPillBar> createState() =>
       _MjcDraggableSegmentPillBarState();
@@ -52,6 +57,9 @@ class _MjcDraggableSegmentPillBarState extends State<MjcDraggableSegmentPillBar>
     stiffness: 340,
     damping: 22,
   );
+  static const Duration _thumbFadeDuration = Duration(milliseconds: 160);
+  static const Curve _thumbFadeInCurve = Curves.easeOutCubic;
+  static const Curve _thumbFadeOutCurve = Curves.easeInCubic;
 
   final GlobalKey _trackKey = GlobalKey();
 
@@ -59,6 +67,8 @@ class _MjcDraggableSegmentPillBarState extends State<MjcDraggableSegmentPillBar>
 
   bool _dragging = false;
   double? _dragThumbLeft;
+  /// 손을 뗀 뒤 페이드아웃 동안 thumb 위치 고정용.
+  double? _fadeOutThumbLeft;
 
   int get _count => widget.segmentCount;
 
@@ -120,15 +130,51 @@ class _MjcDraggableSegmentPillBarState extends State<MjcDraggableSegmentPillBar>
       return 1 + boost * proximity * spring;
     }
 
-    // 드래그 종료 후 spring이 0으로 돌아갈 때 선택 칸만 부드럽게 축소.
-    if (index == widget.selectedIndex) {
-      return 1 + boost * spring;
+    if (widget.showThumbWhenIdle) {
+      // 드래그 종료 후 spring이 0으로 돌아갈 때 선택 칸만 부드럽게 축소.
+      if (index == widget.selectedIndex) {
+        return 1 + boost * spring;
+      }
     }
     return 1;
   }
 
   double get _thumbScale =>
       1 + (widget.thumbScaleDragging - 1) * _emphasisController.value;
+
+  double _thumbFillAlpha(bool isDark) {
+    final double emphasis = _emphasisController.value.clamp(0.0, 1.0);
+    if (emphasis <= 0.001) return 0;
+    final double base = isDark ? 0.22 : 0.14;
+    final double boost = 0.02 * emphasis;
+    if (!widget.showThumbWhenIdle) {
+      return (base + boost) * emphasis;
+    }
+    return base + boost;
+  }
+
+  void _fadeEmphasisIn() {
+    _emphasisController.stop();
+    _emphasisController.animateTo(
+      1,
+      duration: _thumbFadeDuration,
+      curve: _thumbFadeInCurve,
+    );
+  }
+
+  void _fadeEmphasisOut({VoidCallback? onComplete}) {
+    _emphasisController.stop();
+    _emphasisController
+        .animateTo(
+          0,
+          duration: _thumbFadeDuration,
+          curve: _thumbFadeOutCurve,
+        )
+        .whenComplete(() {
+      if (!mounted) return;
+      onComplete?.call();
+    });
+  }
 
   void _animateEmphasis({required bool forward}) {
     _emphasisController.stop();
@@ -156,8 +202,13 @@ class _MjcDraggableSegmentPillBarState extends State<MjcDraggableSegmentPillBar>
     setState(() {
       _dragging = true;
       _dragThumbLeft = initialLeft;
+      _fadeOutThumbLeft = null;
     });
-    _animateEmphasis(forward: true);
+    if (widget.showThumbWhenIdle) {
+      _animateEmphasis(forward: true);
+    } else {
+      _fadeEmphasisIn();
+    }
   }
 
   void _moveDrag(Offset globalPosition, double segmentWidth, double trackWidth) {
@@ -179,11 +230,24 @@ class _MjcDraggableSegmentPillBarState extends State<MjcDraggableSegmentPillBar>
     final double left = _dragThumbLeft ??
         _thumbLeftForIndex(widget.selectedIndex, segmentWidth);
     final int next = _indexFromThumbLeft(left, segmentWidth);
+    final double releaseLeft = left;
     setState(() {
       _dragging = false;
       _dragThumbLeft = null;
+      if (!widget.showThumbWhenIdle) {
+        _fadeOutThumbLeft = releaseLeft;
+      }
     });
-    _animateEmphasis(forward: false);
+    if (widget.showThumbWhenIdle) {
+      _animateEmphasis(forward: false);
+    } else {
+      _fadeEmphasisOut(
+        onComplete: () {
+          if (!mounted) return;
+          setState(() => _fadeOutThumbLeft = null);
+        },
+      );
+    }
     if (next != widget.selectedIndex) {
       HapticFeedback.lightImpact();
       widget.onSelectedIndexChanged(next);
@@ -192,11 +256,24 @@ class _MjcDraggableSegmentPillBarState extends State<MjcDraggableSegmentPillBar>
 
   void _cancelDrag() {
     if (!_dragging) return;
+    final double? releaseLeft = _dragThumbLeft;
     setState(() {
       _dragging = false;
       _dragThumbLeft = null;
+      if (!widget.showThumbWhenIdle && releaseLeft != null) {
+        _fadeOutThumbLeft = releaseLeft;
+      }
     });
-    _animateEmphasis(forward: false);
+    if (widget.showThumbWhenIdle) {
+      _animateEmphasis(forward: false);
+    } else {
+      _fadeEmphasisOut(
+        onComplete: () {
+          if (!mounted) return;
+          setState(() => _fadeOutThumbLeft = null);
+        },
+      );
+    }
   }
 
   @override
@@ -223,7 +300,12 @@ class _MjcDraggableSegmentPillBarState extends State<MjcDraggableSegmentPillBar>
               : widget.selectedIndex;
           final double targetLeft = _dragging && _dragThumbLeft != null
               ? _dragThumbLeft!
-              : _thumbLeftForIndex(widget.selectedIndex, segmentWidth);
+              : (_fadeOutThumbLeft ??
+                  _thumbLeftForIndex(widget.selectedIndex, segmentWidth));
+          final double thumbFillAlpha = _thumbFillAlpha(isDark);
+          final bool showThumb = thumbFillAlpha > 0.001;
+          final bool thumbFadingOut =
+              !widget.showThumbWhenIdle && _fadeOutThumbLeft != null;
 
           return GestureDetector(
             behavior: HitTestBehavior.opaque,
@@ -280,49 +362,46 @@ class _MjcDraggableSegmentPillBarState extends State<MjcDraggableSegmentPillBar>
                           );
                         }),
                       ),
-                      AnimatedPositioned(
-                        duration: _dragging
-                            ? Duration.zero
-                            : const Duration(milliseconds: 280),
-                        curve: Curves.easeOutCubic,
-                        left: targetLeft,
-                        top: 0,
-                        bottom: 0,
-                        width: segmentWidth,
-                        child: IgnorePointer(
-                          child: Transform.scale(
-                            scale: _thumbScale,
-                            alignment: Alignment.center,
-                            filterQuality: FilterQuality.medium,
-                            child: DecoratedBox(
-                              decoration: BoxDecoration(
-                                color: accent.withValues(
-                                  alpha: isDark
-                                      ? 0.22 + 0.02 * _emphasisController.value
-                                      : 0.14 + 0.02 * _emphasisController.value,
+                      if (showThumb)
+                        AnimatedPositioned(
+                          duration: _dragging || thumbFadingOut
+                              ? Duration.zero
+                              : const Duration(milliseconds: 280),
+                          curve: Curves.easeOutCubic,
+                          left: targetLeft,
+                          top: 0,
+                          bottom: 0,
+                          width: segmentWidth,
+                          child: IgnorePointer(
+                            child: Transform.scale(
+                              scale: _thumbScale,
+                              alignment: Alignment.center,
+                              filterQuality: FilterQuality.medium,
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  color: accent.withValues(alpha: thumbFillAlpha),
+                                  borderRadius: trackRadius,
+                                  boxShadow: _emphasisController.value > 0.01
+                                      ? <BoxShadow>[
+                                          BoxShadow(
+                                            color: accent.withValues(
+                                              alpha: (isDark ? 0.28 : 0.16) *
+                                                  _emphasisController.value,
+                                            ),
+                                            blurRadius: 6 +
+                                                4 * _emphasisController.value,
+                                            offset: Offset(
+                                              0,
+                                              2 + _emphasisController.value,
+                                            ),
+                                          ),
+                                        ]
+                                      : null,
                                 ),
-                                borderRadius: trackRadius,
-                                boxShadow: _emphasisController.value > 0.01
-                                    ? <BoxShadow>[
-                                        BoxShadow(
-                                          color: accent.withValues(
-                                            alpha: (isDark ? 0.28 : 0.16) *
-                                                _emphasisController.value,
-                                          ),
-                                          blurRadius:
-                                              6 + 4 * _emphasisController.value,
-                                          offset: Offset(
-                                            0,
-                                            2 + _emphasisController.value,
-                                          ),
-                                        ),
-                                      ]
-                                    : null,
                               ),
                             ),
                           ),
                         ),
-                      ),
                     ],
                   ),
                 );

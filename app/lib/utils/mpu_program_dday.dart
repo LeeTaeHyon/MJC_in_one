@@ -2,6 +2,15 @@ import "package:flutter/material.dart";
 
 import "package:mjc_in_one/theme/app_theme.dart";
 
+/// 크롤 HTML의 `D−n` 등 유니코드 마이너스를 ASCII `-`로 통일.
+String normalizeMpuDdayScrape(String raw) {
+  return raw
+      .trim()
+      .replaceAll("\u2212", "-")
+      .replaceAll("\u2013", "-")
+      .replaceAll("\u2014", "-");
+}
+
 /// 신청·마감 등 문자열에서 마지막 날짜(가장 늦은 일)를 고릅니다.
 DateTime? mpuLastCalendarDateInText(String raw) {
   final String s = raw.trim();
@@ -47,7 +56,8 @@ DateTime? mpuApplicationDeadlineDate(Map<String, dynamic> data) {
 
 /// MPU 사이트 `.d-day` 배지 (`D-14`, `D+88` 등). 양수=마감 전 남은 일, 음수=마감 후 경과 일.
 int? mpuSiteSignedDDay(Map<String, dynamic> data) {
-  final String raw = (data["d_day"] ?? "").toString().trim().toUpperCase();
+  final String raw =
+      normalizeMpuDdayScrape((data["d_day"] ?? "").toString()).toUpperCase();
   if (raw.isEmpty) {
     return null;
   }
@@ -66,32 +76,32 @@ int _calendarDaysUntil(DateTime endDay) {
   return end.difference(today).inDays;
 }
 
-/// 신청 마감 기준 D-day. 사이트 `d_day` 우선, 없으면 신청 기간 문자열 파싱.
+/// 신청 마감 기준 D-day.
+///
+/// [reg_date] 끝날짜와 기기 시각([DateTime.now])으로 매번 계산합니다.
+/// Firestore `d_day`는 크롤 당시 스냅샷이라 며칠 지나면 틀어지므로,
+/// `reg_date`가 없을 때만 fallback으로 씁니다. (우선순위 바꾸지 말 것)
 int? mpuEffectiveDaysUntilDeadline(Map<String, dynamic> data) {
-  final int? site = mpuSiteSignedDDay(data);
-  if (site != null) {
-    return site;
-  }
   final DateTime? deadline = mpuApplicationDeadlineDate(data);
-  if (deadline == null) {
-    return null;
+  if (deadline != null) {
+    return _calendarDaysUntil(deadline);
   }
-  return _calendarDaysUntil(deadline);
+  return mpuSiteSignedDDay(data);
 }
 
 /// 마감/완료 탭: 신청 마감일 이후 경과 일 수 (당일=0).
 int? mpuDaysElapsedSinceDeadline(Map<String, dynamic> data) {
+  final DateTime? deadline = mpuApplicationDeadlineDate(data);
+  if (deadline != null) {
+    final int diff = _calendarDaysUntil(deadline);
+    if (diff <= 0) {
+      return -diff;
+    }
+    return null;
+  }
   final int? site = mpuSiteSignedDDay(data);
   if (site != null && site < 0) {
     return -site;
-  }
-  final DateTime? deadline = mpuApplicationDeadlineDate(data);
-  if (deadline == null) {
-    return null;
-  }
-  final int diff = _calendarDaysUntil(deadline);
-  if (diff <= 0) {
-    return -diff;
   }
   return null;
 }
@@ -151,17 +161,17 @@ class MpuDeadlineHomeStyleBadge extends StatelessWidget {
     required this.data,
     this.compactSecondLineFontSize,
     this.elapsed = false,
+    this.backgroundColor,
   });
 
   final Map<String, dynamic> data;
   final double? compactSecondLineFontSize;
   /// true면 `D+`와 마감 후 경과 일 수(마감/완료 탭).
   final bool elapsed;
+  final Color? backgroundColor;
 
   @override
   Widget build(BuildContext context) {
-    final MjcSurfaceTokens tokens =
-        Theme.of(context).extension<MjcSurfaceTokens>()!;
     final String second =
         mpuDeadlineBadgeSecondLine(data, elapsed: elapsed);
     final double secondSize = !elapsed && second == "DAY"
@@ -173,7 +183,7 @@ class MpuDeadlineHomeStyleBadge extends StatelessWidget {
       height: 56,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: tokens.deadlineBadge,
+          color: backgroundColor ?? MjcNoticePalette.mpuHome,
           borderRadius: BorderRadius.circular(14),
         ),
         child: Column(

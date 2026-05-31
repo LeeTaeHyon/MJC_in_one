@@ -4,22 +4,26 @@ import "dart:ui" show lerpDouble;
 import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
 import "package:flutter_animate/flutter_animate.dart";
+import "package:mjc_in_one/lab_prefs.dart";
 import "package:mjc_in_one/main_website_prefs.dart";
 import "package:mjc_in_one/screens/notice_detail_screen.dart";
+import "package:mjc_in_one/screens/notices_sub_tab_utils.dart";
+import "package:mjc_in_one/screens/notices_tab_screen.dart";
 import "package:mjc_in_one/services/app_config_service.dart";
 import "package:mjc_in_one/services/notice_filter.dart";
 import "package:mjc_in_one/services/notice_manager.dart";
 import "package:mjc_in_one/services/user_data_repository.dart";
-import "package:mjc_in_one/theme/app_colors.dart";
 import "package:mjc_in_one/theme/app_theme.dart";
 import "package:mjc_in_one/utils/bookmark_added_feedback.dart";
 import "package:mjc_in_one/utils/notice_list_refresh_guard.dart";
 import "package:mjc_in_one/perf_flags.dart";
+import "package:mjc_in_one/widgets/mjc_notice_list_item.dart";
 import "package:mjc_in_one/widgets/nested_scroll_refresh_indicator.dart";
-import "package:mjc_in_one/widgets/pin_favorite_buttons.dart";
 import "package:mjc_in_one/widgets/collapsed_hero_title.dart";
 import "package:mjc_in_one/widgets/global_notice_search_sheet.dart";
 import "package:mjc_in_one/widgets/main_navigation_scope.dart";
+import "package:mjc_in_one/widgets/main_notice_ai_tag_chip_bar.dart";
+import "package:mjc_in_one/widgets/mjc_directional_screen_transition.dart";
 import "package:mjc_in_one/widgets/notice_filter_sheet.dart";
 import "package:mjc_in_one/widgets/scroll_to_top_scope.dart";
 import "package:shared_preferences/shared_preferences.dart";
@@ -32,261 +36,6 @@ List<String> _parseAiTagsForList(Map<String, dynamic> data) {
       .where((s) => s.trim().isNotEmpty)
       .take(2)
       .toList();
-}
-
-/// `test/notice_ai_tags.py`의 ALLOWED_TAGS와 동일 순서(「전체」는 UI 전용).
-const Color _kNoticeAiTagBorderDark = Color(0xFFA3A3A3);
-const Color _kNoticeAiTagBorderLight = Color(0xFF9CA3AF);
-
-const List<String> kMainNoticeAiTagFilterChips = <String>[
-  "전체",
-  "학사/수업",
-  "장학/등록금",
-  "모집/신청",
-  "행사/대회/특강",
-  "취업/진로/창업",
-  "정책/지원사업/대외홍보",
-  "기타",
-];
-
-const double _kMainAiTagFilterBarHeight = 52;
-const double _kMainAiTagFilterIndicatorHeight = 3;
-
-/// 본교 공지 상단 AI 분류 탭 (선택=브랜드 블루·하단 밑줄, 미선택=보조 텍스트).
-Color _mainAiTagFilterForeground(BuildContext context, bool selected) {
-  final ColorScheme scheme = Theme.of(context).colorScheme;
-  if (selected) {
-    return AppColors.primary;
-  }
-  return scheme.onSurfaceVariant;
-}
-
-Future<void> _showMainAiTagChipPickerSheet({
-  required BuildContext context,
-  required List<String> chips,
-  required String currentSelection,
-  required ValueChanged<String> onSelected,
-}) async {
-  final String? picked = await showModalBottomSheet<String>(
-    context: context,
-    showDragHandle: true,
-    builder: (BuildContext sheetContext) {
-      final ColorScheme scheme = Theme.of(sheetContext).colorScheme;
-      return SafeArea(
-        child: ListView.separated(
-          shrinkWrap: true,
-          padding: const EdgeInsets.fromLTRB(8, 0, 8, 16),
-          itemCount: chips.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 4),
-          itemBuilder: (BuildContext context, int index) {
-            final String label = chips[index];
-            final bool selected = currentSelection == label;
-            return ListTile(
-              title: Text(label),
-              trailing: selected
-                  ? Icon(Icons.check_rounded, color: scheme.primary)
-                  : null,
-              selected: selected,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-              onTap: () => Navigator.pop(sheetContext, label),
-            );
-          },
-        ),
-      );
-    },
-  );
-  if (picked == null || picked == currentSelection) return;
-  onSelected(picked);
-}
-
-Widget _buildMainAiTagFilterChip({
-  required BuildContext context,
-  required String label,
-  required bool selected,
-  required VoidCallback onTap,
-}) {
-  final Color fg = _mainAiTagFilterForeground(context, selected);
-  return InkWell(
-    splashFactory: NoSplash.splashFactory,
-    highlightColor: Colors.transparent,
-    onTap: onTap,
-    child: Container(
-      height: _kMainAiTagFilterBarHeight,
-      alignment: Alignment.center,
-      padding: const EdgeInsets.fromLTRB(
-        8,
-        0,
-        8,
-        _kMainAiTagFilterIndicatorHeight,
-      ),
-      decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(
-            color: selected ? AppColors.primary : Colors.transparent,
-            width: _kMainAiTagFilterIndicatorHeight,
-          ),
-        ),
-      ),
-      child: Text(
-        label,
-        maxLines: 1,
-        overflow: TextOverflow.fade,
-        softWrap: false,
-        style: TextStyle(
-          color: fg,
-          fontSize: 14,
-          fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-        ),
-      ),
-    ),
-  );
-}
-
-Widget _buildMainAiTagChipMenuButton({
-  required BuildContext context,
-  required VoidCallback onPressed,
-}) {
-  final ColorScheme scheme = Theme.of(context).colorScheme;
-  return IconButton(
-    visualDensity: VisualDensity.compact,
-    padding: EdgeInsets.zero,
-    constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-    tooltip: "주제 더보기",
-    onPressed: onPressed,
-    icon: Icon(Icons.menu_rounded, size: 22, color: scheme.onSurfaceVariant),
-  );
-}
-
-Widget _buildMainAiTagChipBar({
-  required BuildContext context,
-  required List<String> chips,
-  required String selection,
-  required ValueChanged<String> onSelect,
-}) {
-  final ColorScheme scheme = Theme.of(context).colorScheme;
-  return Material(
-    color: scheme.surface,
-    child: SizedBox(
-      height: _kMainAiTagFilterBarHeight,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: <Widget>[
-          Expanded(
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              clipBehavior: Clip.none,
-              padding: const EdgeInsets.only(left: 16),
-              itemCount: chips.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 12),
-              itemBuilder: (BuildContext context, int index) {
-                final String label = chips[index];
-                final bool selected = selection == label;
-                return SizedBox(
-                  height: _kMainAiTagFilterBarHeight,
-                  child: _buildMainAiTagFilterChip(
-                    context: context,
-                    label: label,
-                    selected: selected,
-                    onTap: () {
-                      if (selected) return;
-                      onSelect(label);
-                    },
-                  ),
-                );
-              },
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: Center(
-              child: _buildMainAiTagChipMenuButton(
-                context: context,
-                onPressed: () => _showMainAiTagChipPickerSheet(
-                  context: context,
-                  chips: chips,
-                  currentSelection: selection,
-                  onSelected: onSelect,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
-}
-
-Widget _noticeCategoryAndAiTagsRow({
-  required BuildContext context,
-  required String categoryLabel,
-  required List<String> aiTags,
-  required Color primaryChipBackground,
-  required Color primaryChipForeground,
-  String? selectedAiTag,
-}) {
-  final ColorScheme scheme = Theme.of(context).colorScheme;
-  final bool isDark = Theme.of(context).brightness == Brightness.dark;
-  final MjcComponentTokens components =
-      Theme.of(context).extension<MjcComponentTokens>()!;
-  // 다크: ColorScheme.primary는 너무 어두움 → 하단 공지 서브 네비 pill과 동일 accent.
-  final Color highlightAccent =
-      isDark ? components.bottomNavSelected : scheme.primary;
-  final String selected = (selectedAiTag ?? "").trim();
-  final bool hasSelected = selected.isNotEmpty && selected != "전체";
-  return Wrap(
-    spacing: 6,
-    runSpacing: 6,
-    crossAxisAlignment: WrapCrossAlignment.center,
-    children: <Widget>[
-      Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: primaryChipBackground,
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: Text(
-          categoryLabel,
-          style: TextStyle(
-            color: primaryChipForeground,
-            fontSize: 11,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ),
-      ...aiTags.map(
-        (String t) {
-          final bool highlight = hasSelected && t.trim() == selected;
-          final Color bg = highlight
-              ? highlightAccent.withValues(alpha: isDark ? 0.20 : 0.16)
-              : scheme.surfaceContainerHighest.withValues(alpha: 0.55);
-          final Color border = highlight
-              ? (isDark
-                  ? highlightAccent.withValues(alpha: 0.35)
-                  : highlightAccent)
-              : (isDark ? _kNoticeAiTagBorderDark : _kNoticeAiTagBorderLight);
-          final Color fg =
-              highlight ? highlightAccent : scheme.onSurfaceVariant;
-          return Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-            decoration: BoxDecoration(
-              color: bg,
-              borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: border),
-            ),
-            child: Text(
-              t,
-              style: TextStyle(
-                color: fg,
-                fontSize: 10,
-                fontWeight: highlight ? FontWeight.w800 : FontWeight.w600,
-              ),
-            ),
-          );
-        },
-      ),
-    ],
-  );
 }
 
 /// 스크롤/전환 중 jank를 줄이기 위해 entrance stagger는 앱 실행 동안 1회만 재생.
@@ -314,9 +63,14 @@ class _MainWebsiteListEntrance {
 
 /// 명지전문대학 공식 홈페이지의 공지사항을 탭별로 보여주는 화면입니다.
 class MainWebsiteScreen extends StatefulWidget {
-  const MainWebsiteScreen({super.key, this.activeInNoticesTab = true});
+  const MainWebsiteScreen({
+    super.key,
+    this.activeInNoticesTab = true,
+    this.noticeSubTabNotifier,
+  });
 
   final bool activeInNoticesTab;
+  final ValueNotifier<NoticesSubTab>? noticeSubTabNotifier;
 
   @override
   State<MainWebsiteScreen> createState() => _MainWebsiteScreenState();
@@ -434,7 +188,12 @@ class _MainWebsiteScreenState extends State<MainWebsiteScreen> {
       context,
       scopeId: "mjc_main",
       scopeLabel: "본교 공지사항",
+      onFilterChanged: _reloadNoticeFilter,
     );
+    _reloadNoticeFilter();
+  }
+
+  void _reloadNoticeFilter() {
     if (mounted) {
       _filterReloadTick.value++;
     }
@@ -682,8 +441,8 @@ class _MainWebsiteScreenState extends State<MainWebsiteScreen> {
                       heroBody: heroBody,
                       onOpenFilter: _openNoticeFilterSheet,
                       onSearch: _openGlobalSearch,
+                      noticeSubTabNotifier: widget.noticeSubTabNotifier,
                       bottom: tabBar,
-                      overlapsContent: innerBoxIsScrolled,
                     ),
                   ),
                 ),
@@ -694,24 +453,9 @@ class _MainWebsiteScreenState extends State<MainWebsiteScreen> {
               child: useTabs
                   ? NestedScrollFabTabBinding(
                       reporter: _nestedFabReporter,
-                      child: TabBarView(
-                        children: <Widget>[
-                          _NoticeListTab(
-                            boardId: "main_notice",
-                            entryTick: _entryTick,
-                            filterRevision: _filterReloadTick,
-                          ),
-                          _NoticeListTab(
-                            boardId: "main_academic",
-                            entryTick: _entryTick,
-                            filterRevision: _filterReloadTick,
-                          ),
-                          _NoticeListTab(
-                            boardId: "main_scholarship",
-                            entryTick: _entryTick,
-                            filterRevision: _filterReloadTick,
-                          ),
-                        ],
+                      child: _MainWebsiteAnimatedTabBody(
+                        entryTick: _entryTick,
+                        filterRevision: _filterReloadTick,
                       ),
                     )
                   : _UnifiedNoticeList(
@@ -729,6 +473,75 @@ class _MainWebsiteScreenState extends State<MainWebsiteScreen> {
   }
 }
 
+/// [TabBar] 탭 전환 시 메인 하단 탭과 동일한 방향성 슬라이드+페이드.
+class _MainWebsiteAnimatedTabBody extends StatefulWidget {
+  const _MainWebsiteAnimatedTabBody({
+    required this.entryTick,
+    required this.filterRevision,
+  });
+
+  final int entryTick;
+  final ValueListenable<int> filterRevision;
+
+  @override
+  State<_MainWebsiteAnimatedTabBody> createState() =>
+      _MainWebsiteAnimatedTabBodyState();
+}
+
+class _MainWebsiteAnimatedTabBodyState extends State<_MainWebsiteAnimatedTabBody> {
+  static const List<String> _boardIds = <String>[
+    "main_notice",
+    "main_academic",
+    "main_scholarship",
+  ];
+
+  TabController? _tabController;
+  int _displayIndex = 0;
+  int _slideDirection = 1;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final TabController next = DefaultTabController.of(context);
+    if (identical(_tabController, next)) return;
+    _tabController?.removeListener(_handleTabIndexChanged);
+    _tabController = next;
+    _displayIndex = next.index;
+    next.addListener(_handleTabIndexChanged);
+  }
+
+  @override
+  void dispose() {
+    _tabController?.removeListener(_handleTabIndexChanged);
+    super.dispose();
+  }
+
+  void _handleTabIndexChanged() {
+    final TabController? c = _tabController;
+    if (c == null || c.index == _displayIndex) return;
+    setState(() {
+      _slideDirection = MjcDirectionalScreenTransition.directionForStep(
+        _displayIndex,
+        c.index,
+      );
+      _displayIndex = c.index;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MjcDirectionalScreenTransition.animatedSwitcher(
+      activeKey: _displayIndex,
+      direction: _slideDirection,
+      child: _NoticeListTab(
+        boardId: _boardIds[_displayIndex],
+        entryTick: widget.entryTick,
+        filterRevision: widget.filterRevision,
+      ),
+    );
+  }
+}
+
 /// 홈 히어로와 같이 스크롤에 따라 상단 영역이 접히고, 탭 바는 아래에 고정됩니다.
 class _MainWebsiteCollapsingHeaderDelegate
     extends SliverPersistentHeaderDelegate {
@@ -737,16 +550,16 @@ class _MainWebsiteCollapsingHeaderDelegate
     required this.heroBody,
     required this.onOpenFilter,
     required this.onSearch,
+    required this.noticeSubTabNotifier,
     this.bottom,
-    required this.overlapsContent,
   });
 
   final double topPadding;
   final double heroBody;
   final VoidCallback onOpenFilter;
   final VoidCallback onSearch;
+  final ValueNotifier<NoticesSubTab>? noticeSubTabNotifier;
   final PreferredSizeWidget? bottom;
-  final bool overlapsContent;
 
   static const double _collapsedBar = 52;
   static const Color _overlayTop = Color(0xFF0043A1);
@@ -779,7 +592,6 @@ class _MainWebsiteCollapsingHeaderDelegate
     final double heroH = extent - _bottomHeight;
     final double overlayOpacity =
         lerpDouble(0.0, _collapsedOverlayOpacity, overlayT)!;
-    final Color overlayBase = _overlayTop;
     final Alignment imageAlignment = Alignment.lerp(
       Alignment.center,
       const Alignment(0, -0.35),
@@ -805,7 +617,7 @@ class _MainWebsiteCollapsingHeaderDelegate
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  ColoredBox(color: overlayBase),
+                  const ColoredBox(color: _overlayTop),
                   Positioned.fill(
                     child: Builder(
                       builder: (BuildContext context) {
@@ -862,16 +674,54 @@ class _MainWebsiteCollapsingHeaderDelegate
                             ih >= 54 ? 6.0 : max(0.0, (ih - 48) / 2);
                         final double titleSize = lerpDouble(34, 20, u)!;
                         const double titleLeft = 24;
-                        const double toolbarSlot = 104;
+                        const double toolbarSlot = 88;
                         final double collapsedTitleTop =
                             (ih - titleSize * 1.15) / 2;
                         final double titleReveal =
                             ((t - 0.92) / 0.08).clamp(0.0, 1.0);
                         final double titleOpacity =
                             Curves.easeOutCubic.transform(titleReveal);
+                        final TextStyle collapsedTitleStyle = Theme.of(context)
+                            .extension<MjcTextTokens>()!
+                            .appBarTitle;
                         return Stack(
                           clipBehavior: Clip.hardEdge,
                           children: [
+                            Positioned(
+                              left: 12,
+                              top: menuTopInset,
+                              right: 4,
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: <Widget>[
+                                  const Spacer(),
+                                  IconButton(
+                                    visualDensity: VisualDensity.compact,
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(
+                                      minWidth: 40,
+                                      minHeight: 40,
+                                    ),
+                                    tooltip: "공지 목록 필터",
+                                    onPressed: onOpenFilter,
+                                    icon: const Icon(Icons.tune_rounded),
+                                    color: Colors.white,
+                                  ),
+                                  IconButton(
+                                    visualDensity: VisualDensity.compact,
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(
+                                      minWidth: 40,
+                                      minHeight: 40,
+                                    ),
+                                    tooltip: "검색",
+                                    onPressed: onSearch,
+                                    icon: const Icon(Icons.search_rounded),
+                                    color: Colors.white,
+                                  ),
+                                ],
+                              ),
+                            ),
                             Positioned(
                               left: titleLeft,
                               top: collapsedTitleTop,
@@ -880,42 +730,41 @@ class _MainWebsiteCollapsingHeaderDelegate
                                 ignoring: titleOpacity < 0.02,
                                 child: Opacity(
                                   opacity: titleOpacity,
-                                  child: CollapsedHeroTitle(
-                                    icon: Icons.school_rounded,
-                                    text: "본교 공지사항",
-                                    baseStyle: Theme.of(context)
-                                        .extension<MjcTextTokens>()!
-                                        .appBarTitle,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            Positioned(
-                              top: 0,
-                              right: 4,
-                              bottom: 0,
-                              width: toolbarSlot,
-                              child: Align(
-                                alignment: Alignment.topCenter,
-                                child: Padding(
-                                  padding: EdgeInsets.only(top: menuTopInset),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      IconButton(
-                                        tooltip: "공지 목록 필터",
-                                        onPressed: onOpenFilter,
-                                        icon: const Icon(Icons.tune_rounded),
-                                        color: Colors.white,
-                                      ),
-                                      IconButton(
-                                        tooltip: "검색",
-                                        onPressed: onSearch,
-                                        icon: const Icon(Icons.search_rounded),
-                                        color: Colors.white,
-                                      ),
-                                    ],
-                                  ),
+                                  child: noticeSubTabNotifier == null
+                                      ? CollapsedHeroTitle(
+                                          icon: Icons.school_rounded,
+                                          text: "본교 공지사항",
+                                          baseStyle: collapsedTitleStyle,
+                                        )
+                                      : ValueListenableBuilder<bool>(
+                                          valueListenable:
+                                              LabPrefs.departmentNoticesEnabled,
+                                          builder: (context, labEnabled, _) {
+                                            return ValueListenableBuilder<
+                                                NoticesSubTab>(
+                                              valueListenable:
+                                                  noticeSubTabNotifier!,
+                                              builder: (context, current, _) {
+                                                final List<NoticesSubTab> tabs =
+                                                    visibleNoticeSubTabs(
+                                                        labEnabled);
+                                                final NoticesSubTab selected =
+                                                    tabs.contains(current)
+                                                        ? current
+                                                        : NoticesSubTab.main;
+                                                return CollapsedHeroTitle(
+                                                  icon: selected.icon,
+                                                  text: selected ==
+                                                          NoticesSubTab.main
+                                                      ? "본교 공지사항"
+                                                      : selected.label,
+                                                  baseStyle:
+                                                      collapsedTitleStyle,
+                                                );
+                                              },
+                                            );
+                                          },
+                                        ),
                                 ),
                               ),
                             ),
@@ -955,8 +804,8 @@ class _MainWebsiteCollapsingHeaderDelegate
         heroBody != old.heroBody ||
         onOpenFilter != old.onOpenFilter ||
         onSearch != old.onSearch ||
-        bottom != old.bottom ||
-        overlapsContent != old.overlapsContent;
+        noticeSubTabNotifier != old.noticeSubTabNotifier ||
+        bottom != old.bottom;
   }
 }
 
@@ -1263,8 +1112,7 @@ class _UnifiedNoticeListState extends State<_UnifiedNoticeList> {
   }
 
   Widget _buildAiTagChipBar(BuildContext context) {
-    return _buildMainAiTagChipBar(
-      context: context,
+    return MainNoticeAiTagChipBar(
       chips: _aiTagChips,
       selection: _aiTagChipSelection,
       onSelect: (String label) => setState(() => _aiTagChipSelection = label),
@@ -1495,232 +1343,27 @@ class _UnifiedNoticeListState extends State<_UnifiedNoticeList> {
     required VoidCallback onTogglePinned,
     required VoidCallback onToggleFavorite,
   }) {
-    final ColorScheme scheme = Theme.of(context).colorScheme;
-    final MjcSurfaceTokens tokens =
-        Theme.of(context).extension<MjcSurfaceTokens>()!;
-    final bool isDark = Theme.of(context).brightness == Brightness.dark;
-    final Color readTitleColor = tokens.noticeReadTitle;
     final String title = (data["title"] ?? "").toString();
     final String dateStr = (data["date"] ?? data["reg_date"] ?? "").toString();
-    final String category = (data["category"] ?? "").toString().trim();
-
-    // 상단 칩: 원래 category가 있으면 그것을 우선 노출, 없으면 게시판 라벨.
-    final String typeLabel = category.isNotEmpty ? category : boardLabel;
-
     final List<String> aiTags =
         showAiTagChips ? _parseAiTagsForList(data) : const <String>[];
-    final bool showAiTagRow = showAiTagChips && aiTags.isNotEmpty;
 
-    final Color mainColor = isRead ? scheme.onSurfaceVariant : tokens.sourceMjc;
-    final Color chipBackground =
-        tokens.sourceMjc.withValues(alpha: isDark ? 0.18 : 0.12);
-    final Color chipForeground = tokens.sourceMjc;
-    final Color titleColor = isRead ? readTitleColor : scheme.onSurface;
-    final Color dateColor = scheme.onSurfaceVariant;
-    const bool lowRaster = kPerfLowRasterMode;
+    final MjcSurfaceTokens tokens =
+        Theme.of(context).extension<MjcSurfaceTokens>()!;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Material(
-        color: scheme.surface,
-        borderRadius: BorderRadius.circular(12),
-        elevation: lowRaster ? 0 : 2,
-        shadowColor: lowRaster
-            ? Colors.transparent
-            : Colors.black.withValues(alpha: isDark ? 0.45 : 0.12),
-        clipBehavior: lowRaster ? Clip.hardEdge : Clip.none,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(12),
-          onTap: onTap,
-          child: (lowRaster)
-              ? Stack(
-                  children: [
-                    Positioned(
-                      left: 0,
-                      top: 0,
-                      bottom: 0,
-                      child: Container(
-                        width: 4,
-                        decoration: BoxDecoration(
-                          color: mainColor,
-                          borderRadius: const BorderRadius.only(
-                            topLeft: Radius.circular(12),
-                            bottomLeft: Radius.circular(12),
-                          ),
-                        ),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (showAiTagRow)
-                            _noticeCategoryAndAiTagsRow(
-                              context: context,
-                              categoryLabel: typeLabel,
-                              aiTags: aiTags,
-                              primaryChipBackground: chipBackground,
-                              primaryChipForeground: chipForeground,
-                              selectedAiTag: _aiTagChipSelection,
-                            )
-                          else
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: chipBackground,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                typeLabel,
-                                style: TextStyle(
-                                  color: chipForeground,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          const SizedBox(height: 12),
-                          Text(
-                            title,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: titleColor,
-                              height: 1.4,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.calendar_today_outlined,
-                                size: 14,
-                                color: dateColor,
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                dateStr,
-                                style:
-                                    TextStyle(color: dateColor, fontSize: 13),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    Positioned(
-                      right: 12,
-                      top: 10,
-                      child: PinFavoriteButtons(
-                        isPinned: isPinned,
-                        isFavorite: isFavorite,
-                        onTogglePinned: onTogglePinned,
-                        onToggleFavorite: onToggleFavorite,
-                      ),
-                    ),
-                  ],
-                )
-              : ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  clipBehavior: Clip.hardEdge,
-                  child: Stack(
-                    children: [
-                      Positioned(
-                        left: 0,
-                        top: 0,
-                        bottom: 0,
-                        child: Container(
-                          width: 4,
-                          decoration: BoxDecoration(
-                            color: mainColor,
-                            borderRadius: const BorderRadius.only(
-                              topLeft: Radius.circular(12),
-                              bottomLeft: Radius.circular(12),
-                            ),
-                          ),
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (showAiTagRow)
-                              _noticeCategoryAndAiTagsRow(
-                                context: context,
-                                categoryLabel: typeLabel,
-                                aiTags: aiTags,
-                                primaryChipBackground: chipBackground,
-                                primaryChipForeground: chipForeground,
-                                selectedAiTag: _aiTagChipSelection,
-                              )
-                            else
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: chipBackground,
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  typeLabel,
-                                  style: TextStyle(
-                                    color: chipForeground,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            const SizedBox(height: 12),
-                            Text(
-                              title,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: titleColor,
-                                height: 1.4,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.calendar_today_outlined,
-                                  size: 14,
-                                  color: dateColor,
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  dateStr,
-                                  style:
-                                      TextStyle(color: dateColor, fontSize: 13),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                      Positioned(
-                        right: 12,
-                        top: 10,
-                        child: PinFavoriteButtons(
-                          isPinned: isPinned,
-                          isFavorite: isFavorite,
-                          onTogglePinned: onTogglePinned,
-                          onToggleFavorite: onToggleFavorite,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-        ),
-      ),
+    return MjcNoticeListItem(
+      title: title,
+      dateLabel: dateStr,
+      primaryLabel: boardLabel,
+      secondaryLabels: aiTags,
+      selectedTag: _aiTagChipSelection,
+      brandColor: tokens.sourceMjc,
+      isRead: isRead,
+      isPinned: isPinned,
+      isFavorite: isFavorite,
+      onTap: onTap,
+      onTogglePinned: onTogglePinned,
+      onToggleFavorite: onToggleFavorite,
     );
   }
 }
@@ -1982,8 +1625,7 @@ class _NoticeListTabState extends State<_NoticeListTab> {
   }
 
   Widget _buildMainNoticeAiTagChipBar(BuildContext context) {
-    return _buildMainAiTagChipBar(
-      context: context,
+    return MainNoticeAiTagChipBar(
       chips: _mainNoticeAiTagChips,
       selection: _mainNoticeAiTagChipSelection,
       onSelect: (String label) =>
@@ -2177,237 +1819,39 @@ class _NoticeListTabState extends State<_NoticeListTab> {
     String id,
     bool isRead,
     VoidCallback onTap, {
-    /// 메인 홈페이지 공지 중 **「공지사항」탭(main_notice)** 에서만 주제 태그 칩을 노출합니다.
+    /// 메인 홈페이지 공지 중 **「공지사항」탭(main_notice)** 에서만 주제 태그를 노출합니다.
     required bool showAiTagChips,
     required bool isPinned,
     required bool isFavorite,
     required VoidCallback onTogglePinned,
     required VoidCallback onToggleFavorite,
   }) {
-    final ColorScheme scheme = Theme.of(context).colorScheme;
-    final MjcSurfaceTokens tokens =
-        Theme.of(context).extension<MjcSurfaceTokens>()!;
-    final bool isDark = Theme.of(context).brightness == Brightness.dark;
-    final Color readTitleColor = tokens.noticeReadTitle;
-    final String title = data["title"] ?? "";
-    final String dateStr = data["date"] ?? "";
-    final String type = data["category"] ?? "공지";
+    final String title = (data["title"] ?? "").toString();
+    final String dateStr =
+        (data["date"] ?? data["reg_date"] ?? "").toString();
+    final String category = (data["category"] ?? "").toString().trim();
     final List<String> aiTags =
         showAiTagChips ? _parseAiTagsForList(data) : const <String>[];
-    final bool showAiTagRow = showAiTagChips && aiTags.isNotEmpty;
-    // 읽음 표현은 과하지 않게: 좌측 스트립만 회색으로 낮추고, 제목 글씨만 앱의 메인 블루로 바꿈.
-    final Color mainColor = isRead ? scheme.onSurfaceVariant : tokens.sourceMjc;
-    final Color chipBackground =
-        tokens.sourceMjc.withValues(alpha: isDark ? 0.18 : 0.12);
-    final Color chipForeground = tokens.sourceMjc;
-    final Color titleColor = isRead ? readTitleColor : scheme.onSurface;
-    final Color dateColor = scheme.onSurfaceVariant;
-    const bool lowRaster = kPerfLowRasterMode;
+    final String primaryLabel = showAiTagChips
+        ? _fallbackType()
+        : (category.isNotEmpty ? category : _fallbackType());
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Material(
-        color: scheme.surface,
-        borderRadius: BorderRadius.circular(12),
-        elevation: lowRaster ? 0 : 2,
-        shadowColor: lowRaster
-            ? Colors.transparent
-            : Colors.black.withValues(alpha: isDark ? 0.45 : 0.12),
-        clipBehavior: lowRaster ? Clip.hardEdge : Clip.none,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(12),
-          onTap: onTap,
-          child: (lowRaster)
-              ? Stack(
-                  children: [
-                    Positioned(
-                      left: 0,
-                      top: 0,
-                      bottom: 0,
-                      child: Container(
-                        width: 4,
-                        decoration: BoxDecoration(
-                          color: mainColor,
-                          borderRadius: const BorderRadius.only(
-                            topLeft: Radius.circular(12),
-                            bottomLeft: Radius.circular(12),
-                          ),
-                        ),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (showAiTagRow)
-                            _noticeCategoryAndAiTagsRow(
-                              context: context,
-                              categoryLabel: type,
-                              aiTags: aiTags,
-                              primaryChipBackground: chipBackground,
-                              primaryChipForeground: chipForeground,
-                              selectedAiTag: _mainNoticeAiTagChipSelection,
-                            )
-                          else
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: chipBackground,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                type,
-                                style: TextStyle(
-                                  color: chipForeground,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          const SizedBox(height: 12),
-                          Text(
-                            title,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: titleColor,
-                              height: 1.4,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.calendar_today_outlined,
-                                size: 14,
-                                color: dateColor,
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                dateStr,
-                                style:
-                                    TextStyle(color: dateColor, fontSize: 13),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    Positioned(
-                      right: 12,
-                      top: 10,
-                      child: PinFavoriteButtons(
-                        isPinned: isPinned,
-                        isFavorite: isFavorite,
-                        onTogglePinned: onTogglePinned,
-                        onToggleFavorite: onToggleFavorite,
-                      ),
-                    ),
-                  ],
-                )
-              : ClipRRect(
-                  // 리스트 아이템마다 Clip.antiAlias는 120Hz에서 raster 스파이크를 만들기 쉬워
-                  // hardEdge로 낮춰 비용을 줄입니다 (그림자 유지).
-                  borderRadius: BorderRadius.circular(12),
-                  clipBehavior: Clip.hardEdge,
-                  child: Stack(
-                    children: [
-                      Positioned(
-                        left: 0,
-                        top: 0,
-                        bottom: 0,
-                        child: Container(
-                          width: 4,
-                          decoration: BoxDecoration(
-                            color: mainColor,
-                            borderRadius: const BorderRadius.only(
-                              topLeft: Radius.circular(12),
-                              bottomLeft: Radius.circular(12),
-                            ),
-                          ),
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (showAiTagRow)
-                              _noticeCategoryAndAiTagsRow(
-                                context: context,
-                                categoryLabel: type,
-                                aiTags: aiTags,
-                                primaryChipBackground: chipBackground,
-                                primaryChipForeground: chipForeground,
-                                selectedAiTag: _mainNoticeAiTagChipSelection,
-                              )
-                            else
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: chipBackground,
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  type,
-                                  style: TextStyle(
-                                    color: chipForeground,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            const SizedBox(height: 12),
-                            Text(
-                              title,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: titleColor,
-                                height: 1.4,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.calendar_today_outlined,
-                                  size: 14,
-                                  color: dateColor,
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  dateStr,
-                                  style:
-                                      TextStyle(color: dateColor, fontSize: 13),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                      Positioned(
-                        right: 12,
-                        top: 10,
-                        child: PinFavoriteButtons(
-                          isPinned: isPinned,
-                          isFavorite: isFavorite,
-                          onTogglePinned: onTogglePinned,
-                          onToggleFavorite: onToggleFavorite,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-        ),
-      ),
+    final MjcSurfaceTokens tokens =
+        Theme.of(context).extension<MjcSurfaceTokens>()!;
+
+    return MjcNoticeListItem(
+      title: title,
+      dateLabel: dateStr,
+      primaryLabel: primaryLabel,
+      secondaryLabels: aiTags,
+      selectedTag: _mainNoticeAiTagChipSelection,
+      brandColor: tokens.sourceMjc,
+      isRead: isRead,
+      isPinned: isPinned,
+      isFavorite: isFavorite,
+      onTap: onTap,
+      onTogglePinned: onTogglePinned,
+      onToggleFavorite: onToggleFavorite,
     );
   }
 }

@@ -17,6 +17,7 @@ import "package:mjc_in_one/theme/app_colors.dart";
 import "package:mjc_in_one/theme/app_theme.dart";
 import "package:mjc_in_one/utils/mjc_dialog.dart";
 import "package:mjc_in_one/utils/mjc_snack_bar.dart";
+import "package:mjc_in_one/widgets/main_navigation_scope.dart";
 import "package:mjc_in_one/widgets/scroll_to_top_scope.dart";
 
 BorderSide _moreScreenCardBorderSide(bool isDark) => BorderSide(
@@ -35,7 +36,7 @@ class MoreTabScreen extends StatefulWidget {
   });
 
   /// [MainNavigationScreen] 하단 탭 전환. 없으면 기존처럼 푸시 라우트만 사용합니다.
-  final void Function(int tabIndex, {NoticesSubTab? noticesSubTab})? onNavigate;
+  final MainNavigationNavigate? onNavigate;
 
   @override
   State<MoreTabScreen> createState() => _MoreTabScreenState();
@@ -265,7 +266,11 @@ class _MoreTabScreenState extends State<MoreTabScreen> {
                                 label: "도움말",
                                 color: const Color(0xFFF57C00),
                                 isList: _isListView,
-                                onTap: () => _push(const AppIntroScreen()),
+                                onTap: () => Navigator.of(context).push<void>(
+                                  AppIntroScreen.route(
+                                    onNavigate: widget.onNavigate,
+                                  ),
+                                ),
                               ),
                             ];
 

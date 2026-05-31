@@ -12,8 +12,8 @@ import "package:mjc_in_one/theme/app_theme.dart";
 import "package:mjc_in_one/utils/bookmark_added_feedback.dart";
 import "package:mjc_in_one/utils/notice_list_refresh_guard.dart";
 import "package:mjc_in_one/perf_flags.dart";
+import "package:mjc_in_one/widgets/mjc_notice_list_item.dart";
 import "package:mjc_in_one/widgets/nested_scroll_refresh_indicator.dart";
-import "package:mjc_in_one/widgets/pin_favorite_buttons.dart";
 import "package:mjc_in_one/widgets/collapsed_hero_title.dart";
 import "package:mjc_in_one/widgets/global_notice_search_sheet.dart";
 import "package:mjc_in_one/widgets/main_navigation_scope.dart";
@@ -577,8 +577,6 @@ class _CtlListTabState extends State<_CtlListTab> {
   Set<String> _readKeys = {};
   NoticeFilterState _noticeFilter = const NoticeFilterState();
   List<String> _noticeSharedKeywords = [];
-  bool get _lowRaster =>
-      kPerfLowRasterMode || defaultTargetPlatform == TargetPlatform.android;
 
   bool _allowRefreshNotification(ScrollNotification n) {
     return defaultScrollNotificationPredicate(n);
@@ -875,11 +873,7 @@ class _CtlListTabState extends State<_CtlListTab> {
     final ColorScheme scheme = Theme.of(context).colorScheme;
     final MjcSurfaceTokens tokens =
         Theme.of(context).extension<MjcSurfaceTokens>()!;
-    final bool isDark = Theme.of(context).brightness == Brightness.dark;
-    final Color readTitleColor = tokens.noticeReadTitle;
     final Color accent = tokens.sourceCtl;
-    final Color chipBackground = accent.withValues(alpha: isDark ? 0.18 : 0.12);
-    final Color chipForeground = accent;
     final Color dateColor = scheme.onSurfaceVariant;
     final String title = data["title"] ?? "";
     final String date = data["reg_date"] ?? data["date"] ?? "";
@@ -888,232 +882,66 @@ class _CtlListTabState extends State<_CtlListTab> {
     final String status = data["status"] ?? "진행중";
     final String readKey = _itemKey(data);
     final bool isRead = _readKeys.contains(readKey);
-    final Color stripColor = isRead ? scheme.onSurfaceVariant : accent;
-    final Color titleColor = isRead ? readTitleColor : scheme.onSurface;
     final String typeLabel = widget.isProgram
         ? (status.trim().isEmpty ? "학습 프로그램" : status.trim())
         : "센터 공지";
 
-    Widget buildStack(List<Widget> children) {
-      children.add(
-        Positioned(
-          right: 12,
-          top: 10,
-          child: PinFavoriteButtons(
-            isPinned: isPinned,
-            isFavorite: isFavorite,
-            onTogglePinned: onTogglePinned,
-            onToggleFavorite: onToggleFavorite,
+    final List<Widget> footer = <Widget>[
+      if (widget.isProgram && opPeriod.isNotEmpty)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 6),
+          child: Row(
+            children: <Widget>[
+              Icon(Icons.timer_outlined, size: 14, color: dateColor),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  "진행: $opPeriod",
+                  style: TextStyle(color: dateColor, fontSize: 13),
+                ),
+              ),
+            ],
           ),
         ),
-      );
-      return Stack(children: children);
-    }
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Material(
-        color: scheme.surface,
-        borderRadius: BorderRadius.circular(12),
-        elevation: _lowRaster ? 0 : 2,
-        shadowColor: _lowRaster
-            ? Colors.transparent
-            : Colors.black.withValues(alpha: isDark ? 0.45 : 0.12),
-        clipBehavior: _lowRaster ? Clip.hardEdge : Clip.none,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(12),
-          onTap: () async {
-            if (url.isEmpty) return;
-            await _markAsRead(readKey);
-            if (!context.mounted) return;
-            if (kIsWeb) {
-              await launchUrl(Uri.parse(url), webOnlyWindowName: "_blank");
-            } else {
-              Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) =>
-                          CommonWebViewScreen(url: url, title: title)));
-            }
-          },
-          child: _lowRaster
-              ? buildStack([
-                  Positioned(
-                    left: 0,
-                    top: 0,
-                    bottom: 0,
-                    child: Container(
-                      width: 4,
-                      decoration: BoxDecoration(
-                        color: stripColor,
-                        borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(12),
-                          bottomLeft: Radius.circular(12),
-                        ),
-                      ),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: chipBackground,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            typeLabel,
-                            style: TextStyle(
-                              color: chipForeground,
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          title,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: titleColor,
-                            height: 1.4,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        if (widget.isProgram && opPeriod.isNotEmpty)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 6),
-                            child: Row(
-                              children: [
-                                Icon(Icons.timer_outlined,
-                                    size: 14, color: dateColor),
-                                const SizedBox(width: 6),
-                                Expanded(
-                                  child: Text(
-                                    "진행: $opPeriod",
-                                    style: TextStyle(
-                                      color: dateColor,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        Row(
-                          children: [
-                            Icon(Icons.calendar_today_outlined,
-                                size: 14, color: dateColor),
-                            const SizedBox(width: 6),
-                            Text(
-                              date.trim().isEmpty ? "—" : "신청: $date",
-                              style: TextStyle(color: dateColor, fontSize: 13),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ])
-              : ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  clipBehavior: Clip.hardEdge,
-                  child: buildStack([
-                    Positioned(
-                      left: 0,
-                      top: 0,
-                      bottom: 0,
-                      child: Container(
-                        width: 4,
-                        decoration: BoxDecoration(
-                          color: stripColor,
-                          borderRadius: const BorderRadius.only(
-                            topLeft: Radius.circular(12),
-                            bottomLeft: Radius.circular(12),
-                          ),
-                        ),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: chipBackground,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              typeLabel,
-                              style: TextStyle(
-                                color: chipForeground,
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            title,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: titleColor,
-                              height: 1.4,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          if (widget.isProgram && opPeriod.isNotEmpty)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 6),
-                              child: Row(
-                                children: [
-                                  Icon(Icons.timer_outlined,
-                                      size: 14, color: dateColor),
-                                  const SizedBox(width: 6),
-                                  Expanded(
-                                    child: Text(
-                                      "진행: $opPeriod",
-                                      style: TextStyle(
-                                        color: dateColor,
-                                        fontSize: 13,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          Row(
-                            children: [
-                              Icon(Icons.calendar_today_outlined,
-                                  size: 14, color: dateColor),
-                              const SizedBox(width: 6),
-                              Text(
-                                date.trim().isEmpty ? "—" : "신청: $date",
-                                style:
-                                    TextStyle(color: dateColor, fontSize: 13),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ]),
-                ),
-        ),
+      Row(
+        children: <Widget>[
+          Icon(Icons.calendar_today_outlined, size: 14, color: dateColor),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              date.trim().isEmpty ? "—" : "신청: $date",
+              style: TextStyle(color: dateColor, fontSize: 13),
+            ),
+          ),
+        ],
       ),
+    ];
+
+    return MjcNoticeListItem(
+      title: title,
+      primaryLabel: typeLabel,
+      footer: footer,
+      brandColor: accent,
+      isRead: isRead,
+      isPinned: isPinned,
+      isFavorite: isFavorite,
+      onTap: () async {
+        if (url.isEmpty) return;
+        await _markAsRead(readKey);
+        if (!context.mounted) return;
+        if (kIsWeb) {
+          await launchUrl(Uri.parse(url), webOnlyWindowName: "_blank");
+        } else {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => CommonWebViewScreen(url: url, title: title),
+            ),
+          );
+        }
+      },
+      onTogglePinned: onTogglePinned,
+      onToggleFavorite: onToggleFavorite,
     );
   }
 }

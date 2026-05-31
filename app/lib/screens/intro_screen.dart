@@ -1,5 +1,6 @@
 import "package:flutter/material.dart";
 import "package:lottie/lottie.dart";
+import "package:mjc_in_one/screens/app_intro_screen.dart";
 import "package:mjc_in_one/screens/main_navigation_screen.dart";
 import "package:mjc_in_one/services/firebase_app_startup.dart";
 import "package:mjc_in_one/theme/app_colors.dart";
@@ -44,14 +45,19 @@ class _IntroScreenState extends State<IntroScreen>
     if (_navigated || !mounted) return;
     _navigated = true;
 
+    final bool showGuide = await AppIntroScreen.shouldShowOnFirstLaunch();
+    if (!mounted) return;
+
     Navigator.of(context).pushReplacement(
-      PageRouteBuilder<void>(
-        pageBuilder: (_, __, ___) => const MainNavigationScreen(),
-        transitionDuration: const Duration(milliseconds: 250),
-        transitionsBuilder: (_, animation, __, child) {
-          return FadeTransition(opacity: animation, child: child);
-        },
-      ),
+      showGuide
+          ? AppIntroScreen.route(isFirstLaunch: true)
+          : PageRouteBuilder<void>(
+              pageBuilder: (_, __, ___) => const MainNavigationScreen(),
+              transitionDuration: const Duration(milliseconds: 250),
+              transitionsBuilder: (_, animation, __, child) {
+                return FadeTransition(opacity: animation, child: child);
+              },
+            ),
     );
   }
 

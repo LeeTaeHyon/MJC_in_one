@@ -4,6 +4,10 @@ import "package:mjc_in_one/utils/mjc_snack_bar.dart";
 import "package:mjc_in_one/widgets/main_navigation_scope.dart";
 import "package:mjc_in_one/widgets/scroll_to_top_scope.dart";
 
+/// [MainNavigationScreen] 하단 네비 위에 띄울 때 SnackBar 하단 여백.
+EdgeInsets bookmarkSnackBarMargin(BuildContext context) =>
+    MainNavLayout.snackBarMargin(context);
+
 /// [MainNavigationScreen] 공지 서브메뉴를 잠시 숨길 때 사용합니다. 0보다 크면 숨김.
 ///
 /// 고정·즐겨찾기 관련 스낵바 표시 시 증가·닫힐 때 감소합니다.
@@ -22,7 +26,7 @@ void _showBookmarkPinFavoriteSnackBar(
     message: message,
     actionLabel: actionLabel,
     onAction: onAction,
-    margin: margin,
+    margin: margin ?? bookmarkSnackBarMargin(context),
     onShown: () => bookmarkSnackBarSubnavSuppressionCount.value++,
     onClosed: () {
       final int n = bookmarkSnackBarSubnavSuppressionCount.value;
@@ -33,8 +37,8 @@ void _showBookmarkPinFavoriteSnackBar(
   );
 }
 
-/// 즐겨찾기·상단 고정을 **추가**한 뒤 안내 스낵바(마이페이지 이동 액션).
-void _openMyPageFromBookmarkSnackBar(
+/// 고정·즐겨찾기 스낵바 액션 — 마이페이지 해당 탭으로 이동.
+void openMyPageBookmarkTab(
   BuildContext context, {
   required bool openPinnedTab,
 }) {
@@ -68,7 +72,7 @@ void showBookmarkAddedSnackBar(
     message: openPinnedTab ? "고정되었습니다." : "저장되었습니다.",
     actionLabel: "마이페이지에서 확인",
     margin: margin,
-    onAction: () => _openMyPageFromBookmarkSnackBar(
+    onAction: () => openMyPageBookmarkTab(
       context,
       openPinnedTab: openPinnedTab,
     ),

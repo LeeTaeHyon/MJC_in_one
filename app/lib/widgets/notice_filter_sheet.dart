@@ -1,21 +1,26 @@
 import "package:flutter/material.dart";
 import "package:mjc_in_one/services/notice_filter.dart";
+import "package:mjc_in_one/theme/app_colors.dart";
 import "package:mjc_in_one/theme/app_theme.dart";
+import "package:mjc_in_one/utils/mjc_dialog.dart";
+import "package:mjc_in_one/widgets/mjc_keyword_capsule.dart";
 
 /// 공지 목록(메인·CTL·MPU 등)에서 설정 화면으로 가지 않고 필터를 조정할 때 사용합니다.
 Future<void> showNoticeFilterSheet(
   BuildContext context, {
   required String scopeId,
   required String scopeLabel,
+  VoidCallback? onFilterChanged,
 }) {
   return showModalBottomSheet<void>(
     context: context,
     useSafeArea: true,
     isScrollControlled: true,
-    showDragHandle: true,
+    showDragHandle: false,
     builder: (BuildContext ctx) => _NoticeFilterSheetBody(
       scopeId: scopeId,
       scopeLabel: scopeLabel,
+      onFilterChanged: onFilterChanged,
     ),
   );
 }
@@ -24,10 +29,12 @@ class _NoticeFilterSheetBody extends StatefulWidget {
   const _NoticeFilterSheetBody({
     required this.scopeId,
     required this.scopeLabel,
+    this.onFilterChanged,
   });
 
   final String scopeId;
   final String scopeLabel;
+  final VoidCallback? onFilterChanged;
 
   @override
   State<_NoticeFilterSheetBody> createState() => _NoticeFilterSheetBodyState();
@@ -57,208 +64,31 @@ class _NoticeFilterSheetBodyState extends State<_NoticeFilterSheetBody> {
     });
   }
 
+  void _notifyFilterChanged() {
+    widget.onFilterChanged?.call();
+  }
+
   Future<void> _setEnabled(bool value) async {
     await saveScopedNoticeFilterEnabled(widget.scopeId, value);
     if (!mounted) return;
     setState(() => _filter = _filter.copyWith(enabled: value));
+    _notifyFilterChanged();
   }
 
-  void _showKeywordDialog() {
-    final TextEditingController controller = TextEditingController();
-    showDialog<void>(
+  Future<void> _showKeywordDialog() async {
+    await showDialog<List<String>>(
       context: context,
-      barrierColor: Colors.black.withValues(alpha: 0.45),
-      builder: (BuildContext dialogContext) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            final ColorScheme scheme = Theme.of(context).colorScheme;
-            final bool isDark = Theme.of(context).brightness == Brightness.dark;
-            final MjcSurfaceTokens? tokens =
-                Theme.of(context).extension<MjcSurfaceTokens>();
-
-            final List<Color> headerGradient = isDark && tokens != null
-                ? tokens.dashboardGradients[0]
-                : [
-                    MjcNoticePalette.mjcHome,
-                    MjcNoticePalette.mjcUiLight,
-                  ];
-
-            final Color fieldBg = isDark
-                ? (tokens?.surfaceContainer.withValues(alpha: 0.65) ?? scheme.surfaceContainerHigh)
-                : scheme.surfaceContainerLow;
-
-            return Dialog(
-              backgroundColor: Colors.transparent,
-              insetPadding: const EdgeInsets.symmetric(horizontal: 22, vertical: 28),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 400),
-                child: Material(
-                  color: scheme.surface,
-                  elevation: isDark ? 2 : 4,
-                  shadowColor: Colors.black.withValues(alpha: isDark ? 0.55 : 0.18),
-                  surfaceTintColor: Colors.transparent,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(22),
-                  ),
-                  clipBehavior: Clip.antiAlias,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      DecoratedBox(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: headerGradient,
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.18),
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                                child: const Icon(
-                                  Icons.notifications_active_rounded,
-                                  size: 28,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              const SizedBox(width: 14),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text(
-                                      "보고 싶은 키워드",
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 20,
-                                        fontWeight: FontWeight.w800,
-                                        letterSpacing: -0.2,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 6),
-                                    Text(
-                                      "키워드가 포함된 공지만 목록에\n보입니다. (선택사항)",
-                                      style: TextStyle(
-                                        color: Colors.white.withValues(alpha: 0.9),
-                                        fontSize: 13,
-                                        height: 1.35,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      Flexible(
-                        child: SingleChildScrollView(
-                          padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              TextField(
-                                controller: controller,
-                                decoration: InputDecoration(
-                                  hintText: "예: 장학, 수강신청",
-                                  filled: true,
-                                  fillColor: fieldBg,
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(16),
-                                    borderSide: BorderSide.none,
-                                  ),
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                                  suffixIcon: IconButton(
-                                    icon: Icon(Icons.add_circle_rounded, color: scheme.primary),
-                                    onPressed: () async {
-                                      final String text = controller.text.trim();
-                                      if (text.isEmpty || _includes.contains(text)) {
-                                        return;
-                                      }
-                                      final List<String> next = [..._includes, text];
-                                      await saveScopedNoticeFilterIncludes(widget.scopeId, next);
-                                      if (!mounted) return;
-                                      setState(() => _includes = next);
-                                      controller.clear();
-                                      setDialogState(() {});
-                                    },
-                                  ),
-                                ),
-                              ),
-                              if (_includes.isNotEmpty) ...[
-                                const SizedBox(height: 20),
-                                Text(
-                                  "등록된 키워드 (${_includes.length})",
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w700,
-                                    color: scheme.onSurfaceVariant,
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                Wrap(
-                                  spacing: 8,
-                                  runSpacing: 8,
-                                  children: _includes.map((String kw) {
-                                    return Chip(
-                                      label: Text(kw),
-                                      backgroundColor: isDark 
-                                          ? fieldBg 
-                                          : Colors.white,
-                                      side: BorderSide(
-                                        color: isDark ? Colors.transparent : scheme.outlineVariant.withValues(alpha: 0.5),
-                                      ),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(10),
-                                      ),
-                                      onDeleted: () async {
-                                        final List<String> next =
-                                            _includes.where((e) => e != kw).toList();
-                                        await saveScopedNoticeFilterIncludes(widget.scopeId, next);
-                                        if (!mounted) return;
-                                        setState(() => _includes = next);
-                                        setDialogState(() {});
-                                      },
-                                    );
-                                  }).toList(),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                        child: FilledButton(
-                          onPressed: () => Navigator.pop(dialogContext),
-                          style: FilledButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                          ),
-                          child: const Text("닫기"),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          },
-        );
-      },
-    ).whenComplete(controller.dispose);
+      builder: (BuildContext dialogContext) => _KeywordFilterDialog(
+        scopeId: widget.scopeId,
+        initialIncludes: _includes,
+      ),
+    );
+    if (!mounted) return;
+    final List<String> includes =
+        await loadScopedNoticeFilterIncludes(widget.scopeId);
+    if (!mounted) return;
+    setState(() => _includes = includes);
+    _notifyFilterChanged();
   }
 
   @override
@@ -351,6 +181,181 @@ class _NoticeFilterSheetBodyState extends State<_NoticeFilterSheetBody> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _KeywordFilterDialog extends StatefulWidget {
+  const _KeywordFilterDialog({
+    required this.scopeId,
+    required this.initialIncludes,
+  });
+
+  final String scopeId;
+  final List<String> initialIncludes;
+
+  @override
+  State<_KeywordFilterDialog> createState() => _KeywordFilterDialogState();
+}
+
+class _KeywordFilterDialogState extends State<_KeywordFilterDialog> {
+  late List<String> _includes;
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _includes = List<String>.from(widget.initialIncludes);
+    _controller = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _addKeyword() async {
+    final String text = _controller.text.trim();
+    if (text.isEmpty || _includes.contains(text)) {
+      return;
+    }
+    final List<String> next = [..._includes, text];
+    await saveScopedNoticeFilterIncludes(widget.scopeId, next);
+    if (!mounted) return;
+    setState(() {
+      _includes = next;
+      _controller.clear();
+    });
+  }
+
+  Future<void> _removeKeyword(String kw) async {
+    final List<String> next = _includes.where((e) => e != kw).toList();
+    await saveScopedNoticeFilterIncludes(widget.scopeId, next);
+    if (!mounted) return;
+    setState(() => _includes = next);
+  }
+
+  void _close() {
+    Navigator.pop(context, _includes);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color fieldBg = isDark
+        ? scheme.surfaceContainerHigh
+        : scheme.surfaceContainerLow;
+
+    return MjcDialogShell(
+      centerIcon: Container(
+        width: 48,
+        height: 48,
+        decoration: const BoxDecoration(
+          color: Color(0xFFE3F2FD),
+          shape: BoxShape.circle,
+        ),
+        child: const Icon(
+          Icons.notifications_active_rounded,
+          color: AppColors.primary,
+          size: 24,
+        ),
+      ),
+      body: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            "보고 싶은 키워드",
+            textAlign: TextAlign.center,
+            style: mjcDialogTitleStyle(context),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            "키워드가 포함된 공지만 목록에\n보입니다. (선택사항)",
+            textAlign: TextAlign.center,
+            style: mjcDialogBodyStyle(context),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _controller,
+            textInputAction: TextInputAction.done,
+            onSubmitted: (_) => _addKeyword(),
+            decoration: InputDecoration(
+              hintText: "예: 장학, 수강신청",
+              filled: true,
+              fillColor: fieldBg,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 12,
+              ),
+              suffixIcon: IconButton(
+                tooltip: "키워드 추가",
+                icon: const Icon(
+                  Icons.add_circle_rounded,
+                  color: AppColors.primary,
+                ),
+                onPressed: _addKeyword,
+              ),
+            ),
+          ),
+          if (_includes.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Text(
+              "등록된 키워드 (${_includes.length})",
+              style: mjcDialogBodyStyle(context).copyWith(
+                fontWeight: FontWeight.w700,
+                color: mjcDialogTitleColor(context),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: _includes.map((String kw) {
+                return MjcKeywordCapsule(
+                  label: kw,
+                  onRemove: () => _removeKeyword(kw),
+                );
+              }).toList(),
+            ),
+          ],
+        ],
+      ),
+      actions: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Divider(height: 1, color: mjcDialogDividerColor(context)),
+          SizedBox(
+            height: kMjcDialogButtonHeight,
+            width: double.infinity,
+            child: TextButton(
+              onPressed: _close,
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.primary,
+                minimumSize:
+                    const Size(double.infinity, kMjcDialogButtonHeight),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                padding: EdgeInsets.zero,
+                shape: const RoundedRectangleBorder(),
+              ),
+              child: const Text(
+                "닫기",
+                style: TextStyle(
+                  fontFamily: kPretendardFontFamily,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

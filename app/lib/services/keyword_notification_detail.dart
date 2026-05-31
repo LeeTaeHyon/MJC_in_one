@@ -19,6 +19,9 @@ class KeywordNotificationDetail {
 
   static const KeywordNotificationDetail empty = KeywordNotificationDetail();
 
+  /// 세부 설정의 출처 선택을 UI용 한 줄 요약으로 변환합니다.
+  String get sourceSummary => keywordNotificationSourceSummary(sources);
+
   KeywordNotificationDetail copyWith({
     List<String>? sources,
     List<String>? excludeKeywords,
@@ -163,6 +166,20 @@ Future<void> applyKeywordNotificationDetailsFromCloud(
   dynamic value,
 ) async {
   await _persistAll(keywordNotificationDetailsFromCloud(value));
+}
+
+/// 키워드 알림 출처 id 목록 → 설정 화면·목록에 표시할 요약 문자열.
+String keywordNotificationSourceSummary(List<String> sourceIds) {
+  final List<String> ids =
+      sourceIds.where(kNotificationSourceIds.contains).toList();
+  if (ids.isEmpty || ids.length == kNotificationSourceIds.length) {
+    return "전체 출처";
+  }
+  return ids
+      .map(notificationSourceChipLabelFromId)
+      .map(notificationSourceDisplayLabel)
+      .where((s) => s.isNotEmpty)
+      .join(", ");
 }
 
 String _normalize(String value) => value.trim().toLowerCase();

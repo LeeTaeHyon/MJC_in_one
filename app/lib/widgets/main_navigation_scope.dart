@@ -7,46 +7,54 @@ typedef MainNavigationNavigate = void Function(
   int? myPageBookmarkTabIndex,
 });
 
-/// [MainNavigationScreen] floating bottom bar 레이아웃 상수.
+/// [MainNavigationScreen] bottom bar / 공지 floating pill 레이아웃 상수.
 abstract final class MainNavLayout {
-  static const double barHeight = 82;
-  static const double barPillHeight = 64;
-  static const double barInnerBottomPadding = 10;
+  static const double barHeight = 64;
+  static const double barTopCornerRadius = 24;
   static const double scrollBottomGap = 8;
-  /// 하단 navbar pill 좌·우 inset ([MainNavigationScreen] padding과 동일).
-  static const double barHorizontalInset = 14;
 
-  /// overlay(공지 서브 nav, FAB 등) 배치용 — navbar 컨테이너 + safe area.
-  /// [MediaQuery.viewPadding] 사용 — 메인 탭 body는 padding.bottom이 0으로 strip됩니다.
+  /// 공지 탭 하단 floating pill — 메인 navbar와 동일한 높이·inset.
+  static const double noticeFloatingPillHorizontalInset = 14;
+
+  /// FAB·overlay 좌·우 inset.
+  static const double fabHorizontalInset = 14;
+
+  /// overlay(공지 서브 nav, FAB 등) 배치용 — navbar + safe area.
   static double bottomInset(BuildContext context) =>
       barHeight + MediaQuery.viewPaddingOf(context).bottom;
 
-  /// navbar pill 상단 — FAB는 이 기준으로 [fabGapAboveNav]만큼 위에 둡니다.
-  static double navPillTopFromBottom(BuildContext context) =>
-      MediaQuery.viewPaddingOf(context).bottom +
-      barInnerBottomPadding +
-      barPillHeight;
+  /// navbar 상단 — FAB는 이 기준으로 [fabGapAboveNav]만큼 위에 둡니다.
+  static double navBarTopFromBottom(BuildContext context) =>
+      MediaQuery.viewPaddingOf(context).bottom + barHeight;
 
-  /// 메인 탭 안 FAB — navbar pill 위 여백(px). 줄이면 FAB가 내려갑니다.
-  static const double fabGapAboveNav = 32;
+  /// 메인 탭 안 FAB — navbar 위 여백(px).
+  static const double fabGapAboveNav = 16;
 
   /// Stack [Positioned] FAB bottom.
   static double fabBottomOffset(BuildContext context) {
     if (MainNavigationScope.maybeNavigate(context) == null) {
       return MediaQuery.viewPaddingOf(context).bottom + 16;
     }
-    return navPillTopFromBottom(context) + fabGapAboveNav;
+    return navBarTopFromBottom(context) + fabGapAboveNav;
   }
 
   /// 시간표 FAB 지름 — 스크롤 하단 여백 계산용.
   static const double timetableFabSize = 58;
 
-  /// 스크롤 맨 아래 여백 — pill 높이만. safe area는 navbar가 처리합니다.
+  /// 스크롤 맨 아래 여백.
   static double scrollBottomExtra(BuildContext context) {
     if (MainNavigationScope.maybeNavigate(context) == null) {
       return 0;
     }
     return barHeight + scrollBottomGap;
+  }
+
+  /// [MainNavigationScreen] 하단 네비 위에 띄울 floating SnackBar 여백.
+  static EdgeInsets snackBarMargin(BuildContext context) {
+    if (MainNavigationScope.maybeNavigate(context) != null) {
+      return EdgeInsets.fromLTRB(16, 0, 16, bottomInset(context));
+    }
+    return const EdgeInsets.fromLTRB(16, 0, 16, 16);
   }
 
   static Widget scrollBottomSpacer(BuildContext context) =>
@@ -58,10 +66,14 @@ class MainNavigationScope extends InheritedWidget {
   const MainNavigationScope({
     super.key,
     required this.navigate,
+    required this.noticesFloatingNav,
     required super.child,
   });
 
   final MainNavigationNavigate navigate;
+
+  /// 공지 탭에서 하단 메인 navbar 대신 floating pill을 같은 위치에 표시합니다.
+  final bool noticesFloatingNav;
 
   static MainNavigationNavigate? maybeNavigate(BuildContext context) {
     return context
@@ -69,8 +81,15 @@ class MainNavigationScope extends InheritedWidget {
         ?.navigate;
   }
 
+  static bool? maybeNoticesFloatingNav(BuildContext context) {
+    return context
+        .getInheritedWidgetOfExactType<MainNavigationScope>()
+        ?.noticesFloatingNav;
+  }
+
   @override
   bool updateShouldNotify(MainNavigationScope oldWidget) {
-    return navigate != oldWidget.navigate;
+    return navigate != oldWidget.navigate ||
+        noticesFloatingNav != oldWidget.noticesFloatingNav;
   }
 }

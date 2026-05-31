@@ -5,6 +5,7 @@ import "package:mjc_in_one/features/timetable/screens/timetable_add_courses_scre
 import "package:mjc_in_one/features/timetable/services/timetable_official_service.dart";
 import "package:mjc_in_one/features/timetable/services/timetable_storage_service.dart";
 import "package:mjc_in_one/features/timetable/utils/timetable_credits.dart";
+import "package:mjc_in_one/features/timetable/utils/timetable_grid_hours.dart";
 import "package:mjc_in_one/features/timetable/widgets/timetable_offering_schedule_text_block.dart";
 import "package:mjc_in_one/features/timetable/widgets/timetable_week_grid.dart";
 import "package:mjc_in_one/theme/app_colors.dart";
@@ -458,8 +459,8 @@ class _TimetableMainScreenState extends State<TimetableMainScreen> {
                             slots: _gridSlots,
                             onSlotTap: _onSlotTap,
                             professorByOfferingId: _professorByOfferingId,
-                            startHour: 9,
-                            endHour: 18,
+                            startHour: kTimetableGridStartHour,
+                            endHour: timetableGridEndHourForSlots(_gridSlots),
                           ),
                           _buildRemoteExamCourseList(context),
                         ],
@@ -469,7 +470,7 @@ class _TimetableMainScreenState extends State<TimetableMainScreen> {
           ),
           if (!_loading)
             Positioned(
-              right: MainNavLayout.barHorizontalInset,
+              right: MainNavLayout.fabHorizontalInset,
               bottom: MainNavLayout.fabBottomOffset(context),
               child: _buildAddFab(context),
             ),

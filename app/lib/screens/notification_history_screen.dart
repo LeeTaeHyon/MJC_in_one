@@ -5,6 +5,7 @@ import "package:mjc_in_one/notification_sources.dart";
 import "package:mjc_in_one/screens/common_webview_screen.dart";
 import "package:mjc_in_one/screens/settings_screen.dart";
 import "package:mjc_in_one/theme/app_colors.dart";
+import "package:mjc_in_one/widgets/main_notice_ai_tag_chip_bar.dart";
 import "package:mjc_in_one/widgets/scroll_to_top_fab.dart";
 import "package:mjc_in_one/widgets/scroll_to_top_scope.dart";
 import "package:url_launcher/url_launcher.dart";
@@ -352,9 +353,9 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
           ),
         ),
         child: SizedBox(
-          height: 48,
+          height: kMainNoticeAiTagFilterBarHeight,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Align(
               alignment: Alignment.centerRight,
               child: TextButton(
@@ -376,65 +377,23 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
 
   Widget _buildCategoryChips(BuildContext context) {
     final ColorScheme scheme = Theme.of(context).colorScheme;
-    final bool isDark = Theme.of(context).brightness == Brightness.dark;
-    return Material(
-      color: scheme.surface,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(
-              color: scheme.outlineVariant.withValues(alpha: 0.35),
-            ),
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        border: Border(
+          bottom: BorderSide(
+            color: scheme.outlineVariant.withValues(alpha: 0.35),
           ),
         ),
-        child: SizedBox(
-          height: 48,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            itemCount: _categoryLabels.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 8),
-            itemBuilder: (BuildContext context, int i) {
-              final bool selected = _categoryIndex == i;
-              final Color bg = AppColors.noticeFilterChipBackground(
-                isDark: isDark,
-                selected: selected,
-              );
-              final Color fg = AppColors.noticeFilterChipForeground(
-                isDark: isDark,
-                selected: selected,
-              );
-              return Material(
-                color: bg,
-                animationDuration: Duration.zero,
-                borderRadius: BorderRadius.circular(999),
-                child: InkWell(
-                  splashFactory: NoSplash.splashFactory,
-                  highlightColor: Colors.transparent,
-                  onTap: () {
-                    if (_categoryIndex == i) return;
-                    setState(() => _categoryIndex = i);
-                  },
-                  borderRadius: BorderRadius.circular(999),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 6,
-                    ),
-                    child: Text(
-                      _categoryLabels[i],
-                      style: TextStyle(
-                        color: fg,
-                        fontSize: 13,
-                        fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
+      ),
+      child: MainNoticeAiTagChipBar(
+        chips: _categoryLabels,
+        selection: _categoryLabels[_categoryIndex],
+        onSelect: (String label) {
+          final int index = _categoryLabels.indexOf(label);
+          if (index < 0 || _categoryIndex == index) return;
+          setState(() => _categoryIndex = index);
+        },
       ),
     );
   }

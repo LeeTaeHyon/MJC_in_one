@@ -1,16 +1,16 @@
 # 환경 변수 확인 (없으면 기본값 설정)
-if (-not $envGEMINI_API_KEY) {
-    Write-Error GEMINI_API_KEY 환경변수가 비어 있습니다! 키를 먼저 설정해 주세요.
+if (-not $env:GEMINI_API_KEY) {
+    Write-Error "GEMINI_API_KEY 환경변수가 비어 있습니다! 키를 먼저 설정해 주세요."
     exit 1
 }
-if (-not $envGEMINI_MODEL) { $envGEMINI_MODEL = gemini-2.0-flash }
+if (-not $env:GEMINI_MODEL) { $env:GEMINI_MODEL = "gemini-2.0-flash" }
 
 # 기존 실패 로그가 있다면 초기화
 if (Test-Path gemini_failures.jsonl) { Remove-Item gemini_failures.jsonl }
 
 Write-Host ============================================== -ForegroundColor Cyan
 Write-Host 🤖 MJC 공지 AI 요약 통합 백필 자동화 스타트 -ForegroundColor Cyan
-Write-Host 🎯 사용 모델 $envGEMINI_MODEL -ForegroundColor Cyan
+Write-Host "🎯 사용 모델 $env:GEMINI_MODEL" -ForegroundColor Cyan
 Write-Host ============================================== -ForegroundColor Cyan
 
 # [1회차] 전체 게시판 기본 백필 시작

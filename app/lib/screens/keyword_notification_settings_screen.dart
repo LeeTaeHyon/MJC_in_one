@@ -3,6 +3,7 @@ import "package:mjc_in_one/notification_sources.dart";
 import "package:mjc_in_one/services/keyword_notification_detail.dart";
 import "package:mjc_in_one/services/user_data_repository.dart";
 import "package:mjc_in_one/utils/snack_bar_utils.dart";
+import "package:mjc_in_one/widgets/mjc_keyword_capsule.dart";
 import "package:shared_preferences/shared_preferences.dart";
 
 /// 푸시 알림용 키워드 등록·편집 화면.
@@ -20,6 +21,7 @@ class _KeywordNotificationSettingsScreenState
     extends State<KeywordNotificationSettingsScreen> {
   final TextEditingController _inputController = TextEditingController();
   List<String> _keywords = [];
+  Map<String, KeywordNotificationDetail> _keywordDetails = {};
   bool _editMode = false;
   final Set<String> _selected = {};
 
@@ -38,10 +40,48 @@ class _KeywordNotificationSettingsScreenState
 
   Future<void> _loadKeywords() async {
     final prefs = await SharedPreferences.getInstance();
+    final Map<String, KeywordNotificationDetail> details =
+        await loadAllKeywordNotificationDetails();
     if (!mounted) return;
     setState(() {
       _keywords = List<String>.from(prefs.getStringList("keywords") ?? []);
+      _keywordDetails = details;
     });
+  }
+
+  String _sourceSummaryFor(String keyword) =>
+      (_keywordDetails[keyword] ?? KeywordNotificationDetail.empty)
+          .sourceSummary;
+
+  Widget _keywordTitle(ThemeData theme, String kw) {
+    final ColorScheme scheme = theme.colorScheme;
+    final String sourceSummary = _sourceSummaryFor(kw);
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            kw,
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        if (sourceSummary.isNotEmpty) ...[
+          const SizedBox(width: 12),
+          Flexible(
+            child: Text(
+              sourceSummary,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
+              maxLines: 2,
+              textAlign: TextAlign.end,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ],
+    );
   }
 
   Future<void> _persistKeywords() async {
@@ -118,15 +158,16 @@ class _KeywordNotificationSettingsScreenState
     });
   }
 
-  void _onKeywordSettings(String keyword) {
+  Future<void> _onKeywordSettings(String keyword) async {
     final ColorScheme scheme = Theme.of(context).colorScheme;
-    showModalBottomSheet<void>(
+    await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
       backgroundColor: scheme.surface,
       builder: (ctx) => _KeywordDetailSheet(keyword: keyword),
     );
+    await _loadKeywords();
   }
 
   @override
@@ -233,12 +274,7 @@ class _KeywordNotificationSettingsScreenState
                               }
                             });
                           },
-                          title: Text(
-                            kw,
-                            style: theme.textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
+                          title: _keywordTitle(theme, kw),
                           controlAffinity: ListTileControlAffinity.leading,
                           contentPadding:
                               const EdgeInsets.symmetric(horizontal: 16),
@@ -247,12 +283,7 @@ class _KeywordNotificationSettingsScreenState
                       return ListTile(
                         contentPadding:
                             const EdgeInsets.symmetric(horizontal: 16),
-                        title: Text(
-                          kw,
-                          style: theme.textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
+                        title: _keywordTitle(theme, kw),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -407,17 +438,8 @@ class _KeywordDetailSheetState extends State<_KeywordDetailSheet> {
     await _save();
   }
 
-  String get _sourceSummary {
-    if (_selectedSourceIds.isEmpty) return "전체 출처";
-    if (_selectedSourceIds.length == kNotificationSourceIds.length) {
-      return "전체 출처";
-    }
-    return _selectedSourceIds
-        .map(notificationSourceChipLabelFromId)
-        .map(notificationSourceDisplayLabel)
-        .where((s) => s.isNotEmpty)
-        .join(", ");
-  }
+  String get _sourceSummary =>
+      keywordNotificationSourceSummary(_selectedSourceIds);
 
   @override
   Widget build(BuildContext context) {
@@ -572,14 +594,22 @@ class _KeywordDetailSheetState extends State<_KeywordDetailSheet> {
             ),
           ),
           if (_excludeKeywords.isNotEmpty) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
+            Text(
+              "등록된 제외 키워드 (${_excludeKeywords.length})",
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: scheme.onSurface,
+              ),
+            ),
+            const SizedBox(height: 10),
             Wrap(
               spacing: 8,
               runSpacing: 8,
               children: _excludeKeywords.map((String kw) {
-                return InputChip(
-                  label: Text(kw),
-                  onDeleted: () => _removeExcludeKeyword(kw),
+                return MjcKeywordCapsule(
+                  label: kw,
+                  onRemove: () => _removeExcludeKeyword(kw),
                 );
               }).toList(),
             ),

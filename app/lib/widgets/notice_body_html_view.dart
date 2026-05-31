@@ -1,10 +1,13 @@
 import "dart:async";
 
-import "package:flutter/foundation.dart" show kIsWeb;
+import "package:flutter/foundation.dart";
+import "package:flutter/gestures.dart";
 import "package:flutter/material.dart";
 import "package:mjc_in_one/widgets/notice_body_html_platform.dart";
 import "package:mjc_in_one/widgets/notice_html_image_viewer.dart";
 import "package:webview_flutter/webview_flutter.dart";
+import "package:webview_flutter_android/webview_flutter_android.dart";
+import "package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart";
 
 /// Firestore `body_html` 조각을 앱 테마에 맞춰 WebView 로 렌더합니다.
 class NoticeBodyHtmlView extends StatefulWidget {
@@ -52,7 +55,7 @@ class _NoticeBodyHtmlViewState extends State<NoticeBodyHtmlView> {
     final String viewType =
         "notice-body-html-${identityHashCode(this)}-${html.hashCode}";
     _webViewType = viewType;
-    final double height = _estimateWebFrameHeight();
+    final double height = _estimateContentHeight();
     registerNoticeBodyHtmlPlatformFrame(
       viewType: viewType,
       html: html,
@@ -65,13 +68,35 @@ class _NoticeBodyHtmlViewState extends State<NoticeBodyHtmlView> {
     }
   }
 
-  double _estimateWebFrameHeight() {
+  double _estimateContentHeight() {
+    final String html = widget.htmlFragment;
     final int imgCount =
-        RegExp(r"<img\b", caseSensitive: false).allMatches(widget.htmlFragment).length;
+        RegExp(r"<img\b", caseSensitive: false).allMatches(html).length;
+    final int textLen = html.replaceAll(RegExp(r"<[^>]+>"), "").trim().length;
+    double height = 120 + textLen * 0.55;
     if (imgCount > 0) {
-      return 520;
+      height += imgCount * 280;
     }
-    return 280;
+    return height.clamp(_minHeight, 12000);
+  }
+
+  void _requestHeightRemeasure() {
+    final WebViewController? controller = _controller;
+    if (controller == null) return;
+    unawaited(
+      controller.runJavaScript(
+        "window.__mjcSendHeight && window.__mjcSendHeight();",
+      ),
+    );
+  }
+
+  void _scheduleHeightRemeasures() {
+    for (final int delayMs in <int>[0, 150, 400, 800, 1500, 2500]) {
+      Future<void>.delayed(Duration(milliseconds: delayMs), () {
+        if (!mounted) return;
+        _requestHeightRemeasure();
+      });
+    }
   }
 
   @override
@@ -98,7 +123,17 @@ class _NoticeBodyHtmlViewState extends State<NoticeBodyHtmlView> {
   void _createController() {
     if (_controller != null) return;
 
-    final WebViewController controller = WebViewController()
+    late final PlatformWebViewControllerCreationParams controllerParams;
+    if (WebViewPlatform.instance is AndroidWebViewPlatform) {
+      controllerParams = AndroidWebViewControllerCreationParams();
+    } else if (WebViewPlatform.instance is WebKitWebViewPlatform) {
+      controllerParams = WebKitWebViewControllerCreationParams();
+    } else {
+      controllerParams = const PlatformWebViewControllerCreationParams();
+    }
+
+    final WebViewController controller =
+        WebViewController.fromPlatformCreationParams(controllerParams)
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(widget.colorScheme.surface)
       ..addJavaScriptChannel(
@@ -113,14 +148,8 @@ class _NoticeBodyHtmlViewState extends State<NoticeBodyHtmlView> {
         NavigationDelegate(
           onPageFinished: (_) {
             if (!mounted) return;
-            final WebViewController? webController = _controller;
-            if (webController != null) {
-              unawaited(
-                webController.runJavaScript(
-                  "window.__mjcSendHeight && window.__mjcSendHeight();",
-                ),
-              );
-            }
+            unawaited(_injectScrollPassthrough());
+            _scheduleHeightRemeasures();
             setState(() => _isLoading = false);
           },
           onWebResourceError: (WebResourceError error) {
@@ -139,6 +168,31 @@ class _NoticeBodyHtmlViewState extends State<NoticeBodyHtmlView> {
       );
 
     _controller = controller;
+    unawaited(_configurePlatformWebView(controller));
+  }
+
+  Future<void> _injectScrollPassthrough() async {
+    final WebViewController? controller = _controller;
+    if (controller == null) return;
+    await controller.runJavaScript("""
+(function () {
+  var style = document.createElement('style');
+  style.textContent =
+    'html, body { touch-action: none !important; overscroll-behavior: none !important; overflow: hidden !important; }';
+  document.head.appendChild(style);
+  document.addEventListener('touchmove', function (event) {
+    if (event.cancelable) event.preventDefault();
+  }, { passive: false });
+})();
+""");
+  }
+
+  Future<void> _configurePlatformWebView(WebViewController controller) async {
+    final platform = controller.platform;
+    if (!platform.supportsSetScrollBarsEnabled()) return;
+    await platform.setVerticalScrollBarEnabled(false);
+    await platform.setHorizontalScrollBarEnabled(false);
+    await platform.setOverScrollMode(WebViewOverScrollMode.never);
   }
 
   Future<void> _reloadContent() async {
@@ -148,7 +202,7 @@ class _NoticeBodyHtmlViewState extends State<NoticeBodyHtmlView> {
 
     if (mounted) {
       setState(() {
-        _webViewHeight = _minHeight;
+        _webViewHeight = _estimateContentHeight();
         _isLoading = true;
       });
     }
@@ -184,7 +238,9 @@ class _NoticeBodyHtmlViewState extends State<NoticeBodyHtmlView> {
     _heightDebounce?.cancel();
     _heightDebounce = Timer(const Duration(milliseconds: 120), () {
       if (!mounted) return;
-      if ((_webViewHeight - clamped).abs() < 2) {
+      final bool shouldExpand = clamped > _webViewHeight + 1;
+      final bool changedEnough = (_webViewHeight - clamped).abs() >= 2;
+      if (!shouldExpand && !changedEnough) {
         if (_isLoading) setState(() => _isLoading = false);
         return;
       }
@@ -221,6 +277,8 @@ class _NoticeBodyHtmlViewState extends State<NoticeBodyHtmlView> {
       background-color: $bg;
       color: $fg;
       overflow: hidden;
+      touch-action: none;
+      overscroll-behavior: none;
     }
     body {
       padding: 12px;
@@ -260,7 +318,8 @@ $fragment
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(function () {
       var h = measureHeight();
-      if (Math.abs(h - lastSentHeight) < 2) return;
+      if (h <= 0) return;
+      if (h <= lastSentHeight && Math.abs(h - lastSentHeight) < 2) return;
       lastSentHeight = h;
       if (window.$_heightChannelName) {
         window.$_heightChannelName.postMessage(String(h));
@@ -269,6 +328,16 @@ $fragment
   }
   window.__mjcSendHeight = sendHeight;
   window.addEventListener("load", sendHeight);
+  window.addEventListener("DOMContentLoaded", sendHeight);
+  if (window.ResizeObserver) {
+    new ResizeObserver(sendHeight).observe(document.body);
+  }
+  var remeasureCount = 0;
+  var remeasureTimer = setInterval(function () {
+    sendHeight();
+    remeasureCount += 1;
+    if (remeasureCount >= 12) clearInterval(remeasureTimer);
+  }, 250);
   function bindImage(img) {
     if (img.dataset.mjcBound === "1") return;
     img.dataset.mjcBound = "1";
@@ -300,6 +369,31 @@ $fragment
 </body>
 </html>
 """;
+  }
+
+  Widget _buildEmbeddedWebView(
+    BuildContext context,
+    WebViewController controller,
+  ) {
+    PlatformWebViewWidgetCreationParams params =
+        PlatformWebViewWidgetCreationParams(
+      controller: controller.platform,
+      layoutDirection: Directionality.of(context),
+      gestureRecognizers: const <Factory<OneSequenceGestureRecognizer>>{},
+    );
+
+    if (WebViewPlatform.instance is AndroidWebViewPlatform) {
+      params = AndroidWebViewWidgetCreationParams
+          .fromPlatformWebViewWidgetCreationParams(
+        params,
+        displayWithHybridComposition: true,
+      );
+    } else if (WebViewPlatform.instance is WebKitWebViewPlatform) {
+      params = WebKitWebViewWidgetCreationParams
+          .fromPlatformWebViewWidgetCreationParams(params);
+    }
+
+    return WebViewWidget.fromPlatformCreationParams(params: params);
   }
 
   @override
@@ -361,7 +455,7 @@ $fragment
         children: [
           SizedBox(
             height: _webViewHeight,
-            child: WebViewWidget(controller: controller),
+            child: _buildEmbeddedWebView(context, controller),
           ),
           if (_isLoading)
             Positioned.fill(

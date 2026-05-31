@@ -1,7 +1,10 @@
+import "dart:async";
+
 import "package:flutter/material.dart";
 import "package:mjc_in_one/services/user_data_repository.dart";
 import "package:mjc_in_one/utils/bookmark_added_feedback.dart";
-import "package:mjc_in_one/widgets/notice_search_result_card.dart";
+import "package:mjc_in_one/utils/mjc_snack_bar.dart";
+import "package:mjc_in_one/widgets/mjc_notice_list_item.dart";
 import "package:shared_preferences/shared_preferences.dart";
 
 List<String> _parseAiTagsForSearchCard(Map<String, dynamic> data) {
@@ -25,11 +28,13 @@ Future<void> showGlobalNoticeSearchSheet(
   String Function(Map<String, dynamic> item)? boardIdFor,
   String Function(Map<String, dynamic> item)? noticeKeyFor,
   Widget Function(Map<String, dynamic> item)? trailingFor,
+  bool secondaryLabelsOnNewLine = false,
 }) async {
   await showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
     showDragHandle: true,
+    useSafeArea: true,
     backgroundColor: Colors.transparent,
     builder: (BuildContext sheetContext) {
       return _GlobalNoticeSearchSheet(
@@ -42,6 +47,7 @@ Future<void> showGlobalNoticeSearchSheet(
         boardIdFor: boardIdFor,
         noticeKeyFor: noticeKeyFor,
         trailingFor: trailingFor,
+        secondaryLabelsOnNewLine: secondaryLabelsOnNewLine,
       );
     },
   );
@@ -58,6 +64,7 @@ class _GlobalNoticeSearchSheet extends StatefulWidget {
     this.boardIdFor,
     this.noticeKeyFor,
     this.trailingFor,
+    this.secondaryLabelsOnNewLine = false,
   });
 
   final List<Map<String, dynamic>> items;
@@ -69,16 +76,31 @@ class _GlobalNoticeSearchSheet extends StatefulWidget {
   final String Function(Map<String, dynamic> item)? boardIdFor;
   final String Function(Map<String, dynamic> item)? noticeKeyFor;
   final Widget Function(Map<String, dynamic> item)? trailingFor;
+  final bool secondaryLabelsOnNewLine;
 
   @override
   State<_GlobalNoticeSearchSheet> createState() =>
       _GlobalNoticeSearchSheetState();
 }
 
+class _SheetBookmarkFeedback {
+  const _SheetBookmarkFeedback({
+    required this.message,
+    this.actionLabel,
+    this.onAction,
+  });
+
+  final String message;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+}
+
 class _GlobalNoticeSearchSheetState extends State<_GlobalNoticeSearchSheet> {
   late final TextEditingController _controller = TextEditingController();
   final Map<String, Set<String>> _pinnedByBoard = {};
   final Map<String, Set<String>> _favoriteByBoard = {};
+  _SheetBookmarkFeedback? _feedback;
+  Timer? _feedbackDismissTimer;
 
   bool get _bookmarksEnabled =>
       widget.boardIdFor != null && widget.noticeKeyFor != null;
@@ -107,19 +129,45 @@ class _GlobalNoticeSearchSheetState extends State<_GlobalNoticeSearchSheet> {
     });
   }
 
+  void _clearBookmarkFeedback() {
+    _feedbackDismissTimer?.cancel();
+    _feedbackDismissTimer = null;
+    if (_feedback != null && mounted) {
+      setState(() => _feedback = null);
+    }
+  }
+
   void _showBookmarkFeedback({required bool adding, required bool wasPinned}) {
     if (!mounted) return;
+    _feedbackDismissTimer?.cancel();
+
+    final String message;
+    String? actionLabel;
+    VoidCallback? onAction;
     if (adding) {
-      showBookmarkAddedSnackBar(
-        context,
-        openPinnedTab: wasPinned,
-      );
+      message = wasPinned ? "고정되었습니다." : "저장되었습니다.";
+      actionLabel = "마이페이지에서 확인";
+      onAction = () {
+        _clearBookmarkFeedback();
+        Navigator.of(context).pop();
+        openMyPageBookmarkTab(context, openPinnedTab: wasPinned);
+      };
     } else {
-      showBookmarkRemovedSnackBar(
-        context,
-        wasPinned: wasPinned,
-      );
+      message =
+          wasPinned ? "상단 고정을 해제했습니다." : "즐겨찾기를 해제했습니다.";
     }
+
+    setState(() {
+      _feedback = _SheetBookmarkFeedback(
+        message: message,
+        actionLabel: actionLabel,
+        onAction: onAction,
+      );
+    });
+    _feedbackDismissTimer = Timer(
+      const Duration(milliseconds: 1500),
+      _clearBookmarkFeedback,
+    );
   }
 
   Future<void> _togglePinned(String boardId, String key) async {
@@ -168,8 +216,28 @@ class _GlobalNoticeSearchSheetState extends State<_GlobalNoticeSearchSheet> {
 
   @override
   void dispose() {
+    _feedbackDismissTimer?.cancel();
     _controller.dispose();
     super.dispose();
+  }
+
+  Widget _buildBookmarkFeedbackBanner(BuildContext context) {
+    final _SheetBookmarkFeedback? feedback = _feedback;
+    if (feedback == null) return const SizedBox.shrink();
+
+    return Material(
+      color: mjcSnackBarBackground(context),
+      borderRadius: BorderRadius.circular(12),
+      clipBehavior: Clip.antiAlias,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: mjcSnackBarContent(
+          message: feedback.message,
+          actionLabel: feedback.actionLabel,
+          onAction: feedback.onAction,
+        ),
+      ),
+    );
   }
 
   @override
@@ -183,106 +251,153 @@ class _GlobalNoticeSearchSheetState extends State<_GlobalNoticeSearchSheet> {
             return hay.contains(q);
           }).toList();
 
-    final Color surface = Theme.of(context).colorScheme.surface;
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color sheetBackground = isDark
+        ? scheme.surfaceContainerHigh
+        : scheme.surfaceContainerLow;
+    final Color cardBackground = scheme.surface;
+    final Color searchFieldBackground = isDark
+        ? scheme.surfaceContainerHighest
+        : scheme.surface;
+    final EdgeInsets viewInsets = MediaQuery.viewInsetsOf(context);
+    final double availableHeight =
+        MediaQuery.sizeOf(context).height - viewInsets.bottom;
+    final double sheetHeight = availableHeight * 0.72;
 
-    // Scaffold는 72% 높이로만 제한 — 전체 높이를 채우면 하단에 흰 여백이 생깁니다.
-    return FractionallySizedBox(
-      heightFactor: 0.72,
-      alignment: Alignment.bottomCenter,
-      child: Scaffold(
-        backgroundColor: surface,
-        body: Padding(
-          padding: EdgeInsets.only(
-            left: 16,
-            right: 16,
-            top: 8,
-            bottom: 12 + MediaQuery.viewInsetsOf(context).bottom,
-          ),
-          child: Column(
+    // 바텀시트 안에 Scaffold를 두면 키보드 올라올 때 viewInsets가 이중 적용되어
+    // 흰 배경이 화면을 덮습니다. Material + 고정 높이로만 구성합니다.
+    return Padding(
+      padding: EdgeInsets.only(bottom: viewInsets.bottom),
+      child: Material(
+        color: sheetBackground,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+        clipBehavior: Clip.antiAlias,
+        child: SizedBox(
+          height: sheetHeight,
+          child: Stack(
+            clipBehavior: Clip.none,
             children: [
-              TextField(
-                controller: _controller,
-                autofocus: true,
-                onChanged: (_) => setState(() {}),
-                decoration: InputDecoration(
-                  hintText: "검색어 입력",
-                  prefixIcon: const Icon(Icons.search_rounded),
-                  suffixIcon: IconButton(
-                    tooltip: "지우기",
-                    onPressed: () {
-                      _controller.clear();
-                      setState(() {});
-                    },
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide:
-                        BorderSide(color: widget.accentColor, width: 1.4),
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+                child: Column(
+                  children: [
+                    TextField(
+                      controller: _controller,
+                      autofocus: true,
+                      onChanged: (_) => setState(() {}),
+                      decoration: InputDecoration(
+                        hintText: "검색어 입력",
+                        filled: true,
+                        fillColor: searchFieldBackground,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 12,
+                        ),
+                        prefixIcon: const Icon(Icons.search_rounded),
+                        suffixIcon: IconButton(
+                          tooltip: "지우기",
+                          onPressed: () {
+                            _controller.clear();
+                            setState(() {});
+                          },
+                          icon: const Icon(Icons.close_rounded),
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Expanded(
+                      child: filtered.isEmpty
+                          ? Center(
+                              child: Text(
+                                "검색 결과가 없습니다.",
+                                style: TextStyle(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurfaceVariant,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            )
+                          : ListView.builder(
+                              padding: const EdgeInsets.fromLTRB(4, 4, 4, 12),
+                              itemCount: filtered.length,
+                              itemBuilder: (context, idx) {
+                                final item = filtered[idx];
+                                final String rawTitle =
+                                    (item["title"] ?? "").toString().trim();
+                                final String title = rawTitle.isEmpty
+                                    ? "(제목 없음)"
+                                    : rawTitle;
+                                final String? boardId = _bookmarksEnabled
+                                    ? widget.boardIdFor!(item)
+                                    : null;
+                                final String? key = _bookmarksEnabled
+                                    ? widget.noticeKeyFor!(item)
+                                    : null;
+                                final bool isPinned = boardId != null &&
+                                    key != null &&
+                                    (_pinnedByBoard[boardId] ??
+                                            const <String>{})
+                                        .contains(key);
+                                final bool isFavorite = boardId != null &&
+                                    key != null &&
+                                    (_favoriteByBoard[boardId] ??
+                                            const <String>{})
+                                        .contains(key);
+                                return MjcNoticeListItem(
+                                  title: title,
+                                  primaryLabel: widget.chipFor(item),
+                                  secondaryLabels:
+                                      _parseAiTagsForSearchCard(item),
+                                  secondaryLabelsOnNewLine:
+                                      widget.secondaryLabelsOnNewLine,
+                                  dateLabel: widget.dateFor(item),
+                                  brandColor: widget.accentColor,
+                                  surfaceColor: cardBackground,
+                                  isRead: false,
+                                  isPinned: isPinned,
+                                  isFavorite: isFavorite,
+                                  showPinFavorite: _bookmarksEnabled,
+                                  titleTrailing:
+                                      widget.trailingFor?.call(item),
+                                  onTap: () async {
+                                    Navigator.of(context).pop();
+                                    await widget.openItem(item);
+                                  },
+                                  onTogglePinned: boardId != null && key != null
+                                      ? () => _togglePinned(boardId, key)
+                                      : () {},
+                                  onToggleFavorite:
+                                      boardId != null && key != null
+                                          ? () => _toggleFavorite(boardId, key)
+                                          : () {},
+                                );
+                              },
+                            ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 12),
-              Expanded(
-                child: filtered.isEmpty
-                    ? Center(
-                        child: Text(
-                          "검색 결과가 없습니다.",
-                          style: TextStyle(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .onSurfaceVariant,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      )
-                    : ListView.builder(
-                        padding: const EdgeInsets.fromLTRB(4, 4, 4, 12),
-                        itemCount: filtered.length,
-                        itemBuilder: (context, idx) {
-                          final item = filtered[idx];
-                          final String title =
-                              (item["title"] ?? "").toString().trim();
-                          final String? boardId = _bookmarksEnabled
-                              ? widget.boardIdFor!(item)
-                              : null;
-                          final String? key = _bookmarksEnabled
-                              ? widget.noticeKeyFor!(item)
-                              : null;
-                          final bool isPinned = boardId != null &&
-                              key != null &&
-                              (_pinnedByBoard[boardId] ?? const <String>{})
-                                  .contains(key);
-                          final bool isFavorite = boardId != null &&
-                              key != null &&
-                              (_favoriteByBoard[boardId] ?? const <String>{})
-                                  .contains(key);
-                          return NoticeSearchResultCard(
-                            title: title,
-                            chipLabel: widget.chipFor(item),
-                            aiTags: _parseAiTagsForSearchCard(item),
-                            dateLine: widget.dateFor(item),
-                            accentColor: widget.accentColor,
-                            trailing: widget.trailingFor?.call(item),
-                            isPinned: isPinned,
-                            isFavorite: isFavorite,
-                            onTogglePinned: boardId != null && key != null
-                                ? () => _togglePinned(boardId, key)
-                                : null,
-                            onToggleFavorite: boardId != null && key != null
-                                ? () => _toggleFavorite(boardId, key)
-                                : null,
-                            onTap: () async {
-                              Navigator.of(context).pop();
-                              await widget.openItem(item);
-                            },
-                          );
-                        },
-                      ),
-              ),
+              if (_feedback != null)
+                Positioned(
+                  left: 16,
+                  right: 16,
+                  bottom: 12,
+                  child: _buildBookmarkFeedbackBanner(context),
+                ),
             ],
           ),
         ),

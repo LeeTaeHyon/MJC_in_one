@@ -13,8 +13,8 @@ import "package:mjc_in_one/utils/bookmark_added_feedback.dart";
 import "package:mjc_in_one/utils/notice_list_refresh_guard.dart";
 import "package:mjc_in_one/utils/mpu_program_dday.dart";
 import "package:mjc_in_one/perf_flags.dart";
+import "package:mjc_in_one/widgets/mjc_notice_list_item.dart";
 import "package:mjc_in_one/widgets/nested_scroll_refresh_indicator.dart";
-import "package:mjc_in_one/widgets/pin_favorite_buttons.dart";
 import "package:mjc_in_one/widgets/collapsed_hero_title.dart";
 import "package:mjc_in_one/widgets/global_notice_search_sheet.dart";
 import "package:mjc_in_one/widgets/main_navigation_scope.dart";
@@ -191,6 +191,7 @@ class _MpuScreenState extends State<MpuScreen> {
         context,
         items: items,
         accentColor: tokens.sourceMpu,
+        secondaryLabelsOnNewLine: true,
         openItem: (item) async {
           if (!mounted) return;
           await openMpuPortalForProgram(context, item);
@@ -207,6 +208,7 @@ class _MpuScreenState extends State<MpuScreen> {
         trailingFor: (item) => MpuDeadlineHomeStyleBadge(
           data: item,
           compactSecondLineFontSize: 14,
+          backgroundColor: tokens.sourceMpu,
         ),
         chipFor: (item) {
           final String b = (item["branch"] ?? "").toString().trim();
@@ -881,21 +883,8 @@ class _MpuListTabState extends State<_MpuListTab> {
     final ColorScheme scheme = Theme.of(context).colorScheme;
     final MjcSurfaceTokens tokens =
         Theme.of(context).extension<MjcSurfaceTokens>()!;
-    final bool isDark = Theme.of(context).brightness == Brightness.dark;
-    final Color readTitleColor = tokens.noticeReadTitle;
     final Color accent = tokens.sourceMpu;
     final Color completedColor = scheme.onSurfaceVariant;
-    final Color chipBackground = widget.showCompleted
-        ? tokens.surfaceContainer
-        : accent.withValues(alpha: isDark ? 0.18 : 0.12);
-    final Color chipForeground = widget.showCompleted ? completedColor : accent;
-    final bool isRead = !widget.showCompleted && _readKeys.contains(itemKey);
-    final Color titleColor = widget.showCompleted
-        ? completedColor
-        : (isRead ? readTitleColor : scheme.onSurface);
-    final Color stripColor = widget.showCompleted
-        ? completedColor
-        : (isRead ? scheme.onSurfaceVariant : accent);
     final Color dateColor = scheme.onSurfaceVariant;
     final String title = data["title"] ?? "";
     final String branch = data["branch"] ?? "";
@@ -912,6 +901,7 @@ class _MpuListTabState extends State<_MpuListTab> {
       return trimmed.startsWith("#") ? trimmed : "#$trimmed";
     }).toList();
     final String typeLabel = branch.trim().isEmpty ? "핵심역량" : branch.trim();
+    final bool isRead = !widget.showCompleted && _readKeys.contains(itemKey);
 
     final Widget dDayBadge = widget.showCompleted
         ? Opacity(
@@ -927,302 +917,59 @@ class _MpuListTabState extends State<_MpuListTab> {
             compactSecondLineFontSize: 14,
           );
 
-    Widget buildStack(List<Widget> children) {
-      children.addAll([
-        Positioned(
-          right: 12,
-          top: 10,
-          child: PinFavoriteButtons(
-            isPinned: isPinned,
-            isFavorite: isFavorite,
-            onTogglePinned: onTogglePinned,
-            onToggleFavorite: onToggleFavorite,
-          ),
+    final List<Widget> footer = <Widget>[
+      if (reg.isNotEmpty)
+        Row(
+          children: <Widget>[
+            Icon(Icons.calendar_today_outlined, size: 14, color: dateColor),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                "신청: $reg",
+                style: TextStyle(color: dateColor, fontSize: 13),
+              ),
+            ),
+          ],
         ),
-        Positioned(
-          right: 12,
-          bottom: 16,
-          child: dDayBadge,
+      if (edu.isNotEmpty) ...<Widget>[
+        if (reg.isNotEmpty) const SizedBox(height: 6),
+        Row(
+          children: <Widget>[
+            Icon(Icons.school_outlined, size: 14, color: dateColor),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                "교육: $edu",
+                style: TextStyle(color: dateColor, fontSize: 13),
+              ),
+            ),
+          ],
         ),
-      ]);
-      return Stack(children: children);
-    }
+      ],
+    ];
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Material(
-        color:
-            widget.showCompleted ? scheme.surfaceContainerLow : scheme.surface,
-        borderRadius: BorderRadius.circular(12),
-        elevation: (widget.showCompleted || _lowRaster) ? 0 : 2,
-        shadowColor: _lowRaster
-            ? Colors.transparent
-            : Colors.black.withValues(alpha: isDark ? 0.45 : 0.12),
-        clipBehavior: _lowRaster ? Clip.hardEdge : Clip.none,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(12),
-          onTap: () async {
-            await _markAsRead(itemKey);
-            if (!context.mounted) return;
-            await openMpuPortalForProgram(context, data);
-          },
-          child: _lowRaster
-              ? buildStack([
-                  Positioned(
-                    left: 0,
-                    top: 0,
-                    bottom: 0,
-                    child: Container(
-                      width: 4,
-                      decoration: BoxDecoration(
-                        color: stripColor,
-                        borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(12),
-                          bottomLeft: Radius.circular(12),
-                        ),
-                      ),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 16, 80, 80),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Wrap(
-                          spacing: 6,
-                          runSpacing: 6,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: chipBackground,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                typeLabel,
-                                style: TextStyle(
-                                  color: chipForeground,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                            ...tagLabels.map(
-                              (label) => Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: chipBackground,
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  label,
-                                  style: TextStyle(
-                                    color: chipForeground,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          title,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: titleColor,
-                            height: 1.4,
-                          ),
-                        ),
-                        if (reg.isNotEmpty) ...[
-                          const SizedBox(height: 12),
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.calendar_today_outlined,
-                                size: 14,
-                                color: dateColor,
-                              ),
-                              const SizedBox(width: 6),
-                              Expanded(
-                                child: Text(
-                                  "신청: $reg",
-                                  style: TextStyle(
-                                    color: dateColor,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                        if (edu.isNotEmpty) ...[
-                          const SizedBox(height: 6),
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.school_outlined,
-                                size: 14,
-                                color: dateColor,
-                              ),
-                              const SizedBox(width: 6),
-                              Expanded(
-                                child: Text(
-                                  "교육: $edu",
-                                  style: TextStyle(
-                                    color: dateColor,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ])
-              : ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  clipBehavior: Clip.hardEdge,
-                  child: buildStack([
-                    Positioned(
-                      left: 0,
-                      top: 0,
-                      bottom: 0,
-                      child: Container(
-                        width: 4,
-                        decoration: BoxDecoration(
-                          color: stripColor,
-                          borderRadius: const BorderRadius.only(
-                            topLeft: Radius.circular(12),
-                            bottomLeft: Radius.circular(12),
-                          ),
-                        ),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 16, 80, 80),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Wrap(
-                            spacing: 6,
-                            runSpacing: 6,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: chipBackground,
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  typeLabel,
-                                  style: TextStyle(
-                                    color: chipForeground,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                              ...tagLabels.map(
-                                (label) => Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: chipBackground,
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: Text(
-                                    label,
-                                    style: TextStyle(
-                                      color: chipForeground,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            title,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: titleColor,
-                              height: 1.4,
-                            ),
-                          ),
-                          if (reg.isNotEmpty) ...[
-                            const SizedBox(height: 12),
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.calendar_today_outlined,
-                                  size: 14,
-                                  color: dateColor,
-                                ),
-                                const SizedBox(width: 6),
-                                Expanded(
-                                  child: Text(
-                                    "신청: $reg",
-                                    style: TextStyle(
-                                      color: dateColor,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                          if (edu.isNotEmpty) ...[
-                            const SizedBox(height: 6),
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.school_outlined,
-                                  size: 14,
-                                  color: dateColor,
-                                ),
-                                const SizedBox(width: 6),
-                                Expanded(
-                                  child: Text(
-                                    "교육: $edu",
-                                    style: TextStyle(
-                                      color: dateColor,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ]),
-                ),
-        ),
-      ),
+    return MjcNoticeListItem(
+      title: title,
+      primaryLabel: typeLabel,
+      secondaryLabels: tagLabels,
+      secondaryLabelsOnNewLine: true,
+      footer: footer,
+      brandColor: accent,
+      isRead: widget.showCompleted || isRead,
+      titleColor: widget.showCompleted ? completedColor : null,
+      surfaceColor:
+          widget.showCompleted ? scheme.surfaceContainerLow : scheme.surface,
+      elevation: (widget.showCompleted || _lowRaster) ? 0 : null,
+      titleTrailing: dDayBadge,
+      isPinned: isPinned,
+      isFavorite: isFavorite,
+      onTap: () async {
+        await _markAsRead(itemKey);
+        if (!context.mounted) return;
+        await openMpuPortalForProgram(context, data);
+      },
+      onTogglePinned: onTogglePinned,
+      onToggleFavorite: onToggleFavorite,
     );
   }
 }

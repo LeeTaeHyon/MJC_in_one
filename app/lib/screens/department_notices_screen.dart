@@ -10,7 +10,6 @@ import "package:mjc_in_one/models/community_notice_media.dart";
 import "package:mjc_in_one/services/community_notice_service.dart";
 import "package:mjc_in_one/services/department_slug_registry.dart";
 import "package:mjc_in_one/services/departments_list_service.dart";
-import "package:mjc_in_one/theme/app_colors.dart";
 import "package:mjc_in_one/theme/app_theme.dart";
 import "package:mjc_in_one/utils/community_notice_bookmarks.dart";
 import "package:mjc_in_one/utils/notice_bookmark_key.dart";
@@ -19,6 +18,11 @@ import "package:mjc_in_one/widgets/community_notice_list_tile.dart";
 import "package:mjc_in_one/widgets/main_navigation_scope.dart";
 import "package:mjc_in_one/widgets/scroll_to_top_scope.dart";
 import "package:shared_preferences/shared_preferences.dart";
+
+/// 학과 공지 UI 브랜드 색 (헤더 그라데이션·목록 액센트).
+const Color _kDeptNoticeOverlayTop = Color(0xFF55658D);
+const Color _kDeptNoticeOverlayBottom = Color(0xFF3E4C73);
+const Color _kDeptNoticeBrand = Color(0xFF3E4C73);
 
 /// 학과 공지 목록 (실험실).
 class DepartmentNoticesScreen extends StatefulWidget {
@@ -271,32 +275,93 @@ class _DepartmentNoticesScreenState extends State<DepartmentNoticesScreen> {
     open();
   }
 
+  BoxDecoration _guideCardDecoration(ColorScheme scheme, {required bool isDark}) {
+    return BoxDecoration(
+      color: scheme.surface,
+      borderRadius: BorderRadius.circular(12),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: isDark ? 0.45 : 0.05),
+          blurRadius: 2,
+          offset: const Offset(0, 1),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildGuideSectionTitle(
+    ThemeData theme,
+    ColorScheme scheme, {
+    required IconData icon,
+    required String title,
+  }) {
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: scheme.onSurfaceVariant),
+        const SizedBox(width: 6),
+        Text(
+          title,
+          style: theme.textTheme.labelLarge?.copyWith(
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildDisclaimerBanner() {
     final ThemeData theme = Theme.of(context);
     final ColorScheme scheme = theme.colorScheme;
-    final MjcSurfaceTokens tokens = theme.extension<MjcSurfaceTokens>()!;
     final bool isDark = theme.brightness == Brightness.dark;
+    const List<String> bullets = <String>[
+      "학과 공지는 학과 단톡·학과 안내 등을 운영진이 정리해 올린 참고용입니다.",
+      "학교 공식 홈페이지 공지와 다를 수 있으니 중요한 일정은 「본교」 탭을 확인하세요.",
+    ];
+    final TextStyle bulletStyle = theme.textTheme.bodySmall!.copyWith(
+      color: scheme.onSurfaceVariant,
+      height: 1.45,
+    );
+
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-      decoration: BoxDecoration(
-        color: scheme.surface,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.45 : 0.05),
-            blurRadius: 2,
-            offset: const Offset(0, 1),
-          ),
-        ],
-        border: Border(
-          left: BorderSide(color: tokens.sourceMjc, width: 4),
+      padding: const EdgeInsets.all(16),
+      decoration: _guideCardDecoration(scheme, isDark: isDark).copyWith(
+        border: Border.all(
+          color: scheme.primary.withValues(alpha: 0.28),
         ),
       ),
-      child: Text(
-        "학과 공지는 학과 단톡·학과 안내 등을 운영진이 정리해 올린 참고용입니다. "
-        "학교 공식 홈페이지 공지와 다를 수 있으니 중요한 일정은 「본교」 탭을 확인하세요.",
-        style: theme.textTheme.bodySmall?.copyWith(height: 1.45),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildGuideSectionTitle(
+            theme,
+            scheme,
+            icon: Icons.info_outline_rounded,
+            title: "학과 공지 안내",
+          ),
+          const SizedBox(height: 10),
+          ...bullets.map(
+            (text) => Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text(
+                      "•",
+                      style: bulletStyle.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(child: Text(text, style: bulletStyle)),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -341,42 +406,7 @@ class _DepartmentNoticesScreenState extends State<DepartmentNoticesScreen> {
                     ),
                   ),
                   SliverToBoxAdapter(child: _buildDisclaimerBanner()),
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                      child: DropdownButtonFormField<String>(
-                        key: ValueKey<String>(
-                          "${_departments.length}_${_selectedDepartment ?? "none"}",
-                        ),
-                        initialValue: _dropdownValue,
-                        isExpanded: true,
-                        decoration: InputDecoration(
-                          labelText: "학과",
-                          prefixIcon: const Icon(Icons.school_outlined),
-                          helperText: _loadingDepartments
-                              ? "학과 목록을 불러오는 중입니다."
-                              : (_selectedDepartment == null
-                                  ? "마이페이지에서 학과를 선택하거나 아래에서 고르세요."
-                                  : null),
-                        ),
-                        items: [
-                          for (final String department in _departments)
-                            DropdownMenuItem<String>(
-                              value: department,
-                              child: Text(department),
-                            ),
-                        ],
-                        onChanged: _loadingDepartments
-                            ? null
-                            : (String? value) async {
-                                setState(() => _selectedDepartment = value);
-                                await LabPrefs.setSelectedDepartment(
-                                    value ?? "");
-                                await _resolveSlugForSelection();
-                              },
-                      ),
-                    ),
-                  ),
+                  SliverToBoxAdapter(child: _buildDepartmentDropdown()),
                   if (_slugError != null)
                     SliverToBoxAdapter(
                       child: Padding(
@@ -422,6 +452,111 @@ class _DepartmentNoticesScreenState extends State<DepartmentNoticesScreen> {
               );
             },
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDepartmentDropdown() {
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme scheme = theme.colorScheme;
+    final bool isDark = theme.brightness == Brightness.dark;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: _guideCardDecoration(scheme, isDark: isDark),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildGuideSectionTitle(
+              theme,
+              scheme,
+              icon: Icons.school_outlined,
+              title: "학과",
+            ),
+            const SizedBox(height: 12),
+            Container(
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: _dropdownValue,
+                  hint: Text(
+                    "학과 선택",
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                  isExpanded: true,
+                  icon: Icon(
+                    Icons.expand_more_rounded,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                  items: [
+                    for (final String department in _departments)
+                      DropdownMenuItem<String>(
+                        value: department,
+                        child: Row(
+                          children: [
+                            const Icon(Icons.school_outlined, size: 18),
+                            const SizedBox(width: 8),
+                            Expanded(child: Text(department)),
+                          ],
+                        ),
+                      ),
+                  ],
+                  selectedItemBuilder: (context) => [
+                    for (final String department in _departments)
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.school_outlined,
+                              size: 18,
+                              color: scheme.onSurface,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                department,
+                                style: theme.textTheme.bodyMedium,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                  onChanged: _loadingDepartments
+                      ? null
+                      : (String? value) async {
+                          setState(() => _selectedDepartment = value);
+                          await LabPrefs.setSelectedDepartment(value ?? "");
+                          await _resolveSlugForSelection();
+                        },
+                ),
+              ),
+            ),
+            if (_loadingDepartments || _selectedDepartment == null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  _loadingDepartments
+                      ? "학과 목록을 불러오는 중입니다."
+                      : "마이페이지에서 학과를 선택하거나 아래에서 고르세요.",
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+          ],
         ),
       ),
     );
@@ -515,6 +650,7 @@ class _DepartmentNoticesScreenState extends State<DepartmentNoticesScreen> {
                   date: (data["date"] as String?) ?? "",
                   imageUrl: thumb?.url,
                   imageStoragePath: thumb?.storagePath,
+                  brandColor: _kDeptNoticeBrand,
                   isRead: _readIds.contains(postId),
                   isPinned: _pinnedKeys.contains(key),
                   isFavorite: _favoriteKeys.contains(key),
@@ -547,6 +683,9 @@ class _DepartmentCollapsingHeaderDelegate
 
   static const double _collapsedBar = 52;
 
+  /// Collapsed 시 배너 패턴이 은은하게 비치도록 overlay 불투명도 (~90%).
+  static const double _collapsedOverlayOpacity = 0.90;
+
   @override
   double get maxExtent => topPadding + heroBody;
 
@@ -563,16 +702,21 @@ class _DepartmentCollapsingHeaderDelegate
         (maxExtent - shrinkOffset).clamp(minExtent, maxExtent);
     final double range = maxExtent - minExtent;
     final double t = range > 0 ? (shrinkOffset / range).clamp(0.0, 1.0) : 0.0;
+    final double overlayT = Curves.easeOutCubic.transform(t);
     final double u = Curves.easeInOut.transform(t);
-    final bool isDark = Theme.of(context).brightness == Brightness.dark;
-    final double bannerImageOpacity = (1.0 - u).clamp(0.0, 1.0);
-    final MjcSurfaceTokens tokens =
-        Theme.of(context).extension<MjcSurfaceTokens>()!;
-    final Color expandedHeroColor =
-        isDark ? const Color(0xFF073A8C) : AppColors.primary;
-    final Color collapsedHeroColor = tokens.dashboardGradients[0][0];
-    final Color heroColor =
-        Color.lerp(expandedHeroColor, collapsedHeroColor, u)!;
+    final double overlayOpacity =
+        lerpDouble(0.0, _collapsedOverlayOpacity, overlayT)!;
+    final Alignment imageAlignment = Alignment.lerp(
+      Alignment.center,
+      const Alignment(0, -0.35),
+      overlayT,
+    )!;
+    final double bannerScale = lerpDouble(1.04, 1.02, overlayT)!;
+    final double bottomOverlayOpacity = lerpDouble(
+      overlayOpacity,
+      (overlayOpacity + 0.08).clamp(0.0, 0.98),
+      Curves.easeIn.transform(((t - 0.90) / 0.10).clamp(0.0, 1.0)),
+    )!;
 
     return SizedBox(
       height: extent,
@@ -581,7 +725,7 @@ class _DepartmentCollapsingHeaderDelegate
         child: Stack(
           fit: StackFit.expand,
           children: [
-            ColoredBox(color: heroColor),
+            const ColoredBox(color: _kDeptNoticeOverlayTop),
             Positioned.fill(
               child: Builder(
                 builder: (BuildContext context) {
@@ -590,12 +734,13 @@ class _DepartmentCollapsingHeaderDelegate
                   final int cw = (size.width * dpr).round().clamp(1, 4096);
                   final int ch =
                       ((topPadding + heroBody) * dpr).round().clamp(1, 4096);
-                  return Opacity(
-                    opacity: bannerImageOpacity,
+                  return Transform.scale(
+                    scale: bannerScale,
+                    alignment: imageAlignment,
                     child: Image.asset(
                       "assets/images/dep.png",
                       fit: BoxFit.cover,
-                      alignment: Alignment.center,
+                      alignment: imageAlignment,
                       width: double.infinity,
                       height: double.infinity,
                       cacheWidth: cw,
@@ -605,6 +750,22 @@ class _DepartmentCollapsingHeaderDelegate
                     ),
                   );
                 },
+              ),
+            ),
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: <Color>[
+                      _kDeptNoticeOverlayTop.withValues(alpha: overlayOpacity),
+                      _kDeptNoticeOverlayBottom.withValues(
+                        alpha: bottomOverlayOpacity,
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
             SafeArea(

@@ -3,6 +3,7 @@ import "package:mjc_in_one/screens/ctl_screen.dart";
 import "package:mjc_in_one/screens/department_notices_screen.dart";
 import "package:mjc_in_one/screens/main_website_screen.dart";
 import "package:mjc_in_one/screens/mpu_screen.dart";
+import "package:mjc_in_one/widgets/mjc_directional_screen_transition.dart";
 
 enum NoticesSubTab {
   main,
@@ -53,6 +54,7 @@ class NoticesTabScreen extends StatefulWidget {
 
 class _NoticesTabScreenState extends State<NoticesTabScreen> {
   NoticesSubTab _current = NoticesSubTab.main;
+  int _slideDirection = 1;
 
   @override
   void initState() {
@@ -80,13 +82,22 @@ class _NoticesTabScreenState extends State<NoticesTabScreen> {
   void _handleRequestedSubTab() {
     final NoticesSubTab next = widget.subTabNotifier.value;
     if (next == _current || !mounted) return;
-    setState(() => _current = next);
+    setState(() {
+      _slideDirection = MjcDirectionalScreenTransition.directionForStep(
+        _current.index,
+        next.index,
+      );
+      _current = next;
+    });
   }
 
   Widget _buildCurrent() {
     switch (_current) {
       case NoticesSubTab.main:
-        return const MainWebsiteScreen(activeInNoticesTab: true);
+        return MainWebsiteScreen(
+          activeInNoticesTab: true,
+          noticeSubTabNotifier: widget.subTabNotifier,
+        );
       case NoticesSubTab.ctl:
         return const CtlScreen(activeInNoticesTab: true);
       case NoticesSubTab.mpu:
@@ -101,14 +112,10 @@ class _NoticesTabScreenState extends State<NoticesTabScreen> {
     // NOTE: `IndexedStack`는 각 화면 상태(스크롤/탭)를 유지합니다.
     // 공지 플로팅 서브탭 전환 시마다 초기화되게 하려면, 선택된 화면만 빌드하고
     // 전환 시 이전 화면이 dispose 되도록 구성합니다.
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 180),
-      switchInCurve: Curves.easeOutCubic,
-      switchOutCurve: Curves.easeInCubic,
-      child: KeyedSubtree(
-        key: ValueKey<NoticesSubTab>(_current),
-        child: _buildCurrent(),
-      ),
+    return MjcDirectionalScreenTransition.animatedSwitcher(
+      activeKey: _current,
+      direction: _slideDirection,
+      child: _buildCurrent(),
     );
   }
 }

@@ -72,7 +72,7 @@ const Color _kHomeDarkMoreText = Color(0xFFA3A3A3);
 const Color _kHomeLightMoreText = Color(0xFF9CA3AF);
 
 class HomeDashboardScreen extends StatefulWidget {
-  final void Function(int, {NoticesSubTab? noticesSubTab}) onNavigate;
+  final MainNavigationNavigate onNavigate;
 
   const HomeDashboardScreen({
     super.key,
@@ -451,7 +451,9 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
     _loadDashboardSectionOrder();
     _loadNoticeFilter();
     await _loadNotifBadge();
-    setState(() => _mpuProfileFuture = loadMpuProfile());
+    setState(() {
+      _mpuProfileFuture = loadMpuProfile();
+    });
   }
 
   /// 스크롤해도 고정되는 최상단 브랜드 행(MJC ONE + 알림 + 더보기).
@@ -1293,7 +1295,10 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
                 ),
               ),
               const SizedBox(width: 12),
-              MpuDeadlineHomeStyleBadge(data: data),
+              MpuDeadlineHomeStyleBadge(
+                data: data,
+                compactSecondLineFontSize: 14,
+              ),
             ],
           ),
         ),

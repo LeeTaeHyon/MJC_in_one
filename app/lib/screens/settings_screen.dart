@@ -95,7 +95,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   int _estimatedCacheBytes = 0;
   bool _clearingCache = false;
-  bool _labDepartmentNoticesEnabled = false;
+  bool _labDepartmentNoticesEnabled = true;
 
   static const Duration _adminHiddenTapResetDelay = Duration(seconds: 2);
   int _adminHiddenTapCount = 0;

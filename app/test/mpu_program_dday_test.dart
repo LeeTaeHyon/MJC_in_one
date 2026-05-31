@@ -12,19 +12,36 @@ void main() {
       -88,
     );
     expect(mpuSiteSignedDDay({"d_day": "D-DAY"}), isNull);
+    expect(
+      mpuSiteSignedDDay({"d_day": "D\u221214"}),
+      14,
+    );
   });
 
-  test("mpuListingIsCompleted prefers crawled d_day over reg_date", () {
-    final Map<String, dynamic> active = {
+  test("mpuEffectiveDaysUntilDeadline prefers reg_date over stale d_day", () {
+    final Map<String, dynamic> staleActiveBadge = {
       "d_day": "D-14",
-      "reg_date": "2026.03.13(금) ~ 2026.03.29(일)",
+      "reg_date": "2020.01.01(수) ~ 2020.01.02(목)",
     };
-    final Map<String, dynamic> completed = {
+    final Map<String, dynamic> staleCompletedBadge = {
       "d_day": "D+60",
-      "reg_date": "2026.05.26(화) ~ 2026.06.12(금)",
+      "reg_date": "2099.12.01(월) ~ 2099.12.31(금)",
     };
 
-    expect(mpuListingIsCompleted(active), isFalse);
-    expect(mpuListingIsCompleted(completed), isTrue);
+    expect(mpuEffectiveDaysUntilDeadline(staleActiveBadge)! < 0, isTrue);
+    expect(mpuListingIsCompleted(staleActiveBadge), isTrue);
+    expect(mpuEffectiveDaysUntilDeadline(staleCompletedBadge)! > 0, isTrue);
+    expect(mpuListingIsCompleted(staleCompletedBadge), isFalse);
+  });
+
+  test("mpuEffectiveDaysUntilDeadline falls back to d_day without reg_date", () {
+    expect(
+      mpuEffectiveDaysUntilDeadline({"d_day": "D-14"}),
+      14,
+    );
+    expect(
+      mpuListingIsCompleted({"d_day": "D+60"}),
+      isTrue,
+    );
   });
 }

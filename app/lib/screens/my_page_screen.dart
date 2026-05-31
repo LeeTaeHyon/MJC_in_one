@@ -31,6 +31,8 @@ import "package:shared_preferences/shared_preferences.dart";
 import "package:url_launcher/url_launcher.dart";
 
 const Color _myPageDarkNeutralAccent = Color(0xFFF5F5F5);
+const Color _myPageSectionTitleColor = Color(0xFF374151);
+const Color _myPageSectionTitleColorDark = Color(0xFFD1D5DB);
 const Color _logoutActionColor = Color(0xFFE65100);
 
 class MyPageScreen extends StatefulWidget {
@@ -770,7 +772,6 @@ class _MyPageScreenState extends State<MyPageScreen> {
                       const _MyPageSectionHeader(
                         title: "고정·즐겨찾기 공지",
                         icon: Icons.bookmarks_outlined,
-                        neutralTitleInDarkMode: true,
                       ),
                       _myPageCard(
                         child: Column(
@@ -843,25 +844,27 @@ class _MyPageScreenState extends State<MyPageScreen> {
                           ],
                         ),
                       ),
-                      if (signedIn) ...[
-                        const SizedBox(height: 16),
-                        const _MyPageSectionHeader(
-                          title: "계정 설정",
-                          icon: Icons.manage_accounts_outlined,
-                        ),
-                        _myPageCard(
-                          child: Builder(
-                            builder: (BuildContext context) {
-                              final String profileSummary = [
-                                _mpuProfile.name.trim(),
-                                _mpuProfile.department.trim(),
-                                _mpuProfile.grade.trim(),
-                                _mpuProfile.studentId.trim(),
-                              ]
-                                  .where((String value) => value.isNotEmpty)
-                                  .join(" · ");
-                              return Column(
-                                children: [
+                      const SizedBox(height: 16),
+                      _MyPageSectionHeader(
+                        title: signedIn ? "계정 설정" : "프로필 설정",
+                        icon: signedIn
+                            ? Icons.manage_accounts_outlined
+                            : Icons.person_outline_rounded,
+                      ),
+                      _myPageCard(
+                        child: Builder(
+                          builder: (BuildContext context) {
+                            final String profileSummary = [
+                              _mpuProfile.name.trim(),
+                              _mpuProfile.department.trim(),
+                              _mpuProfile.grade.trim(),
+                              _mpuProfile.studentId.trim(),
+                            ]
+                                .where((String value) => value.isNotEmpty)
+                                .join(" · ");
+                            return Column(
+                              children: [
+                                if (signedIn) ...[
                                   ListTile(
                                     titleAlignment:
                                         ListTileTitleAlignment.center,
@@ -887,29 +890,28 @@ class _MyPageScreenState extends State<MyPageScreen> {
                                       height: 1,
                                       thickness: 1,
                                       color: _hairlineBorderColor()),
-                                  ListTile(
-                                    titleAlignment:
-                                        ListTileTitleAlignment.center,
-                                    leading: const Icon(
-                                        Icons.person_outline_rounded),
-                                    title: const Text(
-                                      "프로필 정보",
-                                      style: TextStyle(
-                                          fontWeight: FontWeight.w700),
-                                    ),
-                                    subtitle: profileSummary.isEmpty
-                                        ? null
-                                        : Text(profileSummary),
-                                    trailing:
-                                        const Icon(Icons.chevron_right_rounded),
-                                    onTap: _openProfileEditor,
-                                  ),
                                 ],
-                              );
-                            },
-                          ),
+                                ListTile(
+                                  titleAlignment: ListTileTitleAlignment.center,
+                                  leading: const Icon(
+                                      Icons.person_outline_rounded),
+                                  title: const Text(
+                                    "프로필 정보",
+                                    style:
+                                        TextStyle(fontWeight: FontWeight.w700),
+                                  ),
+                                  subtitle: profileSummary.isEmpty
+                                      ? null
+                                      : Text(profileSummary),
+                                  trailing:
+                                      const Icon(Icons.chevron_right_rounded),
+                                  onTap: _openProfileEditor,
+                                ),
+                              ],
+                            );
+                          },
                         ),
-                      ],
+                      ),
                       const SizedBox(height: 16),
                       _myPageCard(
                         child: InkWell(
@@ -1355,21 +1357,16 @@ class _MyPageSectionHeader extends StatelessWidget {
   const _MyPageSectionHeader({
     required this.title,
     this.icon,
-    this.neutralTitleInDarkMode = false,
   });
 
   final String title;
   final IconData? icon;
-  final bool neutralTitleInDarkMode;
 
   @override
   Widget build(BuildContext context) {
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
-    final Color accent = neutralTitleInDarkMode && isDark
-        ? _myPageDarkNeutralAccent
-        : Theme.of(context)
-            .extension<MjcComponentTokens>()!
-            .myPageBookmarkTabSelected;
+    final Color accent =
+        isDark ? _myPageSectionTitleColorDark : _myPageSectionTitleColor;
     return Padding(
       padding: const EdgeInsets.fromLTRB(2, 0, 2, 8),
       child: Row(

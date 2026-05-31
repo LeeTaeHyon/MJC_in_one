@@ -207,6 +207,7 @@ class NoticeFilterState {
 
     return items.where((Map<String, dynamic> item) {
       final String searchable = _normalize(_searchableText(item));
+      final String includeSearchable = _normalize(_titleAndBodyText(item));
       if (query.isNotEmpty && !searchable.contains(query)) return false;
 
       if (!enabled) return true;
@@ -217,7 +218,7 @@ class NoticeFilterState {
       if (!types.contains(type)) return false;
       if (normalizedExcludes.any(searchable.contains)) return false;
       if (normalizedIncludesOnly.isNotEmpty &&
-          !normalizedIncludesOnly.any(searchable.contains)) {
+          !normalizedIncludesOnly.any(includeSearchable.contains)) {
         return false;
       }
       if (requireKeywordHit &&
@@ -248,6 +249,13 @@ String _aiTagsSearchText(Map<String, dynamic> item) {
   final Object? v = item["ai_tags"];
   if (v is! List) return "";
   return v.map((e) => e.toString()).join(" ");
+}
+
+String _titleAndBodyText(Map<String, dynamic> item) {
+  return [
+    item["title"],
+    item["body"],
+  ].whereType<Object>().map((v) => v.toString()).join(" ");
 }
 
 String _searchableText(Map<String, dynamic> item) {

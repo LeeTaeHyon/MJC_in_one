@@ -2,6 +2,7 @@ import "package:flutter/material.dart";
 import "package:mjc_in_one/features/timetable/models/timetable_models.dart";
 import "package:mjc_in_one/features/timetable/widgets/timetable_manual_entry_sheet.dart";
 import "package:mjc_in_one/features/timetable/widgets/timetable_offering_schedule_text_block.dart";
+import "package:mjc_in_one/features/timetable/utils/timetable_grid_hours.dart";
 import "package:mjc_in_one/features/timetable/widgets/timetable_week_grid.dart";
 import "package:mjc_in_one/mpu_profile_prefs.dart";
 import "package:mjc_in_one/theme/app_theme.dart";
@@ -468,8 +469,9 @@ class _TimetableAddCoursesScreenState extends State<TimetableAddCoursesScreen> {
                           children: <Widget>[
                             TimetableWeekGrid(
                               slots: _previewSlots,
-                              startHour: 9,
-                              endHour: 18,
+                              startHour: kTimetableGridStartHour,
+                              endHour:
+                                  timetableGridEndHourForSlots(_previewSlots),
                               hourHeight: 44,
                               headerHeight: 22,
                               compact: true,

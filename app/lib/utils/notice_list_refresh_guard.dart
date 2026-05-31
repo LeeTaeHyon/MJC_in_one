@@ -1,5 +1,6 @@
 import "package:flutter/material.dart";
 import "package:mjc_in_one/utils/mjc_snack_bar.dart";
+import "package:mjc_in_one/widgets/main_navigation_scope.dart";
 
 /// Pull-to-refresh 연타로 Firestore read가 쏟아지는 것을 막는 화면별 쿨다운.
 class NoticeListRefreshGuard {
@@ -30,6 +31,7 @@ class NoticeListRefreshGuard {
       key: key,
       message:
           "방금 새로고침했어요. ${cooldown.inMinutes}분 후에 다시 시도해 주세요.",
+      margin: MainNavLayout.snackBarMargin(context),
     );
   }
 }

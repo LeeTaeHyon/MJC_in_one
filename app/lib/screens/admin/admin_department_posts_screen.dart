@@ -115,71 +115,84 @@ class _AdminDepartmentPostsScreenState extends State<AdminDepartmentPostsScreen>
 
     final bool canWrite = slug != null && _selectedDepartment != null;
 
-    return Material(
+    return ColoredBox(
       color: scheme.surface,
       child: Stack(
         children: [
           Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Padding(
-                padding: EdgeInsets.fromLTRB(
-                  isMobile ? 12 : 16,
-                  12,
-                  isMobile ? 12 : 16,
-                  8,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "학과 공지",
-                      style: theme.textTheme.titleLarge
-                          ?.copyWith(fontWeight: FontWeight.w800),
-                    ),
-                    const SizedBox(height: 10),
-                    DropdownButtonFormField<String>(
-                      key: ValueKey<String>(
-                        _selectedDepartment ?? "admin_dept_empty",
+              Material(
+                color: scheme.surface,
+                elevation: 1,
+                shadowColor: scheme.shadow.withValues(alpha: 0.08),
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    isMobile ? 12 : 16,
+                    12,
+                    isMobile ? 12 : 16,
+                    8,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "학과 공지",
+                        style: theme.textTheme.titleLarge
+                            ?.copyWith(fontWeight: FontWeight.w800),
                       ),
-                      initialValue: _selectedDepartment,
-                      isExpanded: true,
-                      decoration: InputDecoration(
-                        labelText: "학과",
-                        isDense: true,
-                        border: const OutlineInputBorder(),
-                        helperText: _loadingDepartments ? "불러오는 중…" : null,
-                      ),
-                      items: [
-                        for (final String d in _departments)
-                          DropdownMenuItem<String>(value: d, child: Text(d)),
-                      ],
-                      onChanged: _loadingDepartments
-                          ? null
-                          : (String? value) async {
-                              setState(() => _selectedDepartment = value);
-                              await _resolveSlug();
-                            },
-                    ),
-                    const SizedBox(height: 10),
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: SegmentedButton<String>(
-                        segments: const [
-                          ButtonSegment(value: "all", label: Text("전체")),
-                          ButtonSegment(value: "published", label: Text("게시")),
-                          ButtonSegment(value: "hidden", label: Text("숨김")),
+                      const SizedBox(height: 10),
+                      DropdownButtonFormField<String>(
+                        key: ValueKey<String>(
+                          _selectedDepartment ?? "admin_dept_empty",
+                        ),
+                        initialValue: _selectedDepartment,
+                        isExpanded: true,
+                        decoration: InputDecoration(
+                          labelText: "학과",
+                          isDense: true,
+                          filled: true,
+                          fillColor: scheme.surface,
+                          border: const OutlineInputBorder(),
+                          helperText: _loadingDepartments ? "불러오는 중…" : null,
+                        ),
+                        items: [
+                          for (final String d in _departments)
+                            DropdownMenuItem<String>(value: d, child: Text(d)),
                         ],
-                        selected: {_statusFilter},
-                        onSelectionChanged: (s) =>
-                            setState(() => _statusFilter = s.first),
+                        onChanged: _loadingDepartments
+                            ? null
+                            : (String? value) async {
+                                setState(() => _selectedDepartment = value);
+                                await _resolveSlug();
+                              },
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 10),
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: SegmentedButton<String>(
+                          segments: const [
+                            ButtonSegment(value: "all", label: Text("전체")),
+                            ButtonSegment(
+                              value: "published",
+                              label: Text("게시"),
+                            ),
+                            ButtonSegment(value: "hidden", label: Text("숨김")),
+                          ],
+                          selected: {_statusFilter},
+                          onSelectionChanged: (s) =>
+                              setState(() => _statusFilter = s.first),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
               Expanded(
-                child: slug == null
+                child: ClipRect(
+                  child: ColoredBox(
+                    color: scheme.surface,
+                    child: slug == null
                     ? const Center(child: Text("학과 slug를 찾을 수 없습니다."))
                     : StreamBuilder<
                         List<QueryDocumentSnapshot<Map<String, dynamic>>>>(
@@ -250,6 +263,8 @@ class _AdminDepartmentPostsScreenState extends State<AdminDepartmentPostsScreen>
                           );
                         },
                       ),
+                  ),
+                ),
               ),
             ],
           ),

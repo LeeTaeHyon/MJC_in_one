@@ -9,12 +9,12 @@ import "package:mjc_in_one/theme/app_theme.dart";
 import "package:mjc_in_one/utils/notice_share_text.dart";
 import "package:mjc_in_one/widgets/mjc_floating_pill_cta.dart";
 import "package:mjc_in_one/widgets/notice_body_html_view.dart";
-import "package:mjc_in_one/widgets/notice_report_sheet.dart";
+import "package:mjc_in_one/screens/notice_report_screen.dart";
+import "package:mjc_in_one/utils/mjc_snack_bar.dart";
+import "package:mjc_in_one/widgets/main_navigation_scope.dart";
+import "package:mjc_in_one/widgets/mjc_notice_list_item.dart";
 import "package:share_plus/share_plus.dart";
 import "package:url_launcher/url_launcher.dart";
-
-const Color _kNoticeAiTagBorderDark = Color(0xFFA3A3A3);
-const Color _kNoticeAiTagBorderLight = Color(0xFF9CA3AF);
 
 /// 공지 상세(요약 미리보기) 화면.
 ///
@@ -152,13 +152,25 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
   }
 
   Future<void> _showReportSheet() async {
-    if (_id.isEmpty || widget.boardId.isEmpty) return;
-    await showNoticeReportSheet(
+    if (_id.isEmpty || widget.boardId.isEmpty) {
+      showUniqueMjcSnackBar(
+        context,
+        key: "notice_report_invalid",
+        message: "이 글은 아직 신고할 수 없습니다.",
+        margin: MainNavLayout.snackBarMargin(context),
+      );
+      return;
+    }
+    await Navigator.push<void>(
       context,
-      boardId: widget.boardId,
-      postId: _id,
-      postTitle: _title,
-      postUrl: _url,
+      MaterialPageRoute<void>(
+        builder: (_) => NoticeReportScreen(
+          boardId: widget.boardId,
+          postId: _id,
+          postTitle: _title,
+          postUrl: _url,
+        ),
+      ),
     );
   }
 
@@ -178,6 +190,25 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
   };
 
   bool get _isMainBoardNotice => _mainBoardIds.contains(widget.boardId);
+
+  String _fallbackType() {
+    switch (widget.boardId) {
+      case "main_academic":
+        return "학사공지";
+      case "main_scholarship":
+        return "장학공지";
+      default:
+        return "공지사항";
+    }
+  }
+
+  String get _primaryLabel {
+    if (widget.boardId == "main_notice") return _fallbackType();
+    final String cat = _category.trim();
+    return cat.isNotEmpty ? cat : _fallbackType();
+  }
+
+  List<String> get _secondaryLabels => _aiTags;
 
   bool get _hasBodyHtml =>
       _isMainBoardNotice && _bodyHtml.trim().isNotEmpty;
@@ -340,10 +371,7 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
     ColorScheme scheme,
     MjcSurfaceTokens tokens,
   ) {
-    final List<String> tags = _aiTags;
     final bool isDark = theme.brightness == Brightness.dark;
-    final Color chipBg =
-        tokens.sourceMjc.withValues(alpha: isDark ? 0.18 : 0.12);
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -361,54 +389,25 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: chipBg,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  _category,
-                  style: TextStyle(
-                    color: tokens.sourceMjc,
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              ...tags.map(
-                (t) => Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: scheme.surfaceContainerHighest
-                        .withValues(alpha: 0.55),
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(
-                      color: isDark
-                          ? _kNoticeAiTagBorderDark
-                          : _kNoticeAiTagBorderLight,
-                    ),
-                  ),
-                  child: Text(
-                    t,
-                    style: TextStyle(
-                      color: scheme.onSurfaceVariant,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
-            ],
+          MjcNoticeListCategoryHeader(
+            primaryLabel: _primaryLabel,
+            secondaryLabels: _secondaryLabels,
+            accentColor: tokens.sourceMjc,
+            tagHighlightColor: tokens.sourceMjc,
+            selectedTag: "전체",
+            isPinned: _isPinned,
+            isFavorite: _isFavorite,
+            onTogglePinned: () {
+              setState(() => _isPinned = !_isPinned);
+              widget.onTogglePinned?.call();
+            },
+            onToggleFavorite: () {
+              setState(() => _isFavorite = !_isFavorite);
+              widget.onToggleFavorite?.call();
+            },
+            showActionIcons: false,
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           // 리스트에서는 maxLines로 잘리므로 상세(요약) 화면에서는 줄바꿈으로 전체 제목 표시.
           Text(
             _title,
@@ -566,10 +565,6 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
   }
 
   Widget _buildBodyPreviewCard(ThemeData theme, ColorScheme scheme) {
-    const int maxChars = 700;
-    final String preview =
-        _body.length <= maxChars ? _body : "${_body.substring(0, maxChars)}…";
-    final bool truncated = _body.length > maxChars;
     final bool isDark = theme.brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
@@ -593,7 +588,7 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
                   size: 18, color: scheme.onSurfaceVariant),
               const SizedBox(width: 6),
               Text(
-                "본문 미리보기",
+                "본문",
                 style: theme.textTheme.labelLarge?.copyWith(
                   fontWeight: FontWeight.w800,
                 ),
@@ -602,18 +597,9 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
           ),
           const SizedBox(height: 10),
           Text(
-            preview,
+            _body,
             style: theme.textTheme.bodyMedium?.copyWith(height: 1.55),
           ),
-          if (truncated) ...[
-            const SizedBox(height: 8),
-            Text(
-              "전체 본문은 본문 확인을 눌러 주세요.",
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: scheme.onSurfaceVariant,
-              ),
-            ),
-          ],
         ],
       ),
     );

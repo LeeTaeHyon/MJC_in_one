@@ -11,7 +11,7 @@ class LabPrefs {
   LabPrefs._();
 
   static final ValueNotifier<bool> departmentNoticesEnabled =
-      ValueNotifier<bool>(false);
+      ValueNotifier<bool>(true);
   static final ValueNotifier<String> selectedDepartment =
       ValueNotifier<String>("");
 
@@ -21,7 +21,7 @@ class LabPrefs {
     if (_loaded) return;
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     departmentNoticesEnabled.value =
-        prefs.getBool(kLabDepartmentNoticesEnabledPrefKey) ?? false;
+        prefs.getBool(kLabDepartmentNoticesEnabledPrefKey) ?? true;
     selectedDepartment.value =
         prefs.getString(kLabDepartmentNoticesSelectedDeptPrefKey) ?? "";
     _loaded = true;

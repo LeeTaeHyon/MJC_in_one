@@ -1,5 +1,4 @@
 import "dart:async";
-import "dart:ui" show ImageFilter;
 
 import "package:firebase_auth/firebase_auth.dart";
 import "package:flutter/material.dart";
@@ -17,6 +16,7 @@ import "package:mjc_in_one/debug/app_debug_flags.dart";
 import "package:mjc_in_one/debug/scroll_fab_debug.dart";
 import "package:mjc_in_one/utils/bookmark_added_feedback.dart";
 import "package:mjc_in_one/widgets/main_navigation_scope.dart";
+import "package:mjc_in_one/widgets/mjc_directional_screen_transition.dart";
 import "package:mjc_in_one/widgets/mjc_draggable_segment_pill_bar.dart";
 import "package:mjc_in_one/widgets/scroll_to_top_fab.dart";
 import "package:mjc_in_one/widgets/scroll_to_top_scope.dart";
@@ -31,11 +31,15 @@ class MainNavigationScreen extends StatefulWidget {
 }
 
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
-  static const double _bottomNavBarHeight = 64;
+  static const Duration _navSwapDuration = Duration(milliseconds: 280);
+  static const Curve _navSwapCurve = Curves.easeInOutCubic;
+  static const Offset _navHiddenSlideOffset = Offset(0, 1);
+
   static const double _bottomNavContentLiftFactor = 0.02;
   static const double _noticeSubNavHeight = 44;
   static const double _noticeSubNavBottomGap = 8;
   static const double _noticeSubNavFabGap = 16;
+  static const double _floatingNavBackSize = 36;
 
   static const List<_BottomNavItem> _bottomNavItems = <_BottomNavItem>[
     _BottomNavItem(
@@ -68,6 +72,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       Theme.of(context).extension<MjcComponentTokens>()!;
 
   int _index = 0;
+  /// 탭 전환 슬라이드 방향: +1 = 오른쪽→왼쪽(인덱스 증가), -1 = 왼쪽→오른쪽.
+  int _tabSlideDirection = 1;
   int _myPageBookmarkTabIndex = 0;
   int _myPageNavigateEpoch = 0;
   bool _noticeSubNavVisible = true;
@@ -85,11 +91,16 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     }
   }
 
+  void _handleNoticeSubTabChanged() {
+    if (mounted) setState(() {});
+  }
+
   @override
   void initState() {
     super.initState();
     LabPrefs.departmentNoticesEnabled
         .addListener(_onLabDepartmentNoticesChanged);
+    _noticeSubTab.addListener(_handleNoticeSubTabChanged);
     _authHydrateSubscription =
         AuthService.instance.authStateChanges().listen((User? user) async {
       // 첫 이벤트는 앱 재실행 시 기존 세션 복원이므로 프로필 입력을 띄우지 않는다.
@@ -335,6 +346,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   void dispose() {
     LabPrefs.departmentNoticesEnabled
         .removeListener(_onLabDepartmentNoticesChanged);
+    _noticeSubTab.removeListener(_handleNoticeSubTabChanged);
     _noticeSubNavRevealTimer?.cancel();
     _authHydrateSubscription?.cancel();
     _noticeSubTab.dispose();
@@ -378,6 +390,20 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     return index;
   }
 
+  void _setTabSlideDirection(int fromIndex, int toIndex) {
+    _tabSlideDirection =
+        MjcDirectionalScreenTransition.directionForStep(fromIndex, toIndex);
+  }
+
+  Widget _mainTabSlideTransition(Widget child, Animation<double> animation) {
+    return MjcDirectionalScreenTransition.transitionBuilder(
+      child: child,
+      animation: animation,
+      activeKey: _mainTabChildKey(_index),
+      direction: _tabSlideDirection,
+    );
+  }
+
   void _onMenuItemClick(
     int index, {
     NoticesSubTab? noticesSubTab,
@@ -398,6 +424,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     final bool tabChanged = index != _index;
     setState(() {
       if (tabChanged) {
+        _setTabSlideDirection(_index, index);
         if (index == 0) {
           _tabHistory.clear();
         } else {
@@ -412,20 +439,22 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     }
   }
 
-  /// 시스템 뒤로가기: 드로어·FAB 메뉴 닫기 → 이전 탭 → 앱 종료 순.
+  /// 시스템 뒤로가기: 이전 메인 탭 → (공지 서브탭 본교) → 앱 종료 순.
   void _onSystemPopInvoked(bool didPop, Object? result) {
     if (didPop) return;
 
+    if (_tabHistory.isNotEmpty) {
+      setState(() {
+        final int fromIndex = _index;
+        _index = _tabHistory.removeLast();
+        _setTabSlideDirection(fromIndex, _index);
+      });
+      _syncScrollCoordinatorTab();
+      return;
+    }
     if (_index == MainNavTabIndex.notices &&
         _noticeSubTab.value != NoticesSubTab.main) {
       _noticeSubTab.value = NoticesSubTab.main;
-      return;
-    }
-    if (_tabHistory.isNotEmpty) {
-      setState(() {
-        _index = _tabHistory.removeLast();
-      });
-      _syncScrollCoordinatorTab();
       return;
     }
     SystemNavigator.pop();
@@ -434,12 +463,16 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   @override
   Widget build(BuildContext context) {
     final Color scaffoldBackground = Theme.of(context).scaffoldBackgroundColor;
+    final bool noticesFloatingNav = _index == MainNavTabIndex.notices;
     return MainNavigationScope(
       navigate: _onMenuItemClick,
+      noticesFloatingNav: noticesFloatingNav,
       child: ValueListenableBuilder<int>(
         valueListenable: bookmarkSnackBarSubnavSuppressionCount,
         builder: (context, snackbarSuppression, _) {
-          final bool showNoticeSubChrome = _index == MainNavTabIndex.notices &&
+          final bool showNoticeSubChrome = !noticesFloatingNav &&
+              _index == MainNavTabIndex.notices &&
+              _noticeSubTab.value != NoticesSubTab.main &&
               _noticeSubNavVisible &&
               snackbarSuppression == 0;
           return PopScope(
@@ -453,46 +486,47 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                   extendBody: true,
                   body: Stack(
                     children: [
-                      // 1. 메인 콘텐츠 영역 – 탭 전환 시 새로 생성(상태 유지하지 않음) + 전환 애니메이션.
                       Positioned.fill(
                         child: ColoredBox(
                           color: scaffoldBackground,
                           child: NotificationListener<ScrollNotification>(
                             onNotification: _handleMainScrollNotification,
-                            child: AnimatedSwitcher(
-                              duration: const Duration(milliseconds: 220),
+                            child: ClipRect(
+                              child: AnimatedSwitcher(
+                              duration:
+                                  MjcDirectionalScreenTransition.duration,
                               switchInCurve: Curves.easeOutCubic,
                               switchOutCurve: Curves.easeInCubic,
                               layoutBuilder: (Widget? currentChild,
                                   List<Widget> previousChildren) {
                                 return Stack(
                                   fit: StackFit.expand,
+                                  clipBehavior: Clip.hardEdge,
                                   children: <Widget>[
                                     ...previousChildren,
                                     if (currentChild != null) currentChild,
                                   ],
                                 );
                               },
-                              transitionBuilder: (child, animation) {
-                                final CurvedAnimation fade = CurvedAnimation(
-                                  parent: animation,
-                                  curve: Curves.easeOutCubic,
-                                );
-                                // 기본 페이드 인/아웃만 사용 (슬라이드 제거).
-                                return FadeTransition(
-                                    opacity: fade, child: child);
-                              },
+                              transitionBuilder: _mainTabSlideTransition,
                               child: KeyedSubtree(
                                 key: ValueKey<Object>(_mainTabChildKey(_index)),
                                 child: _buildMainTab(_index),
                               ),
+                            ),
                             ),
                           ),
                         ),
                       ),
                     ],
                   ),
-                  bottomNavigationBar: _buildBottomAppBar(),
+                  bottomNavigationBar: null,
+                ),
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: _buildAnimatedBottomNavSwitcher(noticesFloatingNav),
                 ),
                 Positioned(
                   left: 18,
@@ -539,79 +573,258 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     );
   }
 
+  Widget _buildAnimatedBottomNavSwitcher(bool showNoticeNav) {
+    final double bottomSafe = MediaQuery.viewPaddingOf(context).bottom;
+    final double navSlotHeight = MainNavLayout.barHeight + bottomSafe;
+    Widget wrapNavSlot(Widget child) {
+      return SizedBox(
+        height: navSlotHeight,
+        width: double.infinity,
+        child: child,
+      );
+    }
+
+    return ClipRect(
+      child: SizedBox(
+        height: navSlotHeight,
+        child: Stack(
+          clipBehavior: Clip.hardEdge,
+          fit: StackFit.expand,
+          children: <Widget>[
+            AnimatedSlide(
+              duration: _navSwapDuration,
+              curve: _navSwapCurve,
+              offset: showNoticeNav ? _navHiddenSlideOffset : Offset.zero,
+              child: wrapNavSlot(
+                IgnorePointer(
+                  ignoring: showNoticeNav,
+                  child: _buildBottomAppBar(),
+                ),
+              ),
+            ),
+            AnimatedSlide(
+              duration: _navSwapDuration,
+              curve: _navSwapCurve,
+              offset: showNoticeNav ? Offset.zero : _navHiddenSlideOffset,
+              child: wrapNavSlot(
+                IgnorePointer(
+                  ignoring: !showNoticeNav,
+                  child: _buildBottomFloatingNoticeNav(),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildBottomAppBar() {
     final ColorScheme scheme = Theme.of(context).colorScheme;
     final MjcSurfaceTokens surfaceTokens =
         Theme.of(context).extension<MjcSurfaceTokens>()!;
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
-    final Color barColor =
-        scheme.surface.withValues(alpha: isDark ? 0.88 : 0.82);
-    return SafeArea(
-      top: false,
-      child: SizedBox(
-        height: MainNavLayout.barHeight,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 430),
-              child: SizedBox(
-                height: _bottomNavBarHeight,
+    final Color barColor = scheme.surface;
+    final double bottomSafe = MediaQuery.viewPaddingOf(context).bottom;
+    const BorderRadius topBarRadius = BorderRadius.only(
+      topLeft: Radius.circular(MainNavLayout.barTopCornerRadius),
+      topRight: Radius.circular(MainNavLayout.barTopCornerRadius),
+    );
+    final double slotHeight = MainNavLayout.barHeight + bottomSafe;
+    return SizedBox(
+      height: slotHeight,
+      width: double.infinity,
+      child: Stack(
+        fit: StackFit.expand,
+        children: <Widget>[
+          if (bottomSafe > 0)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: bottomSafe,
+              child: ColoredBox(color: barColor),
+            ),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: bottomSafe,
+            height: MainNavLayout.barHeight,
+            child: ClipRRect(
+              borderRadius: topBarRadius,
+              child: PhysicalModel(
+                color: barColor,
+                elevation: isDark ? 8 : 4,
+                shadowColor:
+                    Colors.black.withValues(alpha: isDark ? 0.35 : 0.08),
+                borderRadius: topBarRadius,
+                clipBehavior: Clip.antiAlias,
                 child: DecoratedBox(
                   decoration: BoxDecoration(
-                    borderRadius:
-                        BorderRadius.circular(_bottomNavBarHeight / 2),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black
-                            .withValues(alpha: isDark ? 0.46 : 0.16),
-                        blurRadius: 26,
-                        spreadRadius: -8,
-                        offset: const Offset(0, 12),
-                      ),
-                    ],
-                  ),
-                  child: ClipRRect(
-                    borderRadius:
-                        BorderRadius.circular(_bottomNavBarHeight / 2),
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-                      child: Material(
-                        color: barColor,
-                        shape: RoundedRectangleBorder(
-                          borderRadius:
-                              BorderRadius.circular(_bottomNavBarHeight / 2),
-                          side: BorderSide(
-                            color: surfaceTokens.hairline.withValues(
-                              alpha: isDark ? 0.62 : 0.76,
-                            ),
-                            width: 1,
-                          ),
-                        ),
-                        clipBehavior: Clip.antiAlias,
-                        child: MjcDraggableSegmentPillBar(
-                          segmentCount: _bottomNavItems.length,
-                          selectedIndex: _index,
-                          accentColor: _components.bottomNavSelected,
-                          isDark: isDark,
-                          horizontalPadding: 6,
-                          verticalPadding: 6,
-                          onSelectedIndexChanged: _onMenuItemClick,
-                          segmentBuilder: (context, index, selected, ___) {
-                            return _buildBottomNavSegment(
-                              item: _bottomNavItems[index],
-                              selected: selected,
-                            );
-                          },
+                    border: Border(
+                      top: BorderSide(
+                        color: surfaceTokens.hairline.withValues(
+                          alpha: isDark ? 0.45 : 0.55,
                         ),
                       ),
                     ),
+                  ),
+                  child: Row(
+                    children: <Widget>[
+                      for (final _BottomNavItem item in _bottomNavItems)
+                        Expanded(
+                          child: _BottomNavTapTarget(
+                            selected: _index == item.index,
+                            onTap: () => _onMenuItemClick(item.index),
+                            child: _buildBottomNavSegment(
+                              item: item,
+                              selected: _index == item.index,
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 ),
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBottomFloatingNoticeNav() {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final MjcSurfaceTokens surfaceTokens =
+        Theme.of(context).extension<MjcSurfaceTokens>()!;
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color accent = _components.bottomNavSelected;
+    final double bottomSafe = MediaQuery.viewPaddingOf(context).bottom;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        MainNavLayout.noticeFloatingPillHorizontalInset,
+        0,
+        MainNavLayout.noticeFloatingPillHorizontalInset,
+        bottomSafe,
+      ),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 430),
+          child: SizedBox(
+            height: MainNavLayout.barHeight,
+            child: PhysicalModel(
+              color: scheme.surface.withValues(alpha: isDark ? 0.96 : 1),
+              elevation: isDark ? 10 : 6,
+              shadowColor:
+                  Colors.black.withValues(alpha: isDark ? 0.42 : 0.14),
+              borderRadius:
+                  BorderRadius.circular(MainNavLayout.barHeight / 2),
+              clipBehavior: Clip.antiAlias,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color: surfaceTokens.hairline.withValues(
+                      alpha: isDark ? 0.55 : 0.65,
+                    ),
+                  ),
+                  borderRadius:
+                      BorderRadius.circular(MainNavLayout.barHeight / 2),
+                ),
+                child: Row(
+                    children: <Widget>[
+                      Padding(
+                        padding: const EdgeInsets.only(left: 8, right: 4),
+                        child: _FloatingNavBackButton(
+                          size: _floatingNavBackSize,
+                          onPressed: () => _onMenuItemClick(0),
+                        ),
+                      ),
+                      Expanded(
+                        child: ValueListenableBuilder<bool>(
+                          valueListenable: LabPrefs.departmentNoticesEnabled,
+                          builder: (context, labEnabled, _) {
+                            final List<NoticesSubTab> visibleTabs =
+                                visibleNoticeSubTabs(labEnabled);
+                            return ValueListenableBuilder<NoticesSubTab>(
+                              valueListenable: _noticeSubTab,
+                              builder: (context, current, __) {
+                                final int selectedIndex =
+                                    visibleIndexOfNoticeSubTab(
+                                        visibleTabs, current);
+                                return MjcDraggableSegmentPillBar(
+                                  segmentCount: visibleTabs.length,
+                                  selectedIndex: selectedIndex,
+                                  accentColor: accent,
+                                  isDark: isDark,
+                                  horizontalPadding: 4,
+                                  verticalPadding: 4,
+                                  showThumbWhenIdle: false,
+                                  onSelectedIndexChanged: (int index) {
+                                    final NoticesSubTab tab =
+                                        noticeSubTabFromVisibleIndex(
+                                            visibleTabs, index);
+                                    if (tab == current) return;
+                                    _noticeSubTab.value = tab;
+                                  },
+                                  segmentBuilder:
+                                      (context, index, selected, ___) {
+                                    final NoticesSubTab tab =
+                                        visibleTabs[index];
+                                    return _buildBottomFloatingNoticeSegment(
+                                      tab: tab,
+                                      selected: selected,
+                                      accent: accent,
+                                    );
+                                  },
+                                );
+                              },
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                    ],
+                ),
+              ),
+            ),
+          ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildBottomFloatingNoticeSegment({
+    required NoticesSubTab tab,
+    required bool selected,
+    required Color accent,
+  }) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final Color foreground =
+        selected ? accent : scheme.onSurfaceVariant;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Icon(
+            tab.icon,
+            size: selected ? 20 : 18,
+            color: foreground,
+          ),
+          const SizedBox(height: 2),
+          Text(
+            tab.label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: foreground,
+              fontSize: 10,
+              height: 1,
+              fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -715,34 +928,99 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     final ColorScheme scheme = Theme.of(context).colorScheme;
     final Color selectedColor = _components.bottomNavSelected;
     return Transform.translate(
-      offset:
-          const Offset(0, -_bottomNavBarHeight * _bottomNavContentLiftFactor),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            selected
-                ? BouncyIcon(
-                    item.selectedIcon,
-                    color: selectedColor,
-                    size: 22,
-                  )
-                : Icon(item.icon, color: scheme.onSurfaceVariant, size: 22),
-            Text(
-              item.label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 12,
-                height: 1.05,
-                color:
-                    selected ? selectedColor : _components.bottomNavUnselected,
-                fontWeight: selected ? FontWeight.bold : FontWeight.normal,
-              ),
+      offset: const Offset(
+        0,
+        -MainNavLayout.barHeight * _bottomNavContentLiftFactor,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          selected
+              ? BouncyIcon(
+                  item.selectedIcon,
+                  color: selectedColor,
+                  size: 24,
+                )
+              : Icon(item.icon, color: scheme.onSurfaceVariant, size: 24),
+          const SizedBox(height: 3),
+          Text(
+            item.label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 11,
+              height: 1.05,
+              color:
+                  selected ? selectedColor : _components.bottomNavUnselected,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
             ),
-          ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BottomNavTapTarget extends StatelessWidget {
+  const _BottomNavTapTarget({
+    required this.selected,
+    required this.onTap,
+    required this.child,
+  });
+
+  final bool selected;
+  final VoidCallback onTap;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        splashFactory: NoSplash.splashFactory,
+        highlightColor: Colors.transparent,
+        child: Semantics(
+          button: true,
+          selected: selected,
+          child: Center(child: child),
+        ),
+      ),
+    );
+  }
+}
+
+class _FloatingNavBackButton extends StatelessWidget {
+  const _FloatingNavBackButton({
+    required this.size,
+    required this.onPressed,
+  });
+
+  final double size;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    return Material(
+      color: scheme.surfaceContainerHighest.withValues(
+        alpha: isDark ? 0.55 : 0.85,
+      ),
+      shape: const CircleBorder(),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onPressed,
+        customBorder: const CircleBorder(),
+        child: SizedBox(
+          width: size,
+          height: size,
+          child: Icon(
+            Icons.arrow_back_rounded,
+            size: 20,
+            color: scheme.onSurface,
+          ),
         ),
       ),
     );

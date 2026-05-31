@@ -110,12 +110,32 @@ def _should_process(
     resummary_flagged: bool,
     reported_only: bool,
     summary_only: bool = False,
+    missing_ai_only: bool = False,
 ) -> bool:
     if reported_only:
         rc = int(data.get("reports_count") or 0)
-        return rc > 0
-    if resummary_flagged:
-        return bool(data.get("needs_resummary"))
+        if rc <= 0:
+            return False
+    elif resummary_flagged:
+        if not data.get("needs_resummary"):
+            return False
+
+    # AI 요약이 이미 되어 있으면 스킵
+    if missing_ai_only:
+        sv = str(data.get("summary_version") or "").strip()
+        if sv.startswith("gemini"):
+            return False
+        
+        # AI 요약이 없는데 summary_only 라면 기존 본문이 있어야 함
+        if summary_only:
+            body = data.get("body")
+            body_html = data.get("body_html")
+            return bool(str(body or "").strip() or str(body_html or "").strip())
+        return True
+
+    if reported_only or resummary_flagged:
+        return True
+
     if summary_only:
         if force:
             return True
@@ -290,6 +310,7 @@ def backfill_one_board(
     firestore_page_size: int = 100,
     body_only: bool = False,
     summary_only: bool = False,
+    missing_ai_only: bool = False,
 ) -> tuple[int, str | None]:
     """Returns (processed_count, last_processed_doc_id_if_any).
 
@@ -337,6 +358,7 @@ def backfill_one_board(
                 resummary_flagged=resummary_flagged,
                 reported_only=reported_only,
                 summary_only=summary_only,
+                missing_ai_only=missing_ai_only,
             ):
                 continue
             if reported_only and not _has_open_report_for(db, board_id, doc.id):
@@ -573,6 +595,11 @@ def main() -> None:
         help="Gemini Flash 로 요약 생성 (GEMINI_API_KEY 필요)",
     )
     ap.add_argument(
+        "--missing-ai-only",
+        action="store_true",
+        help="AI 요약이 생성되지 않았거나 Heuristic 요약만 있는 문서만 처리",
+    )
+    ap.add_argument(
         "--gemini-api-key",
         default=os.environ.get("GEMINI_API_KEY", ""),
         help="Gemini API 키 (미지정 시 GEMINI_API_KEY 환경변수)",
@@ -715,6 +742,7 @@ def main() -> None:
             firestore_page_size=fs_page,
             body_only=args.body_only,
             summary_only=args.summary_only,
+            missing_ai_only=args.missing_ai_only,
         )
         total += n
         # 여러 보드 순회 시 start-after 는 첫 보드에만 적용 (의도적)
