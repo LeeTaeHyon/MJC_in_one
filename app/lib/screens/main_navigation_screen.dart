@@ -31,12 +31,38 @@ class MainNavigationScreen extends StatefulWidget {
 }
 
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
-  static const double _bottomNavHeight = 82;
   static const double _bottomNavBarHeight = 64;
-  static const double _bottomNavContentLiftFactor = 0.05;
+  static const double _bottomNavContentLiftFactor = 0.02;
   static const double _noticeSubNavHeight = 44;
   static const double _noticeSubNavBottomGap = 8;
   static const double _noticeSubNavFabGap = 16;
+
+  static const List<_BottomNavItem> _bottomNavItems = <_BottomNavItem>[
+    _BottomNavItem(
+      index: MainNavTabIndex.home,
+      icon: Icons.home_outlined,
+      selectedIcon: Icons.home,
+      label: "홈",
+    ),
+    _BottomNavItem(
+      index: MainNavTabIndex.notices,
+      icon: Icons.campaign_outlined,
+      selectedIcon: Icons.campaign_rounded,
+      label: "공지",
+    ),
+    _BottomNavItem(
+      index: MainNavTabIndex.timetable,
+      icon: Icons.calendar_month_outlined,
+      selectedIcon: Icons.calendar_month_rounded,
+      label: "시간표",
+    ),
+    _BottomNavItem(
+      index: MainNavTabIndex.mypage,
+      icon: Icons.person_outline_rounded,
+      selectedIcon: Icons.person_rounded,
+      label: "마이페이지",
+    ),
+  ];
 
   MjcComponentTokens get _components =>
       Theme.of(context).extension<MjcComponentTokens>()!;
@@ -471,8 +497,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                 Positioned(
                   left: 18,
                   right: 18,
-                  bottom: MediaQuery.paddingOf(context).bottom +
-                      _bottomNavHeight +
+                  bottom: MainNavLayout.bottomInset(context) +
                       _noticeSubNavBottomGap,
                   child: IgnorePointer(
                     ignoring: !showNoticeSubChrome,
@@ -495,8 +520,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                   duration: const Duration(milliseconds: 220),
                   curve: Curves.easeOutCubic,
                   right: 14,
-                  bottom: MediaQuery.paddingOf(context).bottom +
-                      _bottomNavHeight +
+                  bottom: MainNavLayout.bottomInset(context) +
                       10 +
                       (showNoticeSubChrome
                           ? _noticeSubNavBottomGap +
@@ -525,7 +549,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     return SafeArea(
       top: false,
       child: SizedBox(
-        height: _bottomNavHeight,
+        height: MainNavLayout.barHeight,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
           child: Center(
@@ -565,42 +589,20 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                           ),
                         ),
                         clipBehavior: Clip.antiAlias,
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Expanded(
-                              child: _buildNavTab(
-                                MainNavTabIndex.home,
-                                Icons.home_outlined,
-                                Icons.home,
-                                "홈",
-                              ),
-                            ),
-                            Expanded(
-                              child: _buildNavTab(
-                                MainNavTabIndex.notices,
-                                Icons.campaign_outlined,
-                                Icons.campaign_rounded,
-                                "공지",
-                              ),
-                            ),
-                            Expanded(
-                              child: _buildNavTab(
-                                MainNavTabIndex.timetable,
-                                Icons.calendar_month_outlined,
-                                Icons.calendar_month_rounded,
-                                "시간표",
-                              ),
-                            ),
-                            Expanded(
-                              child: _buildNavTab(
-                                MainNavTabIndex.mypage,
-                                Icons.person_outline_rounded,
-                                Icons.person_rounded,
-                                "마이페이지",
-                              ),
-                            ),
-                          ],
+                        child: MjcDraggableSegmentPillBar(
+                          segmentCount: _bottomNavItems.length,
+                          selectedIndex: _index,
+                          accentColor: _components.bottomNavSelected,
+                          isDark: isDark,
+                          horizontalPadding: 6,
+                          verticalPadding: 6,
+                          onSelectedIndexChanged: _onMenuItemClick,
+                          segmentBuilder: (context, index, selected, ___) {
+                            return _buildBottomNavSegment(
+                              item: _bottomNavItems[index],
+                              selected: selected,
+                            );
+                          },
                         ),
                       ),
                     ),
@@ -706,113 +708,59 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     );
   }
 
-  Widget _buildNavTab(
-    int index,
-    IconData icon,
-    IconData selectedIcon,
-    String label, {
-    int badgeCount = 0,
+  Widget _buildBottomNavSegment({
+    required _BottomNavItem item,
+    required bool selected,
   }) {
-    final bool isSelected = _index == index;
-    return Center(
-      child: Transform.translate(
-        offset: const Offset(0, -_bottomNavBarHeight * _bottomNavContentLiftFactor),
-        child: _buildNavTabContent(
-          isSelected,
-          icon,
-          selectedIcon,
-          label,
-          badgeCount,
-          onIconTap: () => _onMenuItemClick(index),
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final Color selectedColor = _components.bottomNavSelected;
+    return Transform.translate(
+      offset:
+          const Offset(0, -_bottomNavBarHeight * _bottomNavContentLiftFactor),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            selected
+                ? BouncyIcon(
+                    item.selectedIcon,
+                    color: selectedColor,
+                    size: 22,
+                  )
+                : Icon(item.icon, color: scheme.onSurfaceVariant, size: 22),
+            Text(
+              item.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 12,
+                height: 1.05,
+                color:
+                    selected ? selectedColor : _components.bottomNavUnselected,
+                fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
+}
 
-  Widget _buildNavTabContent(
-    bool isSelected,
-    IconData icon,
-    IconData selectedIcon,
-    String label,
-    int badgeCount, {
-    required VoidCallback onIconTap,
-  }) {
-    final ColorScheme scheme = Theme.of(context).colorScheme;
-    final Color selectedColor = _components.bottomNavSelected;
-    final bool isDark = Theme.of(context).brightness == Brightness.dark;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 1),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Material(
-            color: Colors.transparent,
-            shape: const StadiumBorder(),
-            clipBehavior: Clip.antiAlias,
-            child: InkWell(
-              onTap: onIconTap,
-              customBorder: const StadiumBorder(),
-              splashColor:
-                  selectedColor.withValues(alpha: isDark ? 0.22 : 0.16),
-              highlightColor:
-                  selectedColor.withValues(alpha: isDark ? 0.10 : 0.07),
-              child: SizedBox(
-                width: 48,
-                height: 36,
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  alignment: Alignment.center,
-                  children: [
-                    isSelected
-                        ? BouncyIcon(
-                            selectedIcon,
-                            color: selectedColor,
-                            size: 22,
-                          )
-                        : Icon(icon, color: scheme.onSurfaceVariant, size: 22),
-                    if (badgeCount > 0)
-                      Positioned(
-                        right: 2,
-                        top: 0,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 5,
-                            vertical: 1,
-                          ),
-                          decoration: BoxDecoration(
-                            color: scheme.error,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(
-                            badgeCount > 99 ? "99+" : "$badgeCount",
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 9,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              height: 1.05,
-              color:
-                  isSelected ? selectedColor : _components.bottomNavUnselected,
-              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+class _BottomNavItem {
+  const _BottomNavItem({
+    required this.index,
+    required this.icon,
+    required this.selectedIcon,
+    required this.label,
+  });
+
+  final int index;
+  final IconData icon;
+  final IconData selectedIcon;
+  final String label;
 }
 
 class BouncyIcon extends StatelessWidget {

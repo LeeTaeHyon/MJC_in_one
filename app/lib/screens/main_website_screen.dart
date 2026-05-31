@@ -19,9 +19,11 @@ import "package:mjc_in_one/widgets/nested_scroll_refresh_indicator.dart";
 import "package:mjc_in_one/widgets/pin_favorite_buttons.dart";
 import "package:mjc_in_one/widgets/collapsed_hero_title.dart";
 import "package:mjc_in_one/widgets/global_notice_search_sheet.dart";
+import "package:mjc_in_one/widgets/main_navigation_scope.dart";
 import "package:mjc_in_one/widgets/notice_filter_sheet.dart";
 import "package:mjc_in_one/widgets/scroll_to_top_scope.dart";
 import "package:shared_preferences/shared_preferences.dart";
+
 List<String> _parseAiTagsForList(Map<String, dynamic> data) {
   final Object? v = data["ai_tags"];
   if (v is! List) return const <String>[];
@@ -89,9 +91,12 @@ Future<void> _showMainAiTagChipPickerSheet({
             final bool selected = currentSelection == label;
             return ListTile(
               title: Text(label),
-              trailing: selected ? Icon(Icons.check_rounded, color: scheme.primary) : null,
+              trailing: selected
+                  ? Icon(Icons.check_rounded, color: scheme.primary)
+                  : null,
               selected: selected,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
               onTap: () => Navigator.pop(sheetContext, label),
             );
           },
@@ -663,10 +668,12 @@ class _MainWebsiteScreenState extends State<MainWebsiteScreen> {
           body: NestedScrollView(
             key: _nestedScrollKey,
             controller: _outerScrollController,
-            headerSliverBuilder: (BuildContext context, bool innerBoxIsScrolled) {
+            headerSliverBuilder:
+                (BuildContext context, bool innerBoxIsScrolled) {
               return <Widget>[
                 SliverOverlapAbsorber(
-                  handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
+                  handle:
+                      NestedScrollView.sliverOverlapAbsorberHandleFor(context),
                   sliver: SliverPersistentHeader(
                     pinned: true,
                     delegate: _MainWebsiteCollapsingHeaderDelegate(
@@ -743,6 +750,7 @@ class _MainWebsiteCollapsingHeaderDelegate
   static const double _collapsedBar = 52;
   static const Color _overlayTop = Color(0xFF0043A1);
   static const Color _overlayBottom = Color(0xFF005AB5);
+
   /// Collapsed 시 배너 패턴이 은은하게 비치도록 overlay 불투명도 (~8–10%).
   static const double _collapsedOverlayOpacity = 0.90;
 
@@ -849,19 +857,17 @@ class _MainWebsiteCollapsingHeaderDelegate
                       builder:
                           (BuildContext context, BoxConstraints constraints) {
                         final double ih = constraints.maxHeight;
-                        final double menuTopInset = ih >= 54
-                            ? 6.0
-                            : max(0.0, (ih - 48) / 2);
-                        final double titleSize =
-                            lerpDouble(34, 20, u)!;
+                        final double menuTopInset =
+                            ih >= 54 ? 6.0 : max(0.0, (ih - 48) / 2);
+                        final double titleSize = lerpDouble(34, 20, u)!;
                         const double titleLeft = 24;
                         const double toolbarSlot = 104;
                         final double collapsedTitleTop =
                             (ih - titleSize * 1.15) / 2;
                         final double titleReveal =
                             ((t - 0.92) / 0.08).clamp(0.0, 1.0);
-                        final double titleOpacity = Curves.easeOutCubic
-                            .transform(titleReveal);
+                        final double titleOpacity =
+                            Curves.easeOutCubic.transform(titleReveal);
                         return Stack(
                           clipBehavior: Clip.hardEdge,
                           children: [
@@ -891,8 +897,7 @@ class _MainWebsiteCollapsingHeaderDelegate
                               child: Align(
                                 alignment: Alignment.topCenter,
                                 child: Padding(
-                                  padding:
-                                      EdgeInsets.only(top: menuTopInset),
+                                  padding: EdgeInsets.only(top: menuTopInset),
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
@@ -905,8 +910,7 @@ class _MainWebsiteCollapsingHeaderDelegate
                                       IconButton(
                                         tooltip: "검색",
                                         onPressed: onSearch,
-                                        icon:
-                                            const Icon(Icons.search_rounded),
+                                        icon: const Icon(Icons.search_rounded),
                                         color: Colors.white,
                                       ),
                                     ],
@@ -929,7 +933,9 @@ class _MainWebsiteCollapsingHeaderDelegate
                     : Theme.of(context).colorScheme.surface,
                 elevation: overlapsContent ? 0.5 : 0,
                 shadowColor: Colors.black.withValues(
-                  alpha: Theme.of(context).brightness == Brightness.dark ? 0.45 : 0.12,
+                  alpha: Theme.of(context).brightness == Brightness.dark
+                      ? 0.45
+                      : 0.12,
                 ),
                 child: SizedBox(
                   height: _bottomHeight,
@@ -1058,10 +1064,12 @@ class _UnifiedNoticeListState extends State<_UnifiedNoticeList> {
     super.dispose();
   }
 
-  Future<List<Map<String, dynamic>>> _loadAllNotices({bool forceRefresh = false}) async {
+  Future<List<Map<String, dynamic>>> _loadAllNotices(
+      {bool forceRefresh = false}) async {
     final futures = <Future<List<Map<String, dynamic>>>>[
       for (final b in _boards)
-        NoticeManager().getNotices(boardId: b.boardId, forceRefresh: forceRefresh),
+        NoticeManager()
+            .getNotices(boardId: b.boardId, forceRefresh: forceRefresh),
     ];
     final results = await Future.wait(futures);
 
@@ -1103,7 +1111,8 @@ class _UnifiedNoticeListState extends State<_UnifiedNoticeList> {
     final NoticeFilterState filter = await NoticeFilterState.load();
     final List<String> keywords = await loadSharedNoticeKeywords();
     final bool enabled = await loadScopedNoticeFilterEnabled("mjc_main");
-    final List<String> includes = await loadScopedNoticeFilterIncludes("mjc_main");
+    final List<String> includes =
+        await loadScopedNoticeFilterIncludes("mjc_main");
     if (!mounted) return;
     setState(() {
       _noticeFilter = filter.copyWith(
@@ -1149,7 +1158,8 @@ class _UnifiedNoticeListState extends State<_UnifiedNoticeList> {
         _pinnedKeysByBoard[b.boardId] =
             (prefs.getStringList("pinned_notices_${b.boardId}") ?? []).toSet();
         _favoriteKeysByBoard[b.boardId] =
-            (prefs.getStringList("favorite_notices_${b.boardId}") ?? []).toSet();
+            (prefs.getStringList("favorite_notices_${b.boardId}") ?? [])
+                .toSet();
       }
     });
   }
@@ -1235,7 +1245,8 @@ class _UnifiedNoticeListState extends State<_UnifiedNoticeList> {
     }
   }
 
-  List<Map<String, dynamic>> _applyAiTagChipFilter(List<Map<String, dynamic>> rows) {
+  List<Map<String, dynamic>> _applyAiTagChipFilter(
+      List<Map<String, dynamic>> rows) {
     if (_aiTagChipSelection == "전체") return rows;
     return rows.where((Map<String, dynamic> d) {
       final Object? raw = d["ai_tags"];
@@ -1294,7 +1305,8 @@ class _UnifiedNoticeListState extends State<_UnifiedNoticeList> {
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
               SliverOverlapInjector(
-                handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
+                handle:
+                    NestedScrollView.sliverOverlapAbsorberHandleFor(context),
               ),
               if (snapshot.connectionState == ConnectionState.waiting)
                 const SliverFillRemaining(
@@ -1325,7 +1337,8 @@ class _UnifiedNoticeListState extends State<_UnifiedNoticeList> {
       fallbackType: "공지사항",
     );
 
-    final List<Map<String, dynamic>> aiFiltered = _applyAiTagChipFilter(filteredDocs);
+    final List<Map<String, dynamic>> aiFiltered =
+        _applyAiTagChipFilter(filteredDocs);
 
     if (filteredDocs.isEmpty) {
       return [
@@ -1338,7 +1351,8 @@ class _UnifiedNoticeListState extends State<_UnifiedNoticeList> {
               const SizedBox(height: 48),
               Text(
                 docs.isEmpty ? "표시할 공지가 없습니다." : "필터에 맞는 공지가 없습니다.",
-                style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant),
               ),
             ],
           ),
@@ -1357,7 +1371,8 @@ class _UnifiedNoticeListState extends State<_UnifiedNoticeList> {
               const SizedBox(height: 48),
               Text(
                 "선택한 필터에 맞는 공지가 없습니다.",
-                style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant),
               ),
             ],
           ),
@@ -1378,7 +1393,8 @@ class _UnifiedNoticeListState extends State<_UnifiedNoticeList> {
     for (final d in ordered) {
       final String boardId = _boardIdOf(d);
       final String key = _noticeKey(boardId, d);
-      final bool pinned = (_pinnedKeysByBoard[boardId] ?? const <String>{}).contains(key);
+      final bool pinned =
+          (_pinnedKeysByBoard[boardId] ?? const <String>{}).contains(key);
       (pinned ? pinnedFirst : rest).add(d);
     }
     final List<Map<String, dynamic>> finalOrdered = [...pinnedFirst, ...rest];
@@ -1386,7 +1402,12 @@ class _UnifiedNoticeListState extends State<_UnifiedNoticeList> {
     return [
       SliverToBoxAdapter(child: _buildAiTagChipBar(context)),
       SliverPadding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+        padding: EdgeInsets.fromLTRB(
+          16,
+          8,
+          16,
+          24 + MainNavLayout.scrollBottomExtra(context),
+        ),
         sliver: SliverList(
           delegate: SliverChildBuilderDelegate(
             (BuildContext context, int index) {
@@ -1396,11 +1417,15 @@ class _UnifiedNoticeListState extends State<_UnifiedNoticeList> {
               final data = finalOrdered[index];
               final String boardId = _boardIdOf(data);
               final String id = (data["id"] ?? "").toString();
-              final bool isRead = (_readIdsByBoard[boardId] ?? const <String>{}).contains(id);
+              final bool isRead =
+                  (_readIdsByBoard[boardId] ?? const <String>{}).contains(id);
               final String key = _noticeKey(boardId, data);
-              final bool isPinned = (_pinnedKeysByBoard[boardId] ?? const <String>{}).contains(key);
+              final bool isPinned =
+                  (_pinnedKeysByBoard[boardId] ?? const <String>{})
+                      .contains(key);
               final bool isFavorite =
-                  (_favoriteKeysByBoard[boardId] ?? const <String>{}).contains(key);
+                  (_favoriteKeysByBoard[boardId] ?? const <String>{})
+                      .contains(key);
 
               Future<void> openDetail() async {
                 await _markAsRead(boardId, id);
@@ -1428,7 +1453,9 @@ class _UnifiedNoticeListState extends State<_UnifiedNoticeList> {
                   id,
                   isRead,
                   openDetail,
-                  boardLabel: (data["_boardLabel"] ?? _fallbackTypeForBoard(boardId)).toString(),
+                  boardLabel:
+                      (data["_boardLabel"] ?? _fallbackTypeForBoard(boardId))
+                          .toString(),
                   showAiTagChips: true,
                   isPinned: isPinned,
                   isFavorite: isFavorite,
@@ -1468,7 +1495,8 @@ class _UnifiedNoticeListState extends State<_UnifiedNoticeList> {
     required VoidCallback onToggleFavorite,
   }) {
     final ColorScheme scheme = Theme.of(context).colorScheme;
-    final MjcSurfaceTokens tokens = Theme.of(context).extension<MjcSurfaceTokens>()!;
+    final MjcSurfaceTokens tokens =
+        Theme.of(context).extension<MjcSurfaceTokens>()!;
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
     final Color readTitleColor = tokens.noticeReadTitle;
     final String title = (data["title"] ?? "").toString();
@@ -1483,7 +1511,8 @@ class _UnifiedNoticeListState extends State<_UnifiedNoticeList> {
     final bool showAiTagRow = showAiTagChips && aiTags.isNotEmpty;
 
     final Color mainColor = isRead ? scheme.onSurfaceVariant : tokens.sourceMjc;
-    final Color chipBackground = tokens.sourceMjc.withValues(alpha: isDark ? 0.18 : 0.12);
+    final Color chipBackground =
+        tokens.sourceMjc.withValues(alpha: isDark ? 0.18 : 0.12);
     final Color chipForeground = tokens.sourceMjc;
     final Color titleColor = isRead ? readTitleColor : scheme.onSurface;
     final Color dateColor = scheme.onSurfaceVariant;
@@ -1536,7 +1565,8 @@ class _UnifiedNoticeListState extends State<_UnifiedNoticeList> {
                             )
                           else
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
                                 color: chipBackground,
                                 borderRadius: BorderRadius.circular(4),
@@ -1573,7 +1603,8 @@ class _UnifiedNoticeListState extends State<_UnifiedNoticeList> {
                               const SizedBox(width: 6),
                               Text(
                                 dateStr,
-                                style: TextStyle(color: dateColor, fontSize: 13),
+                                style:
+                                    TextStyle(color: dateColor, fontSize: 13),
                               ),
                             ],
                           ),
@@ -1628,7 +1659,8 @@ class _UnifiedNoticeListState extends State<_UnifiedNoticeList> {
                               )
                             else
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 4),
                                 decoration: BoxDecoration(
                                   color: chipBackground,
                                   borderRadius: BorderRadius.circular(4),
@@ -1665,7 +1697,8 @@ class _UnifiedNoticeListState extends State<_UnifiedNoticeList> {
                                 const SizedBox(width: 6),
                                 Text(
                                   dateStr,
-                                  style: TextStyle(color: dateColor, fontSize: 13),
+                                  style:
+                                      TextStyle(color: dateColor, fontSize: 13),
                                 ),
                               ],
                             ),
@@ -1697,7 +1730,6 @@ class _BoardSpec {
   const _BoardSpec({required this.boardId, required this.label});
 }
 
-
 class _NoticeListTab extends StatefulWidget {
   final String boardId;
   final int entryTick;
@@ -1720,9 +1752,11 @@ class _NoticeListTabState extends State<_NoticeListTab> {
   Set<String> _favoriteKeys = {};
   NoticeFilterState _noticeFilter = const NoticeFilterState();
   List<String> _noticeSharedKeywords = [];
+
   /// `main_notice` 탭만: 유튜브 스타일 주제 칩 필터.
   String _mainNoticeAiTagChipSelection = "전체";
-  List<String> _mainNoticeAiTagChips = List<String>.from(kMainNoticeAiTagFilterChips);
+  List<String> _mainNoticeAiTagChips =
+      List<String>.from(kMainNoticeAiTagFilterChips);
   late Future<List<Map<String, dynamic>>> _noticeFuture;
 
   bool _allowRefreshNotification(ScrollNotification n) {
@@ -1797,7 +1831,8 @@ class _NoticeListTabState extends State<_NoticeListTab> {
     final NoticeFilterState filter = await NoticeFilterState.load();
     final List<String> keywords = await loadSharedNoticeKeywords();
     final bool enabled = await loadScopedNoticeFilterEnabled("mjc_main");
-    final List<String> includes = await loadScopedNoticeFilterIncludes("mjc_main");
+    final List<String> includes =
+        await loadScopedNoticeFilterIncludes("mjc_main");
     if (!mounted) return;
     setState(() {
       _noticeFilter = filter.copyWith(
@@ -1969,23 +2004,23 @@ class _NoticeListTabState extends State<_NoticeListTab> {
         future: _noticeFuture,
         builder: (context, snapshot) {
           final Widget scrollable = CustomScrollView(
-              primary: true,
-              physics: const AlwaysScrollableScrollPhysics(),
-              slivers: [
-                SliverOverlapInjector(
-                  handle: NestedScrollView.sliverOverlapAbsorberHandleFor(
-                    context,
-                  ),
+            primary: true,
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              SliverOverlapInjector(
+                handle: NestedScrollView.sliverOverlapAbsorberHandleFor(
+                  context,
                 ),
-                if (snapshot.connectionState == ConnectionState.waiting)
-                  const SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: Center(child: CircularProgressIndicator()),
-                  )
-                else
-                  ..._buildNoticeSlivers(context, snapshot.data ?? []),
-              ],
-            );
+              ),
+              if (snapshot.connectionState == ConnectionState.waiting)
+                const SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              else
+                ..._buildNoticeSlivers(context, snapshot.data ?? []),
+            ],
+          );
 
           return scrollable;
         },
@@ -2064,7 +2099,12 @@ class _NoticeListTabState extends State<_NoticeListTab> {
     return [
       ...chipSliver,
       SliverPadding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+        padding: EdgeInsets.fromLTRB(
+          16,
+          8,
+          16,
+          24 + MainNavLayout.scrollBottomExtra(context),
+        ),
         sliver: SliverList(
           delegate: SliverChildBuilderDelegate(
             (BuildContext context, int index) {

@@ -28,6 +28,7 @@ import "package:mjc_in_one/utils/mjc_snack_bar.dart";
 import "package:mjc_in_one/utils/notice_list_refresh_guard.dart";
 import "package:mjc_in_one/utils/mpu_program_dday.dart";
 import "package:mjc_in_one/widgets/home_lecture_reminder_card.dart";
+import "package:mjc_in_one/widgets/main_navigation_scope.dart";
 import "package:mjc_in_one/widgets/scroll_to_top_scope.dart";
 import "package:mjc_in_one/widgets/shuttle_status_card.dart";
 import "package:firebase_auth/firebase_auth.dart";
@@ -415,6 +416,9 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
                   slivers: <Widget>[
                     SliverToBoxAdapter(
                       child: _buildDashboardScrollableHomeBody(context),
+                    ),
+                    SliverToBoxAdapter(
+                      child: MainNavLayout.scrollBottomSpacer(context),
                     ),
                   ],
                 ),

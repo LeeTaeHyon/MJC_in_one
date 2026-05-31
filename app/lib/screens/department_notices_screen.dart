@@ -16,6 +16,7 @@ import "package:mjc_in_one/utils/community_notice_bookmarks.dart";
 import "package:mjc_in_one/utils/notice_bookmark_key.dart";
 import "package:mjc_in_one/widgets/collapsed_hero_title.dart";
 import "package:mjc_in_one/widgets/community_notice_list_tile.dart";
+import "package:mjc_in_one/widgets/main_navigation_scope.dart";
 import "package:mjc_in_one/widgets/scroll_to_top_scope.dart";
 import "package:shared_preferences/shared_preferences.dart";
 
@@ -26,7 +27,8 @@ class DepartmentNoticesScreen extends StatefulWidget {
   final bool activeInNoticesTab;
 
   @override
-  State<DepartmentNoticesScreen> createState() => _DepartmentNoticesScreenState();
+  State<DepartmentNoticesScreen> createState() =>
+      _DepartmentNoticesScreenState();
 }
 
 class _DepartmentNoticesScreenState extends State<DepartmentNoticesScreen> {
@@ -96,8 +98,7 @@ class _DepartmentNoticesScreenState extends State<DepartmentNoticesScreen> {
     if (!mounted) return;
     setState(() {
       _deptSlug = slug;
-      _slugError =
-          slug == null ? "이 학과는 아직 학과 공지 게시판이 준비되지 않았습니다." : null;
+      _slugError = slug == null ? "이 학과는 아직 학과 공지 게시판이 준비되지 않았습니다." : null;
     });
     if (slug != null && LabPrefs.selectedDepartment.value != name) {
       await LabPrefs.setSelectedDepartment(name);
@@ -331,89 +332,93 @@ class _DepartmentNoticesScreenState extends State<DepartmentNoticesScreen> {
           child: Builder(
             builder: (BuildContext nestedContext) {
               return CustomScrollView(
-            primary: true,
-            physics: const AlwaysScrollableScrollPhysics(),
-            slivers: [
-              SliverOverlapInjector(
-                handle: NestedScrollView.sliverOverlapAbsorberHandleFor(
-                  nestedContext,
-                ),
-              ),
-              SliverToBoxAdapter(child: _buildDisclaimerBanner()),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                  child: DropdownButtonFormField<String>(
-                    key: ValueKey<String>(
-                      "${_departments.length}_${_selectedDepartment ?? "none"}",
-                    ),
-                    initialValue: _dropdownValue,
-                    isExpanded: true,
-                    decoration: InputDecoration(
-                      labelText: "학과",
-                      prefixIcon: const Icon(Icons.school_outlined),
-                      helperText: _loadingDepartments
-                          ? "학과 목록을 불러오는 중입니다."
-                          : (_selectedDepartment == null
-                              ? "마이페이지에서 학과를 선택하거나 아래에서 고르세요."
-                              : null),
-                    ),
-                    items: [
-                      for (final String department in _departments)
-                        DropdownMenuItem<String>(
-                          value: department,
-                          child: Text(department),
-                        ),
-                    ],
-                    onChanged: _loadingDepartments
-                        ? null
-                        : (String? value) async {
-                            setState(() => _selectedDepartment = value);
-                            await LabPrefs.setSelectedDepartment(value ?? "");
-                            await _resolveSlugForSelection();
-                          },
-                  ),
-                ),
-              ),
-              if (_slugError != null)
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Text(
-                      _slugError!,
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.error,
-                        fontSize: 13,
-                      ),
+                primary: true,
+                physics: const AlwaysScrollableScrollPhysics(),
+                slivers: [
+                  SliverOverlapInjector(
+                    handle: NestedScrollView.sliverOverlapAbsorberHandleFor(
+                      nestedContext,
                     ),
                   ),
-                ),
-              if (_deptSlug != null && _slugError == null)
-                _buildPostsSliver()
-              else if (!_loadingDepartments && _selectedDepartment != null)
-                const SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: Center(child: Text("게시판을 불러올 수 없습니다.")),
-                )
-              else if (!_loadingDepartments)
-                SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: Center(
+                  SliverToBoxAdapter(child: _buildDisclaimerBanner()),
+                  SliverToBoxAdapter(
                     child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Text(
-                        "학과를 선택하면 공지 목록이 표시됩니다.",
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurfaceVariant,
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                      child: DropdownButtonFormField<String>(
+                        key: ValueKey<String>(
+                          "${_departments.length}_${_selectedDepartment ?? "none"}",
+                        ),
+                        initialValue: _dropdownValue,
+                        isExpanded: true,
+                        decoration: InputDecoration(
+                          labelText: "학과",
+                          prefixIcon: const Icon(Icons.school_outlined),
+                          helperText: _loadingDepartments
+                              ? "학과 목록을 불러오는 중입니다."
+                              : (_selectedDepartment == null
+                                  ? "마이페이지에서 학과를 선택하거나 아래에서 고르세요."
+                                  : null),
+                        ),
+                        items: [
+                          for (final String department in _departments)
+                            DropdownMenuItem<String>(
+                              value: department,
+                              child: Text(department),
                             ),
+                        ],
+                        onChanged: _loadingDepartments
+                            ? null
+                            : (String? value) async {
+                                setState(() => _selectedDepartment = value);
+                                await LabPrefs.setSelectedDepartment(
+                                    value ?? "");
+                                await _resolveSlugForSelection();
+                              },
                       ),
                     ),
                   ),
-                ),
-            ],
+                  if (_slugError != null)
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Text(
+                          _slugError!,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ),
+                  if (_deptSlug != null && _slugError == null)
+                    _buildPostsSliver()
+                  else if (!_loadingDepartments && _selectedDepartment != null)
+                    const SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: Center(child: Text("게시판을 불러올 수 없습니다.")),
+                    )
+                  else if (!_loadingDepartments)
+                    SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Text(
+                            "학과를 선택하면 공지 목록이 표시됩니다.",
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodyMedium
+                                ?.copyWith(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurfaceVariant,
+                                ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               );
             },
           ),
@@ -486,7 +491,12 @@ class _DepartmentNoticesScreenState extends State<DepartmentNoticesScreen> {
         ];
 
         return SliverPadding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+          padding: EdgeInsets.fromLTRB(
+            16,
+            8,
+            16,
+            24 + MainNavLayout.scrollBottomExtra(context),
+          ),
           sliver: SliverList(
             delegate: SliverChildBuilderDelegate(
               (context, index) {
@@ -578,9 +588,8 @@ class _DepartmentCollapsingHeaderDelegate
                   final double dpr = MediaQuery.devicePixelRatioOf(context);
                   final Size size = MediaQuery.sizeOf(context);
                   final int cw = (size.width * dpr).round().clamp(1, 4096);
-                  final int ch = ((topPadding + heroBody) * dpr)
-                      .round()
-                      .clamp(1, 4096);
+                  final int ch =
+                      ((topPadding + heroBody) * dpr).round().clamp(1, 4096);
                   return Opacity(
                     opacity: bannerImageOpacity,
                     child: Image.asset(

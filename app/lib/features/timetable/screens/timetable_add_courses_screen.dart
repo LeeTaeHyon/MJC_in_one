@@ -6,6 +6,7 @@ import "package:mjc_in_one/features/timetable/widgets/timetable_week_grid.dart";
 import "package:mjc_in_one/mpu_profile_prefs.dart";
 import "package:mjc_in_one/theme/app_theme.dart";
 import "package:mjc_in_one/utils/mjc_snack_bar.dart";
+import "package:mjc_in_one/widgets/mjc_floating_pill_cta.dart";
 
 /// Top preview grid + filter chips + course list (Everytime-like flow).
 class TimetableAddCoursesScreen extends StatefulWidget {
@@ -449,42 +450,53 @@ class _TimetableAddCoursesScreenState extends State<TimetableAddCoursesScreen> {
             ),
           ],
         ),
-        body: Column(
+        body: Stack(
+          fit: StackFit.expand,
           children: <Widget>[
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-            child: SizedBox(
-              height: 340,
-              child: Scrollbar(
-                controller: _previewScrollController,
-                child: SingleChildScrollView(
-                  controller: _previewScrollController,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: <Widget>[
-                      TimetableWeekGrid(
-                        slots: _previewSlots,
-                        startHour: 9,
-                        endHour: 18,
-                        hourHeight: 44,
-                        headerHeight: 22,
-                        compact: true,
+            Column(
+              children: <Widget>[
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+                  child: SizedBox(
+                    height: 340,
+                    child: Scrollbar(
+                      controller: _previewScrollController,
+                      child: SingleChildScrollView(
+                        controller: _previewScrollController,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: <Widget>[
+                            TimetableWeekGrid(
+                              slots: _previewSlots,
+                              startHour: 9,
+                              endHour: 18,
+                              hourHeight: 44,
+                              headerHeight: 22,
+                              compact: true,
+                            ),
+                            _buildSelectedRemotePreview(context),
+                          ],
+                        ),
                       ),
-                      _buildSelectedRemotePreview(context),
-                    ],
+                    ),
                   ),
                 ),
-              ),
-            ),
-          ),
-          const Divider(height: 1),
-          _buildFilterBar(context),
-          Expanded(
-            child: ListView.separated(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
-              itemCount: _filtered.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 8),
-              itemBuilder: (BuildContext context, int i) {
+                const Divider(height: 1),
+                _buildFilterBar(context),
+                Expanded(
+                  child: ListView.separated(
+                    padding: EdgeInsets.fromLTRB(
+                      12,
+                      0,
+                      12,
+                      MjcFloatingCtaLayout.scrollBottomPadding(
+                        context,
+                        buttonHeight: MjcFloatingCtaLayout.compactHeight,
+                      ),
+                    ),
+                    itemCount: _filtered.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    itemBuilder: (BuildContext context, int i) {
                 final ParsedCourseOffering o = _filtered[i];
                 final bool on = _selected.contains(o.offeringId);
                 return Material(
@@ -580,19 +592,25 @@ class _TimetableAddCoursesScreenState extends State<TimetableAddCoursesScreen> {
                     ),
                   ),
                 );
-              },
+                    },
+                  ),
+                ),
+              ],
             ),
-          ),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: MjcFloatingCtaLayout.positionedBottom(context),
+              child: Center(
+                child: MjcFloatingPillCta(
+                  variant: MjcFloatingPillCtaVariant.primaryCompact,
+                  label: "적용",
+                  icon: Icons.check_rounded,
+                  onTap: _popWithSelection,
+                ),
+              ),
+            ),
           ],
-        ),
-        bottomNavigationBar: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-            child: FilledButton(
-              onPressed: _popWithSelection,
-              child: const Text("적용"),
-            ),
-          ),
         ),
       ),
     );

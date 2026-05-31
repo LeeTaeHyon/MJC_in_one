@@ -24,6 +24,7 @@ import "package:mjc_in_one/utils/community_notice_bookmarks.dart";
 import "package:mjc_in_one/utils/mjc_dialog.dart";
 import "package:mjc_in_one/utils/notice_bookmark_key.dart";
 import "package:mjc_in_one/widgets/profile_form.dart";
+import "package:mjc_in_one/widgets/main_navigation_scope.dart";
 import "package:mjc_in_one/widgets/scroll_to_top_fab.dart";
 import "package:mjc_in_one/widgets/scroll_to_top_scope.dart";
 import "package:shared_preferences/shared_preferences.dart";
@@ -60,6 +61,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
   bool _loading = true;
   List<_MyNotice> _pinned = const [];
   List<_MyNotice> _favorites = const [];
+
   /// 프로필 값 블러 여부. 기본은 선명 표시, 탭으로 블러 토글합니다.
   bool _profileValuesBlurred = false;
   String _totalCreditsLabel = "0학점";
@@ -288,10 +290,8 @@ class _MyPageScreenState extends State<MyPageScreen> {
       final List<Map<String, dynamic>> notices =
           await NoticeManager().getNotices(boardId: boardId);
       for (final n in notices) {
-        final bool isPinned =
-            noticeBookmarkMatches(boardId, n, pinnedKeys);
-        final bool isFavorite =
-            noticeBookmarkMatches(boardId, n, favKeys);
+        final bool isPinned = noticeBookmarkMatches(boardId, n, pinnedKeys);
+        final bool isFavorite = noticeBookmarkMatches(boardId, n, favKeys);
         if (!isPinned && !isFavorite) continue;
 
         final String title = (n["title"] ?? "").toString();
@@ -375,8 +375,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
     final String deptSlug = item.departmentSlug!;
     final String boardId = departmentNoticeBoardId(deptSlug);
     final String key = departmentNoticeBookmarkKey(boardId, data);
-    final Set<String> pinnedKeys =
-        await loadCommunityNoticePinnedKeys(boardId);
+    final Set<String> pinnedKeys = await loadCommunityNoticePinnedKeys(boardId);
     final Set<String> favoriteKeys =
         await loadCommunityNoticeFavoriteKeys(boardId);
     final List<CommunityNoticeMediaItem> images =
@@ -569,9 +568,8 @@ class _MyPageScreenState extends State<MyPageScreen> {
             : Theme.of(context).colorScheme.surfaceContainerLow;
         final Color profileStripBg =
             light ? AppColors.primary : AppColors.cardDark;
-        final Color profileCardBg = light
-            ? const Color(0xFF0A43A8)
-            : AppColors.surfaceContainerDark;
+        final Color profileCardBg =
+            light ? const Color(0xFF0A43A8) : AppColors.surfaceContainerDark;
         final Color profileCardBorder = light
             ? Colors.white.withValues(alpha: 0.10)
             : AppColors.cardBorderDark;
@@ -588,8 +586,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
             ? mjcComponents.myPageBookmarkTabSelected
             : _myPageDarkNeutralAccent;
 
-        final int bookmarkTabIndex =
-            widget.initialBookmarkTabIndex.clamp(0, 1);
+        final int bookmarkTabIndex = widget.initialBookmarkTabIndex.clamp(0, 1);
         final Widget page = DefaultTabController(
           length: 2,
           initialIndex: bookmarkTabIndex,
@@ -635,130 +632,131 @@ class _MyPageScreenState extends State<MyPageScreen> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
-                              // «가져오기»·«직접 입력» 버튼은 UI에서 숨김.
-                              // 복원 예: 프로필 Row 위에 Row(children: [
-                              //   Expanded(child: FilledButton.icon(
-                              //     onPressed: _openMpuProfileImport,
-                              //     icon: Icon(Icons.cloud_download_outlined),
-                              //     label: Text("가져오기"),
-                              //   )),
-                              //   SizedBox(width: 10),
-                              //   Expanded(child: OutlinedButton.icon(
-                              //     onPressed: _openProfileEditor,
-                              //     icon: Icon(Icons.edit_outlined),
-                              //     label: Text("직접 입력"),
-                              //   )),
-                              // ]), SizedBox(height: 14),
-                              Row(
-                                children: [
-                                  Container(
-                                    width: 54,
-                                    height: 54,
-                                    decoration: BoxDecoration(
-                                      color:
-                                          Colors.white.withValues(alpha: 0.18),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: const Icon(
-                                      Icons.person_outline_rounded,
-                                      color: Colors.white,
-                                      size: 28,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        if (hasMpuProfile)
-                                          _BlurredProfileValue(
-                                            blurred: _profileValuesBlurred,
-                                            child: Text(
-                                              _mpuProfile.name.trim().isEmpty
-                                                  ? "프로필 사용자"
-                                                  : _mpuProfile.name.trim(),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: const TextStyle(
-                                                color: Colors.white,
-                                                fontSize: 21,
-                                                fontWeight: FontWeight.w900,
-                                                letterSpacing: -0.2,
+                                  // «가져오기»·«직접 입력» 버튼은 UI에서 숨김.
+                                  // 복원 예: 프로필 Row 위에 Row(children: [
+                                  //   Expanded(child: FilledButton.icon(
+                                  //     onPressed: _openMpuProfileImport,
+                                  //     icon: Icon(Icons.cloud_download_outlined),
+                                  //     label: Text("가져오기"),
+                                  //   )),
+                                  //   SizedBox(width: 10),
+                                  //   Expanded(child: OutlinedButton.icon(
+                                  //     onPressed: _openProfileEditor,
+                                  //     icon: Icon(Icons.edit_outlined),
+                                  //     label: Text("직접 입력"),
+                                  //   )),
+                                  // ]), SizedBox(height: 14),
+                                  Row(
+                                    children: [
+                                      Container(
+                                        width: 54,
+                                        height: 54,
+                                        decoration: BoxDecoration(
+                                          color: Colors.white
+                                              .withValues(alpha: 0.18),
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const Icon(
+                                          Icons.person_outline_rounded,
+                                          color: Colors.white,
+                                          size: 28,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            if (hasMpuProfile)
+                                              _BlurredProfileValue(
+                                                blurred: _profileValuesBlurred,
+                                                child: Text(
+                                                  _mpuProfile.name
+                                                          .trim()
+                                                          .isEmpty
+                                                      ? "프로필 사용자"
+                                                      : _mpuProfile.name.trim(),
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                  style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 21,
+                                                    fontWeight: FontWeight.w900,
+                                                    letterSpacing: -0.2,
+                                                  ),
+                                                ),
+                                              )
+                                            else
+                                              const _BlurredProfilePlaceholder(
+                                                width: 86,
+                                                height: 20,
                                               ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 14),
+                                  Column(
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: _ProfileChip(
+                                              icon: Icons.badge_outlined,
+                                              label: "학년",
+                                              value: _mpuProfile.grade.trim(),
+                                              blurValue: hasMpuProfile &&
+                                                  _profileValuesBlurred,
                                             ),
-                                          )
-                                        else
-                                          const _BlurredProfilePlaceholder(
-                                            width: 86,
-                                            height: 20,
                                           ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 14),
-                              Column(
-                                children: [
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: _ProfileChip(
-                                          icon: Icons.badge_outlined,
-                                          label: "학년",
-                                          value: _mpuProfile.grade.trim(),
-                                          blurValue:
-                                              hasMpuProfile &&
+                                          const SizedBox(width: 10),
+                                          Expanded(
+                                            child: _ProfileChip(
+                                              icon: Icons.school_outlined,
+                                              label: "학과",
+                                              value:
+                                                  _mpuProfile.department.trim(),
+                                              blurValue: hasMpuProfile &&
                                                   _profileValuesBlurred,
-                                        ),
+                                            ),
+                                          ),
+                                        ],
                                       ),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                        child: _ProfileChip(
-                                          icon: Icons.school_outlined,
-                                          label: "학과",
-                                          value: _mpuProfile.department.trim(),
-                                          blurValue:
-                                              hasMpuProfile &&
+                                      const SizedBox(height: 10),
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: _ProfileChip(
+                                              icon: Icons.numbers_rounded,
+                                              label: "학번",
+                                              value:
+                                                  _mpuProfile.studentId.trim(),
+                                              blurValue: hasMpuProfile &&
                                                   _profileValuesBlurred,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 10),
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: _ProfileChip(
-                                          icon: Icons.numbers_rounded,
-                                          label: "학번",
-                                          value: _mpuProfile.studentId.trim(),
-                                          blurValue:
-                                              hasMpuProfile &&
+                                            ),
+                                          ),
+                                          const SizedBox(width: 10),
+                                          Expanded(
+                                            child: _ProfileChip(
+                                              icon: Icons.menu_book_outlined,
+                                              label: "학점",
+                                              value: _totalCreditsLabel,
+                                              blurValue: hasMpuProfile &&
                                                   _profileValuesBlurred,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                        child: _ProfileChip(
-                                          icon: Icons.menu_book_outlined,
-                                          label: "학점",
-                                          value: _totalCreditsLabel,
-                                          blurValue:
-                                              hasMpuProfile &&
-                                                  _profileValuesBlurred,
-                                        ),
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ],
                                   ),
                                 ],
                               ),
-                            ],
+                            ),
                           ),
                         ),
-                      ),
-                    ),
                       ),
                     ],
                   ),
@@ -949,6 +947,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
                     ],
                   ),
                 ),
+                if (widget.embedded) MainNavLayout.scrollBottomSpacer(context),
               ],
             ),
           ),

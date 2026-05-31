@@ -9,6 +9,7 @@ import "package:mjc_in_one/features/timetable/widgets/timetable_offering_schedul
 import "package:mjc_in_one/features/timetable/widgets/timetable_week_grid.dart";
 import "package:mjc_in_one/theme/app_colors.dart";
 import "package:mjc_in_one/theme/app_theme.dart";
+import "package:mjc_in_one/widgets/main_navigation_scope.dart";
 
 /// Saved weekly timetable + import / OCR placeholder.
 class TimetableMainScreen extends StatefulWidget {
@@ -239,7 +240,8 @@ class _TimetableMainScreenState extends State<TimetableMainScreen> {
                   onTap: () async {
                     Navigator.of(ctx).pop();
                     final List<ParsedCourseOffering> next = _enrolled
-                        .where((ParsedCourseOffering x) => x.offeringId != o.offeringId)
+                        .where((ParsedCourseOffering x) =>
+                            x.offeringId != o.offeringId)
                         .toList();
                     await _saveEnrolledAndReload(next);
                   },
@@ -379,7 +381,12 @@ class _TimetableMainScreenState extends State<TimetableMainScreen> {
               color: AppColors.primary,
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(12, 12, 12, 100),
+                padding: EdgeInsets.fromLTRB(
+                  12,
+                  12,
+                  12,
+                  12 + MainNavLayout.scrollBottomExtra(context) + 48,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: <Widget>[
@@ -417,15 +424,20 @@ class _TimetableMainScreenState extends State<TimetableMainScreen> {
             ),
       floatingActionButton: _loading
           ? null
-          : FloatingActionButton(
-              heroTag: null,
-              onPressed: _openingCatalog ? null : _openOfficialCatalog,
-              tooltip: "시간표 추가",
-              backgroundColor: AppColors.primary,
-              foregroundColor: AppColors.timetableSlotOnColor,
-              splashColor: Colors.transparent,
-              highlightElevation: 6,
-              child: const Icon(Icons.edit_rounded),
+          : Padding(
+              padding: EdgeInsets.only(
+                bottom: MainNavLayout.fabBottomPadding(context),
+              ),
+              child: FloatingActionButton(
+                heroTag: null,
+                onPressed: _openingCatalog ? null : _openOfficialCatalog,
+                tooltip: "시간표 추가",
+                backgroundColor: AppColors.primary,
+                foregroundColor: AppColors.timetableSlotOnColor,
+                splashColor: Colors.transparent,
+                highlightElevation: 6,
+                child: const Icon(Icons.edit_rounded),
+              ),
             ),
     );
   }

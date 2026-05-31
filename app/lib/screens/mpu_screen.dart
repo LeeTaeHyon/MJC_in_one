@@ -17,6 +17,7 @@ import "package:mjc_in_one/widgets/nested_scroll_refresh_indicator.dart";
 import "package:mjc_in_one/widgets/pin_favorite_buttons.dart";
 import "package:mjc_in_one/widgets/collapsed_hero_title.dart";
 import "package:mjc_in_one/widgets/global_notice_search_sheet.dart";
+import "package:mjc_in_one/widgets/main_navigation_scope.dart";
 import "package:mjc_in_one/widgets/notice_filter_sheet.dart";
 import "package:mjc_in_one/widgets/scroll_to_top_scope.dart";
 import "package:shared_preferences/shared_preferences.dart";
@@ -452,19 +453,17 @@ class _MpuCollapsingHeaderDelegate extends SliverPersistentHeaderDelegate {
                       builder:
                           (BuildContext context, BoxConstraints constraints) {
                         final double ih = constraints.maxHeight;
-                        final double menuTopInset = ih >= 54
-                            ? 6.0
-                            : max(0.0, (ih - 48) / 2);
-                        final double titleSize =
-                            lerpDouble(34, 20, u)!;
+                        final double menuTopInset =
+                            ih >= 54 ? 6.0 : max(0.0, (ih - 48) / 2);
+                        final double titleSize = lerpDouble(34, 20, u)!;
                         const double titleLeft = 24;
                         const double toolbarSlot = 104;
                         final double collapsedTitleTop =
                             (ih - titleSize * 1.15) / 2;
                         final double titleReveal =
                             ((t - 0.92) / 0.08).clamp(0.0, 1.0);
-                        final double titleOpacity = Curves.easeOutCubic
-                            .transform(titleReveal);
+                        final double titleOpacity =
+                            Curves.easeOutCubic.transform(titleReveal);
                         return Stack(
                           clipBehavior: Clip.hardEdge,
                           children: [
@@ -494,8 +493,7 @@ class _MpuCollapsingHeaderDelegate extends SliverPersistentHeaderDelegate {
                               child: Align(
                                 alignment: Alignment.topCenter,
                                 child: Padding(
-                                  padding:
-                                      EdgeInsets.only(top: menuTopInset),
+                                  padding: EdgeInsets.only(top: menuTopInset),
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
@@ -508,8 +506,7 @@ class _MpuCollapsingHeaderDelegate extends SliverPersistentHeaderDelegate {
                                       IconButton(
                                         tooltip: "검색",
                                         onPressed: onSearch,
-                                        icon:
-                                            const Icon(Icons.search_rounded),
+                                        icon: const Icon(Icons.search_rounded),
                                         color: Colors.white,
                                       ),
                                     ],
@@ -644,7 +641,8 @@ class _MpuListTabState extends State<_MpuListTab> {
     final prefs = await SharedPreferences.getInstance();
     if (!mounted) return;
     setState(() {
-      _readKeys = (prefs.getStringList("read_notices_mpu_programs") ?? []).toSet();
+      _readKeys =
+          (prefs.getStringList("read_notices_mpu_programs") ?? []).toSet();
     });
   }
 
@@ -748,23 +746,23 @@ class _MpuListTabState extends State<_MpuListTab> {
         future: _mpuFuture,
         builder: (context, snapshot) {
           return CustomScrollView(
-              primary: true,
-              physics: const AlwaysScrollableScrollPhysics(),
-              slivers: [
-                SliverOverlapInjector(
-                  handle: NestedScrollView.sliverOverlapAbsorberHandleFor(
-                    context,
-                  ),
+            primary: true,
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              SliverOverlapInjector(
+                handle: NestedScrollView.sliverOverlapAbsorberHandleFor(
+                  context,
                 ),
-                if (snapshot.connectionState == ConnectionState.waiting)
-                  const SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: Center(child: CircularProgressIndicator()),
-                  )
-                else
-                  ..._buildMpuSlivers(context, snapshot.data ?? []),
-              ],
-            );
+              ),
+              if (snapshot.connectionState == ConnectionState.waiting)
+                const SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              else
+                ..._buildMpuSlivers(context, snapshot.data ?? []),
+            ],
+          );
         },
       ),
     );
@@ -827,7 +825,12 @@ class _MpuListTabState extends State<_MpuListTab> {
 
     return [
       SliverPadding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+        padding: EdgeInsets.fromLTRB(
+          16,
+          8,
+          16,
+          24 + MainNavLayout.scrollBottomExtra(context),
+        ),
         sliver: SliverList(
           delegate: SliverChildBuilderDelegate(
             (BuildContext context, int index) {
@@ -903,16 +906,12 @@ class _MpuListTabState extends State<_MpuListTab> {
       final List<dynamic> raw => raw.map((e) => e.toString().trim()).toList(),
       _ => const <String>[],
     };
-    final List<String> tagLabels = tags
-        .where((t) => t.isNotEmpty)
-        .take(3)
-        .map((t) {
-          final String trimmed = t.trim();
-          return trimmed.startsWith("#") ? trimmed : "#$trimmed";
-        })
-        .toList();
-    final String typeLabel =
-        branch.trim().isEmpty ? "핵심역량" : branch.trim();
+    final List<String> tagLabels =
+        tags.where((t) => t.isNotEmpty).take(3).map((t) {
+      final String trimmed = t.trim();
+      return trimmed.startsWith("#") ? trimmed : "#$trimmed";
+    }).toList();
+    final String typeLabel = branch.trim().isEmpty ? "핵심역량" : branch.trim();
 
     final Widget dDayBadge = widget.showCompleted
         ? Opacity(
