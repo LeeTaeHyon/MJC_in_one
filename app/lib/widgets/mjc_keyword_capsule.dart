@@ -19,6 +19,8 @@ class MjcKeywordCapsule extends StatelessWidget {
     final Color background = isDark
         ? AppColors.primary.withValues(alpha: 0.22)
         : const Color(0xFFE3F2FD);
+    final Color foreground =
+        isDark ? AppColors.switchActiveDark : AppColors.primary;
 
     return Material(
       color: background,
@@ -31,9 +33,9 @@ class MjcKeywordCapsule extends StatelessWidget {
           children: [
             Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                 fontFamily: kPretendardFontFamily,
-                color: AppColors.primary,
+                color: foreground,
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
                 height: 1.2,
@@ -49,7 +51,7 @@ class MjcKeywordCapsule extends StatelessWidget {
                   child: Icon(
                     Icons.close_rounded,
                     size: 16,
-                    color: AppColors.primary.withValues(alpha: 0.85),
+                    color: foreground.withValues(alpha: 0.85),
                   ),
                 ),
               ),

@@ -185,6 +185,11 @@
 
     .demo-flow li:last-child { border-bottom: none; }
 
+    .demo-flow .screenshot {
+      margin-top: 12px;
+      max-width: 280px;
+    }
+
     .demo-flow .tab {
       flex-shrink: 0;
       font-size: 12px;
@@ -328,6 +333,167 @@
 
     .story-box p + p { margin-top: 10px; }
 
+    .page-cover,
+    .page-closing {
+      padding: 32px 28px;
+    }
+
+    .page-cover .cover-title {
+      text-align: center;
+      padding-bottom: 20px;
+      margin-bottom: 20px;
+      border-bottom: 2px solid var(--border);
+    }
+
+    .page-cover .cover-title h2 {
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--primary);
+      letter-spacing: -0.02em;
+      margin-bottom: 6px;
+      display: block;
+    }
+
+    .page-cover .cover-title p {
+      font-size: 15px;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .page-divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 22px 0;
+    }
+
+    .page-cover h3,
+    .page-closing h3 {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--primary);
+      letter-spacing: 0.02em;
+      margin: 0 0 10px;
+      text-transform: none;
+    }
+
+    .feature-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .feature-list li {
+      position: relative;
+      padding-left: 16px;
+      margin-bottom: 6px;
+      font-size: 14px;
+    }
+
+    .feature-list li::before {
+      content: "•";
+      position: absolute;
+      left: 0;
+      color: var(--primary);
+      font-weight: 700;
+    }
+
+    .submit-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .submit-list li {
+      padding-left: 16px;
+      position: relative;
+      margin-bottom: 6px;
+      font-size: 14px;
+    }
+
+    .submit-list li::before {
+      content: "•";
+      position: absolute;
+      left: 0;
+      color: var(--text-muted);
+    }
+
+    .cover-meta {
+      margin-top: 18px;
+      padding-top: 16px;
+      border-top: 1px dashed var(--border);
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .cover-meta dl {
+      display: grid;
+      grid-template-columns: 100px 1fr;
+      gap: 4px 12px;
+      margin: 0;
+    }
+
+    .cover-meta dt { font-weight: 600; }
+    .cover-meta dd { margin: 0; }
+
+    .demo-order {
+      counter-reset: demo;
+      list-style: none;
+      padding: 0;
+      margin: 12px 0 0;
+    }
+
+    .demo-order li {
+      counter-increment: demo;
+      position: relative;
+      padding: 10px 0 10px 32px;
+      border-bottom: 1px solid var(--border);
+      font-size: 14px;
+    }
+
+    .demo-order li:last-child { border-bottom: none; }
+
+    .demo-order li::before {
+      content: counter(demo);
+      position: absolute;
+      left: 0;
+      top: 10px;
+      width: 22px;
+      height: 22px;
+      background: var(--primary);
+      color: #fff;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .placeholder {
+      color: var(--text-muted);
+      font-style: italic;
+    }
+
+    .tech-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .tech-list li {
+      padding-left: 16px;
+      position: relative;
+      margin-bottom: 4px;
+      font-size: 14px;
+    }
+
+    .tech-list li::before {
+      content: "•";
+      position: absolute;
+      left: 0;
+      color: var(--primary);
+    }
+
     footer {
       text-align: center;
       padding: 24px 16px 40px;
@@ -340,37 +506,77 @@
       .hero { padding: 24px; }
       .container { margin-top: 0; }
       .card { box-shadow: none; break-inside: avoid; }
+      .page-cover, .page-closing { break-after: page; }
     }
   </style>
 </head>
 <body>
 
   <header class="hero">
-    <div class="hero-badge">심사·시연 안내</div>
+    <div class="hero-badge">사용자 가이드 · 심사·시연</div>
     <h1>MJC <span>ONE</span></h1>
-    <p>명지전문대학 통합 모바일 앱 — 설치 방법 및 기능 시연 가이드</p>
+    <p>명지전문대학교 통합 캠퍼스 서비스</p>
   </header>
 
   <main class="container">
 
-    <section class="card">
-      <h2><span class="num">i</span> 제출물 구성</h2>
-      <dl class="info-grid">
-        <dt>앱 파일</dt>
-        <dd><code>app-release.apk</code> (Android 릴리즈 빌드)</dd>
-        <dt>앱 이름</dt>
-        <dd>MJC ONE</dd>
-        <dt>패키지명</dt>
-        <dd><code>com.myeongji.mio.mioNotice</code></dd>
-        <dt>버전</dt>
-        <dd>1.0.0</dd>
-        <dt>필수 환경</dt>
-        <dd>Android 스마트폰, 인터넷 연결 (Wi‑Fi 또는 모바일 데이터)</dd>
-      </dl>
-      <div class="callout callout-note">
-        본 앱은 Firebase(Cloud Firestore)에 적재된 공지 데이터를 불러옵니다.
-        <strong>인터넷이 연결된 상태</strong>에서 시연해 주세요.
+    <section class="card page-cover">
+      <div class="cover-title">
+        <h2>MJC ONE</h2>
+        <p>명지전문대학교 통합 캠퍼스 서비스</p>
       </div>
+
+      <h3>프로젝트 개요</h3>
+      <p>
+        MJC ONE은 명지전문대학교 학생들이 여러 사이트에 흩어져 있는 공지와 학교생활 서비스를<br>
+        <strong>하나의 앱에서 편리하게 이용</strong>할 수 있도록 개발된 통합 캠퍼스 플랫폼입니다.
+      </p>
+
+      <hr class="page-divider" />
+
+      <h3>주요 기능</h3>
+      <ul class="feature-list">
+        <li>통합 공지사항 조회</li>
+        <li>키워드 기반 맞춤 알림</li>
+        <li>학사일정 확인</li>
+        <li>시간표 관리</li>
+        <li>학식 정보 제공</li>
+        <li>캠퍼스 약도</li>
+        <li>북마크 및 개인화 기능</li>
+        <li>학과 공지 (실험실 기능)</li>
+        <li>관리자 콘솔</li>
+      </ul>
+
+      <hr class="page-divider" />
+
+      <h3>제출 파일</h3>
+      <ul class="submit-list">
+        <li>MJC ONE APK (<code>app-release.apk</code>)</li>
+        <li>사용자 가이드 문서 (본 문서)</li>
+        <li>시연 영상 (해당 시)</li>
+      </ul>
+
+      <hr class="page-divider" />
+
+      <h3>테스트 정보</h3>
+      <p class="callout callout-note" style="margin-top: 0;">
+        ※ 관리자 기능 확인을 위한 테스트 계정은 아래 <strong>7번 관리자 콘솔 시연</strong> 항목을 참고해 주세요.
+      </p>
+
+      <div class="cover-meta">
+        <dl>
+          <dt>패키지명</dt>
+          <dd><code>com.myeongji.mio.mioNotice</code></dd>
+          <dt>버전</dt>
+          <dd>1.0.0</dd>
+          <dt>시연 환경</dt>
+          <dd>Android · 인터넷 연결 필수 (Firebase 연동)</dd>
+        </dl>
+      </div>
+
+      <p style="margin-top: 20px; font-size: 14px; color: var(--text-muted); text-align: center;">
+        ↓ 아래부터 설치 방법 · 기능 시연 · 관리자 안내
+      </p>
     </section>
 
     <section class="card">
@@ -405,7 +611,7 @@
       <ol class="steps">
         <li>
           <strong>스플래시 · 인트로</strong><br />
-          앱 아이콘(MJC ONE)을 탭하면 로딩 애니메이션 후 메인 화면으로 진입합니다.
+          앱 아이콘(MJC ONE)을 탭하면 로딩 애니메이션 후 메인 화면으로 진입합니다.<br>
           최초 실행 시 «앱 소개» 가이드가 표시되면 <strong>«홈으로 가기»</strong>를 눌러 주세요.
         </li>
         <li>
@@ -414,7 +620,7 @@
         </li>
         <li>
           <strong>로그인 (선택)</strong><br />
-          마이페이지 등 일부 기능은 명지전문대학 이메일(<code>@mjc.ac.kr</code>) 매직 링크 로그인이 필요합니다.
+          마이페이지 등 일부 기능은 명지전문대학 이메일(<code>@mjc.ac.kr</code>) 매직 링크 로그인이 필요합니다.<br>
           시연 시 로그인 없이도 대부분의 화면을 확인할 수 있습니다.
         </li>
       </ol>
@@ -425,54 +631,89 @@
       <p>하단 탭: <strong>홈 · 공지 · 시간표 · 마이페이지</strong></p>
       <ul class="demo-flow">
         <li>
-          <span class="tab">홈</span>
+          <span class="tab">1</span>
           <div>
-            <strong>통합 대시보드</strong><br />
+            <strong>홈 · 통합 대시보드</strong><br />
             최근 2주 공지 피드, 학식·셔틀·학사 일정 등 바로가기 카드를 확인합니다.
-            공지 항목을 탭하면 원문 웹뷰로 이동합니다.
+            공지 항목을 탭하면 원문으로 이동합니다.
+            <figure class="screenshot">
+              <img src="assets/mockup_home.png" alt="MJC ONE 홈 화면" />
+              <figcaption>홈 — 통합 피드 및 바로가기</figcaption>
+            </figure>
           </div>
         </li>
         <li>
-          <span class="tab">공지</span>
+          <span class="tab">2</span>
           <div>
-            <strong>출처별 공지 탭</strong><br />
-            상단 세그먼트에서 <strong>본교 · 교수학습(CTL) · 역량관리(MPU)</strong> 탭을 전환하며
-            각 게시판 공지 목록을 확인합니다. 목록을 아래로 당기면 새로고침됩니다.
-            <br /><br />
-            <strong>학과 공지</strong>는 실험실 기능입니다. 설정에서 켠 뒤 공지 탭에 «학과» 메뉴가 나타납니다.
-            배경·시연 방법은 아래 <strong>5번</strong>를 참고해 주세요.
+            <strong>공지 · 본교(MJC)</strong><br />
+            공지 탭에서 <strong>본교 · CTL · MPU</strong> 등 출처별 목록을 전환하며 확인합니다.
+            목록을 아래로 당기면 새로고침됩니다.
+            <figure class="screenshot">
+              <img src="assets/mockup_notice_mjc.jpg" alt="본교 공지 목록" />
+              <figcaption>공지 — 본교 공지사항 목록</figcaption>
+            </figure>
           </div>
         </li>
         <li>
-          <span class="tab">공지</span>
+          <span class="tab">3</span>
           <div>
-            <strong>공지 상세 · 필터</strong><br />
-            공지를 탭해 원문을 확인하고, 분류·태그 필터로 원하는 공지만 볼 수 있습니다.
+            <strong>공지 상세</strong><br />
+            공지를 탭해 원문·첨부를 확인합니다. 분류·태그 필터로 원하는 공지만 볼 수 있습니다.
+            <figure class="screenshot">
+              <img src="assets/notice_detail.jpg" alt="공지 상세 화면" />
+              <figcaption>공지 상세 — 원문 및 첨부 확인</figcaption>
+            </figure>
           </div>
         </li>
         <li>
-          <span class="tab">홈</span>
+          <span class="tab">4</span>
           <div>
-            <strong>부가 서비스</strong><br />
-            햄버거 메뉴(좌측 상단) 또는 바로가기에서 <strong>도서관 · 학사일정 · 캠퍼스 약도 · 학식</strong> 등을 열어 봅니다.
+            <strong>키워드 · 알림 설정</strong><br />
+            설정에서 알림 출처(MJC·CTL·MPU), 키워드 알림, 전체 알림 등을 조정합니다.
+            <figure class="screenshot">
+              <img src="assets/alarm_set.jpg" alt="알림 및 키워드 설정" />
+              <figcaption>설정 — 맞춤 알림·키워드</figcaption>
+            </figure>
           </div>
         </li>
         <li>
-          <span class="tab">시간표</span>
+          <span class="tab">5</span>
           <div>
             <strong>시간표</strong><br />
-            시간표를 추가하고 확인합니다.
+            주간 시간표를 추가·확인합니다.
+            <figure class="screenshot">
+              <img src="assets/timetable.jpg" alt="시간표 화면" />
+              <figcaption>시간표 — 주간 강의 일정</figcaption>
+            </figure>
           </div>
         </li>
         <li>
-          <span class="tab">마이페이지</span>
+          <span class="tab">6</span>
           <div>
-            <strong>마이페이지 · 설정</strong><br />
-            고정·즐겨찾기 공지, 알림·키워드 설정, 앱 정보 등을 확인합니다.
-            설정에서 알림 출처(MJC·CTL·MPU) 및 키워드 알림을 조정할 수 있습니다.
+            <strong>학과 공지 (실험실)</strong><br />
+            설정 → 실험실에서 «학과 공지»를 켠 뒤 공지 탭 «학과»에서 확인합니다.
+            배경 설명은 <strong>5번</strong>을 참고해 주세요.
+            <figure class="screenshot">
+              <img src="assets/notice_dep.jpg" alt="학과 공지 목록" />
+              <figcaption>학과 공지 — 실험실 기능 (전자공학과 시연)</figcaption>
+            </figure>
+          </div>
+        </li>
+        <li>
+          <span class="tab">7</span>
+          <div>
+            <strong>마이페이지</strong><br />
+            고정·즐겨찾기 공지, 프로필·MPU 연동, 설정 진입 등 개인화 기능을 확인합니다.
+            <figure class="screenshot">
+              <img src="assets/mypage.jpg" alt="마이페이지 화면" />
+              <figcaption>마이페이지 — 북마크·개인 정보</figcaption>
+            </figure>
           </div>
         </li>
       </ul>
+      <p style="margin-top: 14px; font-size: 13px; color: var(--text-muted);">
+        부가 기능(도서관 · 학사일정 · 캠퍼스 약도 · 학식)은 홈 바로가기·햄버거 메뉴에서 열 수 있습니다.
+      </p>
     </section>
 
     <section class="card">
@@ -485,7 +726,7 @@
         <li><strong>알림 내역</strong> — 수신 알림 로컬 저장 및 목록 확인</li>
         <li><strong>인앱 웹뷰</strong> — 도서관, 공지 원문 등 학교 사이트를 앱 안에서 열람</li>
         <li><strong>시간표 · 마이페이지</strong> — 개인 학사 정보·북마크 관리</li>
-        <li><strong>관리자 콘솔</strong> — 공지 신고(AI 요약)·개발자 문의·학과 공지 게시 관리 (운영자용, 아래 7번 참고)</li>
+        <li><strong>관리자 콘솔</strong> — 공지 신고(AI 요약)·개발자 문의·학과 공지 게시 관리 (운영자용, 7번 참고)</li>
       </ul>
     </section>
 
@@ -493,14 +734,14 @@
       <h2><span class="num">5</span> 학과 공지 · 실험실 기능이란?</h2>
       <p>
         «학과 공지»는 본교·CTL·MPU처럼 학교 공식 게시판을 크롤링한 것이 아니라,
-        <strong>설정 -> 실험실</strong> 메뉴 아래에 있는 <strong>시범 기능</strong>입니다.
+        <strong>설정 -> 실험실</strong> 메뉴 아래에 있는 <strong>시범 기능</strong>입니다.<br>
         심사 시 «왜 실험실에 있나?» «관리자에 학과 공지는 왜 있나?»라는 질문에 대한 답을 정리했습니다.
       </p>
 
       <div class="story-box">
         <div class="story-label">기획 배경</div>
         <p>
-          학과 단체 대화방(카카오톡 등)에는 수업·과제·행사·장학 안내가 하루에도 여러 건씩 올라옵니다.
+          학과 단체 대화방(카카오톡 등)에는 수업·과제·행사·장학 안내가 하루에도 여러 건씩 올라옵니다.<br>
           대화가 쌓이면 <strong>예전 공지를 다시 찾기 어렵고</strong>, 놓치는 경우도 많습니다.
         </p>
         <p>
@@ -539,6 +780,10 @@
           학과를 선택하면 해당 학과 조교가 올린 공지 목록을 볼 수 있습니다.
         </li>
       </ol>
+      <figure class="screenshot">
+        <img src="assets/notice_dep.jpg" alt="학과 공지 목록" />
+        <figcaption>학과 공지 화면 (3번 시연 6번과 동일)</figcaption>
+      </figure>
       <div class="callout callout-note">
         설정 화면 안내 문구: «비공식 참고용 학과 공지 탭을 표시합니다. 일부 학과만 글이 있을 수 있습니다.»
       </div>
@@ -546,7 +791,7 @@
       <h3>운영(학과 조교) 측 — 관리자와의 연결</h3>
       <p>
         학과 조교·운영자는 관리자 콘솔(<strong>7번</strong>)의 <strong>«학과 공지»</strong> 탭에서
-        글을 작성·수정합니다. 제목·본문·첨부 파일·사진·게시일·공개/숨김을 설정할 수 있고,
+        글을 작성·수정합니다. <br>제목·본문·첨부 파일·사진·게시일·공개/숨김을 설정할 수 있고,
         공개된 글은 학생 앱의 «학과» 탭에 표시됩니다.
       </p>
       <p>
@@ -572,7 +817,7 @@
       <h2><span class="num">7</span> 관리자 콘솔 시연 (선택)</h2>
       <p>
         일반 사용자용 앱과 별도로, <strong>운영자·학과 조교</strong>가 신고·문의·학과 공지를 관리하는
-        숨겨진 관리자 화면이 있습니다. 심사 시 운영 체계까지 보여줄 때 참고하세요.
+        숨겨진 관리자 화면이 있습니다. <br>심사 시 운영 체계까지 확인할 때 참고하세요.
       </p>
 
       <h3>① 관리자 화면 진입</h3>
@@ -604,7 +849,7 @@
         <figcaption>관리자 로그인 — 위 테스트 계정으로 시연 가능</figcaption>
       </figure>
       <div class="callout callout-note">
-        화이트리스트(<code>admin/users</code> 문서)에 등록된 계정만 접근할 수 있습니다.
+        화이트리스트(<code>admin/users</code> 문서)에 등록된 계정만 접근할 수 있습니다.<br>
         «권한 없음»이 뜨면 개발팀에 문의해 주세요.
       </div>
 
@@ -636,9 +881,9 @@
         <li>
           <span class="panel-label">학과 공지</span>
           <p>
-            학과 조교가 올린 <strong>학과 공지 게시글</strong> 목록입니다.
+            학과 조교가 올린 <strong>학과 공지 게시글</strong> 목록입니다.<br>
             글 작성·수정 시 제목·본문 외에 <strong>첨부 파일·사진</strong>,
-            <strong>게시일</strong>, <strong>공개/숨김</strong> 설정이 가능합니다.
+            <strong>게시일</strong>, <strong>공개/숨김</strong> 설정이 가능합니다.<br>
             학생 앱 «공지 → 학과» 탭(<strong>5번</strong> 실험실 기능)에 노출되는 콘텐츠를 여기서 관리합니다.
           </p>
           <figure class="screenshot">
@@ -703,27 +948,63 @@
       </div>
     </section>
 
-    <section class="card">
-      <h2><span class="num">9</span> 개발 정보</h2>
+    <section class="card page-closing">
+      <h2 style="display: block; font-size: 20px; margin-bottom: 20px;">개발 정보</h2>
+
       <dl class="info-grid">
-        <dt>프로젝트</dt>
-        <dd>MJC in one — 명지전문대학 통합 어플리케이션</dd>
-        <dt>기술 스택</dt>
-        <dd>Flutter, Firebase (Firestore, FCM, Auth, Storage)</dd>
-        <dt>대상</dt>
-        <dd>명지전문대학 재학생</dd>
-        <dt>빌드 명령</dt>
-        <dd><code>flutter build apk --release</code></dd>
+        <dt>프로젝트명</dt>
+        <dd>MJC ONE</dd>
+        <dt>개발자</dt>
+        <dd class="placeholder">(작성)</dd>
+        <dt>개발 기간</dt>
+        <dd class="placeholder">(작성)</dd>
+        <dt>개발 인원</dt>
+        <dd class="placeholder">(작성)</dd>
       </dl>
-      <div class="callout callout-success">
-        본 빌드는 <strong>릴리즈 모드</strong>로 제작되었으며, 개발·테스트 전용 UI는 포함되어 있지 않습니다.
+
+      <hr class="page-divider" />
+
+      <h3>사용 기술</h3>
+      <ul class="tech-list">
+        <li>Flutter</li>
+        <li>Firebase Authentication</li>
+        <li>Cloud Firestore</li>
+        <li>Firebase Cloud Messaging</li>
+        <li>Firebase Hosting</li>
+        <li>Google Cloud Platform</li>
+      </ul>
+
+      <hr class="page-divider" />
+
+      <h3>문의</h3>
+      <dl class="info-grid">
+        <dt>이메일</dt>
+        <dd class="placeholder">(작성)</dd>
+      </dl>
+
+      <hr class="page-divider" />
+
+      <h3>추천 시연 순서</h3>
+      <ol class="demo-order">
+        <li>홈 화면 확인</li>
+        <li>통합 공지사항 조회</li>
+        <li>키워드 알림 설정</li>
+        <li>시간표 및 학사일정 확인</li>
+        <li>학과 공지 기능 확인 (5번 · 실험실 ON)</li>
+        <li>관리자 콘솔 접속 및 공지 등록 (7번)</li>
+      </ol>
+
+      <div class="callout callout-success" style="margin-top: 20px;">
+        본 빌드는 <strong>릴리즈 모드</strong>로 제작되었습니다.
+        개발·테스트 전용 UI는 포함되어 있지 않습니다.
+        빌드: <code>flutter build apk --release</code>
       </div>
     </section>
 
   </main>
 
   <footer>
-    MJC ONE · 명지전문대학 통합 모바일 앱 · 심사·시연 가이드
+    MJC ONE · 명지전문대학교 통합 캠퍼스 서비스 · 심사·시연 가이드
   </footer>
 
 </body>

@@ -1,3 +1,5 @@
+import "dart:async";
+
 import "package:cloud_firestore/cloud_firestore.dart";
 import "package:flutter/material.dart";
 import "package:mjc_in_one/screens/admin/admin_auth_service.dart";
@@ -16,9 +18,50 @@ class AdminInquiriesScreen extends StatefulWidget {
 class _AdminInquiriesScreenState extends State<AdminInquiriesScreen> {
   final AdminModerationService _svc = AdminModerationService();
   String _statusFilter = "open";
+  QuerySnapshot<Map<String, dynamic>>? _cachedSnap;
+  Object? _listError;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _listSub;
 
-  Query<Map<String, dynamic>> _query() {
-    return _svc.inquiryQuery(statusFilter: _statusFilter);
+  @override
+  void initState() {
+    super.initState();
+    _attachListStream();
+  }
+
+  @override
+  void dispose() {
+    _listSub?.cancel();
+    super.dispose();
+  }
+
+  void _attachListStream() {
+    _listSub?.cancel();
+    _listSub = _svc
+        .inquiryQuery(statusFilter: _statusFilter)
+        .snapshots()
+        .listen(
+          (snap) {
+            if (!mounted) return;
+            setState(() {
+              _cachedSnap = snap;
+              _listError = null;
+            });
+          },
+          onError: (Object e) {
+            if (!mounted) return;
+            setState(() => _listError = e);
+          },
+        );
+  }
+
+  void _setStatusFilter(String filter) {
+    if (_statusFilter == filter) return;
+    setState(() {
+      _statusFilter = filter;
+      _cachedSnap = null;
+      _listError = null;
+    });
+    _attachListStream();
   }
 
   Future<void> _setStatus(
@@ -107,6 +150,53 @@ class _AdminInquiriesScreenState extends State<AdminInquiriesScreen> {
     }
   }
 
+  Widget _buildListBody(ColorScheme scheme) {
+    if (_listError != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            "문의를 불러오지 못했습니다.\n$_listError",
+            style: TextStyle(color: scheme.error),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    }
+    final QuerySnapshot<Map<String, dynamic>>? snap = _cachedSnap;
+    if (snap == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    final docs = snap.docs;
+    if (docs.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(24),
+          child: Text("표시할 문의가 없습니다."),
+        ),
+      );
+    }
+    return ListView.separated(
+      key: const PageStorageKey<String>("admin_inquiries_list"),
+      padding: EdgeInsets.fromLTRB(
+        adminIsMobile(context) ? 12 : 16,
+        4,
+        adminIsMobile(context) ? 12 : 16,
+        24,
+      ),
+      itemCount: docs.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 10),
+      itemBuilder: (context, i) => _InquiryRow(
+        doc: docs[i],
+        onResolve: () => _setStatus(docs[i], "resolved"),
+        onIgnore: () => _setStatus(docs[i], "ignored"),
+        onReopen: () => _setStatus(docs[i], "open"),
+        onDelete: () => _delete(docs[i]),
+        onSaveMemo: (memo) => _saveMemo(docs[i], memo),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
@@ -141,61 +231,14 @@ class _AdminInquiriesScreenState extends State<AdminInquiriesScreen> {
                     ButtonSegment(value: "all", label: Text("전체")),
                   ],
                   selected: {_statusFilter},
-                  onSelectionChanged: (s) =>
-                      setState(() => _statusFilter = s.first),
+                  onSelectionChanged: (s) => _setStatusFilter(s.first),
                 ),
               ),
             ],
           ),
         ),
         Expanded(
-          child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-            stream: _query().snapshots(),
-            builder: (context, snap) {
-              if (snap.hasError) {
-                return Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Text(
-                      "문의를 불러오지 못했습니다.\n${snap.error}",
-                      style: TextStyle(color: scheme.error),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                );
-              }
-              if (!snap.hasData) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              final docs = snap.data!.docs;
-              if (docs.isEmpty) {
-                return const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(24),
-                    child: Text("표시할 문의가 없습니다."),
-                  ),
-                );
-              }
-              return ListView.separated(
-                padding: EdgeInsets.fromLTRB(
-                  adminIsMobile(context) ? 12 : 16,
-                  4,
-                  adminIsMobile(context) ? 12 : 16,
-                  24,
-                ),
-                itemCount: docs.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 10),
-                itemBuilder: (context, i) => _InquiryRow(
-                  doc: docs[i],
-                  onResolve: () => _setStatus(docs[i], "resolved"),
-                  onIgnore: () => _setStatus(docs[i], "ignored"),
-                  onReopen: () => _setStatus(docs[i], "open"),
-                  onDelete: () => _delete(docs[i]),
-                  onSaveMemo: (memo) => _saveMemo(docs[i], memo),
-                ),
-              );
-            },
-          ),
+          child: _buildListBody(scheme),
         ),
       ],
     );

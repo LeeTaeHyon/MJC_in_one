@@ -1,3 +1,5 @@
+import "dart:async";
+
 import "package:cloud_firestore/cloud_firestore.dart";
 import "package:flutter/material.dart";
 import "package:mjc_in_one/screens/admin/admin_auth_service.dart";
@@ -18,9 +20,50 @@ class AdminReportsScreen extends StatefulWidget {
 class _AdminReportsScreenState extends State<AdminReportsScreen> {
   final AdminModerationService _svc = AdminModerationService();
   String _statusFilter = "open";
+  QuerySnapshot<Map<String, dynamic>>? _cachedSnap;
+  Object? _listError;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _listSub;
 
-  Query<Map<String, dynamic>> _query() {
-    return _svc.reportQuery(statusFilter: _statusFilter);
+  @override
+  void initState() {
+    super.initState();
+    _attachListStream();
+  }
+
+  @override
+  void dispose() {
+    _listSub?.cancel();
+    super.dispose();
+  }
+
+  void _attachListStream() {
+    _listSub?.cancel();
+    _listSub = _svc
+        .reportQuery(statusFilter: _statusFilter)
+        .snapshots()
+        .listen(
+          (snap) {
+            if (!mounted) return;
+            setState(() {
+              _cachedSnap = snap;
+              _listError = null;
+            });
+          },
+          onError: (Object e) {
+            if (!mounted) return;
+            setState(() => _listError = e);
+          },
+        );
+  }
+
+  void _setStatusFilter(String filter) {
+    if (_statusFilter == filter) return;
+    setState(() {
+      _statusFilter = filter;
+      _cachedSnap = null;
+      _listError = null;
+    });
+    _attachListStream();
   }
 
   Future<void> _resolve(
@@ -49,26 +92,44 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
     }
   }
 
-  Future<void> _flagForResummary(
-    DocumentSnapshot<Map<String, dynamic>> doc,
-  ) async {
+  Future<void> _toggleResummaryFlag(
+    DocumentSnapshot<Map<String, dynamic>> doc, {
+    required bool clearFlag,
+  }) async {
     final data = doc.data() ?? <String, dynamic>{};
     final String boardId = (data["board_id"] as String?) ?? "";
     final String postId = (data["post_id"] as String?) ?? "";
     if (boardId.isEmpty || postId.isEmpty) return;
     try {
-      await _svc.flagPostForResummary(boardId: boardId, postId: postId);
+      if (clearFlag) {
+        await _svc.clearPostResummaryFlag(boardId: boardId, postId: postId);
+      } else {
+        await _svc.flagPostForResummary(boardId: boardId, postId: postId);
+      }
       if (!mounted) return;
       SnackBarUtils.showUnique(
         context,
-        key: "admin_flag_${doc.id}",
-        snackBar: const SnackBar(
+        key: "admin_resummary_${doc.id}",
+        snackBar: SnackBar(
           behavior: SnackBarBehavior.floating,
-          content: Text("재요약 큐에 등록했습니다. 다음 backfill 실행 시 처리됩니다."),
+          content: Text(
+            clearFlag
+                ? "재요약 요청을 취소했습니다."
+                : "재요약 큐에 등록했습니다. 다음 backfill 실행 시 처리됩니다.",
+          ),
         ),
       );
     } catch (e) {
-      debugPrint("flag for resummary error: $e");
+      debugPrint("toggle resummary flag error: $e");
+      if (!mounted) return;
+      SnackBarUtils.showUnique(
+        context,
+        key: "admin_resummary_failed_${doc.id}",
+        snackBar: SnackBar(
+          behavior: SnackBarBehavior.floating,
+          content: Text(clearFlag ? "재요약 취소 실패: $e" : "재요약 등록 실패: $e"),
+        ),
+      );
     }
   }
 
@@ -186,6 +247,59 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
     }
   }
 
+  Widget _buildListBody(ColorScheme scheme) {
+    if (_listError != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            "신고를 불러오지 못했습니다.\n$_listError",
+            style: TextStyle(color: scheme.error),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    }
+    final QuerySnapshot<Map<String, dynamic>>? snap = _cachedSnap;
+    if (snap == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    final docs = snap.docs;
+    if (docs.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(24),
+          child: Text("표시할 신고가 없습니다."),
+        ),
+      );
+    }
+    return ListView.separated(
+      key: const PageStorageKey<String>("admin_reports_list"),
+      padding: EdgeInsets.fromLTRB(
+        adminIsMobile(context) ? 12 : 16,
+        4,
+        adminIsMobile(context) ? 12 : 16,
+        24,
+      ),
+      itemCount: docs.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 10),
+      itemBuilder: (context, i) {
+        return _ReportRow(
+          doc: docs[i],
+          moderationService: _svc,
+          onResolve: () => _resolve(docs[i], "resolved"),
+          onIgnore: () => _resolve(docs[i], "ignored"),
+          onReopen: () => _resolve(docs[i], "open"),
+          onDelete: () => _delete(docs[i]),
+          onToggleResummary: (clearFlag) =>
+              _toggleResummaryFlag(docs[i], clearFlag: clearFlag),
+          onEdit: () => _openEditor(docs[i]),
+          onOpenOriginal: _openOriginal,
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
@@ -220,65 +334,14 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
                     ButtonSegment(value: "all", label: Text("전체")),
                   ],
                   selected: {_statusFilter},
-                  onSelectionChanged: (s) =>
-                      setState(() => _statusFilter = s.first),
+                  onSelectionChanged: (s) => _setStatusFilter(s.first),
                 ),
               ),
             ],
           ),
         ),
         Expanded(
-          child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-            stream: _query().snapshots(),
-            builder: (context, snap) {
-              if (snap.hasError) {
-                return Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Text(
-                      "신고를 불러오지 못했습니다.\n${snap.error}",
-                      style: TextStyle(color: scheme.error),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                );
-              }
-              if (!snap.hasData) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              final docs = snap.data!.docs;
-              if (docs.isEmpty) {
-                return const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(24),
-                    child: Text("표시할 신고가 없습니다."),
-                  ),
-                );
-              }
-              return ListView.separated(
-                padding: EdgeInsets.fromLTRB(
-                  adminIsMobile(context) ? 12 : 16,
-                  4,
-                  adminIsMobile(context) ? 12 : 16,
-                  24,
-                ),
-                itemCount: docs.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 10),
-                itemBuilder: (context, i) {
-                  return _ReportRow(
-                    doc: docs[i],
-                    onResolve: () => _resolve(docs[i], "resolved"),
-                    onIgnore: () => _resolve(docs[i], "ignored"),
-                    onReopen: () => _resolve(docs[i], "open"),
-                    onDelete: () => _delete(docs[i]),
-                    onFlagResummary: () => _flagForResummary(docs[i]),
-                    onEdit: () => _openEditor(docs[i]),
-                    onOpenOriginal: _openOriginal,
-                  );
-                },
-              );
-            },
-          ),
+          child: _buildListBody(scheme),
         ),
       ],
     );
@@ -288,28 +351,63 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
 class _ReportRow extends StatelessWidget {
   const _ReportRow({
     required this.doc,
+    required this.moderationService,
     required this.onResolve,
     required this.onIgnore,
     required this.onReopen,
     required this.onDelete,
-    required this.onFlagResummary,
+    required this.onToggleResummary,
     required this.onEdit,
     required this.onOpenOriginal,
   });
 
   final DocumentSnapshot<Map<String, dynamic>> doc;
+  final AdminModerationService moderationService;
   final Future<void> Function() onResolve;
   final Future<void> Function() onIgnore;
   final Future<void> Function() onReopen;
   final Future<void> Function() onDelete;
-  final Future<void> Function() onFlagResummary;
+  final Future<void> Function(bool clearFlag) onToggleResummary;
   final Future<void> Function() onEdit;
   final Future<void> Function(String url) onOpenOriginal;
+
+  Widget _buildResummaryButton(
+    BuildContext context, {
+    required String boardId,
+    required String postId,
+    bool compact = false,
+  }) {
+    if (boardId.isEmpty || postId.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+      stream: moderationService.watchNoticePost(
+        boardId: boardId,
+        postId: postId,
+      ),
+      builder: (context, snap) {
+        final bool queued =
+            snap.data?.data()?["needs_resummary"] == true;
+        return OutlinedButton.icon(
+          onPressed: () => onToggleResummary(queued),
+          icon: Icon(
+            queued ? Icons.close : Icons.auto_awesome,
+            size: compact ? 16 : 16,
+          ),
+          label: Text(
+            queued ? "재요약 취소" : (compact ? "재요약" : "재요약 플래그"),
+          ),
+        );
+      },
+    );
+  }
 
   Widget _buildActions(
     BuildContext context,
     ColorScheme scheme, {
     required String status,
+    required String boardId,
+    required String postId,
   }) {
     if (!adminIsMobile(context)) {
       return Wrap(
@@ -321,10 +419,10 @@ class _ReportRow extends StatelessWidget {
             icon: const Icon(Icons.edit_outlined, size: 16),
             label: const Text("요약 수정"),
           ),
-          OutlinedButton.icon(
-            onPressed: () => onFlagResummary(),
-            icon: const Icon(Icons.auto_awesome, size: 16),
-            label: const Text("재요약 플래그"),
+          _buildResummaryButton(
+            context,
+            boardId: boardId,
+            postId: postId,
           ),
           if (status != "resolved")
             TextButton.icon(
@@ -383,10 +481,11 @@ class _ReportRow extends StatelessWidget {
         Row(
           children: [
             Expanded(
-              child: OutlinedButton.icon(
-                onPressed: () => onFlagResummary(),
-                icon: const Icon(Icons.auto_awesome, size: 16),
-                label: const Text("재요약"),
+              child: _buildResummaryButton(
+                context,
+                boardId: boardId,
+                postId: postId,
+                compact: true,
               ),
             ),
             if (status != "resolved") ...[
@@ -588,7 +687,13 @@ class _ReportRow extends StatelessWidget {
             ),
           ],
           const SizedBox(height: 10),
-          _buildActions(context, scheme, status: status),
+          _buildActions(
+            context,
+            scheme,
+            status: status,
+            boardId: boardId,
+            postId: postId,
+          ),
         ],
       ),
     );

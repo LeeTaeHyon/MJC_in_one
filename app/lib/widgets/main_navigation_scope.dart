@@ -30,6 +30,9 @@ abstract final class MainNavLayout {
   /// 메인 탭 안 FAB — navbar 위 여백(px).
   static const double fabGapAboveNav = 16;
 
+  /// floating SnackBar — 하단 네비(또는 safe area 기준) 위 추가 간격(px).
+  static const double snackBarGapAboveNav = 8;
+
   /// Stack [Positioned] FAB bottom.
   static double fabBottomOffset(BuildContext context) {
     if (MainNavigationScope.maybeNavigate(context) == null) {
@@ -52,7 +55,12 @@ abstract final class MainNavLayout {
   /// [MainNavigationScreen] 하단 네비 위에 띄울 floating SnackBar 여백.
   static EdgeInsets snackBarMargin(BuildContext context) {
     if (MainNavigationScope.maybeNavigate(context) != null) {
-      return EdgeInsets.fromLTRB(16, 0, 16, bottomInset(context));
+      return EdgeInsets.fromLTRB(
+        16,
+        0,
+        16,
+        bottomInset(context) + snackBarGapAboveNav,
+      );
     }
     return const EdgeInsets.fromLTRB(16, 0, 16, 16);
   }

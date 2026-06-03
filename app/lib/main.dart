@@ -9,6 +9,9 @@ import "package:mjc_in_one/notification_history_prefs.dart";
 import "package:mjc_in_one/notification_sources.dart";
 import "package:mjc_in_one/screens/admin/admin_shell.dart";
 import "package:mjc_in_one/screens/inquiry_screen.dart";
+import "package:mjc_in_one/screens/login_screen.dart";
+import "package:mjc_in_one/services/auth_service.dart";
+import "package:mjc_in_one/utils/mjc_snack_bar.dart";
 import "package:mjc_in_one/screens/intro_screen.dart";
 import "package:mjc_in_one/screens/main_navigation_screen.dart";
 import "package:mjc_in_one/services/keyword_notification_detail.dart";
@@ -18,6 +21,7 @@ import "package:mjc_in_one/services/lecture_reminder_notification_service.dart";
 import "package:mjc_in_one/services/user_data_repository.dart";
 import "package:mjc_in_one/theme/app_theme.dart";
 import "package:mjc_in_one/theme/theme_mode_scope.dart";
+import "package:mjc_in_one/utils/trusted_notification_url.dart";
 import "package:mjc_in_one/debug/app_debug_flags.dart";
 import "package:mjc_in_one/debug/scroll_fab_debug.dart";
 import "package:mjc_in_one/widgets/scroll_to_top_scope.dart";
@@ -66,6 +70,8 @@ Future<void> _processAndShowNotification(RemoteMessage message) async {
 
   // 발송 허가된 상태라면 로컬 알람 솜
   if (shouldShow) {
+    final Map<String, String> trustedData =
+        sanitizeNotificationDataUrls(message.data);
     // 1. 내역 저장을 위한 데이터 구성
     final now = DateTime.now();
     final historyItem = {
@@ -73,7 +79,7 @@ Future<void> _processAndShowNotification(RemoteMessage message) async {
       "body": body,
       "received_at":
           "${now.year}.${now.month.toString().padLeft(2, '0')}.${now.day.toString().padLeft(2, '0')} ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}",
-      "data": message.data,
+      "data": trustedData,
     };
 
     // 2. SharedPreferences에 알람 내역 추가 저장
@@ -257,7 +263,26 @@ class _MioNoticeAppState extends State<MioNoticeApp>
                             elevation: 4,
                             backgroundColor: Colors.red,
                             onPressed: () {
-                              _navigatorKey.currentState?.push(
+                              final NavigatorState? nav =
+                                  _navigatorKey.currentState;
+                              if (nav == null) return;
+                              if (AuthService.instance.currentUser == null) {
+                                showUniqueMjcSnackBar(
+                                  nav.context,
+                                  key: "inquiry_login_required",
+                                  message: "문의하려면 로그인해 주세요.",
+                                  actionLabel: "로그인",
+                                  onAction: () {
+                                    nav.push<void>(
+                                      MaterialPageRoute<void>(
+                                        builder: (_) => const LoginScreen(),
+                                      ),
+                                    );
+                                  },
+                                );
+                                return;
+                              }
+                              nav.push<void>(
                                 MaterialPageRoute<void>(
                                   builder: (_) => const InquiryScreen(),
                                 ),

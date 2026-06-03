@@ -290,15 +290,19 @@ class _CtlScreenState extends State<CtlScreen> {
                     heroBody: heroBody,
                     onOpenFilter: _openNoticeFilterSheet,
                     onSearch: _openGlobalSearch,
-                    tabBar: TabBar(
-                      controller: DefaultTabController.of(context),
-                      indicatorColor: tokens.sourceCtl,
-                      indicatorWeight: 3,
+                    bottom: TabBar(
+                      indicator: UnderlineTabIndicator(
+                        borderSide: BorderSide(
+                          color: tokens.sourceCtl,
+                          width: 3,
+                        ),
+                      ),
+                      indicatorSize: TabBarIndicatorSize.label,
                       labelColor: tokens.sourceCtl,
                       unselectedLabelColor: scheme.onSurfaceVariant,
                       labelStyle: const TextStyle(
                         fontWeight: FontWeight.bold,
-                        fontSize: 16,
+                        fontSize: 15,
                       ),
                       tabs: const [
                         Tab(text: "학습 프로그램"),
@@ -340,29 +344,29 @@ class _CtlCollapsingHeaderDelegate extends SliverPersistentHeaderDelegate {
   _CtlCollapsingHeaderDelegate({
     required this.topPadding,
     required this.heroBody,
-    required this.tabBar,
     required this.onOpenFilter,
     required this.onSearch,
+    this.bottom,
   });
 
   final double topPadding;
   final double heroBody;
-  final TabBar tabBar;
   final VoidCallback onOpenFilter;
   final VoidCallback onSearch;
+  final PreferredSizeWidget? bottom;
 
   static const double _collapsedBar = 52;
   static const Color _overlayTop = Color(0xFF593E73);
   static const Color _overlayBottom = Color(0xFF73558D);
   static const double _collapsedOverlayOpacity = 0.90;
 
-  double get _tabBarHeight => tabBar.preferredSize.height;
+  double get _bottomHeight => bottom?.preferredSize.height ?? 0;
 
   @override
-  double get maxExtent => topPadding + heroBody + _tabBarHeight;
+  double get maxExtent => topPadding + heroBody + _bottomHeight;
 
   @override
-  double get minExtent => topPadding + _collapsedBar + _tabBarHeight;
+  double get minExtent => topPadding + _collapsedBar + _bottomHeight;
 
   @override
   Widget build(
@@ -376,9 +380,8 @@ class _CtlCollapsingHeaderDelegate extends SliverPersistentHeaderDelegate {
     final double t = range > 0 ? (shrinkOffset / range).clamp(0.0, 1.0) : 0.0;
     final double overlayT = Curves.easeOutCubic.transform(t);
     final double u = Curves.easeInOut.transform(t);
-    final double heroH = extent - _tabBarHeight;
+    final double heroH = extent - _bottomHeight;
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
-    final ColorScheme scheme = Theme.of(context).colorScheme;
     final double overlayOpacity =
         lerpDouble(0.0, _collapsedOverlayOpacity, overlayT)!;
     final Color overlayBase = _overlayTop;
@@ -530,15 +533,20 @@ class _CtlCollapsingHeaderDelegate extends SliverPersistentHeaderDelegate {
                 ],
               ),
             ),
-            Material(
-              color: scheme.surface,
-              elevation: overlapsContent ? 0.5 : 0,
-              shadowColor: Colors.black.withValues(alpha: isDark ? 0.45 : 0.12),
-              child: SizedBox(
-                height: _tabBarHeight,
-                child: tabBar,
+            if (bottom != null)
+              Material(
+                color: isDark
+                    ? Theme.of(context).colorScheme.surfaceContainer
+                    : Theme.of(context).colorScheme.surface,
+                elevation: overlapsContent ? 0.5 : 0,
+                shadowColor: Colors.black.withValues(
+                  alpha: isDark ? 0.45 : 0.12,
+                ),
+                child: SizedBox(
+                  height: _bottomHeight,
+                  child: bottom,
+                ),
               ),
-            ),
           ],
         ),
       ),
@@ -549,9 +557,9 @@ class _CtlCollapsingHeaderDelegate extends SliverPersistentHeaderDelegate {
   bool shouldRebuild(covariant _CtlCollapsingHeaderDelegate old) {
     return topPadding != old.topPadding ||
         heroBody != old.heroBody ||
-        tabBar != old.tabBar ||
         onOpenFilter != old.onOpenFilter ||
-        onSearch != old.onSearch;
+        onSearch != old.onSearch ||
+        bottom != old.bottom;
   }
 }
 

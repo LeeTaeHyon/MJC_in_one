@@ -1,10 +1,18 @@
 import "package:flutter/material.dart";
 import "package:mjc_in_one/notification_sources.dart";
+import "package:mjc_in_one/theme/app_colors.dart";
 import "package:mjc_in_one/services/keyword_notification_detail.dart";
 import "package:mjc_in_one/services/user_data_repository.dart";
 import "package:mjc_in_one/utils/snack_bar_utils.dart";
 import "package:mjc_in_one/widgets/mjc_keyword_capsule.dart";
 import "package:shared_preferences/shared_preferences.dart";
+
+/// 다크 모드에서 [ColorScheme.primary]는 배경 대비가 낮아 액션 링크에 쓰지 않음.
+Color _keywordSettingsActionColor(ThemeData theme) {
+  return theme.brightness == Brightness.dark
+      ? AppColors.switchActiveDark
+      : theme.colorScheme.primary;
+}
 
 /// 푸시 알림용 키워드 등록·편집 화면.
 class KeywordNotificationSettingsScreen extends StatefulWidget {
@@ -192,6 +200,9 @@ class _KeywordNotificationSettingsScreenState
             ),
           TextButton(
             onPressed: _toggleEditMode,
+            style: TextButton.styleFrom(
+              foregroundColor: _keywordSettingsActionColor(theme),
+            ),
             child: Text(_editMode ? "완료" : "편집"),
           ),
         ],
@@ -232,7 +243,7 @@ class _KeywordNotificationSettingsScreenState
                       style: TextStyle(
                         fontWeight: FontWeight.w600,
                         color: canRegister
-                            ? scheme.primary
+                            ? _keywordSettingsActionColor(theme)
                             : scheme.onSurfaceVariant
                                 .withValues(alpha: 0.45),
                       ),
@@ -580,7 +591,7 @@ class _KeywordDetailSheetState extends State<_KeywordDetailSheet> {
                     style: TextStyle(
                       fontWeight: FontWeight.w600,
                       color: canAddExclude
-                          ? scheme.primary
+                          ? _keywordSettingsActionColor(theme)
                           : scheme.onSurfaceVariant
                               .withValues(alpha: 0.45),
                     ),

@@ -2,7 +2,7 @@ name: MJC Crawler
 
 on:
   schedule:
-    - cron: '0 */3 * * *'   # 3시간마다 실행
+    - cron: '0 0,3,6,9 * * *'   # KST 09:00, 12:00, 15:00, 18:00 (UTC+9)
   workflow_dispatch:          # 수동 실행 버튼
     inputs:
       mode:
@@ -25,6 +25,21 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install requests beautifulsoup4 firebase-admin
+
+      - name: Setup Firebase credentials
+        working-directory: test
+        env:
+          FIREBASE_KEY: ${{ secrets.FIREBASE_KEY }}
+        run: |
+          if [ -z "$FIREBASE_KEY" ]; then
+            echo "::error::GitHub Actions secret FIREBASE_KEY 가 설정되지 않았습니다."
+            echo "Settings → Secrets and variables → Actions → New repository secret"
+            echo "Name: FIREBASE_KEY"
+            echo "Value: test/serviceAccountKey.json 파일 내용 전체(JSON)"
+            exit 1
+          fi
+          printf '%s' "$FIREBASE_KEY" > serviceAccountKey.json
+          python -c "import json; json.load(open('serviceAccountKey.json', encoding='utf-8'))"
 
       - name: Run crawler
         working-directory: test

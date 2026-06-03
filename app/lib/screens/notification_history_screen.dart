@@ -5,6 +5,7 @@ import "package:mjc_in_one/notification_sources.dart";
 import "package:mjc_in_one/screens/common_webview_screen.dart";
 import "package:mjc_in_one/screens/settings_screen.dart";
 import "package:mjc_in_one/theme/app_colors.dart";
+import "package:mjc_in_one/utils/trusted_notification_url.dart";
 import "package:mjc_in_one/widgets/main_notice_ai_tag_chip_bar.dart";
 import "package:mjc_in_one/widgets/scroll_to_top_fab.dart";
 import "package:mjc_in_one/widgets/scroll_to_top_scope.dart";
@@ -21,7 +22,8 @@ class NotificationHistoryScreen extends StatefulWidget {
       _NotificationHistoryScreenState();
 }
 
-class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
+class _NotificationHistoryScreenState extends State<NotificationHistoryScreen>
+    with SingleTickerProviderStateMixin {
   static const List<String> _categoryLabels = <String>[
     "전체",
     "본교 공지",
@@ -37,16 +39,21 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
   int _categoryIndex = 0;
   bool _editMode = false;
 
-  final ScrollController _scrollController = ScrollController();
+  late final List<ScrollController> _scrollControllers =
+      List<ScrollController>.generate(
+    _categoryLabels.length,
+    (_) => ScrollController()..addListener(_onHistoryScroll),
+  );
+  late final TabController _categoryTabController;
   ScrollToTopCoordinator? _scrollRouteCoordinator;
   bool _registeredScrollRoute = false;
   bool _registeredMainTab = false;
 
-  List<Map<String, dynamic>> get _visibleHistory {
-    if (_categoryIndex == 0) {
+  List<Map<String, dynamic>> _historyForCategory(int categoryIndex) {
+    if (categoryIndex == 0) {
       return List<Map<String, dynamic>>.from(_history);
     }
-    final String sid = _categorySourceIds[_categoryIndex - 1];
+    final String sid = _categorySourceIds[categoryIndex - 1];
     return _history
         .where((Map<String, dynamic> e) =>
             resolveNotificationSource(_fcmPayloadForSourceLookup(e)) == sid)
@@ -83,17 +90,17 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
         "picture",
       ]) {
         final String? v = data[k]?.toString().trim();
-        if (v != null &&
-            v.isNotEmpty &&
-            (v.startsWith("http://") ||
-                v.startsWith("https://") ||
-                v.startsWith("//"))) {
-          return v.startsWith("//") ? "https:$v" : v;
+        if (v != null && v.isNotEmpty) {
+          final String? trustedUrl = trustedNotificationImageUrl(v);
+          if (trustedUrl != null) return trustedUrl;
         }
       }
     }
     final String url = _extractNotificationOpenUrl(item);
-    if (_looksLikeImageUrl(url)) return url;
+    final String? trustedUrl = trustedNotificationImageUrl(url);
+    if (trustedUrl != null && _looksLikeImageUrl(trustedUrl)) {
+      return trustedUrl;
+    }
     return null;
   }
 
@@ -141,6 +148,14 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
       );
       return;
     }
+    final Uri? trustedUri = trustedNotificationLinkUri(openUrl);
+    if (trustedUri == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("확인되지 않은 알림 링크라 열 수 없습니다.")),
+      );
+      return;
+    }
 
     await markNotificationHistoryItemRead(item);
     final String key = notificationHistoryItemKey(item);
@@ -154,14 +169,17 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
         : (item["title"] ?? "공지사항").toString();
 
     if (kIsWeb) {
-      await launchUrl(Uri.parse(openUrl), webOnlyWindowName: "_blank");
+      await launchUrl(trustedUri, webOnlyWindowName: "_blank");
       return;
     }
     if (!mounted) return;
     await Navigator.push<void>(
       context,
       MaterialPageRoute<void>(
-        builder: (_) => CommonWebViewScreen(url: openUrl, title: title),
+        builder: (_) => CommonWebViewScreen(
+          url: trustedUri.toString(),
+          title: title,
+        ),
       ),
     );
   }
@@ -169,25 +187,47 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
   @override
   void initState() {
     super.initState();
-    _scrollController.addListener(_onHistoryScroll);
+    _categoryTabController = TabController(
+      length: _categoryLabels.length,
+      vsync: this,
+      initialIndex: _categoryIndex,
+    )..addListener(_onCategoryTabChanged);
     _loadHistory();
+  }
+
+  ScrollController get _activeScrollController =>
+      _scrollControllers[_categoryIndex];
+
+  void _reportScrollToCoordinator() {
+    final ScrollController c = _activeScrollController;
+    if (!mounted || !c.hasClients) return;
+    final double viewportHeight =
+        ScrollFabMetrics.viewportHeightForThreshold(c, context);
+    if (widget.embedded) {
+      _scrollRouteCoordinator?.reportMainTabScroll(
+        MainNavTabIndex.alerts,
+        c.offset,
+        viewportHeight,
+      );
+    } else {
+      _scrollRouteCoordinator?.reportRouteScroll(c.offset, viewportHeight);
+    }
   }
 
   void _onHistoryScroll() {
     if (!mounted) return;
+    final ScrollController c = _activeScrollController;
+    if (!c.hasClients) return;
     final double viewportHeight =
-        ScrollFabMetrics.viewportHeightInScrollListener(_scrollController);
+        ScrollFabMetrics.viewportHeightInScrollListener(c);
     if (widget.embedded) {
       _scrollRouteCoordinator?.reportMainTabScroll(
         MainNavTabIndex.alerts,
-        _scrollController.offset,
+        c.offset,
         viewportHeight,
       );
     } else {
-      _scrollRouteCoordinator?.reportRouteScroll(
-        _scrollController.offset,
-        viewportHeight,
-      );
+      _scrollRouteCoordinator?.reportRouteScroll(c.offset, viewportHeight);
     }
   }
 
@@ -210,26 +250,16 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
         _registeredScrollRoute = true;
       }
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || !_scrollController.hasClients) return;
-        final double viewportHeight =
-            ScrollFabMetrics.viewportHeightForThreshold(
-                _scrollController, context);
-        if (widget.embedded) {
-          c.reportMainTabScroll(
-            MainNavTabIndex.alerts,
-            _scrollController.offset,
-            viewportHeight,
-          );
-        } else {
-          c.reportRouteScroll(_scrollController.offset, viewportHeight);
-        }
+        if (!mounted) return;
+        _reportScrollToCoordinator();
       });
     }
   }
 
   void _scrollContentToTop() {
-    if (!_scrollController.hasClients) return;
-    for (final ScrollPosition position in _scrollController.positions) {
+    final ScrollController c = _activeScrollController;
+    if (!c.hasClients) return;
+    for (final ScrollPosition position in c.positions) {
       position.animateTo(
         0,
         duration: const Duration(milliseconds: 320),
@@ -238,9 +268,23 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
     }
   }
 
+  void _onCategoryTabChanged() {
+    final int index = _categoryTabController.index;
+    if (_categoryIndex == index) return;
+    setState(() => _categoryIndex = index);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _reportScrollToCoordinator();
+    });
+  }
+
   @override
   void dispose() {
-    _scrollController.removeListener(_onHistoryScroll);
+    for (final ScrollController c in _scrollControllers) {
+      c.removeListener(_onHistoryScroll);
+      c.dispose();
+    }
+    _categoryTabController.removeListener(_onCategoryTabChanged);
+    _categoryTabController.dispose();
     if (_registeredScrollRoute) {
       _scrollRouteCoordinator?.popRouteHandler();
     }
@@ -250,7 +294,6 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
         owner: this,
       );
     }
-    _scrollController.dispose();
     super.dispose();
   }
 
@@ -265,21 +308,7 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
       _isLoading = false;
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_scrollController.hasClients) return;
-      final double viewportHeight = ScrollFabMetrics.viewportHeightForThreshold(
-          _scrollController, context);
-      if (widget.embedded) {
-        _scrollRouteCoordinator?.reportMainTabScroll(
-          MainNavTabIndex.alerts,
-          _scrollController.offset,
-          viewportHeight,
-        );
-      } else {
-        _scrollRouteCoordinator?.reportRouteScroll(
-          _scrollController.offset,
-          viewportHeight,
-        );
-      }
+      _reportScrollToCoordinator();
     });
   }
 
@@ -380,20 +409,41 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: scheme.surface,
-        border: Border(
-          bottom: BorderSide(
-            color: scheme.outlineVariant.withValues(alpha: 0.35),
-          ),
-        ),
       ),
-      child: MainNoticeAiTagChipBar(
-        chips: _categoryLabels,
-        selection: _categoryLabels[_categoryIndex],
-        onSelect: (String label) {
-          final int index = _categoryLabels.indexOf(label);
-          if (index < 0 || _categoryIndex == index) return;
-          setState(() => _categoryIndex = index);
-        },
+      child: SizedBox(
+        height: kMainNoticeAiTagFilterBarHeight,
+        child: TabBar(
+          controller: _categoryTabController,
+          isScrollable: true,
+          tabAlignment: TabAlignment.start,
+          indicator: const UnderlineTabIndicator(
+            borderSide: BorderSide(
+              color: AppColors.primary,
+              width: kMainNoticeAiTagFilterIndicatorHeight,
+            ),
+          ),
+          indicatorSize: TabBarIndicatorSize.label,
+          dividerColor: Colors.transparent,
+          labelColor: AppColors.primary,
+          unselectedLabelColor: scheme.onSurfaceVariant,
+          labelStyle: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+          ),
+          unselectedLabelStyle: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+          ),
+          labelPadding: const EdgeInsets.symmetric(horizontal: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          tabs: [
+            for (final String label in _categoryLabels)
+              Tab(
+                height: kMainNoticeAiTagFilterBarHeight,
+                text: label,
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -439,6 +489,35 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
       );
     }
     return _fallbackThumb(sourceId, size);
+  }
+
+  Widget _buildCategoryHistoryPage({
+    required int categoryIndex,
+    required ColorScheme scheme,
+  }) {
+    if (_history.isEmpty) {
+      return _buildEmptyState(allCategories: true);
+    }
+    final List<Map<String, dynamic>> items =
+        _historyForCategory(categoryIndex);
+    if (items.isEmpty) {
+      return _buildEmptyState(allCategories: false);
+    }
+    return ListView.builder(
+      controller: _scrollControllers[categoryIndex],
+      padding: const EdgeInsets.only(bottom: 12),
+      itemCount: items.length,
+      itemBuilder: (BuildContext context, int index) {
+        final Map<String, dynamic> item = items[index];
+        final String sid =
+            resolveNotificationSource(_fcmPayloadForSourceLookup(item));
+        return _buildNotificationTile(
+          item: item,
+          sourceId: sid,
+          scheme: scheme,
+        );
+      },
+    );
   }
 
   Widget _buildNotificationTile({
@@ -573,27 +652,28 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
                 else
                   _buildCategoryChips(context),
                 Expanded(
-                  child: _history.isEmpty
-                      ? _buildEmptyState(allCategories: true)
-                      : _visibleHistory.isEmpty
-                          ? _buildEmptyState(allCategories: false)
-                          : ListView.builder(
-                              controller: _scrollController,
-                              padding: const EdgeInsets.only(bottom: 12),
-                              itemCount: _visibleHistory.length,
-                              itemBuilder: (BuildContext context, int index) {
-                                final Map<String, dynamic> item =
-                                    _visibleHistory[index];
-                                final String sid =
-                                    resolveNotificationSource(
-                                        _fcmPayloadForSourceLookup(item));
-                                return _buildNotificationTile(
-                                  item: item,
-                                  sourceId: sid,
+                  child: _editMode
+                      ? _buildCategoryHistoryPage(
+                          categoryIndex: _categoryIndex,
+                          scheme: scheme,
+                        )
+                      : TabBarView(
+                          controller: _categoryTabController,
+                          children: <Widget>[
+                            for (int index = 0;
+                                index < _categoryLabels.length;
+                                index++)
+                              KeyedSubtree(
+                                key: ValueKey<String>(
+                                  "notification-category-$index",
+                                ),
+                                child: _buildCategoryHistoryPage(
+                                  categoryIndex: index,
                                   scheme: scheme,
-                                );
-                              },
-                            ),
+                                ),
+                              ),
+                          ],
+                        ),
                 ),
               ],
             ),

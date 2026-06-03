@@ -20,9 +20,18 @@ import "package:mjc_in_one/widgets/scroll_to_top_scope.dart";
 import "package:shared_preferences/shared_preferences.dart";
 
 /// 학과 공지 UI 브랜드 색 (헤더 그라데이션·목록 액센트).
-const Color _kDeptNoticeOverlayTop = Color(0xFF55658D);
-const Color _kDeptNoticeOverlayBottom = Color(0xFF3E4C73);
-const Color _kDeptNoticeBrand = Color(0xFF3E4C73);
+const Color _kDeptNoticeBrandLight = Color(0xFF607199);
+const Color _kDeptNoticeBrandDark = Color(0xFF7A8BB5);
+
+Color _deptNoticeBrandColor(BuildContext context) {
+  return Theme.of(context).brightness == Brightness.dark
+      ? _kDeptNoticeBrandDark
+      : _kDeptNoticeBrandLight;
+}
+
+Color _deptNoticeOverlayBottom(Color brand) {
+  return Color.lerp(brand, const Color(0xFF1E2433), 0.32)!;
+}
 
 /// 학과 공지 목록 (실험실).
 class DepartmentNoticesScreen extends StatefulWidget {
@@ -650,7 +659,7 @@ class _DepartmentNoticesScreenState extends State<DepartmentNoticesScreen> {
                   date: (data["date"] as String?) ?? "",
                   imageUrl: thumb?.url,
                   imageStoragePath: thumb?.storagePath,
-                  brandColor: _kDeptNoticeBrand,
+                  brandColor: _deptNoticeBrandColor(context),
                   isRead: _readIds.contains(postId),
                   isPinned: _pinnedKeys.contains(key),
                   isFavorite: _favoriteKeys.contains(key),
@@ -717,6 +726,8 @@ class _DepartmentCollapsingHeaderDelegate
       (overlayOpacity + 0.08).clamp(0.0, 0.98),
       Curves.easeIn.transform(((t - 0.90) / 0.10).clamp(0.0, 1.0)),
     )!;
+    final Color overlayTop = _deptNoticeBrandColor(context);
+    final Color overlayBottom = _deptNoticeOverlayBottom(overlayTop);
 
     return SizedBox(
       height: extent,
@@ -725,7 +736,7 @@ class _DepartmentCollapsingHeaderDelegate
         child: Stack(
           fit: StackFit.expand,
           children: [
-            const ColoredBox(color: _kDeptNoticeOverlayTop),
+            ColoredBox(color: overlayTop),
             Positioned.fill(
               child: Builder(
                 builder: (BuildContext context) {
@@ -759,8 +770,8 @@ class _DepartmentCollapsingHeaderDelegate
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: <Color>[
-                      _kDeptNoticeOverlayTop.withValues(alpha: overlayOpacity),
-                      _kDeptNoticeOverlayBottom.withValues(
+                      overlayTop.withValues(alpha: overlayOpacity),
+                      overlayBottom.withValues(
                         alpha: bottomOverlayOpacity,
                       ),
                     ],

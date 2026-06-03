@@ -29,11 +29,13 @@ Future<void> showGlobalNoticeSearchSheet(
   String Function(Map<String, dynamic> item)? noticeKeyFor,
   Widget Function(Map<String, dynamic> item)? trailingFor,
   bool secondaryLabelsOnNewLine = false,
+  String title = "공지 검색",
+  String? scopeLabel,
 }) async {
   await showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
-    showDragHandle: true,
+    showDragHandle: false,
     useSafeArea: true,
     backgroundColor: Colors.transparent,
     builder: (BuildContext sheetContext) {
@@ -48,6 +50,8 @@ Future<void> showGlobalNoticeSearchSheet(
         noticeKeyFor: noticeKeyFor,
         trailingFor: trailingFor,
         secondaryLabelsOnNewLine: secondaryLabelsOnNewLine,
+        title: title,
+        scopeLabel: scopeLabel,
       );
     },
   );
@@ -65,6 +69,8 @@ class _GlobalNoticeSearchSheet extends StatefulWidget {
     this.noticeKeyFor,
     this.trailingFor,
     this.secondaryLabelsOnNewLine = false,
+    this.title = "공지 검색",
+    this.scopeLabel,
   });
 
   final List<Map<String, dynamic>> items;
@@ -77,6 +83,8 @@ class _GlobalNoticeSearchSheet extends StatefulWidget {
   final String Function(Map<String, dynamic> item)? noticeKeyFor;
   final Widget Function(Map<String, dynamic> item)? trailingFor;
   final bool secondaryLabelsOnNewLine;
+  final String title;
+  final String? scopeLabel;
 
   @override
   State<_GlobalNoticeSearchSheet> createState() =>
@@ -279,9 +287,37 @@ class _GlobalNoticeSearchSheetState extends State<_GlobalNoticeSearchSheet> {
             clipBehavior: Clip.none,
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            widget.title,
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleLarge
+                                ?.copyWith(fontWeight: FontWeight.w800),
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: "닫기",
+                          onPressed: () => Navigator.of(context).pop(),
+                          icon: const Icon(Icons.close_rounded),
+                        ),
+                      ],
+                    ),
+                    if (widget.scopeLabel != null)
+                      Text(
+                        "검색 범위: ${widget.scopeLabel}",
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    const SizedBox(height: 12),
                     TextField(
                       controller: _controller,
                       autofocus: true,
@@ -295,14 +331,16 @@ class _GlobalNoticeSearchSheetState extends State<_GlobalNoticeSearchSheet> {
                           vertical: 12,
                         ),
                         prefixIcon: const Icon(Icons.search_rounded),
-                        suffixIcon: IconButton(
-                          tooltip: "지우기",
-                          onPressed: () {
-                            _controller.clear();
-                            setState(() {});
-                          },
-                          icon: const Icon(Icons.close_rounded),
-                        ),
+                        suffixIcon: _controller.text.isEmpty
+                            ? null
+                            : IconButton(
+                                tooltip: "지우기",
+                                onPressed: () {
+                                  _controller.clear();
+                                  setState(() {});
+                                },
+                                icon: const Icon(Icons.clear_rounded),
+                              ),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide.none,

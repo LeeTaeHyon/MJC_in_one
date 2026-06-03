@@ -12,6 +12,8 @@ class NestedScrollRefreshIndicator extends StatelessWidget {
     this.backgroundColor,
     this.strokeWidth,
     this.displacement = 16,
+    this.tabBarHeight = 48,
+    this.includeNestedHeaderOffset = true,
     this.notificationPredicate = defaultScrollNotificationPredicate,
   });
 
@@ -21,19 +23,28 @@ class NestedScrollRefreshIndicator extends StatelessWidget {
   final Color? backgroundColor;
   final double? strokeWidth;
   final double displacement;
+  /// [NestedScrollView] 헤더 [TabBar] 높이. 통합 리스트처럼 헤더 탭이 없으면 0.
+  final double tabBarHeight;
+  /// false이면 [SliverOverlapAbsorber] spacer 아래 inner [TabBarView] 페이지용.
+  final bool includeNestedHeaderOffset;
   final ScrollNotificationPredicate notificationPredicate;
 
   @override
   Widget build(BuildContext context) {
-    final top = MediaQuery.paddingOf(context).top;
-    const double collapsedBar = 52;
-    const double tabBarH = 48;
+    final double edgeOffset;
+    if (includeNestedHeaderOffset) {
+      final top = MediaQuery.paddingOf(context).top;
+      const double collapsedBar = 52;
+      edgeOffset = top + collapsedBar + tabBarHeight;
+    } else {
+      edgeOffset = 0;
+    }
     return RefreshIndicator(
       onRefresh: onRefresh,
       color: color,
       backgroundColor: backgroundColor,
       strokeWidth: strokeWidth ?? RefreshProgressIndicator.defaultStrokeWidth,
-      edgeOffset: top + collapsedBar + tabBarH,
+      edgeOffset: edgeOffset,
       displacement: displacement,
       notificationPredicate: notificationPredicate,
       child: child,

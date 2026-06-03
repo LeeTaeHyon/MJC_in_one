@@ -435,25 +435,9 @@ class _TimetableMainScreenState extends State<TimetableMainScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: <Widget>[
-                          Text(
-                            "이번 학기",
-                            style: TextStyle(
-                              fontFamily: kPretendardFontFamily,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: semesterLabelColor,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            "내 시간표",
-                            style: TextStyle(
-                              fontFamily: kPretendardFontFamily,
-                              fontSize: 20,
-                              fontWeight: FontWeight.w900,
-                              color: scheme.onSurface,
-                            ),
-                          ),
+                          
+
+                          
                           const SizedBox(height: 12),
                           TimetableWeekGrid(
                             slots: _gridSlots,

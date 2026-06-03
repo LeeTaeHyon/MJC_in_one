@@ -871,7 +871,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
                                     leading:
                                         const Icon(Icons.mail_outline_rounded),
                                     title: const Text(
-                                      "이메일 변경",
+                                      "로그인 된 계정",
                                       style: TextStyle(
                                           fontWeight: FontWeight.w700),
                                     ),

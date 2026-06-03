@@ -366,6 +366,9 @@ class _ShuttleRouteMap extends StatelessWidget {
   static const double _routeTop = 14;
   static const double _stopGap = 64;
   static const double _markerLeft = 18;
+  static const double _stopMarkerSize = 23;
+  static const double _busMarkerSize = 34;
+  static const double _routeLineWidth = 3;
 
   /// Last stop is positioned at `top`; the row (dot + label) still extends
   /// downward, so the stack must be taller than the last `top` alone.
@@ -407,11 +410,11 @@ class _ShuttleRouteMap extends StatelessWidget {
           child: Stack(
             children: [
               Positioned(
-                left: _markerLeft + 10,
-                top: _routeTop + 8,
-                bottom: _routeTop + 8,
+                left: _markerLeft + (_stopMarkerSize - _routeLineWidth) / 2,
+                top: _routeTop + _stopMarkerSize / 2,
+                bottom: _routeTop + _stopRowExtent - _stopMarkerSize / 2,
                 child: Container(
-                  width: 3,
+                  width: _routeLineWidth,
                   decoration: BoxDecoration(
                     color: AppColors.primary.withValues(alpha: 0.55),
                     borderRadius: BorderRadius.circular(99),
@@ -427,11 +430,11 @@ class _ShuttleRouteMap extends StatelessWidget {
                   active: i == segmentIndex || i == segmentIndex + 1,
                 ),
               Positioned(
-                left: _markerLeft - 7,
-                top: busTop - 8,
+                left: _markerLeft + (_stopMarkerSize - _busMarkerSize) / 2,
+                top: busTop + (_stopMarkerSize - _busMarkerSize) / 2,
                 child: Container(
-                  width: 34,
-                  height: 34,
+                  width: _busMarkerSize,
+                  height: _busMarkerSize,
                   decoration: BoxDecoration(
                     color: AppColors.primary,
                     shape: BoxShape.circle,
@@ -496,8 +499,8 @@ class _RouteStop extends StatelessWidget {
       child: Row(
         children: [
           Container(
-            width: 23,
-            height: 23,
+            width: _ShuttleRouteMap._stopMarkerSize,
+            height: _ShuttleRouteMap._stopMarkerSize,
             decoration: BoxDecoration(
               color: active ? AppColors.primary : scheme.surface,
               shape: BoxShape.circle,

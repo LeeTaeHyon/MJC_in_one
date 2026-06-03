@@ -18,6 +18,7 @@ class TimetableWeekGrid extends StatelessWidget {
     this.timeColumnWidth = 34,
     this.headerHeight = 28,
     this.compact = false,
+    this.pulseOfferingId,
   });
 
   final List<TimetableSlot> slots;
@@ -30,6 +31,8 @@ class TimetableWeekGrid extends StatelessWidget {
   final double timeColumnWidth;
   final double headerHeight;
   final bool compact;
+  /// Plays a brief scale/ring animation on blocks for this offering (e.g. just added).
+  final String? pulseOfferingId;
 
   static const List<String> _dayLabels = <String>["월", "화", "수", "목", "금"];
 
@@ -168,73 +171,147 @@ class TimetableWeekGrid extends StatelessWidget {
     final String professor =
         (professorByOfferingId[slot.offeringId] ?? "").trim();
 
+    final bool bounce = pulseOfferingId != null &&
+        pulseOfferingId!.isNotEmpty &&
+        slot.offeringId == pulseOfferingId;
+
+    const BorderRadius slotRadius = BorderRadius.all(Radius.circular(6));
+
+    final Widget coloredBlock = Material(
+      color: bg,
+      borderRadius: slotRadius,
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        borderRadius: slotRadius,
+        onTap: onSlotTap == null ? null : () => onSlotTap!(slot),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Flexible(
+                child: Text(
+                  slot.courseName,
+                  maxLines: compact ? 1 : 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontFamily: kPretendardFontFamily,
+                    fontSize: compact ? 9 : 10,
+                    fontWeight: FontWeight.w700,
+                    height: 1.15,
+                    color: AppColors.timetableSlotOnColor,
+                  ),
+                ),
+              ),
+              if (professor.isNotEmpty) ...<Widget>[
+                const SizedBox(height: 1),
+                Text(
+                  professor,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontFamily: kPretendardFontFamily,
+                    fontSize: compact ? 7 : 8,
+                    fontWeight: FontWeight.w600,
+                    height: 1.1,
+                    color: AppColors.timetableSlotOnColor.withValues(alpha: 0.95),
+                  ),
+                ),
+              ],
+              if (slot.room.isNotEmpty) ...<Widget>[
+                const SizedBox(height: 1),
+                Text(
+                  slot.room,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontFamily: kPretendardFontFamily,
+                    fontSize: compact ? 8 : 9,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.timetableSlotOnColor.withValues(alpha: 0.92),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+
     return Positioned(
       left: left,
       top: top,
       width: width,
       height: height,
-      child: Material(
-        color: bg,
-        borderRadius: BorderRadius.circular(6),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(6),
-          onTap: onSlotTap == null ? null : () => onSlotTap!(slot),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Flexible(
-                  child: Text(
-                    slot.courseName,
-                    maxLines: compact ? 1 : 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontFamily: kPretendardFontFamily,
-                      fontSize: compact ? 9 : 10,
-                      fontWeight: FontWeight.w700,
-                      height: 1.15,
-                      color: AppColors.timetableSlotOnColor,
-                    ),
-                  ),
-                ),
-                if (professor.isNotEmpty) ...<Widget>[
-                  const SizedBox(height: 1),
-                  Text(
-                    professor,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontFamily: kPretendardFontFamily,
-                      fontSize: compact ? 7 : 8,
-                      fontWeight: FontWeight.w600,
-                      height: 1.1,
-                      color: AppColors.timetableSlotOnColor
-                          .withValues(alpha: 0.95),
-                    ),
-                  ),
-                ],
-                if (slot.room.isNotEmpty) ...<Widget>[
-                  const SizedBox(height: 1),
-                  Text(
-                    slot.room,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontFamily: kPretendardFontFamily,
-                      fontSize: compact ? 8 : 9,
-                      fontWeight: FontWeight.w500,
-                      color: AppColors.timetableSlotOnColor
-                          .withValues(alpha: 0.92),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ),
-      ),
+      child: _TimetableSlotBounce(active: bounce, child: coloredBlock),
+    );
+  }
+}
+
+/// Plays a short elastic scale when a slot is newly added to the grid.
+class _TimetableSlotBounce extends StatefulWidget {
+  const _TimetableSlotBounce({required this.active, required this.child});
+
+  final bool active;
+  final Widget child;
+
+  @override
+  State<_TimetableSlotBounce> createState() => _TimetableSlotBounceState();
+}
+
+class _TimetableSlotBounceState extends State<_TimetableSlotBounce>
+    with SingleTickerProviderStateMixin {
+  static const Duration _kDuration = Duration(milliseconds: 520);
+  static const double _kMinScale = 0.86;
+
+  AnimationController? _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.active) _startBounce();
+  }
+
+  @override
+  void didUpdateWidget(covariant _TimetableSlotBounce oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.active && !oldWidget.active) {
+      _startBounce();
+    }
+  }
+
+  void _startBounce() {
+    _controller ??= AnimationController(vsync: this, duration: _kDuration);
+    _controller!
+      ..reset()
+      ..forward();
+  }
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!widget.active) return widget.child;
+    final AnimationController? c = _controller;
+    if (c == null || c.status == AnimationStatus.completed) {
+      return widget.child;
+    }
+    return AnimatedBuilder(
+      animation: c,
+      builder: (BuildContext context, Widget? child) {
+        final double t = Curves.elasticOut.transform(c.value);
+        final double scale = _kMinScale + (1 - _kMinScale) * t;
+        return Transform.scale(
+          scale: scale,
+          alignment: Alignment.center,
+          child: child,
+        );
+      },
+      child: widget.child,
     );
   }
 }

@@ -3,8 +3,13 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     function isMjcEmail() {
-      return request.auth.token.email is string
+      return request.auth != null
+        && request.auth.token.email is string
         && request.auth.token.email.lower().matches('.*@mjc[.]ac[.]kr$');
+    }
+
+    function isSignedInMjc() {
+      return request.auth != null && isMjcEmail();
     }
 
     function isAdmin() {
@@ -12,6 +17,104 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/admin/users)
         && get(/databases/$(database)/documents/admin/users)
             .data.uids.hasAny([request.auth.uid]);
+    }
+
+    function isReportCountIncrement() {
+      return isSignedInMjc()
+        && request.resource.data.diff(resource.data)
+          .affectedKeys()
+          .hasOnly(['reports_count'])
+        && request.resource.data.reports_count is int
+        && (
+          (
+            !resource.data.keys().hasAny(['reports_count'])
+            && request.resource.data.reports_count == 1
+          )
+          || (
+            resource.data.reports_count is int
+            && request.resource.data.reports_count == resource.data.reports_count + 1
+          )
+        );
+    }
+
+    function isValidNoticeReportCreate() {
+      return isSignedInMjc()
+        && request.resource.data.keys().hasOnly([
+          'board_id',
+          'post_id',
+          'post_title',
+          'post_url',
+          'reason',
+          'reason_label',
+          'comment',
+          'platform',
+          'created_at',
+          'status'
+        ])
+        && request.resource.data.board_id is string
+        && request.resource.data.board_id.size() > 0
+        && request.resource.data.board_id.size() <= 100
+        && request.resource.data.post_id is string
+        && request.resource.data.post_id.size() > 0
+        && request.resource.data.post_id.size() <= 200
+        && request.resource.data.reason is string
+        && request.resource.data.reason in [
+          'summary_wrong',
+          'body_truncated',
+          'body_missing',
+          'other'
+        ]
+        && request.resource.data.reason_label is string
+        && request.resource.data.reason_label.size() <= 100
+        && request.resource.data.comment is string
+        && request.resource.data.comment.size() <= 1000
+        && request.resource.data.platform is string
+        && request.resource.data.platform.size() <= 40
+        && request.resource.data.post_title is string
+        && request.resource.data.post_title.size() <= 300
+        && request.resource.data.post_url is string
+        && request.resource.data.post_url.size() <= 1000
+        && request.resource.data.created_at == request.time
+        && request.resource.data.status == 'open';
+    }
+
+    function isValidDeveloperInquiryCreate() {
+      return isSignedInMjc()
+        && request.resource.data.keys().hasOnly([
+          'type',
+          'type_label',
+          'message',
+          'contact',
+          'device_info',
+          'created_at',
+          'status',
+          'admin_memo',
+          'resolved_by',
+          'resolved_at'
+        ])
+        && request.resource.data.type is string
+        && request.resource.data.type in [
+          'bug',
+          'suggestion',
+          'general',
+          'other'
+        ]
+        && request.resource.data.type_label is string
+        && request.resource.data.type_label.size() <= 100
+        && request.resource.data.message is string
+        && request.resource.data.message.size() >= 5
+        && request.resource.data.message.size() <= 3000
+        && request.resource.data.contact is string
+        && request.resource.data.contact.size() <= 200
+        && request.resource.data.device_info is map
+        && request.resource.data.device_info.keys().hasOnly(['platform'])
+        && request.resource.data.device_info.platform is string
+        && request.resource.data.device_info.platform.size() <= 40
+        && request.resource.data.created_at == request.time
+        && request.resource.data.status == 'open'
+        && request.resource.data.admin_memo == ''
+        && request.resource.data.resolved_by == null
+        && request.resource.data.resolved_at == null;
     }
 
     // 관리자 화이트리스트 (Firebase 콘솔에서만 직접 관리)
@@ -26,14 +129,10 @@ service cloud.firestore {
         && isMjcEmail();
     }
 
-    // 공지: 누구나 읽기. 사용자는 reports_count 증가만 허용. 그 외 필드(summary 등)는 관리자만.
+    // 공지: 누구나 읽기. 로그인한 MJC 사용자는 reports_count +1만 허용. 그 외 필드는 관리자만.
     match /notices/{board}/posts/{pid} {
       allow read: if true;
-      allow update: if (
-        request.resource.data.diff(resource.data)
-          .affectedKeys()
-          .hasOnly(['reports_count'])
-      ) || isAdmin();
+      allow update: if isReportCountIncrement() || isAdmin();
       allow create, delete: if isAdmin();
     }
 
@@ -55,25 +154,23 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // 사용자 신고: 누구나 create, 관리자만 read/update.
+    // 사용자 신고: 로그인한 MJC 사용자만 정해진 형식으로 create, 관리자만 read/update.
     match /notice_reports/{rid} {
-      allow create: if request.resource.data.keys()
-        .hasAll(['board_id', 'post_id', 'reason', 'status']);
+      allow create: if isValidNoticeReportCreate();
       allow read, update: if isAdmin();
       allow delete: if isAdmin();
     }
 
-    // 개발자 문의: 누구나 create, 관리자만 read/update.
+    // 개발자 문의: 로그인한 MJC 사용자만 정해진 형식으로 create, 관리자만 read/update.
     match /developer_inquiries/{iid} {
-      allow create: if request.resource.data.keys()
-        .hasAll(['type', 'message', 'status']);
+      allow create: if isValidDeveloperInquiryCreate();
       allow read, update: if isAdmin();
       allow delete: if isAdmin();
     }
 
-    // 개발 로그 (테스트 빌드용): 누구나 읽기, 관리자만 쓰기.
+    // 개발 로그 (테스트 빌드용): 관리자만 읽기/쓰기.
     match /dev_logs/{doc} {
-      allow read: if true;
+      allow read: if isAdmin();
       allow write: if isAdmin();
     }
 

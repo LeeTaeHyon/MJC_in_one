@@ -9,7 +9,8 @@ import "package:mjc_in_one/theme/app_theme.dart";
 /// MJC 앱 공통 다이얼로그 스타일.
 ///
 /// 새 다이얼로그는 [showMjcAlertDialog], [showMjcConfirmDialog],
-/// [showMjcLogoutDialog], [showMjcFoodcourtRecommendDialog] 또는
+/// [showMjcLogoutDialog], [showMjcClearCacheDialog],
+/// [showMjcFoodcourtRecommendDialog] 또는
 /// [MjcDialogShell]을 사용합니다.
 /// `AlertDialog(...)` 직접 생성은 피하세요.
 
@@ -225,6 +226,19 @@ Future<bool?> showMjcLogoutDialog(BuildContext context) {
     title: "로그아웃 하시겠어요?",
     message: "로그아웃 시 현재 계정에서 로그아웃됩니다.",
     confirmLabel: "로그아웃",
+    destructive: true,
+  );
+}
+
+/// 캐시 데이터 삭제 확인.
+Future<bool?> showMjcClearCacheDialog(BuildContext context) {
+  return showMjcConfirmDialog(
+    context,
+    title: "캐시 데이터를 지우시겠어요?",
+    message:
+        "식단·셔틀·캠퍼스맵·공지 목록 등 임시 데이터를 삭제합니다.\n\n"
+        "다음 사용 시 서버에서 다시 받아옵니다. 알림 설정, 북마크, 시간표, 프로필은 유지됩니다.",
+    confirmLabel: "지우기",
     destructive: true,
   );
 }

@@ -1,9 +1,12 @@
+import "dart:async";
+
+import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
 import "package:mjc_in_one/models/community_notice_media.dart";
 import "package:mjc_in_one/services/community_notice_service.dart";
 import "package:mjc_in_one/utils/community_notice_image_download.dart";
 import "package:mjc_in_one/utils/notice_image_download.dart";
-import "package:mjc_in_one/widgets/community_notice_image.dart";
+import "package:mjc_in_one/widgets/mjc_zoomable_image_viewport.dart";
 import "package:share_plus/share_plus.dart";
 
 /// 학과 공지 사진 전체 화면 (확대·다운로드·공유·좌우 넘기기).
@@ -88,6 +91,24 @@ class _CommunityNoticeImageViewerState extends State<CommunityNoticeImageViewer>
     });
   }
 
+  void _onZoomedImageSwipeAtEdge(
+    int pageIndex,
+    MjcHorizontalSwipeDirection direction,
+  ) {
+    if (pageIndex != _currentIndex || !_pageController.hasClients) return;
+
+    final int delta =
+        direction == MjcHorizontalSwipeDirection.next ? 1 : -1;
+    final int target = _currentIndex + delta;
+    if (target < 0 || target >= widget.items.length) return;
+
+    _pageController.animateToPage(
+      target,
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOut,
+    );
+  }
+
   Future<void> _download() async {
     if (_isDownloading) return;
     setState(() => _isDownloading = true);
@@ -166,6 +187,7 @@ class _CommunityNoticeImageViewerState extends State<CommunityNoticeImageViewer>
                   item: item,
                   service: _service,
                   onZoomChanged: _onZoomChanged,
+                  onHorizontalSwipeAtEdge: _onZoomedImageSwipeAtEdge,
                 );
               },
             ),
@@ -205,12 +227,17 @@ class _ZoomableNoticeImagePage extends StatefulWidget {
     required this.item,
     required this.service,
     required this.onZoomChanged,
+    required this.onHorizontalSwipeAtEdge,
   });
 
   final int pageIndex;
   final CommunityNoticeMediaItem item;
   final CommunityNoticeService service;
   final void Function(int pageIndex, bool isZoomed) onZoomChanged;
+  final void Function(
+    int pageIndex,
+    MjcHorizontalSwipeDirection direction,
+  ) onHorizontalSwipeAtEdge;
 
   @override
   State<_ZoomableNoticeImagePage> createState() =>
@@ -218,40 +245,138 @@ class _ZoomableNoticeImagePage extends StatefulWidget {
 }
 
 class _ZoomableNoticeImagePageState extends State<_ZoomableNoticeImagePage> {
-  final TransformationController _transformController =
-      TransformationController();
+  ImageProvider? _sizeProvider;
+  bool _providerResolveStarted = false;
 
   @override
   void initState() {
     super.initState();
-    _transformController.addListener(_handleTransformChanged);
+    _resolveSizeProvider();
   }
 
   @override
-  void dispose() {
-    _transformController.removeListener(_handleTransformChanged);
-    _transformController.dispose();
-    super.dispose();
+  void didUpdateWidget(covariant _ZoomableNoticeImagePage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.item.storagePath != widget.item.storagePath ||
+        oldWidget.item.url != widget.item.url) {
+      _sizeProvider = null;
+      _providerResolveStarted = false;
+      _resolveSizeProvider();
+    }
   }
 
-  void _handleTransformChanged() {
-    final double scale = _transformController.value.getMaxScaleOnAxis();
-    widget.onZoomChanged(widget.pageIndex, scale > 1.01);
+  void _resolveSizeProvider() {
+    if (_providerResolveStarted) return;
+    _providerResolveStarted = true;
+
+    final String url = widget.item.url.trim();
+    if (url.startsWith("http://") || url.startsWith("https://")) {
+      _setProvider(NetworkImage(url));
+      return;
+    }
+
+    unawaited(_resolveSizeProviderAsync());
+  }
+
+  Future<void> _resolveSizeProviderAsync() async {
+    try {
+      if (kIsWeb) {
+        final String? resolved = await widget.service.resolveImageDownloadUrl(
+          imageUrl: widget.item.url,
+          imageStoragePath: widget.item.storagePath,
+          preferStoredUrlOnWeb: true,
+        );
+        if (!mounted) return;
+        if (resolved != null && resolved.isNotEmpty) {
+          _setProvider(NetworkImage(resolved));
+          return;
+        }
+      } else {
+        final Uint8List? bytes = await widget.service.loadImageBytes(
+          imageStoragePath: widget.item.storagePath,
+          imageUrl: widget.item.url,
+        );
+        if (!mounted) return;
+        if (bytes != null && bytes.isNotEmpty) {
+          _setProvider(MemoryImage(bytes));
+          return;
+        }
+      }
+    } catch (e, st) {
+      debugPrint("_ZoomableNoticeImagePage size provider: $e\n$st");
+    }
+    if (mounted) setState(() => _sizeProvider = null);
+  }
+
+  void _setProvider(ImageProvider provider) {
+    if (!mounted) return;
+    setState(() => _sizeProvider = provider);
   }
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: InteractiveViewer(
-        transformationController: _transformController,
-        minScale: 0.5,
-        maxScale: 4,
-        child: CommunityNoticeImage(
-          imageUrl: widget.item.url,
-          imageStoragePath: widget.item.storagePath,
-          fit: BoxFit.contain,
-          communityNoticeService: widget.service,
+    final ImageProvider? provider = _sizeProvider;
+    if (provider == null) {
+      return const Center(
+        child: SizedBox(
+          width: 36,
+          height: 36,
+          child: CircularProgressIndicator(color: Colors.white),
         ),
+      );
+    }
+
+    return MjcZoomableImageViewport(
+      imageProvider: provider,
+      onZoomChanged: (bool isZoomed) =>
+          widget.onZoomChanged(widget.pageIndex, isZoomed),
+      onHorizontalSwipeAtEdge: (MjcHorizontalSwipeDirection direction) =>
+          widget.onHorizontalSwipeAtEdge(widget.pageIndex, direction),
+      child: Image(
+        image: provider,
+        fit: BoxFit.contain,
+        filterQuality: FilterQuality.high,
+        gaplessPlayback: true,
+        loadingBuilder: (
+          BuildContext context,
+          Widget child,
+          ImageChunkEvent? progress,
+        ) {
+          if (progress == null) return child;
+          return const SizedBox(
+            width: 36,
+            height: 36,
+            child: CircularProgressIndicator(color: Colors.white),
+          );
+        },
+        errorBuilder: (
+          BuildContext context,
+          Object error,
+          StackTrace? stackTrace,
+        ) {
+          return Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.broken_image_outlined,
+                  color: Colors.white70,
+                  size: 48,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  "이미지를 불러오지 못했습니다.",
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodyMedium
+                      ?.copyWith(color: Colors.white70),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }

@@ -8,6 +8,8 @@ import "package:mjc_in_one/main_website_prefs.dart";
 import "package:mjc_in_one/notification_sources.dart";
 import "package:mjc_in_one/screens/common_webview_screen.dart";
 import "package:mjc_in_one/screens/inquiry_screen.dart";
+import "package:mjc_in_one/screens/login_screen.dart";
+import "package:mjc_in_one/services/auth_service.dart";
 import "package:mjc_in_one/screens/keyword_notification_settings_screen.dart";
 import "package:mjc_in_one/screens/open_source_licenses_screen.dart";
 import "package:mjc_in_one/screens/phone_permissions_screen.dart";
@@ -17,6 +19,7 @@ import "package:mjc_in_one/services/legal_consent_service.dart";
 import "package:mjc_in_one/services/notice_filter.dart";
 import "package:mjc_in_one/services/user_data_repository.dart";
 import "package:mjc_in_one/theme/theme_mode_scope.dart";
+import "package:mjc_in_one/utils/mjc_dialog.dart";
 import "package:mjc_in_one/utils/mjc_snack_bar.dart";
 import "package:mjc_in_one/widgets/safe_tooltip.dart";
 import "package:mjc_in_one/widgets/scroll_to_top_fab.dart";
@@ -360,6 +363,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   /// 개발자 문의 — Firestore `developer_inquiries` 컬렉션으로 직접 전송됩니다.
   Future<void> _contactDeveloper() async {
+    if (AuthService.instance.currentUser == null) {
+      showUniqueMjcSnackBar(
+        context,
+        key: "inquiry_login_required",
+        message: "문의하려면 로그인해 주세요.",
+        actionLabel: "로그인",
+        onAction: () {
+          Navigator.of(context).push<void>(
+            MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
+          );
+        },
+      );
+      return;
+    }
     await Navigator.of(context).push<void>(
       MaterialPageRoute<void>(builder: (_) => const InquiryScreen()),
     );
@@ -367,28 +384,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _confirmAndClearAppCache() async {
     if (_clearingCache) return;
-    final bool? confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          title: const Text("캐시 데이터 지우기"),
-          content: const Text(
-            "식단·셔틀·캠퍼스맵·공지 목록 등 임시 데이터를 삭제합니다.\n\n"
-            "다음 사용 시 서버에서 다시 받아옵니다. 알림 설정, 북마크, 시간표, 프로필은 유지됩니다.",
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(false),
-              child: const Text("취소"),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(ctx).pop(true),
-              child: const Text("지우기"),
-            ),
-          ],
-        );
-      },
-    );
+    final bool? confirmed = await showMjcClearCacheDialog(context);
     if (confirmed != true || !mounted) return;
 
     setState(() => _clearingCache = true);

@@ -85,6 +85,30 @@ class AdminModerationService {
         .set(<String, dynamic>{"needs_resummary": true}, SetOptions(merge: true));
   }
 
+  Future<void> clearPostResummaryFlag({
+    required String boardId,
+    required String postId,
+  }) async {
+    await _db
+        .collection("notices")
+        .doc(boardId)
+        .collection("posts")
+        .doc(postId)
+        .set(<String, dynamic>{"needs_resummary": false}, SetOptions(merge: true));
+  }
+
+  Stream<DocumentSnapshot<Map<String, dynamic>>> watchNoticePost({
+    required String boardId,
+    required String postId,
+  }) {
+    return _db
+        .collection("notices")
+        .doc(boardId)
+        .collection("posts")
+        .doc(postId)
+        .snapshots();
+  }
+
   Future<DocumentSnapshot<Map<String, dynamic>>> getNoticePost({
     required String boardId,
     required String postId,

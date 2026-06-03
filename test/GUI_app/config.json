@@ -1,0 +1,7 @@
+{
+  "min_post_date": "2026-01-01",
+  "gemini_enabled": true,
+  "gemini_api_key": "",
+  "firebase_project": "mjc-one",
+  "service_account": "../serviceAccountKey.json"
+}

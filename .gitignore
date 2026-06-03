@@ -95,3 +95,10 @@ app.*.map.json
 
 # Figma
 figma_design/
+
+# Python Virtual Environments
+**/venv/
+**/.venv/
+**/venv*/
+venv/
+.venv/

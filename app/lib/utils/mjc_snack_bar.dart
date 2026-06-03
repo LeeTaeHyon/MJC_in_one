@@ -1,6 +1,7 @@
 import "package:flutter/material.dart";
 import "package:mjc_in_one/theme/app_theme.dart";
 import "package:mjc_in_one/utils/snack_bar_utils.dart";
+import "package:mjc_in_one/widgets/main_navigation_scope.dart";
 
 /// MJC 앱 공통 SnackBar 스타일.
 ///
@@ -92,7 +93,7 @@ SnackBar buildMjcSnackBar(
     behavior: SnackBarBehavior.floating,
     backgroundColor: mjcSnackBarBackground(context),
     elevation: 0,
-    margin: margin ?? const EdgeInsets.fromLTRB(16, 0, 16, 16),
+    margin: margin ?? MainNavLayout.snackBarMargin(context),
     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     content: mjcSnackBarContent(

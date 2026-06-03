@@ -3,8 +3,11 @@ import "dart:io" show Platform;
 import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
 import "package:mjc_in_one/debug/app_debug_flags.dart";
+import "package:mjc_in_one/screens/login_screen.dart";
+import "package:mjc_in_one/services/auth_service.dart";
 import "package:mjc_in_one/services/developer_support_service.dart";
 import "package:mjc_in_one/utils/mjc_snack_bar.dart";
+import "package:mjc_in_one/widgets/main_navigation_scope.dart";
 import "package:mjc_in_one/widgets/mjc_floating_pill_cta.dart";
 import "package:shared_preferences/shared_preferences.dart";
 
@@ -49,6 +52,22 @@ class _InquiryScreenState extends State<InquiryScreen> {
   bool _submitting = false;
   bool _showAllLogs = false;
 
+  void _showLoginRequiredSnackBar() {
+    showUniqueMjcSnackBar(
+      context,
+      key: "inquiry_login_required",
+      message: "문의하려면 로그인해 주세요.",
+      actionLabel: "로그인",
+      onAction: () {
+        Navigator.push<void>(
+          context,
+          MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
+        );
+      },
+      margin: MainNavLayout.snackBarMargin(context),
+    );
+  }
+
   @override
   void dispose() {
     _messageCtrl.dispose();
@@ -88,6 +107,10 @@ class _InquiryScreenState extends State<InquiryScreen> {
 
   Future<void> _submit() async {
     if (_submitting) return;
+    if (AuthService.instance.currentUser == null) {
+      _showLoginRequiredSnackBar();
+      return;
+    }
     final String msg = _messageCtrl.text.trim();
     if (msg.length < 5) {
       showUniqueMjcSnackBar(

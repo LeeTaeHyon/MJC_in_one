@@ -1,5 +1,7 @@
 import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
+import "package:mjc_in_one/screens/login_screen.dart";
+import "package:mjc_in_one/services/auth_service.dart";
 import "package:mjc_in_one/services/notice_report_service.dart";
 import "package:mjc_in_one/utils/mjc_snack_bar.dart";
 import "package:mjc_in_one/widgets/main_navigation_scope.dart";
@@ -87,8 +89,28 @@ class _NoticeReportScreenState extends State<NoticeReportScreen> {
     return defaultTargetPlatform.name;
   }
 
+  void _showLoginRequiredSnackBar() {
+    showUniqueMjcSnackBar(
+      context,
+      key: "notice_report_login_required",
+      message: "신고하려면 로그인해 주세요.",
+      actionLabel: "로그인",
+      onAction: () {
+        Navigator.push<void>(
+          context,
+          MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
+        );
+      },
+      margin: MainNavLayout.snackBarMargin(context),
+    );
+  }
+
   Future<void> _submit() async {
     if (_submitting || _alreadyReported) return;
+    if (AuthService.instance.currentUser == null) {
+      _showLoginRequiredSnackBar();
+      return;
+    }
     setState(() => _submitting = true);
     try {
       await _svc.submitReport(

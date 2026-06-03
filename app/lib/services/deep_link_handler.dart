@@ -6,6 +6,8 @@ import "package:mjc_in_one/screens/profile_setup_screen.dart";
 import "package:mjc_in_one/services/auth_service.dart";
 import "package:mjc_in_one/services/firebase_app_startup.dart";
 import "package:mjc_in_one/services/user_data_repository.dart";
+import "package:mjc_in_one/utils/mjc_snack_bar.dart";
+import "package:mjc_in_one/widgets/main_navigation_scope.dart";
 
 /// Firebase 이메일 매직 링크 딥링크 처리.
 class DeepLinkHandler {
@@ -211,8 +213,28 @@ class DeepLinkHandler {
 
     final BuildContext? context = _navigatorKey?.currentContext;
     if (context == null) return;
-    final ScaffoldMessengerState? messenger =
-        ScaffoldMessenger.maybeOf(context);
-    messenger?.showSnackBar(SnackBar(content: Text(message)));
+    showMjcSnackBar(
+      context,
+      message: message,
+      margin: _snackBarMargin(context),
+      duration: const Duration(seconds: 4),
+    );
+  }
+
+  /// [Navigator] 루트 context에는 [MainNavigationScope]가 없어 하단 네비 여백을 직접 맞춘다.
+  EdgeInsets _snackBarMargin(BuildContext context) {
+    if (MainNavigationScope.maybeNavigate(context) != null) {
+      return MainNavLayout.snackBarMargin(context);
+    }
+    final NavigatorState? navigator = Navigator.maybeOf(context);
+    if (navigator != null && !navigator.canPop()) {
+      return EdgeInsets.fromLTRB(
+        16,
+        0,
+        16,
+        MainNavLayout.bottomInset(context) + MainNavLayout.snackBarGapAboveNav,
+      );
+    }
+    return const EdgeInsets.fromLTRB(16, 0, 16, 16);
   }
 }

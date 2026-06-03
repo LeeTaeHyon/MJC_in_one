@@ -27,6 +27,7 @@ import "package:mjc_in_one/utils/mjc_dialog.dart";
 import "package:mjc_in_one/utils/mjc_snack_bar.dart";
 import "package:mjc_in_one/utils/notice_list_refresh_guard.dart";
 import "package:mjc_in_one/utils/mpu_program_dday.dart";
+import "package:mjc_in_one/utils/trusted_notification_url.dart";
 import "package:mjc_in_one/widgets/home_lecture_reminder_card.dart";
 import "package:mjc_in_one/widgets/main_navigation_scope.dart";
 import "package:mjc_in_one/widgets/scroll_to_top_scope.dart";
@@ -1605,17 +1606,31 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
           }
           final title = data["title"] ?? "공지사항";
           if (openUrl.isEmpty) return;
+          final Uri? trustedUri = trustedNotificationLinkUri(openUrl);
+          if (trustedUri == null) {
+            if (!mounted) return;
+            showUniqueMjcSnackBar(
+              context,
+              key: "dashboard_untrusted_notice_url",
+              message: "확인되지 않은 공지 링크라 열 수 없습니다.",
+              margin: MainNavLayout.snackBarMargin(context),
+            );
+            return;
+          }
 
           await _markDashboardNoticeRead(_dashboardNoticeKey(data));
 
           if (kIsWeb) {
-            await launchUrl(Uri.parse(openUrl), webOnlyWindowName: "_blank");
+            await launchUrl(trustedUri, webOnlyWindowName: "_blank");
           } else {
             if (!mounted) return;
             Navigator.push<void>(
               context,
               MaterialPageRoute<void>(
-                builder: (_) => CommonWebViewScreen(url: openUrl, title: title),
+                builder: (_) => CommonWebViewScreen(
+                  url: trustedUri.toString(),
+                  title: title,
+                ),
               ),
             );
           }
@@ -1805,17 +1820,46 @@ class _HoverFeedback extends StatefulWidget {
 }
 
 class _HoverFeedbackState extends State<_HoverFeedback> {
-  bool _isPressed = false;
+  bool _pressed = false;
+  Offset? _downPosition;
+
+  // Same touch-slop the framework uses for distinguishing tap from scroll.
+  static const double _cancelSlop = 18.0;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _isPressed = true),
-      onTapUp: (_) => setState(() => _isPressed = false),
-      onTapCancel: () => setState(() => _isPressed = false),
-      onTap: widget.onTap,
+    // Use Listener instead of GestureDetector to avoid entering the gesture
+    // arena and interfering with CustomScrollView scrolling.
+    // onTap is invoked manually on pointer-up within the slop area.
+    return Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: (PointerDownEvent e) {
+        _downPosition = e.position;
+        if (mounted) setState(() => _pressed = true);
+      },
+      onPointerMove: (PointerMoveEvent e) {
+        if (_pressed && _downPosition != null) {
+          if ((e.position - _downPosition!).distance > _cancelSlop) {
+            if (mounted) setState(() => _pressed = false);
+            _downPosition = null;
+          }
+        }
+      },
+      onPointerUp: (PointerUpEvent e) {
+        final bool wasTap =
+            _pressed &&
+            _downPosition != null &&
+            (e.position - _downPosition!).distance <= _cancelSlop;
+        _downPosition = null;
+        if (_pressed && mounted) setState(() => _pressed = false);
+        if (wasTap) widget.onTap();
+      },
+      onPointerCancel: (PointerCancelEvent _) {
+        _downPosition = null;
+        if (_pressed && mounted) setState(() => _pressed = false);
+      },
       child: AnimatedScale(
-        scale: _isPressed ? 0.94 : 1.0,
+        scale: _pressed ? 0.94 : 1.0,
         duration: const Duration(milliseconds: 90),
         curve: Curves.easeOutCubic,
         child: widget.child,

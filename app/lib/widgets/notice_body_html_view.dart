@@ -1,4 +1,5 @@
 import "dart:async";
+import "dart:convert";
 
 import "package:flutter/foundation.dart";
 import "package:flutter/gestures.dart";
@@ -226,9 +227,38 @@ class _NoticeBodyHtmlViewState extends State<NoticeBodyHtmlView> {
   }
 
   void _onImageTapMessage(JavaScriptMessage message) {
-    final String url = message.message.trim();
+    final String raw = message.message.trim();
+    String url = raw;
+    List<String>? imageUrls;
+    int? initialIndex;
+
+    try {
+      final Object? decoded = jsonDecode(raw);
+      if (decoded is Map<String, dynamic>) {
+        url = (decoded["url"] as String?)?.trim() ?? "";
+        final Object? images = decoded["images"];
+        if (images is List) {
+          imageUrls = images
+              .map((Object? value) => value?.toString().trim() ?? "")
+              .where((String value) => value.isNotEmpty)
+              .toList(growable: false);
+        }
+        final Object? index = decoded["index"];
+        if (index is int) initialIndex = index;
+      }
+    } catch (_) {
+      // Older injected pages posted a bare URL string.
+    }
+
     if (url.isEmpty || !mounted) return;
-    unawaited(NoticeHtmlImageViewer.open(context, url));
+    unawaited(
+      NoticeHtmlImageViewer.open(
+        context,
+        url,
+        imageUrls: imageUrls,
+        initialIndex: initialIndex,
+      ),
+    );
   }
 
   void _onHeightMessage(JavaScriptMessage message) {
@@ -338,16 +368,62 @@ $fragment
     remeasureCount += 1;
     if (remeasureCount >= 12) clearInterval(remeasureTimer);
   }, 250);
+  function resolveImageSrc(img) {
+    var dataSrc = img.getAttribute("data-src") || img.getAttribute("data-original");
+    if (dataSrc) return dataSrc;
+    var srcset = img.getAttribute("srcset");
+    if (srcset) {
+      var bestUrl = null;
+      var bestW = 0;
+      srcset.split(",").forEach(function (part) {
+        var bits = part.trim().split(/\\s+/);
+        if (!bits[0]) return;
+        var w = 0;
+        if (bits.length > 1 && /w\$/i.test(bits[1])) {
+          w = parseInt(bits[1], 10) || 0;
+        }
+        if (w >= bestW) {
+          bestW = w;
+          bestUrl = bits[0];
+        }
+      });
+      if (bestUrl) return bestUrl;
+    }
+    return img.src || img.currentSrc;
+  }
+  function normalizeImageSrc(src) {
+    if (!src) return "";
+    try {
+      return new URL(src, document.baseURI).href;
+    } catch (e) {
+      return src;
+    }
+  }
+  function collectImageSources() {
+    var urls = [];
+    Array.prototype.forEach.call(document.images, function (image) {
+      var resolved = normalizeImageSrc(resolveImageSrc(image));
+      if (resolved && urls.indexOf(resolved) < 0) urls.push(resolved);
+    });
+    return urls;
+  }
   function bindImage(img) {
     if (img.dataset.mjcBound === "1") return;
     img.dataset.mjcBound = "1";
     img.addEventListener("click", function (event) {
       event.preventDefault();
       event.stopPropagation();
-      var src = img.currentSrc || img.src;
+      var src = normalizeImageSrc(resolveImageSrc(img));
       if (!src) return;
       if (window.$_imageTapChannelName) {
-        window.$_imageTapChannelName.postMessage(src);
+        var images = collectImageSources();
+        var index = images.indexOf(src);
+        if (index < 0) index = 0;
+        window.$_imageTapChannelName.postMessage(JSON.stringify({
+          url: src,
+          index: index,
+          images: images
+        }));
         return;
       }
       window.open(src, "_blank");

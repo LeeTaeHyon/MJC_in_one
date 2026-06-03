@@ -9,7 +9,9 @@ import "package:mjc_in_one/theme/app_theme.dart";
 import "package:mjc_in_one/utils/notice_share_text.dart";
 import "package:mjc_in_one/widgets/mjc_floating_pill_cta.dart";
 import "package:mjc_in_one/widgets/notice_body_html_view.dart";
+import "package:mjc_in_one/screens/login_screen.dart";
 import "package:mjc_in_one/screens/notice_report_screen.dart";
+import "package:mjc_in_one/services/auth_service.dart";
 import "package:mjc_in_one/utils/mjc_snack_bar.dart";
 import "package:mjc_in_one/widgets/main_navigation_scope.dart";
 import "package:mjc_in_one/widgets/mjc_notice_list_item.dart";
@@ -157,6 +159,22 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
         context,
         key: "notice_report_invalid",
         message: "이 글은 아직 신고할 수 없습니다.",
+        margin: MainNavLayout.snackBarMargin(context),
+      );
+      return;
+    }
+    if (AuthService.instance.currentUser == null) {
+      showUniqueMjcSnackBar(
+        context,
+        key: "notice_report_login_required",
+        message: "신고하려면 로그인해 주세요.",
+        actionLabel: "로그인",
+        onAction: () {
+          Navigator.push<void>(
+            context,
+            MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
+          );
+        },
         margin: MainNavLayout.snackBarMargin(context),
       );
       return;

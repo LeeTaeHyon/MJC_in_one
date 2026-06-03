@@ -20,7 +20,6 @@ class AdminShell extends StatefulWidget {
 }
 
 class _AdminShellState extends State<AdminShell> {
-  int _tab = 0;
   Future<bool>? _adminCheckFuture;
   String? _checkedForUid;
 
@@ -34,7 +33,9 @@ class _AdminShellState extends State<AdminShell> {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<User?>(
+    return Theme(
+      data: adminConsoleTheme(context),
+      child: StreamBuilder<User?>(
       stream: AdminAuthService.instance.authStateChanges(),
       builder: (context, snap) {
         if (snap.connectionState == ConnectionState.waiting) {
@@ -58,31 +59,77 @@ class _AdminShellState extends State<AdminShell> {
               return const _LoadingScaffold();
             }
             if (adminSnap.data == true) {
-              return _buildAdminBody(context, user);
+              return _AdminConsoleScaffold(user: user);
             }
             return _NotAdminScaffold(email: user.email);
           },
         );
       },
+      ),
+    );
+  }
+}
+
+/// 탭 인덱스·본문을 auth [StreamBuilder] 바깥에서 관리해 탭 전환 시
+/// 상위 트리 rebuild·IndexedStack 전체 repaint를 막습니다.
+class _AdminConsoleScaffold extends StatefulWidget {
+  const _AdminConsoleScaffold({required this.user});
+
+  final User user;
+
+  @override
+  State<_AdminConsoleScaffold> createState() => _AdminConsoleScaffoldState();
+}
+
+class _AdminConsoleScaffoldState extends State<_AdminConsoleScaffold> {
+  int _tab = 0;
+  late final List<Widget> _tabs;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabs = const <Widget>[
+      RepaintBoundary(child: AdminReportsScreen()),
+      RepaintBoundary(child: AdminInquiriesScreen()),
+      RepaintBoundary(child: AdminDepartmentPostsScreen()),
+    ];
+  }
+
+  void _selectTab(int index) {
+    if (_tab == index) return;
+    setState(() => _tab = index);
+  }
+
+  Widget _buildTabBody(Color surfaceColor) {
+    return ColoredBox(
+      color: surfaceColor,
+      child: Stack(
+        fit: StackFit.expand,
+        children: <Widget>[
+          for (int i = 0; i < _tabs.length; i++)
+            Offstage(
+              offstage: _tab != i,
+              child: TickerMode(
+                enabled: _tab == i,
+                child: _tabs[i],
+              ),
+            ),
+        ],
+      ),
     );
   }
 
-  Widget _buildAdminBody(BuildContext context, User user) {
+  @override
+  Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
     final ColorScheme scheme = theme.colorScheme;
     final double width = MediaQuery.sizeOf(context).width;
     final bool isMobile = adminIsMobile(context);
-    final String accountLabel = user.email ?? user.uid;
-    final Widget tabBody = IndexedStack(
-      index: _tab,
-      children: const [
-        AdminReportsScreen(),
-        AdminInquiriesScreen(),
-        AdminDepartmentPostsScreen(),
-      ],
-    );
+    final String accountLabel = widget.user.email ?? widget.user.uid;
+    final Widget tabBody = _buildTabBody(scheme.surface);
 
     return Scaffold(
+      backgroundColor: scheme.surface,
       appBar: AppBar(
         title: Text(
           isMobile || width < 520 ? "관리자" : "MJC In One 관리자",
@@ -117,11 +164,6 @@ class _AdminShellState extends State<AdminShell> {
             icon: const Icon(Icons.logout),
             onPressed: () async {
               await AdminAuthService.instance.signOut();
-              if (!mounted) return;
-              setState(() {
-                _checkedForUid = null;
-                _adminCheckFuture = null;
-              });
             },
           ),
         ],
@@ -140,7 +182,7 @@ class _AdminShellState extends State<AdminShell> {
                 NavigationRail(
                   extended: width >= 900,
                   selectedIndex: _tab,
-                  onDestinationSelected: (i) => setState(() => _tab = i),
+                  onDestinationSelected: _selectTab,
                   destinations: const [
                     NavigationRailDestination(
                       icon: Icon(Icons.report_outlined),
@@ -166,7 +208,7 @@ class _AdminShellState extends State<AdminShell> {
       bottomNavigationBar: isMobile
           ? NavigationBar(
               selectedIndex: _tab,
-              onDestinationSelected: (i) => setState(() => _tab = i),
+              onDestinationSelected: _selectTab,
               destinations: const [
                 NavigationDestination(
                   icon: Icon(Icons.report_outlined),
