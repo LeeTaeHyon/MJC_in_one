@@ -163,7 +163,7 @@ class _NestedScrollFabTabBindingState extends State<NestedScrollFabTabBinding> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    widget.reporter.bindTabController(DefaultTabController.of(context));
+    widget.reporter.bindTabController(DefaultTabController.maybeOf(context));
   }
 
   @override

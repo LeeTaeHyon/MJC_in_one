@@ -478,94 +478,90 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           return PopScope(
             canPop: false,
             onPopInvokedWithResult: _onSystemPopInvoked,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                Scaffold(
-                  backgroundColor: scaffoldBackground,
-                  extendBody: true,
-                  body: Stack(
-                    children: [
-                      Positioned.fill(
-                        child: ColoredBox(
-                          color: scaffoldBackground,
-                          child: NotificationListener<ScrollNotification>(
-                            onNotification: _handleMainScrollNotification,
-                            child: ClipRect(
-                              child: AnimatedSwitcher(
-                              duration:
-                                  MjcDirectionalScreenTransition.duration,
-                              switchInCurve: Curves.easeOutCubic,
-                              switchOutCurve: Curves.easeInCubic,
-                              layoutBuilder: (Widget? currentChild,
-                                  List<Widget> previousChildren) {
-                                return Stack(
-                                  fit: StackFit.expand,
-                                  clipBehavior: Clip.hardEdge,
-                                  children: <Widget>[
-                                    ...previousChildren,
-                                    if (currentChild != null) currentChild,
-                                  ],
-                                );
-                              },
-                              transitionBuilder: _mainTabSlideTransition,
-                              child: KeyedSubtree(
-                                key: ValueKey<Object>(_mainTabChildKey(_index)),
-                                child: _buildMainTab(_index),
-                              ),
-                            ),
+            child: Scaffold(
+              backgroundColor: scaffoldBackground,
+              extendBody: true,
+              body: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Positioned.fill(
+                    child: ColoredBox(
+                      color: scaffoldBackground,
+                      child: NotificationListener<ScrollNotification>(
+                        onNotification: _handleMainScrollNotification,
+                        child: ClipRect(
+                          child: AnimatedSwitcher(
+                            duration:
+                                MjcDirectionalScreenTransition.duration,
+                            switchInCurve: Curves.easeOutCubic,
+                            switchOutCurve: Curves.easeInCubic,
+                            layoutBuilder: (Widget? currentChild,
+                                List<Widget> previousChildren) {
+                              return Stack(
+                                fit: StackFit.expand,
+                                clipBehavior: Clip.hardEdge,
+                                children: <Widget>[
+                                  ...previousChildren,
+                                  if (currentChild != null) currentChild,
+                                ],
+                              );
+                            },
+                            transitionBuilder: _mainTabSlideTransition,
+                            child: KeyedSubtree(
+                              key: ValueKey<Object>(_mainTabChildKey(_index)),
+                              child: _buildMainTab(_index),
                             ),
                           ),
                         ),
                       ),
-                    ],
+                    ),
                   ),
-                  bottomNavigationBar: null,
-                ),
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  child: _buildAnimatedBottomNavSwitcher(noticesFloatingNav),
-                ),
-                Positioned(
-                  left: 18,
-                  right: 18,
-                  bottom: MainNavLayout.bottomInset(context) +
-                      _noticeSubNavBottomGap,
-                  child: IgnorePointer(
-                    ignoring: !showNoticeSubChrome,
-                    child: AnimatedSlide(
-                      offset: showNoticeSubChrome
-                          ? Offset.zero
-                          : const Offset(0, 0.55),
-                      duration: const Duration(milliseconds: 240),
-                      curve: Curves.easeOutCubic,
-                      child: AnimatedOpacity(
-                        opacity: showNoticeSubChrome ? 1 : 0,
-                        duration: const Duration(milliseconds: 180),
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: _buildAnimatedBottomNavSwitcher(noticesFloatingNav),
+                  ),
+                  Positioned(
+                    left: 18,
+                    right: 18,
+                    bottom: MainNavLayout.bottomInset(context) +
+                        _noticeSubNavBottomGap,
+                    child: IgnorePointer(
+                      ignoring: !showNoticeSubChrome,
+                      child: AnimatedSlide(
+                        offset: showNoticeSubChrome
+                            ? Offset.zero
+                            : const Offset(0, 0.55),
+                        duration: const Duration(milliseconds: 240),
                         curve: Curves.easeOutCubic,
-                        child: _buildNoticeSubNav(),
+                        child: AnimatedOpacity(
+                          opacity: showNoticeSubChrome ? 1 : 0,
+                          duration: const Duration(milliseconds: 180),
+                          curve: Curves.easeOutCubic,
+                          child: _buildNoticeSubNav(),
+                        ),
                       ),
                     ),
                   ),
-                ),
-                AnimatedPositioned(
-                  duration: const Duration(milliseconds: 220),
-                  curve: Curves.easeOutCubic,
-                  right: 14,
-                  bottom: MainNavLayout.bottomInset(context) +
-                      10 +
-                      (showNoticeSubChrome
-                          ? _noticeSubNavBottomGap +
-                              _noticeSubNavHeight +
-                              _noticeSubNavFabGap
-                          : 0),
-                  child: ScrollToTopFab(
-                    debugTag: ScrollFabDebug.enabled ? "mainNav" : null,
+                  AnimatedPositioned(
+                    duration: const Duration(milliseconds: 220),
+                    curve: Curves.easeOutCubic,
+                    right: 14,
+                    bottom: MainNavLayout.bottomInset(context) +
+                        10 +
+                        (showNoticeSubChrome
+                            ? _noticeSubNavBottomGap +
+                                _noticeSubNavHeight +
+                                _noticeSubNavFabGap
+                            : 0),
+                    child: ScrollToTopFab(
+                      debugTag: ScrollFabDebug.enabled ? "mainNav" : null,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
+              bottomNavigationBar: null,
             ),
           );
         },

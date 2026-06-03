@@ -219,21 +219,32 @@ class _CampusMapScreenState extends State<CampusMapScreen>
     if (!AppDevFeatures.campusMapMockGps) return;
     await showModalBottomSheet<void>(
       context: context,
-      showDragHandle: true,
+      showDragHandle: false,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (context) {
         return SafeArea(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
+            padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text(
-                  "집에서 테스트용 위치",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        "집에서 테스트용 위치",
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: "닫기",
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 8),
                 Text(
@@ -306,75 +317,194 @@ class _CampusMapScreenState extends State<CampusMapScreen>
   }
 
   void _showBuildingSheet(CampusBuilding building) {
+    final Map<int, List<CampusBuildingFacility>> facilitiesByFloor = {};
+    for (final facility in building.facilities) {
+      facilitiesByFloor.putIfAbsent(facility.floor, () => []).add(facility);
+    }
+    final List<int> sortedFloors = facilitiesByFloor.keys.toList()
+      ..sort((a, b) => b.compareTo(a));
+
     showModalBottomSheet<void>(
       context: context,
-      showDragHandle: true,
+      showDragHandle: false,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (context) {
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(24, 4, 24, 28),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.10),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: const Icon(
-                      Icons.apartment_rounded,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+        bool showFacilities = false;
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.85,
+              ),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(24, 24, 24, 28),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
                       children: [
-                        Text(
-                          building.name,
-                          style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w900,
+                        Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.10),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: const Icon(
+                            Icons.apartment_rounded,
+                            color: AppColors.primary,
                           ),
                         ),
-                        Text(
-                          "약칭 ${building.prefixes.join(", ")} · ${building.basementFloors > 0 ? "지하 ${building.basementFloors}층 ~ 지상 ${building.floors}층" : "지상 ${building.floors}층"}",
-                          style: TextStyle(
-                            color:
-                                Theme.of(context).colorScheme.onSurfaceVariant,
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                building.name,
+                                style: const TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                              Text(
+                                "약칭 ${building.prefixes.join(", ")} · ${building.basementFloors > 0 ? "지하 ${building.basementFloors}층 ~ 지상 ${building.floors}층" : "지상 ${building.floors}층"}",
+                                style: TextStyle(
+                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: "닫기",
+                          onPressed: () => Navigator.pop(context),
+                          icon: const Icon(Icons.close_rounded),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+                    Text(
+                      building.description.isEmpty
+                          ? "${building.name} 건물로 이동하세요."
+                          : building.description,
+                      style: const TextStyle(fontSize: 15, height: 1.45),
+                    ),
+                    const SizedBox(height: 18),
+                    Row(
+                      children: [
+                        if (facilitiesByFloor.isNotEmpty) ...[
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Theme.of(context).brightness == Brightness.dark
+                                    ? AppColors.switchActiveDark
+                                    : AppColors.primary,
+                                side: BorderSide(
+                                  color: Theme.of(context).brightness == Brightness.dark
+                                      ? AppColors.switchActiveDark.withValues(alpha: 0.5)
+                                      : AppColors.primary.withValues(alpha: 0.5),
+                                ),
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  showFacilities = !showFacilities;
+                                });
+                              },
+                              icon: Icon(showFacilities
+                                  ? Icons.expand_less_rounded
+                                  : Icons.list_alt_rounded),
+                              label: Text(showFacilities ? "시설 닫기" : "시설 보기"),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                        ],
+                        Expanded(
+                          child: FilledButton.icon(
+                            onPressed: () {
+                              Navigator.pop(context);
+                              _mapKey.currentState?.focusOn(building.location);
+                            },
+                            icon: const Icon(Icons.center_focus_strong_rounded),
+                            label: const Text("약도에서 보기"),
                           ),
                         ),
                       ],
                     ),
-                  ),
-                ],
+                    AnimatedCrossFade(
+                      duration: const Duration(milliseconds: 300),
+                      firstCurve: Curves.easeOutCubic,
+                      secondCurve: Curves.easeOutCubic,
+                      sizeCurve: Curves.easeOutCubic,
+                      alignment: Alignment.topCenter,
+                      crossFadeState: (showFacilities && facilitiesByFloor.isNotEmpty)
+                          ? CrossFadeState.showSecond
+                          : CrossFadeState.showFirst,
+                      firstChild: const SizedBox(width: double.infinity, height: 0),
+                      secondChild: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 24),
+                          const Text(
+                            "주요 시설",
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          for (final int floor in sortedFloors)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 16),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  SizedBox(
+                                    width: 64,
+                                    child: Text(
+                                      floor < 0 ? "지하 ${-floor}층" : "$floor층",
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w800,
+                                        color: Theme.of(context).brightness == Brightness.dark
+                                            ? AppColors.switchActiveDark
+                                            : AppColors.primary,
+                                      ),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        for (final facility in facilitiesByFloor[floor]!)
+                                          Padding(
+                                            padding: const EdgeInsets.only(bottom: 6),
+                                            child: Text(
+                                              facility.name,
+                                              style: const TextStyle(
+                                                fontSize: 14,
+                                                height: 1.3,
+                                              ),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: 18),
-              Text(
-                building.description.isEmpty
-                    ? "${building.name} 건물로 이동하세요."
-                    : building.description,
-                style: const TextStyle(fontSize: 15, height: 1.45),
-              ),
-              const SizedBox(height: 18),
-              FilledButton.icon(
-                onPressed: () {
-                  Navigator.pop(context);
-                  _mapKey.currentState?.focusOn(building.location);
-                },
-                icon: const Icon(Icons.center_focus_strong_rounded),
-                label: const Text("약도에서 크게 보기"),
-              ),
-            ],
-          ),
+            );
+          },
         );
       },
     );

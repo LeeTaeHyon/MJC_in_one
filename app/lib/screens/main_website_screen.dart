@@ -3,6 +3,7 @@ import "dart:ui" show lerpDouble;
 
 import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
+import "package:flutter/rendering.dart";
 import "package:flutter_animate/flutter_animate.dart";
 import "package:mjc_in_one/lab_prefs.dart";
 import "package:mjc_in_one/main_website_prefs.dart";
@@ -75,7 +76,7 @@ class MainWebsiteScreen extends StatefulWidget {
   State<MainWebsiteScreen> createState() => _MainWebsiteScreenState();
 }
 
-class _MainWebsiteScreenState extends State<MainWebsiteScreen> {
+class _MainWebsiteScreenState extends State<MainWebsiteScreen> with TickerProviderStateMixin {
   final GlobalKey<NestedScrollViewState> _nestedScrollKey =
       GlobalKey<NestedScrollViewState>();
   final ScrollController _outerScrollController = ScrollController();
@@ -91,12 +92,60 @@ class _MainWebsiteScreenState extends State<MainWebsiteScreen> {
     outerController: _outerScrollController,
   );
 
+  List<_BoardSpec> _boards = const <_BoardSpec>[
+    _BoardSpec(boardId: "main_notice", label: "공지사항"),
+    _BoardSpec(boardId: "main_academic", label: "학사공지"),
+    _BoardSpec(boardId: "main_scholarship", label: "장학공지"),
+  ];
+  List<String> _aiTagChips = List<String>.from(kMainNoticeAiTagFilterChips);
+  TabController? _aiTagTabController;
+
   @override
   void initState() {
     super.initState();
     _outerScrollController.addListener(_nestedFabReporter.reportOuterScroll);
-    // 초기값 로드 (설정에서 변경 시 ValueNotifier로 즉시 반영됨)
     MainWebsitePrefs.ensureLoaded();
+    _syncAiTagTabController();
+    _loadNoticesUiConfig();
+  }
+
+  void _syncAiTagTabController() {
+    if (_aiTagChips.isEmpty) return;
+    final int length = _aiTagChips.length;
+    if (_aiTagTabController != null && _aiTagTabController!.length == length) return;
+    
+    final int initialIndex = _aiTagTabController?.index.clamp(0, length - 1) ?? 0;
+    _aiTagTabController?.dispose();
+    _aiTagTabController = TabController(length: length, vsync: this, initialIndex: initialIndex);
+  }
+
+  Future<void> _loadNoticesUiConfig() async {
+    try {
+      final cfg = await AppConfigService.loadNoticesUi();
+      if (!mounted || cfg == null) return;
+
+      final List<_BoardSpec> boards = cfg.boards
+          .map((m) => _BoardSpec(
+                boardId: (m["boardId"] ?? "").toString().trim(),
+                label: (m["label"] ?? "").toString().trim(),
+              ))
+          .where((b) => b.boardId.isNotEmpty && b.label.isNotEmpty)
+          .toList();
+
+      final List<String> chips = cfg.aiTagChips.isEmpty
+          ? _aiTagChips
+          : (cfg.aiTagChips.contains("전체")
+              ? cfg.aiTagChips
+              : <String>["전체", ...cfg.aiTagChips]);
+
+      setState(() {
+        if (boards.isNotEmpty) _boards = boards;
+        if (chips.isNotEmpty) {
+          _aiTagChips = chips;
+          _syncAiTagTabController();
+        }
+      });
+    } catch (_) {}
   }
 
   @override
@@ -375,6 +424,7 @@ class _MainWebsiteScreenState extends State<MainWebsiteScreen> {
 
   @override
   void dispose() {
+    _aiTagTabController?.dispose();
     _filterReloadTick.dispose();
     _outerScrollController.removeListener(_nestedFabReporter.reportOuterScroll);
     if (_registeredMainTab) {
@@ -423,7 +473,38 @@ class _MainWebsiteScreenState extends State<MainWebsiteScreen> {
                   Tab(height: kTextTabBarHeight, text: "장학공지"),
                 ],
               )
-            : null;
+            : (_aiTagTabController == null ? null : TabBar(
+                controller: _aiTagTabController,
+                isScrollable: true,
+                tabAlignment: TabAlignment.start,
+                indicator: UnderlineTabIndicator(
+                  borderSide: BorderSide(
+                    color: tabAccent,
+                    width: kMainNoticeAiTagFilterIndicatorHeight,
+                  ),
+                ),
+                indicatorSize: TabBarIndicatorSize.label,
+                dividerColor: Colors.transparent,
+                labelColor: tabAccent,
+                unselectedLabelColor: scheme.onSurfaceVariant,
+                labelStyle: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                ),
+                unselectedLabelStyle: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                ),
+                labelPadding: const EdgeInsets.symmetric(horizontal: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                tabs: [
+                  for (final String chip in _aiTagChips)
+                    Tab(
+                      height: kMainNoticeAiTagFilterBarHeight,
+                      text: chip,
+                    ),
+                ],
+              ));
 
         final Widget body = Scaffold(
           backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -475,9 +556,15 @@ class _MainWebsiteScreenState extends State<MainWebsiteScreen> {
                         ],
                       ),
                     )
-                  : _UnifiedNoticeList(
-                      entryTick: _entryTick,
-                      filterRevision: _filterReloadTick,
+                  : NestedScrollFabTabBinding(
+                      reporter: _nestedFabReporter,
+                      child: _UnifiedNoticeList(
+                        entryTick: _entryTick,
+                        filterRevision: _filterReloadTick,
+                        boards: _boards,
+                        aiTagChips: _aiTagChips,
+                        tabController: _aiTagTabController,
+                      ),
                     ),
             ),
           ),
@@ -761,77 +848,23 @@ class _UnifiedNoticeList extends StatefulWidget {
   const _UnifiedNoticeList({
     required this.entryTick,
     required this.filterRevision,
+    required this.boards,
+    required this.aiTagChips,
+    required this.tabController,
   });
 
   final int entryTick;
   final ValueListenable<int> filterRevision;
+  final List<_BoardSpec> boards;
+  final List<String> aiTagChips;
+  final TabController? tabController;
 
   @override
   State<_UnifiedNoticeList> createState() => _UnifiedNoticeListState();
 }
 
-class _NestedScrollOverlapSpacer extends StatefulWidget {
-  const _NestedScrollOverlapSpacer();
 
-  @override
-  State<_NestedScrollOverlapSpacer> createState() =>
-      _NestedScrollOverlapSpacerState();
-}
-
-class _NestedScrollOverlapSpacerState
-    extends State<_NestedScrollOverlapSpacer> {
-  SliverOverlapAbsorberHandle? _handle;
-  double _extent = 0;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final SliverOverlapAbsorberHandle handle =
-        NestedScrollView.sliverOverlapAbsorberHandleFor(context);
-    if (!identical(handle, _handle)) {
-      _handle?.removeListener(_onHandleChanged);
-      _handle = handle;
-      _handle!.addListener(_onHandleChanged);
-      // Read initial value — safe here because we are not inside a build call.
-      _extent = handle.layoutExtent ?? 0;
-    }
-  }
-
-  void _onHandleChanged() {
-    // The handle fires during layout, which may overlap with an active build
-    // pass for sibling widgets. Defer the setState to the next frame to avoid
-    // the "setState() called during build" assertion.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        setState(() {
-          _extent = _handle?.layoutExtent ?? 0;
-        });
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _handle?.removeListener(_onHandleChanged);
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(height: _extent);
-  }
-}
-
-class _UnifiedNoticeListState extends State<_UnifiedNoticeList>
-    with SingleTickerProviderStateMixin {
-  static const List<_BoardSpec> _boardsFallback = <_BoardSpec>[
-    _BoardSpec(boardId: "main_notice", label: "공지사항"),
-    _BoardSpec(boardId: "main_academic", label: "학사공지"),
-    _BoardSpec(boardId: "main_scholarship", label: "장학공지"),
-  ];
-  List<_BoardSpec> _boards = List<_BoardSpec>.from(_boardsFallback);
-  List<String> _aiTagChips = List<String>.from(kMainNoticeAiTagFilterChips);
-
+class _UnifiedNoticeListState extends State<_UnifiedNoticeList> {
   final _MainWebsiteListEntrance _entrance = _MainWebsiteListEntrance();
 
   final Map<String, Set<String>> _readIdsByBoard = {};
@@ -840,10 +873,6 @@ class _UnifiedNoticeListState extends State<_UnifiedNoticeList>
 
   NoticeFilterState _noticeFilter = const NoticeFilterState();
   List<String> _noticeSharedKeywords = [];
-
-  String _aiTagChipSelection = "전체";
-
-  TabController? _aiTagTabController;
 
   late Future<List<Map<String, dynamic>>> _noticeFuture;
 
@@ -860,45 +889,17 @@ class _UnifiedNoticeListState extends State<_UnifiedNoticeList>
     super.initState();
     widget.filterRevision.addListener(_onFilterRevision);
     _loadNoticeFilter();
-    _loadNoticesUiConfig();
     _loadReadHistory();
     _loadPinsAndFavorites();
     _noticeFuture = _loadAllNotices();
-    _syncAiTagTabController();
   }
 
-  Future<void> _loadNoticesUiConfig() async {
-    try {
-      final NoticesUiConfig? cfg = await AppConfigService.loadNoticesUi();
-      if (!mounted || cfg == null) return;
-
-      final List<_BoardSpec> boards = cfg.boards
-          .map((m) => _BoardSpec(
-                boardId: (m["boardId"] ?? "").toString().trim(),
-                label: (m["label"] ?? "").toString().trim(),
-              ))
-          .where((b) => b.boardId.isNotEmpty && b.label.isNotEmpty)
-          .toList();
-
-      final List<String> chips = cfg.aiTagChips.isEmpty
-          ? _aiTagChips
-          : (cfg.aiTagChips.contains("전체")
-              ? cfg.aiTagChips
-              : <String>["전체", ...cfg.aiTagChips]);
-
-      setState(() {
-        if (boards.isNotEmpty) _boards = boards;
-        if (chips.isNotEmpty) {
-          _aiTagChips = chips;
-          if (!_aiTagChips.contains(_aiTagChipSelection)) {
-            _aiTagChipSelection = "전체";
-          }
-          _syncAiTagTabController();
-        }
-      });
-    } catch (_) {
-      // Keep fallback.
+  bool _boardsEqual(List<_BoardSpec> a, List<_BoardSpec> b) {
+    if (a.length != b.length) return false;
+    for (int i = 0; i < a.length; i++) {
+      if (a[i].boardId != b[i].boardId) return false;
     }
+    return true;
   }
 
   @override
@@ -911,48 +912,23 @@ class _UnifiedNoticeListState extends State<_UnifiedNoticeList>
     if (widget.entryTick != oldWidget.entryTick) {
       _entrance.resetForEntry();
     }
+    if (!_boardsEqual(oldWidget.boards, widget.boards)) {
+      _loadReadHistory();
+      _loadPinsAndFavorites();
+      _noticeFuture = _loadAllNotices();
+    }
   }
 
   @override
   void dispose() {
     widget.filterRevision.removeListener(_onFilterRevision);
-    _aiTagTabController?.removeListener(_onAiTagTabIndexChanged);
-    _aiTagTabController?.dispose();
     super.dispose();
-  }
-
-  void _syncAiTagTabController() {
-    if (_aiTagChips.isEmpty) return;
-    final int length = _aiTagChips.length;
-    if (_aiTagTabController != null && _aiTagTabController!.length == length) {
-      return;
-    }
-    _aiTagTabController?.removeListener(_onAiTagTabIndexChanged);
-    _aiTagTabController?.dispose();
-    final int initialIndex = _aiTagChips.indexOf(_aiTagChipSelection);
-    final int safeIndex = initialIndex < 0
-        ? 0
-        : initialIndex.clamp(0, length - 1);
-    _aiTagChipSelection = _aiTagChips[safeIndex];
-    _aiTagTabController = TabController(
-      length: length,
-      vsync: this,
-      initialIndex: safeIndex,
-    )..addListener(_onAiTagTabIndexChanged);
-  }
-
-  void _onAiTagTabIndexChanged() {
-    final TabController? c = _aiTagTabController;
-    if (c == null || c.indexIsChanging) return;
-    final String label = _aiTagChips[c.index];
-    if (_aiTagChipSelection == label) return;
-    setState(() => _aiTagChipSelection = label);
   }
 
   Future<List<Map<String, dynamic>>> _loadAllNotices(
       {bool forceRefresh = false}) async {
     final futures = <Future<List<Map<String, dynamic>>>>[
-      for (final b in _boards)
+      for (final b in widget.boards)
         NoticeManager()
             .getNotices(boardId: b.boardId, forceRefresh: forceRefresh),
     ];
@@ -960,14 +936,12 @@ class _UnifiedNoticeListState extends State<_UnifiedNoticeList>
 
     final List<Map<String, dynamic>> merged = [];
     for (int i = 0; i < results.length; i++) {
-      final b = _boards[i];
+      final b = widget.boards[i];
       for (final d in results[i]) {
         merged.add({
           ...d,
           "_boardId": b.boardId,
           "_boardLabel": b.label,
-          // 기존 필터/검색 UI가 category/type/date 같은 키를 참고하는 경우가 있어
-          // 보조 필드를 채워두되, 원본 키는 그대로 둡니다.
           "_typeLabel": (d["category"] ?? b.label).toString(),
           "_source": "메인 공지사항",
         });
@@ -1003,7 +977,6 @@ class _UnifiedNoticeListState extends State<_UnifiedNoticeList>
       _noticeFilter = filter.copyWith(
         enabled: enabled,
         quickQuery: "",
-        // 이 화면에서는 "본교 공지"만 대상으로 동작하도록 강제합니다.
         sources: const ["MJC"],
         types: kNoticeFilterTypeOptions,
         excludes: const [],
@@ -1018,7 +991,7 @@ class _UnifiedNoticeListState extends State<_UnifiedNoticeList>
     final prefs = await SharedPreferences.getInstance();
     if (!mounted) return;
     setState(() {
-      for (final b in _boards) {
+      for (final b in widget.boards) {
         _readIdsByBoard[b.boardId] =
             (prefs.getStringList("read_notices_${b.boardId}") ?? []).toSet();
       }
@@ -1039,7 +1012,7 @@ class _UnifiedNoticeListState extends State<_UnifiedNoticeList>
     final prefs = await SharedPreferences.getInstance();
     if (!mounted) return;
     setState(() {
-      for (final b in _boards) {
+      for (final b in widget.boards) {
         _pinnedKeysByBoard[b.boardId] =
             (prefs.getStringList("pinned_notices_${b.boardId}") ?? []).toSet();
         _favoriteKeysByBoard[b.boardId] =
@@ -1148,58 +1121,6 @@ class _UnifiedNoticeListState extends State<_UnifiedNoticeList>
     }).toList();
   }
 
-  Widget _buildAiTagChipBar(BuildContext context) {
-    final TabController? controller = _aiTagTabController;
-    if (controller == null) {
-      return MainNoticeAiTagChipBar(
-        chips: _aiTagChips,
-        selection: _aiTagChipSelection,
-      );
-    }
-
-    final ColorScheme scheme = Theme.of(context).colorScheme;
-    final MjcSurfaceTokens tokens =
-        Theme.of(context).extension<MjcSurfaceTokens>()!;
-    return Material(
-      color: scheme.surface,
-      child: SizedBox(
-        height: kMainNoticeAiTagFilterBarHeight,
-        child: TabBar(
-          controller: controller,
-          isScrollable: true,
-          tabAlignment: TabAlignment.start,
-          indicator: UnderlineTabIndicator(
-            borderSide: BorderSide(
-              color: tokens.sourceMjc,
-              width: kMainNoticeAiTagFilterIndicatorHeight,
-            ),
-          ),
-          indicatorSize: TabBarIndicatorSize.label,
-          dividerColor: Colors.transparent,
-          labelColor: tokens.sourceMjc,
-          unselectedLabelColor: scheme.onSurfaceVariant,
-          labelStyle: const TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w700,
-          ),
-          unselectedLabelStyle: const TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w500,
-          ),
-          labelPadding: const EdgeInsets.symmetric(horizontal: 8),
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          tabs: [
-            for (final String chip in _aiTagChips)
-              Tab(
-                height: kMainNoticeAiTagFilterBarHeight,
-                text: chip,
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
   DateTime _parseDateLoose(String raw) {
     final String s = raw.trim();
     if (s.isEmpty) return DateTime.fromMillisecondsSinceEpoch(0);
@@ -1228,7 +1149,7 @@ class _UnifiedNoticeListState extends State<_UnifiedNoticeList>
       onRefresh: _handleRefresh,
       color: tokens.sourceMjc,
       backgroundColor: scheme.surface,
-      tabBarHeight: 0,
+      tabBarHeight: kMainNoticeAiTagFilterBarHeight,
       includeNestedHeaderOffset: includeNestedHeaderOffset,
       notificationPredicate: _allowRefreshNotification,
       child: CustomScrollView(
@@ -1267,8 +1188,8 @@ class _UnifiedNoticeListState extends State<_UnifiedNoticeList>
 
         final List<Map<String, dynamic>> docs =
             snapshot.data ?? const <Map<String, dynamic>>[];
-        final TabController? chipController = _aiTagTabController;
-        if (chipController == null || _aiTagChips.isEmpty) {
+        final TabController? chipController = widget.tabController;
+        if (chipController == null || widget.aiTagChips.isEmpty) {
           return _buildRefreshableScroll(
             context,
             scheme: scheme,
@@ -1278,31 +1199,32 @@ class _UnifiedNoticeListState extends State<_UnifiedNoticeList>
                 handle:
                     NestedScrollView.sliverOverlapAbsorberHandleFor(context),
               ),
-              ..._buildNoticeSlivers(context, docs, _aiTagChipSelection),
+              ..._buildNoticeSlivers(context, docs, "전체"),
             ],
           );
         }
 
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+        return TabBarView(
+          controller: chipController,
           children: [
-            const _NestedScrollOverlapSpacer(),
-            _buildAiTagChipBar(context),
-            Expanded(
-              child: TabBarView(
-                controller: chipController,
-                children: [
-                  for (final String chip in _aiTagChips)
-                    _buildRefreshableScroll(
-                      context,
-                      scheme: scheme,
-                      tokens: tokens,
-                      includeNestedHeaderOffset: false,
-                      slivers: _buildNoticeSlivers(context, docs, chip),
-                    ),
-                ],
+            for (final String chip in widget.aiTagChips)
+              _KeepAliveTabBody(
+                child: Builder(
+                  builder: (innerContext) => _buildRefreshableScroll(
+                    innerContext,
+                    scheme: scheme,
+                    tokens: tokens,
+                    includeNestedHeaderOffset: true,
+                    slivers: [
+                      SliverOverlapInjector(
+                        handle: NestedScrollView.sliverOverlapAbsorberHandleFor(
+                            innerContext),
+                      ),
+                      ..._buildNoticeSlivers(innerContext, docs, chip),
+                    ],
+                  ),
+                ),
               ),
-            ),
           ],
         );
       },
@@ -1967,5 +1889,24 @@ class _ScaleFeedbackButtonState extends State<_ScaleFeedbackButton> {
         child: widget.child,
       ),
     );
+  }
+}
+class _KeepAliveTabBody extends StatefulWidget {
+  const _KeepAliveTabBody({required this.child});
+  final Widget child;
+
+  @override
+  State<_KeepAliveTabBody> createState() => _KeepAliveTabBodyState();
+}
+
+class _KeepAliveTabBodyState extends State<_KeepAliveTabBody>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
   }
 }
