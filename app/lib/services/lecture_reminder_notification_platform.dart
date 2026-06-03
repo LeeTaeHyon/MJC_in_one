@@ -6,49 +6,40 @@ import "package:flutter_local_notifications/flutter_local_notifications.dart";
 const int kLectureReminderNotificationId = 91001;
 const int kLectureReminderClassStartScheduleId = 91002;
 
-const String kLectureReminderChannelId = "mjc_lecture_reminder_channel";
+const String kLectureReminderChannelId = "mjc_lecture_reminder_channel_v2";
 const String kLectureReminderChannelName = "강의 알림";
 const String kLectureReminderChannelDescription =
     "시간표에 등록된 다음 수업 시작까지 남은 시간을 알려줍니다.";
 
 bool _lectureReminderPluginInitialized = false;
 
-NotificationDetails lectureReminderNotificationDetails({
-  int? classStartEpochMs,
-}) {
-  final bool androidCountdown =
-      !kIsWeb && Platform.isAndroid && classStartEpochMs != null;
-
-  final AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+NotificationDetails scheduledLectureReminderNotificationDetails() {
+  const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
     kLectureReminderChannelId,
     kLectureReminderChannelName,
     channelDescription: kLectureReminderChannelDescription,
-    importance: Importance.low,
-    priority: Priority.low,
-    ongoing: true,
-    autoCancel: false,
-    onlyAlertOnce: true,
-    showWhen: androidCountdown,
-    when: classStartEpochMs,
-    usesChronometer: androidCountdown,
-    chronometerCountDown: androidCountdown,
+    importance: Importance.high,
+    priority: Priority.high,
+    ongoing: false,
+    autoCancel: true,
     tag: "mjc_lecture_reminder",
     category: AndroidNotificationCategory.event,
   );
   const DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
-    presentAlert: false,
-    presentBadge: false,
-    presentSound: false,
+    presentAlert: true,
+    presentBadge: true,
+    presentSound: true,
   );
-  return NotificationDetails(android: androidDetails, iOS: iosDetails);
+  return const NotificationDetails(android: androidDetails, iOS: iosDetails);
 }
+
 
 Future<void> ensureLectureReminderNotificationChannel(
   FlutterLocalNotificationsPlugin plugin,
 ) async {
   if (!_lectureReminderPluginInitialized) {
     const AndroidInitializationSettings androidInit =
-        AndroidInitializationSettings("@mipmap/ic_launcher");
+        AndroidInitializationSettings("@drawable/ic_notification");
     const DarwinInitializationSettings iosInit = DarwinInitializationSettings();
     const InitializationSettings initSettings = InitializationSettings(
       android: androidInit,
@@ -66,40 +57,12 @@ Future<void> ensureLectureReminderNotificationChannel(
           kLectureReminderChannelId,
           kLectureReminderChannelName,
           description: kLectureReminderChannelDescription,
-          importance: Importance.low,
+          importance: Importance.high,
         ),
       );
 }
 
-Future<void> showLectureReminderNotification(
-  FlutterLocalNotificationsPlugin plugin, {
-  required String title,
-  required String text,
-  required int classStartEpochMs,
-  String? subText,
-}) async {
-  final bool androidCountdown = !kIsWeb && Platform.isAndroid;
-  await plugin.show(
-    kLectureReminderNotificationId,
-    title,
-    androidCountdown ? (subText ?? text) : text,
-    lectureReminderNotificationDetails(
-      classStartEpochMs: androidCountdown ? classStartEpochMs : null,
-    ),
-  );
-}
 
-Future<void> cancelLectureReminderNotification(
-  FlutterLocalNotificationsPlugin plugin,
-) async {
-  await plugin.cancel(kLectureReminderNotificationId);
-}
-
-Future<void> cancelLectureReminderClassStartSchedule(
-  FlutterLocalNotificationsPlugin plugin,
-) async {
-  await plugin.cancel(kLectureReminderClassStartScheduleId);
-}
 
 Future<bool> requestLectureReminderAndroidPermissions(
   FlutterLocalNotificationsPlugin plugin,

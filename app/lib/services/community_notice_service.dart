@@ -55,6 +55,7 @@ class CommunityNoticeService {
     String deptSlug, {
     int limit = 100,
   }) async {
+    debugPrint("Firebase에서 데이터를 새로 읽어옵니다(학과공지): $deptSlug");
     final QuerySnapshot<Map<String, dynamic>> snap = await _boardRef(deptSlug)
         .where("status", isEqualTo: "published")
         .orderBy("created_at", descending: true)

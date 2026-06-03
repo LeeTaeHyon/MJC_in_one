@@ -3,7 +3,7 @@ import "dart:async";
 import "package:flutter/material.dart";
 import "package:mjc_in_one/home_dashboard_prefs.dart";
 import "package:mjc_in_one/lab_prefs.dart";
-import "package:mjc_in_one/lecture_reminder_notification_prefs.dart";
+
 import "package:mjc_in_one/main_website_prefs.dart";
 import "package:mjc_in_one/notification_sources.dart";
 import "package:mjc_in_one/screens/common_webview_screen.dart";
@@ -11,10 +11,10 @@ import "package:mjc_in_one/screens/inquiry_screen.dart";
 import "package:mjc_in_one/screens/login_screen.dart";
 import "package:mjc_in_one/services/auth_service.dart";
 import "package:mjc_in_one/screens/keyword_notification_settings_screen.dart";
+import "package:mjc_in_one/screens/lecture_reminder_settings_screen.dart";
 import "package:mjc_in_one/screens/open_source_licenses_screen.dart";
 import "package:mjc_in_one/screens/phone_permissions_screen.dart";
 import "package:mjc_in_one/services/app_cache_service.dart";
-import "package:mjc_in_one/services/lecture_reminder_notification_service.dart";
 import "package:mjc_in_one/services/legal_consent_service.dart";
 import "package:mjc_in_one/services/notice_filter.dart";
 import "package:mjc_in_one/services/user_data_repository.dart";
@@ -84,7 +84,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   static const Color _pageBackground = Color(0xFFF5F7F9);
   static const Color _cardBorder = Color(0xFFEDEDED);
   bool _allNoticesEnabled = true;
-  bool _lectureReminderNotificationEnabled = false;
+
   List<String> _keywords = [];
   List<String> _enabledSources = List<String>.from(kNotificationSourceIds);
   Set<String> _homeDashboardEnabledSections =
@@ -208,8 +208,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() {
       _labDepartmentNoticesEnabled = LabPrefs.departmentNoticesEnabled.value;
       _allNoticesEnabled = prefs.getBool("allNoticesEnabled") ?? true;
-      _lectureReminderNotificationEnabled =
-          prefs.getBool(kLectureReminderNotificationEnabledPrefKey) ?? false;
+
       _keywords = prefs.getStringList("keywords") ?? [];
       final stored = prefs.getStringList(kNotificationSourcesPrefKey);
       if (stored == null || stored.isEmpty) {
@@ -929,6 +928,47 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
           ),
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: _settingsCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 6),
+                    child: Text(
+                      "강의 알림",
+                      style: _settingsItemTitleStyle(
+                        context,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  ListTile(
+                    title: Text(
+                      "강의 알림 설정",
+                      style: _settingsItemTitleStyle(context),
+                    ),
+                    subtitle: Text(
+                      "지정된 시간에 강의 시작을 알려주는 푸시 알림을 설정합니다.",
+                      style: _settingsSubtitleStyle(context),
+                    ),
+                    trailing: const Icon(Icons.chevron_right_rounded),
+                    onTap: () async {
+                      await Navigator.of(context).push<void>(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const LectureReminderSettingsScreen(),
+                        ),
+                      );
+                      if (!mounted) return;
+                      // 상세 화면에서 설정이 바뀌었을 수 있으므로 UI 갱신을 위해 setState
+                      setState(() {});
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
           const SizedBox(height: 16),
           const _SectionHeader(
             title: "화면",
@@ -1018,50 +1058,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         margin: snackMargin,
                       );
                     }
-                  },
-                ),
-                _hairlineDivider(),
-                SwitchListTile(
-                  title: Text(
-                    "강의 알림 (실험)",
-                    style: _settingsItemTitleStyle(context),
-                  ),
-                  subtitle: Text(
-                    "다음 수업까지 남은 시간을 알림 패널에 표시합니다.\n"
-                    "기능이 불완전할 수 있습니다.",
-                    style: _settingsSubtitleStyle(context),
-                  ),
-                  value: _lectureReminderNotificationEnabled,
-                  onChanged: (bool value) async {
-                    final EdgeInsets snackMargin = _snackBarMargin(context);
-                    if (value) {
-                      final bool granted =
-                          await LectureReminderNotificationService.instance
-                              .requestPermissions();
-                      if (!mounted) return;
-                      if (!granted) {
-                        showUniqueMjcSnackBar(
-                          context,
-                          key: "settings_lecture_reminder_permission",
-                          message: "알림 권한이 필요합니다. 시스템 설정에서 허용해 주세요.",
-                          margin: snackMargin,
-                        );
-                        return;
-                      }
-                    }
-                    await LectureReminderNotificationService.instance
-                        .setEnabled(value);
-                    if (!mounted) return;
-                    setState(
-                        () => _lectureReminderNotificationEnabled = value);
-                    showUniqueMjcSnackBar(
-                      context,
-                      key: "settings_lecture_reminder_${value ? "on" : "off"}",
-                      message: value
-                          ? "강의 알림이 알림 패널에 표시됩니다."
-                          : "강의 알림 패널 표시를 껐습니다.",
-                      margin: snackMargin,
-                    );
                   },
                 ),
               ],

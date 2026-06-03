@@ -36,6 +36,62 @@ abstract final class TimetableNextLecture {
     return bestUpcoming;
   }
 
+  static List<TimetableSlot> upcomingSlotsToday(
+    List<ParsedCourseOffering> enrolled,
+  ) {
+    final DateTime now = DateTime.now();
+    final int wd = now.weekday;
+    final int nowMin = now.hour * 60 + now.minute;
+
+    final List<TimetableSlot> todayRaw = <TimetableSlot>[];
+    for (final ParsedCourseOffering o in enrolled) {
+      if (o.isRemoteExamFaceToFaceOnly) continue;
+      for (final TimetableSlot s in o.slots) {
+        if (s.weekday == wd) todayRaw.add(s);
+      }
+    }
+    if (todayRaw.isEmpty) return const [];
+
+    final List<TimetableSlot> merged =
+        TimetableSlotMerge.mergeAdjacent(todayRaw);
+        
+    final List<TimetableSlot> upcoming = [];
+    for (final TimetableSlot s in merged) {
+      if (s.startMinute > nowMin) {
+        upcoming.add(s);
+      }
+    }
+    upcoming.sort((a, b) => a.startMinute.compareTo(b.startMinute));
+    return upcoming;
+  }
+
+  static TimetableSlot? firstSlotToday(List<ParsedCourseOffering> enrolled) {
+    final DateTime now = DateTime.now();
+    final int wd = now.weekday;
+
+    final List<TimetableSlot> todayRaw = <TimetableSlot>[];
+    for (final ParsedCourseOffering o in enrolled) {
+      if (o.isRemoteExamFaceToFaceOnly) continue;
+      for (final TimetableSlot s in o.slots) {
+        if (s.weekday == wd) todayRaw.add(s);
+      }
+    }
+    if (todayRaw.isEmpty) return null;
+
+    final List<TimetableSlot> merged =
+        TimetableSlotMerge.mergeAdjacent(todayRaw);
+        
+    TimetableSlot? firstSlot;
+    int firstStart = 1 << 30;
+    for (final TimetableSlot s in merged) {
+      if (s.startMinute < firstStart) {
+        firstStart = s.startMinute;
+        firstSlot = s;
+      }
+    }
+    return firstSlot;
+  }
+
   static String formatCountdownKo(int totalMinutes) {
     if (totalMinutes <= 0) return "곧";
     final int h = totalMinutes ~/ 60;

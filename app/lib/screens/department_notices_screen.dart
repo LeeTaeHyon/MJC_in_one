@@ -13,15 +13,20 @@ import "package:mjc_in_one/services/departments_list_service.dart";
 import "package:mjc_in_one/theme/app_theme.dart";
 import "package:mjc_in_one/utils/community_notice_bookmarks.dart";
 import "package:mjc_in_one/utils/notice_bookmark_key.dart";
+import "package:mjc_in_one/utils/notice_list_refresh_guard.dart";
 import "package:mjc_in_one/widgets/collapsed_hero_title.dart";
 import "package:mjc_in_one/widgets/community_notice_list_tile.dart";
+import "package:mjc_in_one/widgets/global_notice_search_sheet.dart";
 import "package:mjc_in_one/widgets/main_navigation_scope.dart";
+import "package:mjc_in_one/widgets/nested_scroll_refresh_indicator.dart";
+import "package:mjc_in_one/widgets/notice_filter_sheet.dart";
+import "package:mjc_in_one/services/notice_filter.dart";
 import "package:mjc_in_one/widgets/scroll_to_top_scope.dart";
 import "package:shared_preferences/shared_preferences.dart";
 
 /// 학과 공지 UI 브랜드 색 (헤더 그라데이션·목록 액센트).
-const Color _kDeptNoticeBrandLight = Color(0xFF607199);
-const Color _kDeptNoticeBrandDark = Color(0xFF7A8BB5);
+const Color _kDeptNoticeBrandLight = Color(0xFF536189);
+const Color _kDeptNoticeBrandDark = Color(0xFF536189);
 
 Color _deptNoticeBrandColor(BuildContext context) {
   return Theme.of(context).brightness == Brightness.dark
@@ -30,7 +35,7 @@ Color _deptNoticeBrandColor(BuildContext context) {
 }
 
 Color _deptNoticeOverlayBottom(Color brand) {
-  return Color.lerp(brand, const Color(0xFF1E2433), 0.32)!;
+  return const Color(0xFF55658D);
 }
 
 /// 학과 공지 목록 (실험실).
@@ -61,6 +66,8 @@ class _DepartmentNoticesScreenState extends State<DepartmentNoticesScreen> {
 
   ScrollToTopCoordinator? _scrollToTopCoordinator;
   bool _registeredMainTab = false;
+  Future<List<QueryDocumentSnapshot<Map<String, dynamic>>>>? _postsFuture;
+
   late final NestedScrollFabScrollReporter _nestedFabReporter =
       NestedScrollFabScrollReporter(
     tabIndex: MainNavTabIndex.notices,
@@ -112,11 +119,95 @@ class _DepartmentNoticesScreenState extends State<DepartmentNoticesScreen> {
     setState(() {
       _deptSlug = slug;
       _slugError = slug == null ? "이 학과는 아직 학과 공지 게시판이 준비되지 않았습니다." : null;
+      if (slug != null) {
+        _postsFuture = _communityService.fetchPublishedPosts(slug);
+      } else {
+        _postsFuture = null;
+      }
     });
     if (slug != null && LabPrefs.selectedDepartment.value != name) {
       await LabPrefs.setSelectedDepartment(name);
     }
     await _loadNoticePrefs();
+    await _loadNoticeFilter();
+  }
+
+  bool _openingGlobalSearch = false;
+  NoticeFilterState _noticeFilter = const NoticeFilterState();
+  List<String> _noticeSharedKeywords = [];
+
+  Future<void> _loadNoticeFilter() async {
+    final NoticeFilterState filter = await NoticeFilterState.load();
+    final List<String> keywords = await loadSharedNoticeKeywords();
+    final String scopeId = "department_notice_${_deptSlug ?? ''}";
+    final bool enabled = await loadScopedNoticeFilterEnabled(scopeId);
+    final List<String> includes = await loadScopedNoticeFilterIncludes(scopeId);
+    if (!mounted) return;
+    setState(() {
+      _noticeFilter = filter.copyWith(
+        enabled: enabled,
+        quickQuery: "",
+        sources: const ["MJC"],
+        types: kNoticeFilterTypeOptions,
+        excludes: const [],
+        requireKeywordHit: false,
+        includes: includes,
+      );
+      _noticeSharedKeywords = keywords;
+    });
+  }
+
+  void _reloadNoticeFilter() {
+    _loadNoticeFilter();
+  }
+
+  Future<void> _openNoticeFilterSheet() async {
+    if (_deptSlug == null) return;
+    final String scopeId = "department_notice_$_deptSlug";
+    await showNoticeFilterSheet(
+      context,
+      scopeId: scopeId,
+      scopeLabel: "${_selectedDepartment ?? '학과'} 공지",
+      onFilterChanged: _reloadNoticeFilter,
+    );
+    _reloadNoticeFilter();
+  }
+
+  Future<void> _openGlobalSearch() async {
+    if (_openingGlobalSearch || _deptSlug == null) return;
+    _openingGlobalSearch = true;
+    try {
+      final docs = await _communityService.fetchPublishedPosts(_deptSlug!, limit: 200);
+      if (!mounted) return;
+
+      final List<Map<String, dynamic>> items = docs.map((doc) {
+        return {
+          ...doc.data(),
+          "id": doc.id,
+          "_boardId": departmentNoticeBoardId(_deptSlug!),
+        };
+      }).toList();
+
+      await showGlobalNoticeSearchSheet(
+        context,
+        items: items,
+        accentColor: _deptNoticeBrandColor(context),
+        scopeLabel: "${_selectedDepartment ?? '학과'} 공지",
+        openItem: (item) async { _openDetail(item); },
+        boardIdFor: (item) => departmentNoticeBoardId(_deptSlug!),
+        noticeKeyFor: (item) => departmentNoticeBookmarkKey(departmentNoticeBoardId(_deptSlug!), item),
+        chipFor: (item) => (item["category"] ?? "공지").toString(),
+        dateFor: (item) => (item["date"] ?? item["reg_date"] ?? "").toString().trim(),
+        searchTextFor: (item) {
+          final String title = (item["title"] ?? "").toString();
+          final String cat = (item["category"] ?? "").toString();
+          final String date = (item["date"] ?? item["reg_date"] ?? "").toString();
+          return "$title $cat $date";
+        },
+      );
+    } finally {
+      _openingGlobalSearch = false;
+    }
   }
 
   String? get _boardId {
@@ -172,6 +263,40 @@ class _DepartmentNoticesScreenState extends State<DepartmentNoticesScreen> {
     final Set<String> next =
         await toggleCommunityNoticeFavorite(context, boardId, key);
     if (mounted) setState(() => _favoriteKeys = next);
+  }
+
+  bool _allowRefreshNotification(ScrollNotification n) {
+    return defaultScrollNotificationPredicate(n);
+  }
+
+  Future<void> _handleRefresh() async {
+    final String? slug = _deptSlug;
+    if (slug == null) {
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      return;
+    }
+    
+    final bool forceRefresh =
+        NoticeListRefreshGuard.allowForceRefresh("department_notice_$slug");
+        
+    if (forceRefresh) {
+      setState(() {
+        _postsFuture = _communityService.fetchPublishedPosts(slug);
+      });
+      final start = DateTime.now();
+      await _postsFuture;
+      final diff = DateTime.now().difference(start);
+      if (diff.inMilliseconds < 600) {
+        await Future<void>.delayed(Duration(milliseconds: 600 - diff.inMilliseconds));
+      }
+    } else {
+      if (mounted) {
+        NoticeListRefreshGuard.showThrottledMessage(
+          context,
+          key: "department_notice_refresh_throttled",
+        );
+      }
+    }
   }
 
   @override
@@ -396,6 +521,8 @@ class _DepartmentNoticesScreenState extends State<DepartmentNoticesScreen> {
                   topPadding: topPad,
                   heroBody: heroBody,
                   overlapsContent: innerBoxIsScrolled,
+                  onOpenFilter: _openNoticeFilterSheet,
+                  onSearch: _openGlobalSearch,
                 ),
               ),
             ),
@@ -405,10 +532,16 @@ class _DepartmentNoticesScreenState extends State<DepartmentNoticesScreen> {
           onNotification: _nestedFabReporter.handleInnerScrollNotification,
           child: Builder(
             builder: (BuildContext nestedContext) {
-              return CustomScrollView(
-                primary: true,
-                physics: const AlwaysScrollableScrollPhysics(),
-                slivers: [
+              return NestedScrollRefreshIndicator(
+                onRefresh: _handleRefresh,
+                color: _deptNoticeBrandColor(context),
+                backgroundColor: Theme.of(context).colorScheme.surface,
+                notificationPredicate: _allowRefreshNotification,
+                tabBarHeight: 0,
+                child: CustomScrollView(
+                  primary: true,
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  slivers: [
                   SliverOverlapInjector(
                     handle: NestedScrollView.sliverOverlapAbsorberHandleFor(
                       nestedContext,
@@ -458,6 +591,7 @@ class _DepartmentNoticesScreenState extends State<DepartmentNoticesScreen> {
                       ),
                     ),
                 ],
+              ),
               );
             },
           ),
@@ -574,9 +708,15 @@ class _DepartmentNoticesScreenState extends State<DepartmentNoticesScreen> {
   Widget _buildPostsSliver() {
     final String slug = _deptSlug!;
     final String boardId = departmentNoticeBoardId(slug);
-    return StreamBuilder<List<QueryDocumentSnapshot<Map<String, dynamic>>>>(
-      stream: _communityService.streamPublishedPosts(slug),
+    return FutureBuilder<List<QueryDocumentSnapshot<Map<String, dynamic>>>>(
+      future: _postsFuture,
       builder: (context, snap) {
+        if (snap.connectionState == ConnectionState.waiting) {
+          return const SliverFillRemaining(
+            hasScrollBody: false,
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
         if (snap.hasError) {
           return SliverFillRemaining(
             hasScrollBody: false,
@@ -599,14 +739,25 @@ class _DepartmentNoticesScreenState extends State<DepartmentNoticesScreen> {
           );
         }
         final docs = snap.data!;
-        if (docs.isEmpty) {
+        final List<Map<String, dynamic>> rawDocs =
+            docs.map((d) => {...d.data(), "id": d.id}).toList();
+
+        final NoticeFilterState filter = _noticeFilter.copyWith(quickQuery: "");
+        final List<Map<String, dynamic>> filteredDocs = filter.apply(
+          rawDocs,
+          sharedKeywords: _noticeSharedKeywords,
+          fallbackSource: "MJC",
+          fallbackType: "공지",
+        );
+
+        if (filteredDocs.isEmpty) {
           return SliverFillRemaining(
             hasScrollBody: false,
             child: Center(
               child: Padding(
                 padding: const EdgeInsets.all(24),
                 child: Text(
-                  "아직 등록된 학과 공지가 없습니다.",
+                  docs.isEmpty ? "아직 등록된 학과 공지가 없습니다." : "필터에 맞는 공지가 없습니다.",
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
@@ -615,24 +766,17 @@ class _DepartmentNoticesScreenState extends State<DepartmentNoticesScreen> {
           );
         }
 
-        final List<QueryDocumentSnapshot<Map<String, dynamic>>> pinnedDocs =
-            <QueryDocumentSnapshot<Map<String, dynamic>>>[];
-        final List<QueryDocumentSnapshot<Map<String, dynamic>>> restDocs =
-            <QueryDocumentSnapshot<Map<String, dynamic>>>[];
-        for (final QueryDocumentSnapshot<Map<String, dynamic>> doc in docs) {
-          final Map<String, dynamic> data = {...doc.data(), "id": doc.id};
+        final List<Map<String, dynamic>> pinnedDocs = [];
+        final List<Map<String, dynamic>> restDocs = [];
+        for (final Map<String, dynamic> data in filteredDocs) {
           final String key = departmentNoticeBookmarkKey(boardId, data);
           if (_pinnedKeys.contains(key)) {
-            pinnedDocs.add(doc);
+            pinnedDocs.add(data);
           } else {
-            restDocs.add(doc);
+            restDocs.add(data);
           }
         }
-        final List<QueryDocumentSnapshot<Map<String, dynamic>>> orderedDocs =
-            <QueryDocumentSnapshot<Map<String, dynamic>>>[
-          ...pinnedDocs,
-          ...restDocs,
-        ];
+        final List<Map<String, dynamic>> orderedDocs = [...pinnedDocs, ...restDocs];
 
         return SliverPadding(
           padding: EdgeInsets.fromLTRB(
@@ -644,10 +788,8 @@ class _DepartmentNoticesScreenState extends State<DepartmentNoticesScreen> {
           sliver: SliverList(
             delegate: SliverChildBuilderDelegate(
               (context, index) {
-                final QueryDocumentSnapshot<Map<String, dynamic>> doc =
-                    orderedDocs[index];
-                final Map<String, dynamic> data = {...doc.data(), "id": doc.id};
-                final String postId = doc.id;
+                final Map<String, dynamic> data = orderedDocs[index];
+                final String postId = (data["id"] as String?) ?? "";
                 final String key = departmentNoticeBookmarkKey(boardId, data);
                 final List<CommunityNoticeMediaItem> images =
                     CommunityNoticePostMedia.imagesFromPost(data);
@@ -684,16 +826,20 @@ class _DepartmentCollapsingHeaderDelegate
     required this.topPadding,
     required this.heroBody,
     required this.overlapsContent,
+    required this.onOpenFilter,
+    required this.onSearch,
   });
 
   final double topPadding;
   final double heroBody;
   final bool overlapsContent;
+  final VoidCallback onOpenFilter;
+  final VoidCallback onSearch;
 
   static const double _collapsedBar = 52;
 
-  /// Collapsed 시 배너 패턴이 은은하게 비치도록 overlay 불투명도 (~90%).
-  static const double _collapsedOverlayOpacity = 0.90;
+  /// Collapsed 시 배너 패턴이 비치지 않게 완전히 덮음
+  static const double _collapsedOverlayOpacity = 1.0;
 
   @override
   double get maxExtent => topPadding + heroBody;
@@ -711,7 +857,7 @@ class _DepartmentCollapsingHeaderDelegate
         (maxExtent - shrinkOffset).clamp(minExtent, maxExtent);
     final double range = maxExtent - minExtent;
     final double t = range > 0 ? (shrinkOffset / range).clamp(0.0, 1.0) : 0.0;
-    final double overlayT = Curves.easeOutCubic.transform(t);
+    final double overlayT = Curves.easeIn.transform(t);
     final double u = Curves.easeInOut.transform(t);
     final double overlayOpacity =
         lerpDouble(0.0, _collapsedOverlayOpacity, overlayT)!;
@@ -721,11 +867,8 @@ class _DepartmentCollapsingHeaderDelegate
       overlayT,
     )!;
     final double bannerScale = lerpDouble(1.04, 1.02, overlayT)!;
-    final double bottomOverlayOpacity = lerpDouble(
-      overlayOpacity,
-      (overlayOpacity + 0.08).clamp(0.0, 0.98),
-      Curves.easeIn.transform(((t - 0.90) / 0.10).clamp(0.0, 1.0)),
-    )!;
+    // 완전히 접혔을 때 전체 배경이 불투명해지도록 상단/하단 동일한 opacity 사용
+    final double bottomOverlayOpacity = overlayOpacity;
     final Color overlayTop = _deptNoticeBrandColor(context);
     final Color overlayBottom = _deptNoticeOverlayBottom(overlayTop);
 
@@ -796,9 +939,44 @@ class _DepartmentCollapsingHeaderDelegate
                     clipBehavior: Clip.hardEdge,
                     children: [
                       Positioned(
+                        left: 12,
+                        top: ih >= 54 ? 6.0 : max(0.0, (ih - 48) / 2),
+                        right: 4,
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: <Widget>[
+                            const Spacer(),
+                            IconButton(
+                              visualDensity: VisualDensity.compact,
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(
+                                minWidth: 40,
+                                minHeight: 40,
+                              ),
+                              tooltip: "공지 목록 필터",
+                              onPressed: onOpenFilter,
+                              icon: const Icon(Icons.tune_rounded),
+                              color: Colors.white,
+                            ),
+                            IconButton(
+                              visualDensity: VisualDensity.compact,
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(
+                                minWidth: 40,
+                                minHeight: 40,
+                              ),
+                              tooltip: "검색",
+                              onPressed: onSearch,
+                              icon: const Icon(Icons.search_rounded),
+                              color: Colors.white,
+                            ),
+                          ],
+                        ),
+                      ),
+                      Positioned(
                         left: titleLeft,
                         top: collapsedTitleTop,
-                        right: 24,
+                        right: 88,
                         child: IgnorePointer(
                           ignoring: titleOpacity < 0.02,
                           child: Opacity(
@@ -828,6 +1006,8 @@ class _DepartmentCollapsingHeaderDelegate
   bool shouldRebuild(covariant _DepartmentCollapsingHeaderDelegate old) {
     return topPadding != old.topPadding ||
         heroBody != old.heroBody ||
-        overlapsContent != old.overlapsContent;
+        overlapsContent != old.overlapsContent ||
+        onOpenFilter != old.onOpenFilter ||
+        onSearch != old.onSearch;
   }
 }

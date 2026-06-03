@@ -600,8 +600,8 @@ class _MainWebsiteCollapsingHeaderDelegate
   static const Color _overlayTop = Color(0xFF0043A1);
   static const Color _overlayBottom = Color(0xFF005AB5);
 
-  /// Collapsed 시 배너 패턴이 은은하게 비치도록 overlay 불투명도 (~8–10%).
-  static const double _collapsedOverlayOpacity = 0.90;
+  /// Collapsed 시 배너 패턴이 비치지 않게 완전히 덮음
+  static const double _collapsedOverlayOpacity = 1.0;
 
   double get _bottomHeight => bottom?.preferredSize.height ?? 0;
 
@@ -621,8 +621,8 @@ class _MainWebsiteCollapsingHeaderDelegate
         (maxExtent - shrinkOffset).clamp(minExtent, maxExtent);
     final double range = maxExtent - minExtent;
     final double t = range > 0 ? (shrinkOffset / range).clamp(0.0, 1.0) : 0.0;
-    // Overlay는 easeOutCubic — 스크롤 초반부터 자연스럽게 응축되는 느낌.
-    final double overlayT = Curves.easeOutCubic.transform(t);
+    // 스크롤 초반에는 이미지가 잘 보이도록 늦게 덮이게 변경
+    final double overlayT = Curves.easeIn.transform(t);
     final double u = Curves.easeInOut.transform(t);
     final double heroH = extent - _bottomHeight;
     final double overlayOpacity =
@@ -633,12 +633,8 @@ class _MainWebsiteCollapsingHeaderDelegate
       overlayT,
     )!;
     final double bannerScale = lerpDouble(1.04, 1.02, overlayT)!;
-    // 글씨 아래 얇은 띠만 막고, 상단은 패턴이 은은히 보이도록 하단만 살짝 더 덮음.
-    final double bottomOverlayOpacity = lerpDouble(
-      overlayOpacity,
-      (overlayOpacity + 0.08).clamp(0.0, 0.98),
-      Curves.easeIn.transform(((t - 0.90) / 0.10).clamp(0.0, 1.0)),
-    )!;
+    // 완전히 접혔을 때 전체 배경이 불투명해지도록 상단/하단 동일한 opacity 사용
+    final double bottomOverlayOpacity = overlayOpacity;
 
     return SizedBox(
       height: extent,

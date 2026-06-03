@@ -96,7 +96,7 @@ Future<void> _processAndShowNotification(RemoteMessage message) async {
     // 3. 실제 기기에 푸시 노티 표시
     final flnp = FlutterLocalNotificationsPlugin();
     const AndroidInitializationSettings initSettingsAndroid =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
+        AndroidInitializationSettings('@drawable/ic_notification');
     const InitializationSettings initSettings =
         InitializationSettings(android: initSettingsAndroid);
     await flnp.initialize(initSettings);

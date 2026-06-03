@@ -1206,10 +1206,7 @@ class _TimetableFilterPickerSheet extends StatefulWidget {
 
 class _TimetableFilterPickerSheetState
     extends State<_TimetableFilterPickerSheet> {
-  static const int _kInitialVisibleCount = 4;
-
   final TextEditingController _searchController = TextEditingController();
-  bool _expanded = false;
 
   @override
   void dispose() {
@@ -1227,17 +1224,6 @@ class _TimetableFilterPickerSheetState
     return widget.options
         .where((String o) => o.toLowerCase().contains(q))
         .toList();
-  }
-
-  List<String> get _visibleOptions {
-    final List<String> filtered = _filteredOptions;
-    if (_expanded || _isSearching) return filtered;
-    return filtered.take(_kInitialVisibleCount).toList();
-  }
-
-  bool get _showMoreButton {
-    if (_expanded || _isSearching) return false;
-    return _filteredOptions.length > _kInitialVisibleCount;
   }
 
   void _pick(String value) {
@@ -1334,28 +1320,14 @@ class _TimetableFilterPickerSheetState
                         focusedBorder: InputBorder.none,
                         suffixIcon: _searchController.text.isEmpty
                             ? null
-                            : Padding(
-                                padding:
-                                    const EdgeInsetsDirectional.only(end: 4),
-                                child: TextButton(
-                                  onPressed: () {
-                                    _searchController.clear();
-                                    setState(() {});
-                                  },
-                                  child: Text(
-                                    "지우기",
-                                    style: TextStyle(
-                                      fontFamily: kPretendardFontFamily,
-                                      fontWeight: FontWeight.w600,
-                                      color: scheme.primary,
-                                    ),
-                                  ),
-                                ),
+                            : IconButton(
+                                tooltip: "지우기",
+                                onPressed: () {
+                                  _searchController.clear();
+                                  setState(() {});
+                                },
+                                icon: const Icon(Icons.clear_rounded),
                               ),
-                        suffixIconConstraints: const BoxConstraints(
-                          minWidth: 64,
-                          minHeight: 48,
-                        ),
                       ),
                     ),
                   ),
@@ -1387,7 +1359,7 @@ class _TimetableFilterPickerSheetState
                               accent: accent,
                               onTap: () => _pick(""),
                             ),
-                          for (final String o in _visibleOptions)
+                          for (final String o in _filteredOptions)
                             _FilterRadioTile(
                               value: o,
                               groupValue: widget.current,
@@ -1398,31 +1370,6 @@ class _TimetableFilterPickerSheetState
                         ],
                       ),
               ),
-              if (_showMoreButton)
-                Center(
-                  child: TextButton(
-                    onPressed: () => setState(() => _expanded = true),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: <Widget>[
-                        Text(
-                          "더보기",
-                          style: TextStyle(
-                            fontFamily: kPretendardFontFamily,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            color: accent,
-                          ),
-                        ),
-                        Icon(
-                          Icons.keyboard_arrow_down_rounded,
-                          size: 20,
-                          color: accent,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
               const SizedBox(height: 8),
             ],
           ),

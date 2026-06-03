@@ -1,19 +1,15 @@
-import "dart:async";
 import "dart:io" show Platform;
 
 import "package:flutter/foundation.dart";
 import "package:flutter_local_notifications/flutter_local_notifications.dart";
 import "package:mjc_in_one/features/timetable/models/timetable_models.dart";
+import "package:mjc_in_one/features/timetable/services/timetable_storage_service.dart";
 import "package:mjc_in_one/features/timetable/utils/timetable_next_lecture.dart";
 import "package:mjc_in_one/lecture_reminder_notification_prefs.dart";
-import "package:mjc_in_one/services/lecture_reminder_content.dart";
 import "package:mjc_in_one/services/lecture_reminder_notification_platform.dart";
 import "package:timezone/timezone.dart" as tz;
 
-/// 홈 «강의 알림» 카드와 동일한 기준으로, 알림 패널에 다음 수업 안내를 유지합니다.
-///
-/// Android: 알림에 시스템 카운트다운(크로노미터)을 붙여 앱 없이도 남은 시간이 줄어듭니다.
-/// iOS: 앱 실행 중 1분 타이머 + 백그라운드 예약 알림.
+/// 홈 «강의 알림» 카드와 별개로, 설정된 시간에 맞춰 푸시 알림을 스케줄링합니다.
 final class LectureReminderNotificationService {
   LectureReminderNotificationService._();
 
@@ -26,7 +22,6 @@ final class LectureReminderNotificationService {
   /// 알림·정확한 알람 권한 확인/요청은 이 인스턴스만 사용한다.
   FlutterLocalNotificationsPlugin get notificationsPlugin => _flnp;
 
-  Timer? _foregroundRefreshTimer;
   bool _initialized = false;
 
   bool get _supportedPlatform {
@@ -57,9 +52,6 @@ final class LectureReminderNotificationService {
       return;
     }
     await refreshNow();
-    if (!Platform.isAndroid) {
-      await ensureBackgroundUpdates();
-    }
   }
 
   Future<void> setEnabled(bool enabled) async {
@@ -72,146 +64,136 @@ final class LectureReminderNotificationService {
     await stop();
   }
 
-  /// iOS 백그라운드용 — Android는 크로노미터가 알아서 갱신합니다.
-  Future<void> ensureBackgroundUpdates() async {
-    if (!_supportedPlatform || Platform.isAndroid) return;
-    if (!await LectureReminderNotificationPrefs.isEnabled()) return;
-    await _scheduleIosBatchUpdates();
-    _startForegroundRefreshTimer();
-  }
-
   Future<void> refreshNow() async {
     if (!_supportedPlatform) return;
-    if (!await LectureReminderNotificationPrefs.isEnabled()) {
-      await stop();
-      return;
-    }
     await ensureInitialized();
 
-    final LectureReminderPresentation? presentation =
-        await buildLectureReminderPresentation();
-    if (presentation == null) {
-      await stop();
-      return;
+    // 1. 기존에 예약된 모든 강의 알림 취소
+    await _cancelAllScheduledReminders();
+
+    if (!await LectureReminderNotificationPrefs.isEnabled()) return;
+
+    // 2. 오늘의 남은 수업들 가져오기
+    final List<ParsedCourseOffering> enrolled =
+        await TimetableStorageService.loadEnrolled();
+    final List<TimetableSlot> upcoming =
+        TimetableNextLecture.upcomingSlotsToday(enrolled);
+    if (upcoming.isEmpty) return;
+
+    // 3. 설정값 확인
+    final bool exactEnabled =
+        await LectureReminderNotificationPrefs.isExactEnabled();
+    final bool m10Enabled =
+        await LectureReminderNotificationPrefs.is10mEnabled();
+    final bool m30Enabled =
+        await LectureReminderNotificationPrefs.is30mEnabled();
+    final bool m60Enabled =
+        await LectureReminderNotificationPrefs.is60mEnabled();
+    final bool firstOnly =
+        await LectureReminderNotificationPrefs.isFirstClassOnlyEnabled();
+
+    // 4. 알림 스케줄링
+    final DateTime now = DateTime.now();
+    for (int i = 0; i < upcoming.length; i++) {
+      final TimetableSlot slot = upcoming[i];
+      if (firstOnly && i > 0) {
+        // 첫 수업만 알림인데, 두 번째 이후 수업이면 건너뜀
+        break;
+      }
+
+      final DateTime classStart = DateTime(
+        now.year,
+        now.month,
+        now.day,
+        slot.startMinute ~/ 60,
+        slot.startMinute % 60,
+      );
+      final String roomText =
+          slot.room.trim().isEmpty ? "" : " · ${slot.room.trim()}";
+
+      final int baseId = 91000 + slot.startMinute * 10;
+
+      if (exactEnabled && classStart.isAfter(now)) {
+        await _schedule(
+          id: baseId,
+          time: classStart,
+          title: "수업 시작",
+          body: "${slot.courseName} 수업이 시작되었습니다.$roomText",
+        );
+      }
+      if (m10Enabled) {
+        final DateTime t = classStart.subtract(const Duration(minutes: 10));
+        if (t.isAfter(now)) {
+          await _schedule(
+            id: baseId + 1,
+            time: t,
+            title: "수업 시작 10분 전",
+            body: "${slot.courseName} 수업이 10분 뒤 시작됩니다.$roomText",
+          );
+        }
+      }
+      if (m30Enabled) {
+        final DateTime t = classStart.subtract(const Duration(minutes: 30));
+        if (t.isAfter(now)) {
+          await _schedule(
+            id: baseId + 2,
+            time: t,
+            title: "수업 시작 30분 전",
+            body: "${slot.courseName} 수업이 30분 뒤 시작됩니다.$roomText",
+          );
+        }
+      }
+      if (m60Enabled) {
+        final DateTime t = classStart.subtract(const Duration(minutes: 60));
+        if (t.isAfter(now)) {
+          await _schedule(
+            id: baseId + 3,
+            time: t,
+            title: "수업 시작 1시간 전",
+            body: "${slot.courseName} 수업이 1시간 뒤 시작됩니다.$roomText",
+          );
+        }
+      }
     }
-
-    final TimetableSlot? slot = await resolveNextLectureSlot();
-    final String? room = slot?.room.trim();
-
-    await showLectureReminderNotification(
-      _flnp,
-      title: presentation.title,
-      text: presentation.text,
-      classStartEpochMs: presentation.classStartEpochMs,
-      subText: room == null || room.isEmpty ? null : room,
-    );
-
-    if (Platform.isAndroid) {
-      await _scheduleAndroidClassStartDismiss(presentation.classStartEpochMs);
-      _stopForegroundRefreshTimer();
-      return;
-    }
-
-    _startForegroundRefreshTimer();
   }
 
-  Future<void> stop() async {
-    _stopForegroundRefreshTimer();
-    await _cancelIosScheduledBatch();
-    await cancelLectureReminderClassStartSchedule(_flnp);
-    if (_initialized) {
-      await cancelLectureReminderNotification(_flnp);
-    }
-  }
-
-  Future<void> _scheduleAndroidClassStartDismiss(int classStartEpochMs) async {
-    await cancelLectureReminderClassStartSchedule(_flnp);
-
-    final DateTime classStart =
-        DateTime.fromMillisecondsSinceEpoch(classStartEpochMs);
-    if (!classStart.isAfter(DateTime.now())) return;
-
+  Future<void> _schedule({
+    required int id,
+    required DateTime time,
+    required String title,
+    required String body,
+  }) async {
     await _flnp.zonedSchedule(
-      kLectureReminderClassStartScheduleId,
-      "다음 수업",
-      "곧 시작",
-      tz.TZDateTime.from(classStart, tz.local),
-      const NotificationDetails(
-        android: AndroidNotificationDetails(
-          kLectureReminderChannelId,
-          kLectureReminderChannelName,
-          channelDescription: kLectureReminderChannelDescription,
-          importance: Importance.low,
-          priority: Priority.low,
-          autoCancel: true,
-          tag: "mjc_lecture_reminder",
-        ),
-      ),
+      id,
+      title,
+      body,
+      tz.TZDateTime.from(time, tz.local),
+      scheduledLectureReminderNotificationDetails(),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
     );
   }
 
-  Future<void> _scheduleIosBatchUpdates() async {
-    await _cancelIosScheduledBatch();
-
-    final slot = await resolveNextLectureSlot();
-    if (slot == null) return;
-
-    final tz.TZDateTime now = tz.TZDateTime.now(tz.local);
-    final int nowMin = now.hour * 60 + now.minute;
-    final int classStartMin = slot.startMinute;
-    final int minutesLeft = classStartMin - nowMin;
-    if (minutesLeft <= 0) return;
-
-    final String title =
-        "${slot.courseName} ${TimetableNextLecture.formatStartTimeHm(slot.startMinute)}";
-    final int scheduleCount = minutesLeft.clamp(1, 120);
-
-    for (int i = 1; i <= scheduleCount; i++) {
-      final tz.TZDateTime when = now.add(Duration(minutes: i));
-      final int untilMin = classStartMin - (when.hour * 60 + when.minute);
-      if (untilMin < 0) break;
-
-      final String body = TimetableNextLecture.formatRemainingKo(untilMin);
-      final String text =
-          slot.room.trim().isEmpty ? body : "$body · ${slot.room.trim()}";
-
-      await _flnp.zonedSchedule(
-        kLectureReminderClassStartScheduleId + i,
-        title,
-        text,
-        when,
-        lectureReminderNotificationDetails(),
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        uiLocalNotificationDateInterpretation:
-            UILocalNotificationDateInterpretation.absoluteTime,
-      );
+  Future<void> stop() async {
+    if (_initialized) {
+      await _cancelAllScheduledReminders();
     }
   }
 
-  Future<void> _cancelIosScheduledBatch() async {
-    for (int id = kLectureReminderClassStartScheduleId + 1;
-        id <= kLectureReminderClassStartScheduleId + 120;
-        id++) {
-      await _flnp.cancel(id);
+  Future<void> _cancelAllScheduledReminders() async {
+    // 기존에 있던 91001, 91002 고정 ID 취소
+    await _flnp.cancel(91001);
+    await _flnp.cancel(91002);
+    // 새로 도입한 91000 ~ 99999 대역 취소
+    final List<PendingNotificationRequest> pending =
+        await _flnp.pendingNotificationRequests();
+    for (final PendingNotificationRequest req in pending) {
+      if (req.id >= 91000 && req.id < 99999) {
+        await _flnp.cancel(req.id);
+      }
     }
   }
 
-  void _startForegroundRefreshTimer() {
-    _stopForegroundRefreshTimer();
-    _foregroundRefreshTimer = Timer.periodic(const Duration(minutes: 1), (_) {
-      refreshNow();
-    });
-  }
-
-  void _stopForegroundRefreshTimer() {
-    _foregroundRefreshTimer?.cancel();
-    _foregroundRefreshTimer = null;
-  }
-
-  void dispose() {
-    _stopForegroundRefreshTimer();
-  }
+  void dispose() {}
 }
