@@ -1,4 +1,6 @@
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 import re
 from bs4 import BeautifulSoup
 from datetime import datetime
@@ -9,6 +11,19 @@ import json
 import hashlib
 
 from notice_ai_tags import enrich_post_dict
+
+def get_session():
+    session = requests.Session()
+    retry = Retry(
+        total=5,
+        backoff_factor=1,
+        status_forcelist=[429, 500, 502, 503, 504],
+        allowed_methods=["HEAD", "GET", "OPTIONS", "POST"]
+    )
+    adapter = HTTPAdapter(max_retries=retry)
+    session.mount("http://", adapter)
+    session.mount("https://", adapter)
+    return session
 
 # ── Firebase 초기화 ──────────────────────────────────────────
 def init_firebase():
@@ -50,7 +65,8 @@ def crawl_programs() -> list[dict]:
     }
 
     try:
-        res = requests.get(url, headers=headers, timeout=10)
+        session = get_session()
+        res = session.get(url, headers=headers, timeout=30)
         res.encoding = 'utf-8'
         soup = BeautifulSoup(res.text, "html.parser")
     except Exception as e:

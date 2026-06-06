@@ -96,7 +96,7 @@ Future<void> _processAndShowNotification(RemoteMessage message) async {
     // 3. 실제 기기에 푸시 노티 표시
     final flnp = FlutterLocalNotificationsPlugin();
     const AndroidInitializationSettings initSettingsAndroid =
-        AndroidInitializationSettings('@drawable/ic_notification');
+        AndroidInitializationSettings('ic_notification');
     const InitializationSettings initSettings =
         InitializationSettings(android: initSettingsAndroid);
     await flnp.initialize(initSettings);
@@ -188,9 +188,6 @@ class _MioNoticeAppState extends State<MioNoticeApp>
     if (state == AppLifecycleState.resumed) {
       LectureReminderNotificationService.instance.refreshNow();
       DeepLinkHandler.instance.onAppResumed();
-    }
-    if (state == AppLifecycleState.paused) {
-      LectureReminderNotificationService.instance.refreshNow();
     }
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.inactive) {

@@ -94,6 +94,7 @@ final class LectureReminderNotificationService {
 
     // 4. 알림 스케줄링
     final DateTime now = DateTime.now();
+    debugPrint("[알림] 스케줄링 시작 — 남은 수업 ${upcoming.length}개, exactEnabled=$exactEnabled, m10=$m10Enabled, m30=$m30Enabled, m60=$m60Enabled, firstOnly=$firstOnly");
     for (int i = 0; i < upcoming.length; i++) {
       final TimetableSlot slot = upcoming[i];
       if (firstOnly && i > 0) {
@@ -112,8 +113,10 @@ final class LectureReminderNotificationService {
           slot.room.trim().isEmpty ? "" : " · ${slot.room.trim()}";
 
       final int baseId = 91000 + slot.startMinute * 10;
+      debugPrint("[알림] '${slot.courseName}' classStart=$classStart now=$now");
 
       if (exactEnabled && classStart.isAfter(now)) {
+        debugPrint("[알림] 정각 알림 예약 시도: $classStart");
         await _schedule(
           id: baseId,
           time: classStart,
@@ -124,6 +127,7 @@ final class LectureReminderNotificationService {
       if (m10Enabled) {
         final DateTime t = classStart.subtract(const Duration(minutes: 10));
         if (t.isAfter(now)) {
+          debugPrint("[알림] 10분 전 알림 예약 시도: $t");
           await _schedule(
             id: baseId + 1,
             time: t,
@@ -135,6 +139,7 @@ final class LectureReminderNotificationService {
       if (m30Enabled) {
         final DateTime t = classStart.subtract(const Duration(minutes: 30));
         if (t.isAfter(now)) {
+          debugPrint("[알림] 30분 전 알림 예약 시도: $t");
           await _schedule(
             id: baseId + 2,
             time: t,
@@ -146,6 +151,7 @@ final class LectureReminderNotificationService {
       if (m60Enabled) {
         final DateTime t = classStart.subtract(const Duration(minutes: 60));
         if (t.isAfter(now)) {
+          debugPrint("[알림] 60분 전 알림 예약 시도: $t");
           await _schedule(
             id: baseId + 3,
             time: t,
@@ -155,6 +161,7 @@ final class LectureReminderNotificationService {
         }
       }
     }
+    debugPrint("[알림] refreshNow 완료");
   }
 
   Future<void> _schedule({
@@ -163,16 +170,36 @@ final class LectureReminderNotificationService {
     required String title,
     required String body,
   }) async {
-    await _flnp.zonedSchedule(
-      id,
-      title,
-      body,
-      tz.TZDateTime.from(time, tz.local),
-      scheduledLectureReminderNotificationDetails(),
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
-    );
+    try {
+      await _flnp.zonedSchedule(
+        id,
+        title,
+        body,
+        tz.TZDateTime.from(time, tz.local),
+        scheduledLectureReminderNotificationDetails(),
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+      );
+      debugPrint("[알림] ✅ 예약 성공 id=$id '$title' at $time");
+    } catch (e) {
+      debugPrint("[알림] ⚠️ 정확한 알람 실패, 일반 알람으로 대체: $e");
+      try {
+        await _flnp.zonedSchedule(
+          id,
+          title,
+          body,
+          tz.TZDateTime.from(time, tz.local),
+          scheduledLectureReminderNotificationDetails(),
+          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+          uiLocalNotificationDateInterpretation:
+              UILocalNotificationDateInterpretation.absoluteTime,
+        );
+        debugPrint("[알림] ✅ 일반 알람 예약 성공 id=$id '$title' at $time");
+      } catch (e2) {
+        debugPrint("[알림] ❌ 알람 스케줄링 최종 실패: $e2");
+      }
+    }
   }
 
   Future<void> stop() async {

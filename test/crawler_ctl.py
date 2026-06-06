@@ -1,4 +1,6 @@
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 import re
 from bs4 import BeautifulSoup
 from datetime import datetime
@@ -8,6 +10,19 @@ import os
 import json
 
 from notice_ai_tags import enrich_post_dict
+
+def get_session():
+    session = requests.Session()
+    retry = Retry(
+        total=5,
+        backoff_factor=1,
+        status_forcelist=[429, 500, 502, 503, 504],
+        allowed_methods=["HEAD", "GET", "OPTIONS", "POST"]
+    )
+    adapter = HTTPAdapter(max_retries=retry)
+    session.mount("http://", adapter)
+    session.mount("https://", adapter)
+    return session
 
 # ── Firebase 초기화 ──────────────────────────────────────────
 def init_firebase():
@@ -56,7 +71,8 @@ def crawl_programs(page: int = 1) -> list[dict]:
     }
     headers = {"User-Agent": "Mozilla/5.0"}
     
-    res = requests.post(url, data=data, headers=headers, timeout=10)
+    session = get_session()
+    res = session.post(url, data=data, headers=headers, timeout=30)
     res.encoding = 'utf-8'
     soup = BeautifulSoup(res.text, "html.parser")
     
@@ -91,7 +107,7 @@ def crawl_programs(page: int = 1) -> list[dict]:
         # 상세페이지 방문해서 진행기간 가져오기
         op_period = ""
         try:
-            r_detail = requests.get(link, headers=headers, timeout=10)
+            r_detail = session.get(link, headers=headers, timeout=30)
             r_detail.encoding = r_detail.apparent_encoding if r_detail.apparent_encoding else 'utf-8'
             s_detail = BeautifulSoup(r_detail.text, "html.parser")
             
@@ -146,7 +162,8 @@ def crawl_notices(page: int = 1) -> list[dict]:
     }
     headers = {"User-Agent": "Mozilla/5.0"}
     
-    res = requests.post(url, data=data, headers=headers, timeout=10)
+    session = get_session()
+    res = session.post(url, data=data, headers=headers, timeout=30)
     res.encoding = 'utf-8'
     soup = BeautifulSoup(res.text, "html.parser")
     

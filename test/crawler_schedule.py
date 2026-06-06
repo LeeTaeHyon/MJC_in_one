@@ -6,10 +6,25 @@ from datetime import datetime
 
 import firebase_admin
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 from bs4 import BeautifulSoup
 from firebase_admin import credentials, firestore, messaging
 
 from notice_ai_tags import enrich_post_dict
+
+def get_session():
+    session = requests.Session()
+    retry = Retry(
+        total=5,
+        backoff_factor=1,
+        status_forcelist=[429, 500, 502, 503, 504],
+        allowed_methods=["HEAD", "GET", "OPTIONS", "POST"]
+    )
+    adapter = HTTPAdapter(max_retries=retry)
+    session.mount("http://", adapter)
+    session.mount("https://", adapter)
+    return session
 
 BASE_URL = "https://www.mjc.ac.kr"
 SCHEDULE_URL = f"{BASE_URL}/collegeService/schedule.do?menu_idx=104"
@@ -112,7 +127,8 @@ def send_fcm_notice(post: dict):
 def _fetch_schedule_page(year: int, hakgi: int) -> str:
     # 페이지 JS는 location.href로 year/hakgi를 붙여 이동한다.
     # (POST submit도 주석 처리되어 있어, GET으로 맞추는 편이 안전)
-    res = requests.get(
+    session = get_session()
+    res = session.get(
         f"{BASE_URL}/collegeService/schedule.do",
         params={
             "menu_idx": "104",
@@ -120,7 +136,7 @@ def _fetch_schedule_page(year: int, hakgi: int) -> str:
             "hakgi": str(hakgi),
         },
         headers=HEADERS,
-        timeout=10,
+        timeout=30,
     )
     res.raise_for_status()
     return res.text

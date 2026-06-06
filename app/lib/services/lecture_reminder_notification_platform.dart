@@ -39,7 +39,7 @@ Future<void> ensureLectureReminderNotificationChannel(
 ) async {
   if (!_lectureReminderPluginInitialized) {
     const AndroidInitializationSettings androidInit =
-        AndroidInitializationSettings("@drawable/ic_notification");
+        AndroidInitializationSettings("ic_notification");
     const DarwinInitializationSettings iosInit = DarwinInitializationSettings();
     const InitializationSettings initSettings = InitializationSettings(
       android: androidInit,

@@ -1,4 +1,6 @@
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 import re
 import time
 from bs4 import BeautifulSoup
@@ -10,6 +12,19 @@ import json
 
 from notice_ai_tags import enrich_post_dict
 from notice_body import enrich_with_body_and_summary
+
+def get_session():
+    session = requests.Session()
+    retry = Retry(
+        total=5,
+        backoff_factor=1,
+        status_forcelist=[429, 500, 502, 503, 504],
+        allowed_methods=["HEAD", "GET", "OPTIONS", "POST"]
+    )
+    adapter = HTTPAdapter(max_retries=retry)
+    session.mount("http://", adapter)
+    session.mount("https://", adapter)
+    return session
 
 # 본문 fetch HTTP 호출 간 대기(초) — 서버 부하 방지
 _BODY_FETCH_THROTTLE_S = float(os.environ.get("BODY_FETCH_THROTTLE_S", "1.0"))
@@ -155,7 +170,8 @@ def crawl_page(board: dict, page: int = 1) -> list[dict]:
         "data_idx":     "",
         "memberAuth":   "Y",
     }
-    res = requests.post(BASE_URL + "/bbs/data/list.do", headers=HEADERS, data=data, timeout=10)
+    session = get_session()
+    res = session.post(BASE_URL + "/bbs/data/list.do", headers=HEADERS, data=data, timeout=30)
     soup = BeautifulSoup(res.text, "html.parser")
 
     results = []
@@ -287,7 +303,7 @@ def full_crawl(db, board: dict, max_pages: int = 5):
 
     if all_posts:
         batch = db.batch()
-        sess = requests.Session()
+        sess = get_session()
         for post in all_posts:
             enrich_post_dict(post, board["id"])
             _enrich_body(post, session=sess)

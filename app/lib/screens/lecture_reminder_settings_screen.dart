@@ -1,4 +1,6 @@
 import "package:flutter/material.dart";
+import "package:mjc_in_one/features/timetable/models/timetable_models.dart";
+import "package:mjc_in_one/features/timetable/services/timetable_storage_service.dart";
 import "package:mjc_in_one/lecture_reminder_notification_prefs.dart";
 import "package:mjc_in_one/services/lecture_reminder_notification_platform.dart";
 import "package:mjc_in_one/services/lecture_reminder_notification_service.dart";
@@ -137,7 +139,88 @@ class _LectureReminderSettingsScreenState
                 );
               },
               icon: const Icon(Icons.notifications_active_outlined),
-              label: const Text("테스트 알림 보내기 (5초 뒤)"),
+              label: const Text("단순 알림 팝업 띄우기 (5초 뒤)"),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: ElevatedButton.icon(
+              onPressed: () async {
+                final DateTime now = DateTime.now();
+                final int startMin = now.hour * 60 + now.minute + 2;
+                final ParsedCourseOffering dummy = ParsedCourseOffering(
+                  offeringId: "test_dummy_001",
+                  courseCategory: "전공필수",
+                  department: "테스트학과",
+                  courseName: "⏰ 알림 테스트용 가짜 강의",
+                  section: "01",
+                  professor: "제미나이",
+                  gradeYear: "1",
+                  completionType: "전필",
+                  credits: "3",
+                  rawTimetableText: "",
+                  slots: [
+                    TimetableSlot(
+                      weekday: now.weekday,
+                      startMinute: startMin,
+                      endMinute: startMin + 60,
+                      room: "테스트강의실",
+                      courseName: "⏰ 알림 테스트용 가짜 강의",
+                      offeringId: "test_dummy_001",
+                      colorKey: "알림 테스트|01",
+                    ),
+                  ],
+                );
+                
+                final existing = await TimetableStorageService.loadEnrolled();
+                existing.removeWhere((e) => e.offeringId == "test_dummy_001");
+                existing.add(dummy);
+                await TimetableStorageService.saveEnrolled(existing);
+                
+                // 설정 갱신 강제 호출
+                await LectureReminderNotificationService.instance.refreshNow();
+
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text("시간표에 2분 뒤 시작하는 가짜 강의가 추가되고 알림이 예약되었습니다! 아무것도 하지 말고 2분만 기다려 보세요."),
+                      duration: Duration(seconds: 4),
+                    ),
+                  );
+                }
+              },
+              icon: const Icon(Icons.schedule_outlined),
+              label: const Text("진짜 스케줄러 테스트 (가짜 강의 추가)"),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                foregroundColor: Theme.of(context).colorScheme.onPrimaryContainer,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: ElevatedButton.icon(
+              onPressed: () async {
+                final existing = await TimetableStorageService.loadEnrolled();
+                existing.removeWhere((e) => e.offeringId == "test_dummy_001");
+                await TimetableStorageService.saveEnrolled(existing);
+                
+                // 설정 갱신 강제 호출
+                await LectureReminderNotificationService.instance.refreshNow();
+
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text("테스트용 가짜 강의가 삭제되었습니다!"),
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                }
+              },
+              icon: const Icon(Icons.delete_outline),
+              label: const Text("가짜 강의 삭제하기"),
             ),
           ),
           const SizedBox(height: 40),

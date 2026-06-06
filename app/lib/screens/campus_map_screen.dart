@@ -418,7 +418,7 @@ class _CampusMapScreenState extends State<CampusMapScreen>
                               icon: Icon(showFacilities
                                   ? Icons.expand_less_rounded
                                   : Icons.list_alt_rounded),
-                              label: Text(showFacilities ? "시설 닫기" : "시설 보기"),
+                              label: Text(showFacilities ? "닫기" : "시설 보기"),
                             ),
                           ),
                           const SizedBox(width: 12),
