@@ -82,7 +82,7 @@
     }
 
     .container {
-      max-width: 760px;
+      max-width: 780px;
       margin: -32px auto 48px;
       padding: 0 16px;
     }
@@ -331,7 +331,7 @@
     }
 
     .story-box .story-label {
-      font-size: 12px;
+      font-size: 14px;
       font-weight: 700;
       color: var(--primary);
       letter-spacing: 0.03em;
@@ -506,7 +506,8 @@
         box-shadow: none; 
         border: 1px solid var(--border);
         margin-bottom: 24px;
-        /* 카드가 너무 길면 쪼개지도록 허용하되, 내부 요소 분할 방지 위주로 설정 */
+        break-inside: avoid;
+        page-break-inside: avoid;
       }
       
       /* 페이지가 어중간하게 잘리는 것을 방지할 요소들 */
@@ -543,18 +544,16 @@
 
 <main class="container">
   <section class="card page-cover">
-    <div class="cover-title">
-      <h2>MJC ONE</h2>
-      <p>명지전문대학교 통합 캠퍼스 서비스</p>
-    </div>
 
     <h3>프로젝트 개요</h3>
     <p>
+      <div style="text-align: center;">
       MJC ONE은 명지전문대학교 학생들이 여러 사이트에 흩어져 있는 공지와 학교생활 서비스를 
-      <strong>하나의 앱에서 편리하게 이용</strong>할 수 있도록 개발된 통합 캠퍼스 플랫폼입니다.
+      <br><strong>하나의 앱에서 편리하게 이용</strong>할 수 있도록 개발된 통합 캠퍼스 플랫폼입니다.
+      </div>
     </p>
 
-    <hr class="page-divider" /gt;
+    <hr class="page-divider" />
 
     <h3>주요 기능</h3>
     <ul class="feature-list">
@@ -573,7 +572,7 @@
 
     <h3>제출 파일</h3>
     <ul class="submit-list">
-      <li>MJC ONE APK (<code>app-release.apk</code>)</li>
+      <li>MJC ONE APK (<code>mjc_one.apk</code>)</li>
       <li>사용자 가이드 문서 (본 문서)</li>
       <li>시연 영상 (해당 시)</li>
     </ul>
@@ -597,16 +596,32 @@
     </div>
   </section>
 
+  <section class="card" style="background: linear-gradient(135deg, #f0f6ff 0%, #f8fafc 100%); border-color: #dbeafe;">
+    <h2 style="color: var(--primary);">시연 순서</h2>
+    <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 4px;">전체 시연 예상 소요 시간: <strong>5~10분</strong></p>
+    <ol class="demo-order">
+      <li>홈 화면 확인 — 통합 피드, 바로가기 카드</li>
+      <li>통합 공지사항 조회 — 본교 / CTL / MPU 탭 전환</li>
+      <li>키워드 알림 설정 — 알림 필터 및 스위치 조작</li>
+      <li>시간표 및 학사일정 확인</li>
+      <li>강의 리마인더 알림 — 시간표 설정 후 알림 수신 확인</li>
+      <li>캠퍼스 맵 · 셔틀버스 시간표 확인</li>
+      <li>학과 공지 기능 — 설정 → 실험실 ON 후 공지 탭 «학과» 확인</li>
+      <li>관리자 콘솔 — 설정 빌드번호 5회 탭 → 로그인 → 신고함 / 문의함 / 학과공지 확인</li>
+    </ol>
+    <p class="callout callout-note" style="margin-top: 14px; font-size: 13px;">각 항목의 상세는 아래 <strong>3번 ~ 7번</strong> 세션을 참고해 주세요.</p>
+  </section>
+
   <section class="card">
     <h2><span class="num">1</span> APK 설치 방법</h2>
     <ol class="steps">
       <li>
         <strong>APK 파일 전달</strong><br />
-        USB, 이메일, 클라우드 등으로 <code>app-release.apk</code>를 Android 기기에 저장합니다.
+        USB, 이메일, 클라우드 등으로 <code>mjc_one.apk</code>를 Android 기기에 저장합니다.
       </li>
       <li>
         <strong>출처를 알 수 없는 앱 설치 허용</strong><br />
-        APK를 탭하면 설치가 차단될 수 있습니다. 기기 설정에서 해당 앱(파일·Chrome 등)의 
+        APK를 탭하면 설치가 차단될 수 있습니다. <br>기기 설정에서 해당 앱(파일·Chrome 등)의 
         «알 수 없는 앱 설치» 또는 «출처를 알 수 없는 앱»을 허용해 주세요.
         <ul>
           <li>삼성: 설정 → 생체 인식 및 보안 → «알 수 없는 앱 설치»</li>
@@ -639,7 +654,7 @@
       <li>
         <strong>로그인 (선택)</strong><br />
         마이페이지 등 일부 기능은 명지전문대학 이메일(<code>@mjc.ac.kr</code>) 매직 링크 로그인이 필요합니다.<br>
-        시연 시 로그인 없이도 대부분의 화면을 확인할 수 있습니다.
+        시연 시 로그인 없이도 모든 화면을 확인할 수 있습니다.
       </li>
     </ol>
   </section>
@@ -653,9 +668,9 @@
         <div>
           <strong>홈 · 통합 대시보드</strong><br />
           최근 2주 공지 피드, 학식·셔틀·학사 일정 등 바로가기 카드를 확인합니다.
-          공지 항목을 탭하면 원문으로 이동합니다.
+          <br>공지 항목을 탭하면 원문으로 이동합니다.
           <figure class="screenshot">
-            <img src="assets/mockup_home.png" alt="MJC ONE 홈 화면" />
+            <img src="assets/webp/demo_home.webp" alt="MJC ONE 홈 화면 데모" />
             <figcaption>홈 — 통합 피드 및 바로가기</figcaption>
           </figure>
         </div>
@@ -665,9 +680,9 @@
         <div>
           <strong>공지 · 본교(MJC)</strong><br />
           공지 탭에서 <strong>본교 · CTL · MPU</strong> 등 출처별 목록을 전환하며 확인합니다.
-          목록을 아래로 당기면 새로고침됩니다.
+          <br>목록을 아래로 당기면 새로고침됩니다.
           <figure class="screenshot">
-            <img src="assets/mockup_notice_mjc.jpg" alt="본교 공지 목록" />
+            <img src="assets/webp/demo_noti.webp" alt="본교 공지 목록" />
             <figcaption>공지 — 본교 공지사항 목록</figcaption>
           </figure>
         </div>
@@ -676,7 +691,8 @@
         <span class="tab">3</span>
         <div>
           <strong>공지 상세</strong><br />
-          공지를 탭해 원문·첨부를 확인합니다. 분류·태그 필터로 원하는 공지만 볼 수 있습니다.
+          공지를 탭해 원문·첨부를 확인합니다. 
+          <br>분류·태그 필터로 원하는 공지만 볼 수 있습니다.
           <figure class="screenshot">
             <img src="assets/notice_detail.jpg" alt="공지 상세 화면" />
             <figcaption>공지 상세 — 원문 및 첨부 확인</figcaption>
@@ -689,7 +705,7 @@
           <strong>키워드 · 알림 설정</strong><br />
           설정에서 알림 출처(MJC·CTL·MPU), 키워드 알림, 전체 알림 등을 조정합니다.
           <figure class="screenshot">
-            <img src="assets/alarm_set.jpg" alt="알림 및 키워드 설정" />
+            <img src="assets/webp/demo_keyw.webp" alt="알림 및 키워드 설정" />
             <figcaption>설정 — 맞춤 알림·키워드</figcaption>
           </figure>
         </div>
@@ -700,7 +716,7 @@
           <strong>시간표</strong><br />
           주간 시간표를 추가·확인합니다.
           <figure class="screenshot">
-            <img src="assets/timetable.jpg" alt="시간표 화면" />
+            <img src="assets/webp/demo_timetable.webp" alt="시간표 화면" />
             <figcaption>시간표 — 주간 강의 일정</figcaption>
           </figure>
         </div>
@@ -708,9 +724,49 @@
       <li>
         <span class="tab">6</span>
         <div>
+          <strong>강의 리마인더 알림</strong><br />
+          시간표를 등록한 뒤 강의 시작 <strong>n분 전</strong> 알림을 설정할 수 있습니다.
+          <br>앱이 완전히 종료된 상태(Background / Terminated)에서도
+          정확한 시간에 로컬 푸시 알림이 수신됩니다.
+          <figure class="screenshot">
+            <img src="assets/webp/demo_alarm.webp" alt="강의 리마인더 알림" />
+            <figcaption>강의 리마인더 — 앱 종료 상태에서도 정확한 알림 수신</figcaption>
+          </figure>
+        </div>
+      </li>
+      <li>
+        <span class="tab">7</span>
+        <div>
+          <strong>캠퍼스 맵</strong><br />
+          햄버거 메뉴 또는 홈 바로가기에서 <strong>캠퍼스 맵</strong>을 열면 교내 건물 위치와 호실 정보를 확인할 수 있습니다.
+          <br>건물을 탭하면 상세 정보(위치, 주요 호실 등)가 하단 시트로 펼쳐집니다.
+          <figure class="screenshot">
+            <img src="assets/campus_map.jpg" alt="캠퍼스 맵 화면" />
+            <figcaption>캠퍼스 맵 — 교내 건물 위치 및 상세 안내</figcaption>
+          </figure>
+        </div>
+      </li>
+      <li>
+        <span class="tab">8</span>
+        <div>
+          <strong>셔틀버스 시간표</strong><br />
+          홈 바로가기 또는 햄버거 메뉴에서 <strong>셔틀버스</strong>를 선택하면 운행 노선별 시간표를 확인할 수 있습니다.
+          <figure class="screenshot">
+            <img src="assets/shuttle.jpg" alt="셔틀버스 시간표 화면" />
+            <figcaption>셔틀버스 — 노선별 운행 시간표</figcaption>
+          </figure>
+        </div>
+      </li>
+      <li>
+        <span class="tab">9</span>
+        <div>
           <strong>학과 공지 (실험실)</strong><br />
           설정 → 실험실에서 «학과 공지»를 켠 뒤 공지 탭 «학과»에서 확인합니다.
-          배경 설명은 <strong>5번</strong>을 참고해 주세요.
+          <br>배경 설명은 <strong>5번</strong>을 참고해 주세요.
+          <figure class="screenshot">
+            <img src="assets/setting_dep.jpg" alt="학과 공지 설정" />
+            <figcaption>설정 — 실험실 기능</figcaption>
+          </figure>
           <figure class="screenshot">
             <img src="assets/notice_dep.jpg" alt="학과 공지 목록" />
             <figcaption>학과 공지 — 실험실 기능 (전자공학과 시연)</figcaption>
@@ -718,20 +774,18 @@
         </div>
       </li>
       <li>
-        <span class="tab">7</span>
+        <span class="tab">10</span>
         <div>
           <strong>마이페이지</strong><br />
-          고정·즐겨찾기 공지, 프로필·MPU 연동, 설정 진입 등 개인화 기능을 확인합니다.
+          공지 북마크, 프로필·MPU 연동, 설정 진입 등 개인화 기능을 확인합니다.
+          <br>북마크한 공지는 마이페이지에서 모아 볼 수 있습니다.
           <figure class="screenshot">
             <img src="assets/mypage.jpg" alt="마이페이지 화면" />
-            <figcaption>마이페이지 — 북마크·개인 정보</figcaption>
+            <figcaption>마이페이지 — 프로필·저장된 공지사항</figcaption>
           </figure>
         </div>
       </li>
     </ul>
-    <p style="margin-top: 14px; font-size: 13px; color: var(--text-muted);">
-      부가 기능(도서관 · 학사일정 · 캠퍼스 약도 · 학식)은 홈 바로가기·햄버거 메뉴에서 열 수 있습니다.
-    </p>
   </section>
 
   <section class="card">
@@ -773,7 +827,7 @@
     <ul>
       <li>학교 공식 홈페이지·게시판과 달리, <strong>학과 내부 소통 채널</strong>에서 오가는 비공식·단기성 안내를 다루는 기능입니다.</li>
       <li>아직 전 학과의 데이터가 없고, <strong>소규모 시범 운영</strong> 단계이므로 설정의 «실험실» 스위치로 켜고 끌 수 있게 두었습니다.</li>
-      <li>현재 시연 빌드에서는 <strong>전자공학과</strong> 공지만 확인할 수 있습니다. (다른 학과는 글이 없을 수 있습니다.)</li>
+      <li>현재 시연 빌드에서는 <strong>전자공학과</strong> 공지만 올라온 상태입니다.</li>
     </ul>
 
     <h3>사용자(학생) 측 — 어떻게 보나?</h3>
@@ -816,6 +870,10 @@
 
     <h3>① 관리자 화면 진입</h3>
     <ol class="steps">
+      <figure class="screenshot" style="max-width: 280px;">
+          <img src="assets/webp/demo_admin.webp" alt="관리자 화면 진입" />
+          <figcaption>설정 — 관리자 화면 진입</figcaption>
+      </figure>
       <li><strong>마이페이지 → 설정</strong>으로 이동합니다.</li>
       <li>하단 <strong>«앱 정보»</strong> 카드의 <strong>빌드 번호</strong>를 <strong>5회 연속 탭</strong>합니다. (2초 이상 간격이 있으면 카운트가 초기화됩니다.)</li>
       <li>관리자 로그인 화면으로 이동합니다.</li>
@@ -856,24 +914,31 @@
   </section>
 
   <section class="card">
-    <h2><span class="num">8</span> 핵심 기술 성과 및 아키텍처 (심사 포인트)</h2>
-    <p>본 프로젝트는 단순한 모바일 프론트엔드 앱을 넘어, <strong>완전 자동화된 풀스택 서버리스 아키텍처</strong>와 <strong>네이티브 운영체제 수준의 백그라운드 최적화</strong>를 구현했습니다. 심사 시 다음 3가지 기술적 성과를 꼭 확인해 주세요.</p>
+    <h2><span class="num">8</span> 핵심 기술 성과 및 구현 내용</h2>
+    <p>본 프로젝트에 적용된 핵심 기술 성과 및 구현 내용은 다음과 같습니다.</p>
 
     <div class="story-box">
-      <div class="story-label">① Python 크롤러 & GitHub Actions 자동화 파이프라인</div>
-      <p>학교의 여러 웹사이트(본교, CTL, MPU 등)에 산재된 공지사항을 수집하기 위해 파이썬(Python) 기반의 크롤러를 자체 개발했습니다.</p>
-      <p>단순 크롤링에 그치지 않고, 이를 <strong>GitHub Actions CI/CD 파이프라인</strong>에 연동하여 정기적으로 자동 실행되도록 구축했습니다. 수집된 최신 공지는 Firebase Firestore 및 Storage로 자동 전송되어 <strong>서버 유지보수 비용(Zero-cost) 없이 24시간 무중단 데이터 파이프라인</strong>을 달성했습니다.</p>
+      <div class="story-label">① 공지사항 통합 자동화 시스템 구축</div>
+      <p>명지전문대학 본 홈페이지, 교수학습센터(CTL), 역량이력관리(MPU) 등 여러 웹 서비스에 분산되어 있는 공지사항을 하나의 앱에서 확인할 수 있도록 Python 기반 크롤러를 개발하였습니다.</p>
+      <p>또한 GitHub Actions를 활용하여 크롤러가 정기적으로 자동 실행되도록 구성하였으며, 수집된 데이터는 Firebase에 저장되어 별도의 서버 운영 없이도 최신 공지사항을 지속적으로 제공할 수 있도록 구현하였습니다.</p>
     </div>
 
     <div class="story-box">
-      <div class="story-label">② Android 네이티브 수준의 백그라운드 스케줄러 & 푸시 알림</div>
-      <p>«강의 시작 전 정각 알림»과 같은 시간표 알람 기능은 앱이 꺼진(Background/Terminated) 상태에서도 한 치의 오차 없이 울려야 합니다.</p>
-      <p>이를 위해 안드로이드 14+의 엄격한 <code>SCHEDULE_EXACT_ALARM</code> 권한과 예외 상황(Fallback)을 완벽하게 핸들링하고, OS의 <code>BroadcastReceiver</code> 및 <code>BOOT_COMPLETED</code> 이벤트를 직접 제어하여 기기가 재부팅되더라도 알림 예약이 안전하게 복원되도록 <strong>높은 수준의 네이티브 최적화</strong>를 적용했습니다.</p>
+      <div class="story-label">② 시간표 기반 알림 기능 구현</div>
+      <p>사용자가 등록한 시간표를 기반으로 수업 시작 전 알림을 제공하는 기능을 구현하였습니다.</p>
+      <p>앱이 종료된 상태나 기기가 재부팅된 이후에도 알림이 정상적으로 동작할 수 있도록 Android 시스템 스케줄링 기능을 활용하여 안정성을 확보하였습니다. <br>이를 통해 사용자가 중요한 수업 일정을 놓치지 않도록 지원합니다.</p>
     </div>
 
     <div class="story-box">
-      <div class="story-label">③ 서버 트래픽(과금) 및 클라이언트 렌더링 최적화</div>
-      <p>모바일 앱의 Firebase 읽기 비용을 최소화하기 위해 무분별한 실시간 스트림(<code>StreamBuilder</code>) 사용을 지양하고, <strong>로컬 캐시(SharedPreferences)와 주문형(On-demand) <code>FutureBuilder</code>를 결합한 아키텍처로 리팩토링</strong>했습니다. 이를 통해 불필요한 네트워크 트래픽과 데이터베이스 과금을 획기적으로 절감하는 엔지니어링 사고방식을 적용했습니다.</p>
+      <div class="story-label">③ AI 기반 공지 요약 및 정보 제공</div>
+      <p>공지사항의 길이가 길어 핵심 내용을 파악하기 어려운 문제를 해결하기 위해 AI 기반 요약 기능을 도입하였습니다.</p>
+      <p>수집된 공지 데이터를 자동으로 분석하여 주요 내용을 간결하게 정리하고, 사용자가 공지의 핵심 정보를 빠르게 확인할 수 있도록 하였습니다. 또한 AI 활용 공지 분류 및 태그 지정을 함께 적용하여 필요한 정보를 보다 쉽게 탐색할 수 있도록 구성하였습니다.</p>
+    </div>
+
+    <div class="story-box">
+      <div class="story-label">③ 모바일 환경 최적화</div>
+      <p>공지사항, 시간표, 학사일정 등 다양한 기능을 하나의 앱에 통합하면서도 원활한 사용 경험을 제공할 수 있도록 화면 구성과 데이터 로딩 방식을 지속적으로 개선하였습니다.</p>
+      <p>Firebase 사용량과 네트워크 트래픽을 최소화하기 위해 필요한 시점에만 데이터를 불러오는 구조를 적용하였으며, 캐시를 활용하여 앱의 응답성과 운영 효율성을 높였습니다.</p>
     </div>
   </section>
 
@@ -902,10 +967,10 @@
   <section class="card page-closing">
     <h2 style="display: block; font-size: 20px; margin-bottom: 20px;">개발 정보</h2>
     <dl class="info-grid">
-      <dt>프로젝트명</dt> <dd>MJC ONE</dd>
-      <dt>개발자</dt> <dd class="placeholder">(작성)</dd>
-      <dt>개발 기간</dt> <dd class="placeholder">(작성)</dd>
-      <dt>개발 인원</dt> <dd class="placeholder">(작성)</dd>
+      <dt>프로젝트명</dt> <dd>MJC in one</dd>
+      <dt>개발자</dt> <dd>이태현, 김의겸, 김형윤</dd>
+      <dt>개발 기간</dt> <dd>2026.04 - 2026.06</dd>
+      <dt>개발 인원</dt> <dd>3</dd>
     </dl>
     <hr class="page-divider" />
     <h3>사용 기술</h3>
@@ -916,23 +981,23 @@
       <li>Firebase Authentication</li>
       <li>Cloud Firestore & Storage</li>
       <li>Firebase Cloud Messaging (FCM)</li>
-      <li>Google Cloud Platform</li>
+      <li>Google Cloud Platform(Google Ai Studio)</li>
     </ul>
     <hr class="page-divider" />
-    <h3>추천 시연 순서</h3>
-    <ol class="demo-order">
-      <li>홈 화면 확인</li>
-      <li>통합 공지사항 조회</li>
-      <li>키워드 알림 설정</li>
-      <li>시간표 및 학사일정 확인</li>
-      <li>학과 공지 기능 확인 (5번 · 실험실 ON)</li>
-      <li>관리자 콘솔 접속 및 공지 등록 (7번)</li>
-    </ol>
+    <h3>소스 코드</h3>
+    <p style="font-size: 14px;">
+      GitHub 저장소:
+      <a href="https://github.com/LeeTaeHyon/MJC_in_one" target="_blank" style="color: var(--primary); font-weight: 600;"
+      >github.com/LeeTaeHyon/MJC_in_one</a>
+    </p>
   </section>
 </main>
 
 <footer>
   MJC ONE · 명지전문대학교 통합 캠퍼스 서비스 · 심사·시연 가이드
+  <br>※ 본 앱은 실제 운영을 가정하여 개발되었으며,
+공지사항 수집 및 데이터 갱신은 자동화된 시스템을 통해 이루어집니다. 
+<br>※ 심사 시에는 APK 설치 후 제공된 계정으로 주요 기능을 바로 확인할 수 있습니다.
 </footer>
 
 </body>

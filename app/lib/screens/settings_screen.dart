@@ -1129,7 +1129,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     onTap: _onVersionTextTap,
                     child: const Padding(
                       padding: EdgeInsets.only(left: 8),
-                      child: Text("1.0.0 (Alpha)"),
+                      child: Text("1.0.0 (Beta)"),
                     ),
                   ),
                 ),

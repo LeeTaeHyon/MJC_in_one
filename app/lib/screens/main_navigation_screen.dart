@@ -11,6 +11,7 @@ import "package:mjc_in_one/screens/notices_sub_tab_utils.dart";
 import "package:mjc_in_one/screens/notices_tab_screen.dart";
 import "package:mjc_in_one/screens/profile_setup_screen.dart";
 import "package:mjc_in_one/services/auth_service.dart";
+import "package:mjc_in_one/services/connectivity_service.dart";
 import "package:mjc_in_one/services/user_data_repository.dart";
 import "package:mjc_in_one/debug/app_debug_flags.dart";
 import "package:mjc_in_one/debug/scroll_fab_debug.dart";
@@ -84,6 +85,16 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   StreamSubscription<User?>? _authHydrateSubscription;
   bool _initialAuthEventHandled = false;
 
+  // ── 오프라인 배너 ──────────────────────────────────────────────────────────
+  static const double _offlineBannerHeight = 38.0;
+  static const Duration _onlineFeedbackDuration = Duration(milliseconds: 1500);
+
+  /// 배너 가시성 (오프라인이거나 온라인 피드백 표시 중)
+  bool _bannerVisible = false;
+  /// true = 온라인(초록), false = 오프라인(회색)
+  bool _bannerIsOnline = false;
+  Timer? _onlineFeedbackTimer;
+
   void _onLabDepartmentNoticesChanged() {
     if (!LabPrefs.departmentNoticesEnabled.value &&
         _noticeSubTab.value == NoticesSubTab.dept) {
@@ -125,6 +136,15 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       }
     });
     _syncScrollCoordinatorTab();
+
+    // 오프라인 배너: 연결 감시 시작 후 ValueNotifier 구독
+    ConnectivityService.instance.start().then((_) {
+      if (!mounted) return;
+      // 최초 상태 반영
+      _handleConnectivityChange(ConnectivityService.instance.isOnline);
+    });
+    ConnectivityService.instance.isOnlineNotifier
+        .addListener(_onConnectivityNotifierChanged);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkTestBuildWarning();
@@ -348,9 +368,41 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         .removeListener(_onLabDepartmentNoticesChanged);
     _noticeSubTab.removeListener(_handleNoticeSubTabChanged);
     _noticeSubNavRevealTimer?.cancel();
+    _onlineFeedbackTimer?.cancel();
+    ConnectivityService.instance.isOnlineNotifier
+        .removeListener(_onConnectivityNotifierChanged);
     _authHydrateSubscription?.cancel();
     _noticeSubTab.dispose();
     super.dispose();
+  }
+
+  // ── 오프라인 배너 로직 ────────────────────────────────────────────────────
+
+  void _onConnectivityNotifierChanged() {
+    _handleConnectivityChange(ConnectivityService.instance.isOnline);
+  }
+
+  void _handleConnectivityChange(bool nowOnline) {
+    if (!mounted) return;
+    if (nowOnline) {
+      // 오프라인 배너가 보이던 중에만 온라인 피드백 표시
+      if (!_bannerVisible) return;
+      _onlineFeedbackTimer?.cancel();
+      setState(() {
+        _bannerIsOnline = true; // 초록색으로 전환
+      });
+      _onlineFeedbackTimer = Timer(_onlineFeedbackDuration, () {
+        if (!mounted) return;
+        setState(() => _bannerVisible = false);
+      });
+    } else {
+      // 오프라인: 피드백 타이머 취소하고 즉시 배너 표시
+      _onlineFeedbackTimer?.cancel();
+      setState(() {
+        _bannerVisible = true;
+        _bannerIsOnline = false;
+      });
+    }
   }
 
   void _hideNoticeSubNavDuringScroll() {
@@ -520,7 +572,13 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                     left: 0,
                     right: 0,
                     bottom: 0,
-                    child: _buildAnimatedBottomNavSwitcher(noticesFloatingNav),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _buildAnimatedBottomNavSwitcher(noticesFloatingNav),
+                        _buildNetworkBanner(),
+                      ],
+                    ),
                   ),
                   Positioned(
                     left: 18,
@@ -565,6 +623,63 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
             ),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildNetworkBanner() {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+
+    // 오프라인 색상 (어두운 베이지/차콜)
+    final Color offlineBg = isDark
+        ? const Color(0xFF2A2A2E)
+        : const Color(0xFF3A3A3F);
+    const Color offlineFg = Color(0xFFCCCCCC);
+
+    // 온라인 색상 (초록)
+    final Color onlineBg = isDark
+        ? const Color(0xFF14532D)
+        : const Color(0xFF16A34A);
+    const Color onlineFg = Color(0xFFDCFCE7);
+
+    final Color bg = _bannerIsOnline ? onlineBg : offlineBg;
+    final Color fg = _bannerIsOnline ? onlineFg : offlineFg;
+    final IconData icon = _bannerIsOnline
+        ? Icons.wifi_rounded
+        : Icons.wifi_off_rounded;
+    final String label = _bannerIsOnline ? "인터넷에 연결됨" : "오프라인 상태입니다";
+
+    return ClipRect(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOutCubic,
+        height: _bannerVisible ? _offlineBannerHeight : 0,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 350),
+          curve: Curves.easeOutCubic,
+          color: bg,
+          height: _offlineBannerHeight,
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 250),
+            child: Row(
+              key: ValueKey<bool>(_bannerIsOnline),
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: 15, color: fg),
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: fg,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: -0.2,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

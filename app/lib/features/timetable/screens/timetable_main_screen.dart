@@ -11,6 +11,7 @@ import "package:mjc_in_one/features/timetable/widgets/timetable_week_grid.dart";
 import "package:mjc_in_one/theme/app_colors.dart";
 import "package:mjc_in_one/theme/app_theme.dart";
 import "package:mjc_in_one/widgets/main_navigation_scope.dart";
+import "package:mjc_in_one/utils/mjc_snack_bar.dart";
 import "package:mjc_in_one/widgets/safe_tooltip.dart";
 
 /// Saved weekly timetable + import / OCR placeholder.
@@ -48,11 +49,7 @@ class _TimetableMainScreenState extends State<TimetableMainScreen> {
     final int removedDupes = await TimetableStorageService.saveEnrolled(next);
     if (!mounted) return;
     if (removedDupes > 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("이미 시간표에 있는 강의는 중복으로 추가되지 않습니다."),
-        ),
-      );
+      showMjcSnackBar(context, message: "이미 시간표에 있는 강의는 중복으로 추가되지 않습니다.");
     }
     await _reload();
     await LectureReminderNotificationService.instance.refreshNow();
@@ -147,9 +144,7 @@ class _TimetableMainScreenState extends State<TimetableMainScreen> {
     }
     if (!mounted) return;
     if (catalog.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("공식 시간표 데이터가 없습니다.")),
-      );
+      showMjcSnackBar(context, message: "공식 시간표 데이터가 없습니다.");
       return;
     }
 

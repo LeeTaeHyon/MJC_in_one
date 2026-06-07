@@ -52,6 +52,9 @@ class DeepLinkHandler {
     _navigatorKey = navigatorKey;
     _flushQueuedSnackBar();
 
+    // main()에서 옮겨온 처리: Firebase 준비 후 대기 중인 매직 링크 로그인 시도.
+    await processPendingAuthLink();
+
     _subscription ??= _appLinks.uriLinkStream.listen(
       (Uri uri) => _handleUri(uri),
       onError: (Object error) {

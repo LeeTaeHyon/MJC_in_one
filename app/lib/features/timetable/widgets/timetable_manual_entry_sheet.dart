@@ -2,6 +2,7 @@ import "package:flutter/material.dart";
 import "package:mjc_in_one/features/timetable/models/timetable_models.dart";
 import "package:mjc_in_one/features/timetable/services/timetable_slot_parser.dart";
 import "package:mjc_in_one/theme/app_colors.dart";
+import "package:mjc_in_one/utils/mjc_snack_bar.dart";
 import "package:mjc_in_one/theme/app_theme.dart";
 
 /// Minimal form: one weekly slot per «직접 추가» offering.
@@ -46,9 +47,7 @@ class _TimetableManualEntryBodyState extends State<_TimetableManualEntryBody> {
     final String name = _course.text.trim();
     final String room = _room.text.trim();
     if (name.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("과목명을 입력해 주세요.")),
-      );
+      showMjcSnackBar(context, message: "과목명을 입력해 주세요.");
       return;
     }
     final String line =
@@ -67,11 +66,7 @@ class _TimetableManualEntryBodyState extends State<_TimetableManualEntryBody> {
       colorKey: ck,
     );
     if (slots.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("시간 형식을 확인해 주세요. (예: 화 13:00 - 13:50 ( 공716 ))"),
-        ),
-      );
+      showMjcSnackBar(context, message: "시간 형식을 확인해 주세요. (예: 화 13:00 - 13:50 ( 공716 ))");
       return;
     }
     Navigator.of(context).pop(

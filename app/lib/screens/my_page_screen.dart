@@ -22,6 +22,7 @@ import "package:mjc_in_one/theme/app_colors.dart";
 import "package:mjc_in_one/theme/app_theme.dart";
 import "package:mjc_in_one/utils/community_notice_bookmarks.dart";
 import "package:mjc_in_one/utils/mjc_dialog.dart";
+import "package:mjc_in_one/utils/mjc_snack_bar.dart";
 import "package:mjc_in_one/utils/notice_bookmark_key.dart";
 import "package:mjc_in_one/widgets/profile_form.dart";
 import "package:mjc_in_one/widgets/main_navigation_scope.dart";
@@ -419,9 +420,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
   /// 다시 붙일 때 `onPressed: _openMpuProfileImport`로 연결하면 됩니다.
   Future<void> _openMpuProfileImport() async {
     if (kIsWeb) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("마이페이지 가져오기는 모바일 앱에서 지원합니다.")),
-      );
+      showMjcSnackBar(context, message: "마이페이지 가져오기는 모바일 앱에서 지원합니다.");
       return;
     }
 
@@ -499,9 +498,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
     await _loadMpuProfile();
     if (!mounted) return;
     if (saved) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("프로필 정보를 저장했습니다.")),
-      );
+      showMjcSnackBar(context, message: "프로필 정보를 저장했습니다.");
     }
   }
 
@@ -876,15 +873,8 @@ class _MyPageScreenState extends State<MyPageScreen> {
                                           fontWeight: FontWeight.w700),
                                     ),
                                     subtitle: Text(email),
-                                    trailing:
-                                        const Icon(Icons.chevron_right_rounded),
-                                    onTap: () {
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        const SnackBar(
-                                            content: Text("추후 연결 예정입니다.")),
-                                      );
-                                    },
+                                    
+                                    onTap: () {},
                                   ),
                                   Divider(
                                       height: 1,

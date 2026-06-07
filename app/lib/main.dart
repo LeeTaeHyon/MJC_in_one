@@ -139,8 +139,6 @@ Future<void> main() async {
   await LabPrefs.ensureLoaded();
 
   await DeepLinkHandler.instance.captureInitialLink();
-  await waitForFirebaseStartup();
-  await DeepLinkHandler.instance.processPendingAuthLink();
 
   runApp(const MioNoticeApp());
 }

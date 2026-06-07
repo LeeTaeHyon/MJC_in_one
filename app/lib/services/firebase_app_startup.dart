@@ -33,7 +33,9 @@ Future<void> _bootstrapFirebase({
 
     FirebaseMessaging.onMessage.listen(onForegroundMessage);
 
-    await messaging.subscribeToTopic("all_notices");
+    // 토픽 구독은 네트워크 의존적이므로 완료를 기다리지 않는다.
+    // FCM SDK가 연결 복구 시 자동 재시도한다.
+    messaging.subscribeToTopic("all_notices").ignore();
   } catch (e, st) {
     debugPrint("Firebase 초기화 에러 (웹 테스트 등): $e\n$st");
   }
