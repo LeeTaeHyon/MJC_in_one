@@ -33,6 +33,7 @@ import "package:mjc_in_one/widgets/main_navigation_scope.dart";
 import "package:mjc_in_one/widgets/scroll_to_top_scope.dart";
 import "package:mjc_in_one/widgets/shuttle_status_card.dart";
 import "package:firebase_auth/firebase_auth.dart";
+import "package:firebase_messaging/firebase_messaging.dart";
 import "package:shared_preferences/shared_preferences.dart";
 import "package:url_launcher/url_launcher.dart";
 
@@ -110,6 +111,8 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
   static const String _mpuWebBaseUrl =
       "https://mpu.mjc.ac.kr/Main/default.aspx";
 
+  StreamSubscription<RemoteMessage>? _fcmSubscription;
+
   @override
   void initState() {
     super.initState();
@@ -125,6 +128,13 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
     _loadDashboardSectionOrder();
     _scrollController.addListener(_onHomeScrollOffset);
     _loadNotifBadge();
+
+    _fcmSubscription = FirebaseMessaging.onMessage.listen((_) {
+      // 메시지 수신 시 메인 백그라운드 핸들러가 SharedPreferences에 저장할 시간을 약간 줌
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (mounted) _loadNotifBadge();
+      });
+    });
   }
 
   Future<void> _loadNotifBadge() async {
@@ -297,6 +307,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && mounted) {
       LiveClock.instance.notifyNow();
+      _loadNotifBadge();
     }
   }
 
@@ -326,6 +337,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
       owner: this,
     );
     _scrollController.dispose();
+    _fcmSubscription?.cancel();
     super.dispose();
   }
 

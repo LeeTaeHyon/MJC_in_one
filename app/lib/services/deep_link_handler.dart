@@ -119,9 +119,10 @@ class DeepLinkHandler {
       return false;
     }
 
+    _lastHandledLink = matchedLink;
+
     try {
       final credential = await auth.completeSignIn(matchedLink);
-      _lastHandledLink = matchedLink;
       final user = credential.user;
       if (user != null) {
         await UserDataRepository.instance.hydrateFromCloudOnLogin(user);
@@ -137,18 +138,18 @@ class DeepLinkHandler {
       }
       return true;
     } on MissingPendingEmailException {
-      if (showErrors) {
+      if (showErrors && auth.currentUser == null) {
         _queueSnackBar("먼저 이 기기에서 로그인 링크를 요청해 주세요.");
         _flushQueuedSnackBar();
       } else {
-        debugPrint("DeepLinkHandler: pending email missing for $matchedLink");
+        debugPrint("DeepLinkHandler: pending email missing for $matchedLink. Ignoring because user is already logged in or showErrors is false.");
       }
     } on MjcDomainException {
       _queueSnackBar("@mjc.ac.kr 이메일만 로그인할 수 있습니다.");
       _flushQueuedSnackBar();
     } catch (error, stackTrace) {
       debugPrint("DeepLinkHandler sign-in failed: $error\n$stackTrace");
-      if (showErrors) {
+      if (showErrors && auth.currentUser == null) {
         _queueSnackBar("로그인 링크가 만료되었거나 유효하지 않습니다.");
         _flushQueuedSnackBar();
       }

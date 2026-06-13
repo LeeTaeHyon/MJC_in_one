@@ -35,19 +35,21 @@ import "package:timezone/timezone.dart" as tz;
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  await _processAndShowNotification(message);
+  await _processAndShowNotification(message, isBackground: true);
 }
 
 // 키워드 대조 및 로컬 푸시 알람 처리 로직
-Future<void> _processAndShowNotification(RemoteMessage message) async {
-  if (message.data.isEmpty) return;
+Future<void> _processAndShowNotification(RemoteMessage message, {bool isBackground = false}) async {
+  // data와 notification이 모두 비어있으면 무시
+  if (message.data.isEmpty && message.notification == null) return;
 
   final prefs = await SharedPreferences.getInstance();
   final allNoticesEnabled = prefs.getBool("allNoticesEnabled") ?? true;
   final keywordsList = prefs.getStringList("keywords") ?? [];
 
-  final title = message.data["title"] ?? "새 알림";
-  final body = message.data["body"] ?? "";
+  // notification 객체가 있으면 그 값을 우선 사용하고, 없으면 data에서 찾음
+  final title = message.notification?.title ?? message.data["title"]?.toString() ?? "새 알림";
+  final body = message.notification?.body ?? message.data["body"]?.toString() ?? "";
 
   bool shouldShow = false;
 
@@ -68,10 +70,11 @@ Future<void> _processAndShowNotification(RemoteMessage message) async {
     );
   }
 
-  // 발송 허가된 상태라면 로컬 알람 솜
+  // 발송 허가된 상태라면 내역 저장
   if (shouldShow) {
     final Map<String, String> trustedData =
         sanitizeNotificationDataUrls(message.data);
+    
     // 1. 내역 저장을 위한 데이터 구성
     final now = DateTime.now();
     final historyItem = {
@@ -93,31 +96,39 @@ Future<void> _processAndShowNotification(RemoteMessage message) async {
     }
     await prefs.setStringList(kNotificationHistoryPrefKey, historyStrings);
 
-    // 3. 실제 기기에 푸시 노티 표시
-    final flnp = FlutterLocalNotificationsPlugin();
-    const AndroidInitializationSettings initSettingsAndroid =
-        AndroidInitializationSettings('ic_notification');
-    const InitializationSettings initSettings =
-        InitializationSettings(android: initSettingsAndroid);
-    await flnp.initialize(initSettings);
+    // FCM에서 'notification' 페이로드가 포함된 경우 백그라운드 상태라면 OS가 이미 시스템 트레이에 띄움.
+    // 이 경우 중복해서 로컬 알림을 띄우지 않음. (포그라운드거나 data 전용 페이로드일 때만 띄움)
+    final bool systemAlreadyShowing = isBackground && message.notification != null;
 
-    const AndroidNotificationDetails androidDetails =
-        AndroidNotificationDetails(
-      'mjc_channel_id',
-      'MJC 공지 알림',
-      channelDescription: '명지전문대학 새 글 알림입니다.',
-      importance: Importance.max,
-      priority: Priority.high,
-    );
-    const NotificationDetails platformDetails =
-        NotificationDetails(android: androidDetails);
+    if (!systemAlreadyShowing) {
+      // 3. 실제 기기에 푸시 노티 표시
+      final flnp = FlutterLocalNotificationsPlugin();
+      const AndroidInitializationSettings initSettingsAndroid =
+          AndroidInitializationSettings('ic_notification');
+      const InitializationSettings initSettings =
+          InitializationSettings(android: initSettingsAndroid);
+      await flnp.initialize(initSettings);
 
-    await flnp.show(
-      message.messageId?.hashCode ?? DateTime.now().millisecondsSinceEpoch,
-      title,
-      body,
-      platformDetails,
-    );
+      const AndroidNotificationDetails androidDetails =
+          AndroidNotificationDetails(
+        'mjc_channel_id_v2',
+        'MJC 공지 알림',
+        channelDescription: '명지전문대학 새 글 알림입니다.',
+        importance: Importance.max,
+        priority: Priority.high,
+        enableVibration: true,
+        playSound: true,
+      );
+      const NotificationDetails platformDetails =
+          NotificationDetails(android: androidDetails);
+
+      await flnp.show(
+        message.messageId?.hashCode ?? DateTime.now().millisecondsSinceEpoch,
+        title,
+        body,
+        platformDetails,
+      );
+    }
   }
 }
 
@@ -126,6 +137,32 @@ Future<void> main() async {
 
   tz_data.initializeTimeZones();
   tz.setLocalLocation(tz.getLocation("Asia/Seoul"));
+
+  if (!kIsWeb) {
+    try {
+      final flnp = FlutterLocalNotificationsPlugin();
+      await flnp.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>()?.createNotificationChannel(
+        const AndroidNotificationChannel(
+          'mjc_channel_id_v2',
+          'MJC 공지 알림',
+          description: '명지전문대학 새 글 알림입니다.',
+          importance: Importance.max,
+          enableVibration: true,
+          playSound: true,
+        ),
+      );
+      // 기존에 잘못 설정된(진동 없는) 구버전 채널 삭제 (쓰레기 채널 방지)
+      await flnp.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>()?.deleteNotificationChannel('mjc_channel_id');
+      await flnp.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>()?.deleteNotificationChannel('mjc_lecture_reminder_channel');
+      await flnp.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>()?.deleteNotificationChannel('mjc_lecture_reminder_channel_v2');
+    } catch (e) {
+      debugPrint("Failed to create notification channel: $e");
+    }
+  }
 
   // 백그라운드 메시지 핸들러는 [runApp] 전에 등록해야 한다.
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);

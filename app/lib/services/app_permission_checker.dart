@@ -7,6 +7,7 @@ import "package:flutter_local_notifications/flutter_local_notifications.dart";
 import "package:geolocator/geolocator.dart";
 import "package:mjc_in_one/services/lecture_reminder_notification_platform.dart";
 import "package:mjc_in_one/services/lecture_reminder_notification_service.dart";
+import "package:permission_handler/permission_handler.dart";
 
 enum MjcPermissionState {
   granted,
@@ -81,6 +82,7 @@ abstract final class AppPermissionChecker {
 
     if (Platform.isAndroid) {
       items.insert(1, await _checkExactAlarm());
+      items.add(await _checkBatteryOptimization());
     }
 
     return items;
@@ -125,6 +127,18 @@ abstract final class AppPermissionChecker {
       description: "강의 알림을 앱 밖에서도 1분마다 갱신할 때 필요합니다.",
       icon: Icons.alarm_outlined,
       state: granted ? MjcPermissionState.granted : MjcPermissionState.denied,
+      androidOnly: true,
+    );
+  }
+
+  static Future<MjcPermissionInfo> _checkBatteryOptimization() async {
+    final status = await Permission.ignoreBatteryOptimizations.status;
+    return MjcPermissionInfo(
+      id: "battery_optimization",
+      title: "배터리 최적화 제외 (권장)",
+      description: "앱을 완전히 종료해도 강의 알람이 제때 울리도록 백그라운드 제한을 해제합니다.",
+      icon: Icons.battery_alert_outlined,
+      state: status.isGranted ? MjcPermissionState.granted : MjcPermissionState.denied,
       androidOnly: true,
     );
   }
@@ -196,6 +210,10 @@ abstract final class AppPermissionChecker {
             ?.requestExactAlarmsPermission();
         if (granted != null) return granted;
         return checkLectureReminderExactAlarmGranted(plugin);
+      case "battery_optimization":
+        if (!Platform.isAndroid) return false;
+        final result = await Permission.ignoreBatteryOptimizations.request();
+        return result.isGranted;
       case "location":
         final LocationPermission permission =
             await Geolocator.requestPermission();

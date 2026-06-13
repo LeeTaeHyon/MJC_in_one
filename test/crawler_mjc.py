@@ -31,7 +31,7 @@ _BODY_FETCH_THROTTLE_S = float(os.environ.get("BODY_FETCH_THROTTLE_S", "1.0"))
 # Gemini Flash 요약 (GEMINI_API_KEY 없으면 휴리스틱만)
 _BODY_USE_GEMINI = bool((os.environ.get("GEMINI_API_KEY") or "").strip())
 _BODY_GEMINI_KEY = (os.environ.get("GEMINI_API_KEY") or "").strip()
-_BODY_GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
+_BODY_GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemma-4-31b-it")
 
 
 def _enrich_body(post: dict, session: requests.Session | None = None) -> None:

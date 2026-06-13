@@ -4,6 +4,7 @@ import "package:mjc_in_one/theme/app_theme.dart";
 import "package:mjc_in_one/widgets/community_notice_image.dart";
 import "package:mjc_in_one/widgets/community_notice_image_viewer.dart";
 import "package:mjc_in_one/widgets/linkified_selectable_text.dart";
+import "package:mjc_in_one/utils/mjc_snack_bar.dart";
 import "package:url_launcher/url_launcher.dart";
 
 /// 학과 공지 상세.
@@ -61,9 +62,7 @@ class _DepartmentNoticeDetailScreenState
     final Uri uri = Uri.parse(url);
     if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("첨부파일을 열 수 없습니다.")),
-      );
+      showMjcSnackBar(context, message: "첨부파일을 열 수 없습니다.");
     }
   }
 

@@ -1,6 +1,7 @@
 import "package:flutter/material.dart";
 import "package:mjc_in_one/mpu_profile_prefs.dart";
 import "package:mjc_in_one/theme/app_colors.dart";
+import "package:mjc_in_one/utils/mjc_snack_bar.dart";
 import "package:mjc_in_one/widgets/profile_form.dart";
 import "package:shared_preferences/shared_preferences.dart";
 
@@ -52,9 +53,7 @@ class ProfileSetupScreen extends StatelessWidget {
   Future<void> _finish(BuildContext context, MpuProfile profile) async {
     await markSeen();
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("프로필 정보를 저장했습니다.")),
-      );
+      showMjcSnackBar(context, message: "프로필 정보를 저장했습니다.");
       Navigator.of(context).pop();
     }
   }

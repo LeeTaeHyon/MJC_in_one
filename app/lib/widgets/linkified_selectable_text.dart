@@ -1,5 +1,6 @@
 import "package:flutter/gestures.dart";
 import "package:flutter/material.dart";
+import "package:mjc_in_one/utils/mjc_snack_bar.dart";
 import "package:url_launcher/url_launcher.dart";
 
 /// 본문 속 URL을 탭 가능한 하이퍼링크로 표시하는 선택 가능 텍스트.
@@ -57,9 +58,7 @@ class _LinkifiedSelectableTextState extends State<LinkifiedSelectableText> {
     if (uri == null || uri.host.isEmpty) return;
     if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("링크를 열 수 없습니다.")),
-      );
+      showMjcSnackBar(context, message: "링크를 열 수 없습니다.");
     }
   }
 

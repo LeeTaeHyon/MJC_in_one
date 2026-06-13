@@ -245,21 +245,23 @@ class _KeywordFilterDialogState extends State<_KeywordFilterDialog> {
   Widget build(BuildContext context) {
     final ColorScheme scheme = Theme.of(context).colorScheme;
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
-    final Color fieldBg = isDark
-        ? scheme.surfaceContainerHigh
-        : scheme.surfaceContainerLow;
+    final Color foreground =
+        isDark ? AppColors.switchActiveDark : AppColors.primary;
+    final Color centerIconBg = isDark
+        ? AppColors.primary.withValues(alpha: 0.22)
+        : const Color(0xFFE3F2FD);
 
     return MjcDialogShell(
       centerIcon: Container(
         width: 48,
         height: 48,
-        decoration: const BoxDecoration(
-          color: Color(0xFFE3F2FD),
+        decoration: BoxDecoration(
+          color: centerIconBg,
           shape: BoxShape.circle,
         ),
-        child: const Icon(
+        child: Icon(
           Icons.notifications_active_rounded,
-          color: AppColors.primary,
+          color: foreground,
           size: 24,
         ),
       ),
@@ -286,20 +288,28 @@ class _KeywordFilterDialogState extends State<_KeywordFilterDialog> {
             decoration: InputDecoration(
               hintText: "예: 장학, 수강신청",
               filled: true,
-              fillColor: fieldBg,
+              fillColor: scheme.surfaceContainerLow,
               border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+              focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: BorderSide.none,
               ),
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 14,
-                vertical: 12,
+                vertical: 14,
               ),
               suffixIcon: IconButton(
                 tooltip: "키워드 추가",
-                icon: const Icon(
+                icon: Icon(
                   Icons.add_circle_rounded,
-                  color: AppColors.primary,
+                  color: foreground,
                 ),
                 onPressed: _addKeyword,
               ),
@@ -338,7 +348,7 @@ class _KeywordFilterDialogState extends State<_KeywordFilterDialog> {
             child: TextButton(
               onPressed: _close,
               style: TextButton.styleFrom(
-                foregroundColor: AppColors.primary,
+                foregroundColor: foreground,
                 minimumSize:
                     const Size(double.infinity, kMjcDialogButtonHeight),
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,

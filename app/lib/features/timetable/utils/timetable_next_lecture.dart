@@ -61,8 +61,25 @@ abstract final class TimetableNextLecture {
         upcoming.add(s);
       }
     }
-    upcoming.sort((a, b) => a.startMinute.compareTo(b.startMinute));
     return upcoming;
+  }
+
+  static List<TimetableSlot> allSlotsForWeekday(
+    List<ParsedCourseOffering> enrolled,
+    int weekday,
+  ) {
+    final List<TimetableSlot> raw = <TimetableSlot>[];
+    for (final ParsedCourseOffering o in enrolled) {
+      if (o.isRemoteExamFaceToFaceOnly) continue;
+      for (final TimetableSlot s in o.slots) {
+        if (s.weekday == weekday) raw.add(s);
+      }
+    }
+    if (raw.isEmpty) return const [];
+
+    final List<TimetableSlot> merged = TimetableSlotMerge.mergeAdjacent(raw);
+    merged.sort((a, b) => a.startMinute.compareTo(b.startMinute));
+    return merged;
   }
 
   static TimetableSlot? firstSlotToday(List<ParsedCourseOffering> enrolled) {

@@ -81,11 +81,11 @@ def test_enrich_body_only_preserves_summary(monkeypatch):
     post = {
         "url": "https://www.mjc.ac.kr/notice/view.do?idx=1",
         "summary": "기존 AI 요약",
-        "summary_version": "gemini-2.0-flash-v1",
+        "summary_version": "gemma-4-31b-it-v1",
     }
     enrich_body_only(post)
     assert post["summary"] == "기존 AI 요약"
-    assert post["summary_version"] == "gemini-2.0-flash-v1"
+    assert post["summary_version"] == "gemma-4-31b-it-v1"
     assert "<img" in post["body_html"]
 
 

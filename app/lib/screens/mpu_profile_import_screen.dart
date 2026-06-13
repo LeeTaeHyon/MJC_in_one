@@ -3,6 +3,7 @@ import "dart:convert";
 import "package:flutter/material.dart";
 import "package:mjc_in_one/mpu_profile_prefs.dart";
 import "package:mjc_in_one/services/user_data_repository.dart";
+import "package:mjc_in_one/utils/mjc_snack_bar.dart";
 import "package:mjc_in_one/widgets/webview_navigation_overlay.dart";
 import "package:webview_flutter/webview_flutter.dart";
 
@@ -73,9 +74,8 @@ class _MpuProfileImportScreenState extends State<MpuProfileImportScreen> {
       debugPrint("MPU profile message parse failed: $e");
       if (mounted) {
         setState(() => _isExtracting = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("마이페이지 정보를 읽지 못했습니다.")),
-        );
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        showMjcSnackBar(context, message: "마이페이지 정보를 읽지 못했습니다.");
       }
       return;
     }
@@ -84,9 +84,8 @@ class _MpuProfileImportScreenState extends State<MpuProfileImportScreen> {
     if (status != "ok") {
       if (!mounted) return;
       setState(() => _isExtracting = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("로그인 후 대시보드가 보이면 다시 눌러 주세요.")),
-      );
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      showMjcSnackBar(context, message: "로그인 후 대시보드가 보이면 다시 눌러 주세요.");
       return;
     }
 
@@ -100,9 +99,8 @@ class _MpuProfileImportScreenState extends State<MpuProfileImportScreen> {
     if (!profile.hasAnyValue) {
       if (!mounted) return;
       setState(() => _isExtracting = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("이름, 학년, 마일리지를 찾지 못했습니다.")),
-      );
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      showMjcSnackBar(context, message: "이름, 학년, 마일리지를 찾지 못했습니다.");
       return;
     }
 
@@ -110,9 +108,8 @@ class _MpuProfileImportScreenState extends State<MpuProfileImportScreen> {
     await UserDataRepository.instance.pushSnapshotToCloud();
     if (!mounted) return;
     setState(() => _isExtracting = false);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("마이페이지 정보를 가져왔습니다.")),
-    );
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    showMjcSnackBar(context, message: "마이페이지 정보를 가져왔습니다.");
     Navigator.of(context).pop(true);
   }
 
@@ -127,9 +124,8 @@ class _MpuProfileImportScreenState extends State<MpuProfileImportScreen> {
       debugPrint("MPU profile scraper failed: $e");
       if (!mounted) return;
       setState(() => _isExtracting = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("마이페이지 정보를 가져오지 못했습니다.")),
-      );
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      showMjcSnackBar(context, message: "마이페이지 정보를 가져오지 못했습니다.");
     }
   }
 

@@ -1,7 +1,7 @@
 import "package:flutter/material.dart";
 import "package:mjc_in_one/models/notice_model.dart";
 import "package:mjc_in_one/theme/app_colors.dart";
-import "package:mjc_in_one/utils/snack_bar_utils.dart";
+import "package:mjc_in_one/utils/mjc_snack_bar.dart";
 import "package:mjc_in_one/widgets/new_notice_badge.dart";
 import "package:shared_preferences/shared_preferences.dart";
 import "package:url_launcher/url_launcher.dart";
@@ -76,10 +76,10 @@ class _NoticeCardState extends State<NoticeCard> {
     final uri = Uri.tryParse(widget.notice.url);
     if (uri == null || !uri.hasScheme) {
       if (context.mounted) {
-        SnackBarUtils.showUnique(
+        showUniqueMjcSnackBar(
           context,
           key: "notice_invalid_link",
-          snackBar: const SnackBar(content: Text("유효하지 않은 링크입니다.")),
+          message: "유효하지 않은 링크입니다.",
         );
       }
       return;
@@ -89,10 +89,10 @@ class _NoticeCardState extends State<NoticeCard> {
       mode: LaunchMode.externalApplication,
     );
     if (!launched && context.mounted) {
-      SnackBarUtils.showUnique(
+      showUniqueMjcSnackBar(
         context,
         key: "notice_cannot_open_link",
-        snackBar: const SnackBar(content: Text("링크를 열 수 없습니다.")),
+        message: "링크를 열 수 없습니다.",
       );
     }
   }

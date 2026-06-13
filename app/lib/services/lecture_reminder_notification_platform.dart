@@ -1,12 +1,9 @@
-import "dart:io" show Platform;
-
-import "package:flutter/foundation.dart";
 import "package:flutter_local_notifications/flutter_local_notifications.dart";
 
 const int kLectureReminderNotificationId = 91001;
 const int kLectureReminderClassStartScheduleId = 91002;
 
-const String kLectureReminderChannelId = "mjc_lecture_reminder_channel_v2";
+const String kLectureReminderChannelId = "mjc_lecture_reminder_channel_v3";
 const String kLectureReminderChannelName = "강의 알림";
 const String kLectureReminderChannelDescription =
     "시간표에 등록된 다음 수업 시작까지 남은 시간을 알려줍니다.";
@@ -24,6 +21,8 @@ NotificationDetails scheduledLectureReminderNotificationDetails() {
     autoCancel: true,
     tag: "mjc_lecture_reminder",
     category: AndroidNotificationCategory.event,
+    enableVibration: true,
+    playSound: true,
   );
   const DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
     presentAlert: true,
@@ -58,6 +57,8 @@ Future<void> ensureLectureReminderNotificationChannel(
           kLectureReminderChannelName,
           description: kLectureReminderChannelDescription,
           importance: Importance.high,
+          enableVibration: true,
+          playSound: true,
         ),
       );
 }

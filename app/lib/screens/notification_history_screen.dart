@@ -1,3 +1,4 @@
+import "dart:async";
 import "package:flutter/material.dart";
 import "package:flutter/foundation.dart" show kIsWeb;
 import "package:mjc_in_one/notification_history_prefs.dart";
@@ -9,6 +10,9 @@ import "package:mjc_in_one/utils/trusted_notification_url.dart";
 import "package:mjc_in_one/widgets/main_notice_ai_tag_chip_bar.dart";
 import "package:mjc_in_one/widgets/scroll_to_top_fab.dart";
 import "package:mjc_in_one/widgets/scroll_to_top_scope.dart";
+import "package:mjc_in_one/utils/mjc_dialog.dart";
+import "package:mjc_in_one/utils/mjc_snack_bar.dart";
+import "package:firebase_messaging/firebase_messaging.dart";
 import "package:url_launcher/url_launcher.dart";
 
 /// 푸시 알람 수신 내역을 모아보는 화면입니다.
@@ -23,7 +27,7 @@ class NotificationHistoryScreen extends StatefulWidget {
 }
 
 class _NotificationHistoryScreenState extends State<NotificationHistoryScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   static const List<String> _categoryLabels = <String>[
     "전체",
     "본교 공지",
@@ -48,6 +52,7 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen>
   ScrollToTopCoordinator? _scrollRouteCoordinator;
   bool _registeredScrollRoute = false;
   bool _registeredMainTab = false;
+  StreamSubscription<RemoteMessage>? _fcmSubscription;
 
   List<Map<String, dynamic>> _historyForCategory(int categoryIndex) {
     if (categoryIndex == 0) {
@@ -143,17 +148,15 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen>
     }
     if (openUrl.isEmpty) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("이 알림에는 이동할 공지 링크가 없습니다.")),
-      );
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      showMjcSnackBar(context, message: "이 알림에는 이동할 공지 링크가 없습니다.");
       return;
     }
     final Uri? trustedUri = trustedNotificationLinkUri(openUrl);
     if (trustedUri == null) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("확인되지 않은 알림 링크라 열 수 없습니다.")),
-      );
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      showMjcSnackBar(context, message: "확인되지 않은 알림 링크라 열 수 없습니다.");
       return;
     }
 
@@ -187,12 +190,27 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _categoryTabController = TabController(
       length: _categoryLabels.length,
       vsync: this,
       initialIndex: _categoryIndex,
     )..addListener(_onCategoryTabChanged);
     _loadHistory();
+
+    _fcmSubscription = FirebaseMessaging.onMessage.listen((_) {
+      // 메시지 수신 시 메인 백그라운드 핸들러가 SharedPreferences에 저장할 시간을 약간 줌
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (mounted) _loadHistory();
+      });
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      _loadHistory();
+    }
   }
 
   ScrollController get _activeScrollController =>
@@ -279,6 +297,7 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     for (final ScrollController c in _scrollControllers) {
       c.removeListener(_onHistoryScroll);
       c.dispose();
@@ -294,6 +313,7 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen>
         owner: this,
       );
     }
+    _fcmSubscription?.cancel();
     super.dispose();
   }
 
@@ -339,23 +359,12 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen>
   }
 
   Future<void> _confirmDeleteAll() async {
-    final ColorScheme scheme = Theme.of(context).colorScheme;
-    final bool? ok = await showDialog<bool>(
-      context: context,
-      builder: (BuildContext ctx) => AlertDialog(
-        title: const Text("알림 전체 삭제"),
-        content: const Text("저장된 알림 내역을 모두 지울까요?"),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text("취소"),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text("삭제", style: TextStyle(color: scheme.error)),
-          ),
-        ],
-      ),
+    final bool? ok = await showMjcConfirmDialog(
+      context,
+      title: "알림 전체 삭제",
+      message: "저장된 알림 내역을 모두 지울까요?",
+      confirmLabel: "삭제",
+      destructive: true,
     );
     if (ok == true && mounted) await _clearHistory();
   }
@@ -368,33 +377,23 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen>
     );
   }
 
-  /// 편집 모드에서 분류 칩 자리에 표시 (높이·여백을 칩 줄과 맞춤).
   Widget _buildEditModeDeleteBar(BuildContext context) {
     final ColorScheme scheme = Theme.of(context).colorScheme;
     return Material(
       color: scheme.surface,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(
-              color: scheme.outlineVariant.withValues(alpha: 0.35),
-            ),
-          ),
-        ),
-        child: SizedBox(
-          height: kMainNoticeAiTagFilterBarHeight,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Align(
-              alignment: Alignment.centerRight,
-              child: TextButton(
-                onPressed: _confirmDeleteAll,
-                child: Text(
-                  "전체 삭제",
-                  style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    color: scheme.error,
-                  ),
+      child: SizedBox(
+        height: kMainNoticeAiTagFilterBarHeight,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: _confirmDeleteAll,
+              child: Text(
+                "전체 삭제",
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  color: scheme.error,
                 ),
               ),
             ),
@@ -406,6 +405,8 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen>
 
   Widget _buildCategoryChips(BuildContext context) {
     final ColorScheme scheme = Theme.of(context).colorScheme;
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color activeColor = isDark ? AppColors.switchActiveDark : AppColors.primary;
     return DecoratedBox(
       decoration: BoxDecoration(
         color: scheme.surface,
@@ -416,15 +417,15 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen>
           controller: _categoryTabController,
           isScrollable: true,
           tabAlignment: TabAlignment.start,
-          indicator: const UnderlineTabIndicator(
+          indicator: UnderlineTabIndicator(
             borderSide: BorderSide(
-              color: AppColors.primary,
+              color: activeColor,
               width: kMainNoticeAiTagFilterIndicatorHeight,
             ),
           ),
           indicatorSize: TabBarIndicatorSize.label,
           dividerColor: Colors.transparent,
-          labelColor: AppColors.primary,
+          labelColor: activeColor,
           unselectedLabelColor: scheme.onSurfaceVariant,
           labelStyle: const TextStyle(
             fontSize: 14,
@@ -452,13 +453,13 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen>
     final IconData icon;
     final Color accent;
     if (sourceId == "ctl") {
-      icon = Icons.school_outlined;
+      icon = Icons.menu_book_rounded;
       accent = AppColors.teaching;
     } else if (sourceId == "mpu") {
-      icon = Icons.psychology_outlined;
+      icon = Icons.emoji_events_rounded;
       accent = AppColors.competency;
     } else {
-      icon = Icons.account_balance_outlined;
+      icon = Icons.school_rounded;
       accent = AppColors.primary;
     }
     return Container(

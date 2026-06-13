@@ -48,6 +48,9 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           CRAWL_MODE: ${{ github.event.inputs.mode || 'incremental' }}
         run: |
+          if [ -z "$GEMINI_API_KEY" ]; then
+            echo "::warning::GitHub Actions secret GEMINI_API_KEY 가 설정되지 않았습니다. AI 요약 대신 기본(휴리스틱) 요약이 사용됩니다."
+          fi
           python crawler_mjc.py
           python crawler_schedule.py
           python crawler_mpu.py

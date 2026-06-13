@@ -1,5 +1,6 @@
 import "package:flutter/material.dart";
 import "package:mjc_in_one/utils/notice_image_download.dart";
+import "package:mjc_in_one/utils/mjc_snack_bar.dart";
 import "package:mjc_in_one/widgets/mjc_zoomable_image_viewport.dart";
 import "package:share_plus/share_plus.dart";
 
@@ -104,9 +105,7 @@ class _NoticeHtmlImageViewerState extends State<NoticeHtmlImageViewer> {
         await downloadNoticeImage(_currentUrl);
     if (!mounted) return;
     setState(() => _isDownloading = false);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(result.message)),
-    );
+    showMjcSnackBar(context, message: result.message);
   }
 
   Future<void> _share() async {

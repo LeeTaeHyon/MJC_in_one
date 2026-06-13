@@ -6,12 +6,18 @@ import threading
 import traceback
 from datetime import datetime
 
+# Prevent pythonw crashes by providing dummy stdout/stderr
+if sys.stdout is None:
+    sys.stdout = open(os.devnull, "w")
+if sys.stderr is None:
+    sys.stderr = open(os.devnull, "w")
+
 from PySide6.QtCore import Qt, QSize, QThread, Signal, Slot
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QPushButton, QLineEdit, QCheckBox, QComboBox, QTextEdit,
     QStackedWidget, QFileDialog, QFormLayout, QScrollArea, QFrame,
-    QPlainTextEdit, QMessageBox, QGroupBox, QSplitter
+    QPlainTextEdit, QMessageBox, QGroupBox, QSplitter, QGridLayout
 )
 from PySide6.QtGui import QColor, QFont, QTextCursor
 
@@ -278,8 +284,10 @@ class MainWindow(QMainWindow):
             "language": "ko",
             "gemini_enabled": True,
             "gemini_api_key": "",
+            "gemini_model": "gemini-2.5-flash",
             "firebase_project": "mjc-one",
-            "service_account": "../serviceAccountKey.json"
+            "service_account": "../serviceAccountKey.json",
+            "env_file": "../.env"
         }
 
     def save_config(self):
@@ -309,14 +317,38 @@ class MainWindow(QMainWindow):
 
     def get_env_dict(self):
         env = {}
-        # MIN_POST_DATE
+        
+        # Parse custom .env file if specified
+        env_file_path = self.config.get("env_file", "../.env")
+        if env_file_path:
+            abs_env = os.path.abspath(os.path.join(APP_DIR, env_file_path))
+            if os.path.exists(abs_env):
+                try:
+                    with open(abs_env, "r", encoding="utf-8") as f:
+                        for line in f:
+                            line = line.strip()
+                            if line and not line.startswith("#"):
+                                if "=" in line:
+                                    k, v = line.split("=", 1)
+                                    env[k.strip()] = v.strip().strip("'\"")
+                except Exception as e:
+                    print(f"Error loading .env: {e}")
+
+        # Explicit configs override .env
         env["MIN_POST_DATE"] = self.config.get("min_post_date", "2026-01-01")
         
         # GEMINI_API_KEY
         if self.config.get("gemini_enabled", True):
-            env["GEMINI_API_KEY"] = self.config.get("gemini_api_key", "").strip()
+            saved_key = self.config.get("gemini_api_key", "").strip()
+            if saved_key:
+                env["GEMINI_API_KEY"] = saved_key
+            elif "GEMINI_API_KEY" not in env:
+                env["GEMINI_API_KEY"] = os.environ.get("GEMINI_API_KEY", "").strip()
+            
+            env["GEMINI_MODEL"] = self.config.get("gemini_model", "gemini-2.5-flash")
         else:
             env["GEMINI_API_KEY"] = ""
+            env["GEMINI_MODEL"] = ""
 
         # FIREBASE_KEY
         firebase_json = self.get_serialized_firebase_key()
@@ -393,72 +425,80 @@ class MainWindow(QMainWindow):
         return ko_dict.get(text, text)
 
     def init_ui(self):
-        # Set dark theme stylesheet matching Flutter App
+        # Set light theme stylesheet matching VSCode
         self.setStyleSheet("""
             QMainWindow {
-                background-color: #0A0A0A;
+                background-color: #FFFFFF;
             }
             QWidget {
-                font-family: "Segoe UI", "Pretendard", "Arial";
-                color: #E6FFFFFF;
+                font-family: "Segoe UI", "Pretendard", "Apple SD Gothic Neo", "Arial";
+                color: #333333;
+            }
+            QLabel {
+                background-color: transparent;
             }
             QFrame#Sidebar {
-                background-color: #16181C;
-                border-right: 1px solid #2A2A2D;
+                background-color: #F3F3F3;
+                border-right: 1px solid #E5E5E5;
             }
             QFrame#Card {
-                background-color: #16181C;
-                border: 1px solid #2A2A2D;
-                border-radius: 12px;
+                background-color: #FFFFFF;
+                border: 1px solid #E5E5E5;
+                border-radius: 8px;
             }
             QLabel#Title {
-                font-size: 16px;
+                font-size: 18px;
                 font-weight: bold;
-                color: #5B8CFF;
+                color: #0078D4;
+                background-color: transparent;
             }
             QLabel#SubTitle {
-                font-size: 12px;
-                color: #9CA3AF;
+                font-size: 13px;
+                color: #666666;
+                background-color: transparent;
             }
             QLabel#MutedLabel {
-                color: #9CA3AF;
+                color: #888888;
                 font-size: 13px;
+                background-color: transparent;
             }
             QPushButton {
-                background-color: #20242B;
-                border: 1px solid #2A2A2D;
-                border-radius: 8px;
-                padding: 10px 18px;
+                background-color: #F8F8F8;
+                border: 1px solid #CECECE;
+                border-radius: 6px;
+                padding: 8px 16px;
                 font-weight: bold;
                 font-size: 13px;
+                color: #333333;
             }
             QPushButton:hover {
-                background-color: #2D323C;
+                background-color: #E8E8E8;
+                border: 1px solid #BDBDBD;
             }
             QPushButton:pressed {
-                background-color: #1A1D24;
+                background-color: #D4D4D4;
             }
             QPushButton#Primary {
-                background-color: #5B8CFF;
-                color: #0A0A0A;
+                background-color: #0078D4;
+                color: #FFFFFF;
                 border: none;
             }
             QPushButton#Primary:hover {
-                background-color: #7AA2FF;
+                background-color: #106EBE;
             }
             QPushButton#Primary:pressed {
-                background-color: #4C7CE6;
+                background-color: #005A9E;
             }
             QPushButton#Danger {
-                background-color: #FF6B7A;
-                color: #0A0A0A;
+                background-color: #D13438;
+                color: #FFFFFF;
                 border: none;
             }
             QPushButton#Danger:hover {
-                background-color: #FF8591;
+                background-color: #C12C30;
             }
             QPushButton#Danger:pressed {
-                background-color: #E05362;
+                background-color: #A80000;
             }
             QPushButton#SidebarBtn {
                 text-align: left;
@@ -467,83 +507,87 @@ class MainWindow(QMainWindow):
                 border-radius: 6px;
                 padding: 12px 16px;
                 font-size: 14px;
-                color: #9CA3AF;
+                color: #666666;
             }
             QPushButton#SidebarBtn:hover {
-                background-color: #20242B;
-                color: #E6FFFFFF;
+                background-color: #E8E8E8;
+                color: #333333;
             }
             QPushButton#SidebarBtn:checked {
-                background-color: #20242B;
-                color: #5B8CFF;
+                background-color: #E4E6F1;
+                color: #0078D4;
                 font-weight: bold;
             }
             QLineEdit, QComboBox, QSpinBox {
-                background-color: #20242B;
-                border: 1px solid #2A2A2D;
+                background-color: #FFFFFF;
+                border: 1px solid #CECECE;
                 border-radius: 6px;
-                padding: 8px;
-                color: #E6FFFFFF;
+                padding: 8px 12px;
+                color: #333333;
                 font-size: 13px;
             }
             QLineEdit:focus, QComboBox:focus, QSpinBox:focus {
-                border: 1px solid #5B8CFF;
+                border: 1px solid #0078D4;
+                background-color: #FFFFFF;
             }
             QPlainTextEdit {
-                background-color: #20242B;
-                border: 1px solid #2A2A2D;
+                background-color: #FFFFFF;
+                border: 1px solid #CECECE;
                 border-radius: 6px;
                 padding: 8px;
-                color: #E6FFFFFF;
+                color: #333333;
                 font-size: 13px;
             }
             QPlainTextEdit#ConsoleLog {
-                background-color: #16181C;
-                border: 1px solid #2A2A2D;
+                background-color: #F8F8F8;
+                border: 1px solid #E5E5E5;
                 border-radius: 8px;
                 font-family: "Consolas", "Courier New", monospace;
-                font-size: 12px;
-                color: #E5E7EB;
+                font-size: 13px;
+                color: #333333;
             }
             QGroupBox {
-                border: 1px solid #2A2A2D;
+                border: 1px solid #E5E5E5;
                 border-radius: 8px;
-                margin-top: 12px;
+                margin-top: 20px;
+                padding-top: 15px;
                 font-weight: bold;
-                font-size: 13px;
+                font-size: 14px;
+                background-color: #FAFAFA;
             }
             QGroupBox::title {
                 subcontrol-origin: margin;
-                left: 10px;
+                subcontrol-position: top left;
+                left: 15px;
                 padding: 0 5px;
-                color: #5B8CFF;
+                color: #0078D4;
+                background-color: #FAFAFA;
             }
-            
             QScrollArea {
-                background-color: #0A0A0A;
+                background-color: #FFFFFF;
                 border: none;
             }
             QScrollArea > QWidget > QWidget {
-                background-color: #0A0A0A;
+                background-color: #FFFFFF;
             }
             QCheckBox, QRadioButton {
                 background-color: transparent;
-                color: #E6FFFFFF;
+                color: #333333;
+                font-size: 13px;
             }
-
             QScrollBar:vertical {
                 border: none;
-                background: #16181C;
+                background: #F3F3F3;
                 width: 10px;
                 margin: 0px 0px 0px 0px;
             }
             QScrollBar::handle:vertical {
-                background: #2D323C;
+                background: #CCCCCC;
                 min-height: 20px;
                 border-radius: 5px;
             }
             QScrollBar::handle:vertical:hover {
-                background: #5B8CFF;
+                background: #AAAAAA;
             }
             QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
                 border: none;
@@ -568,9 +612,9 @@ class MainWindow(QMainWindow):
 
         # Logo / Brand Header
         logo_label = QLabel("📡 MJC Manager")
-        logo_label.setStyleSheet("font-size: 20px; font-weight: 800; color: #5B8CFF; padding-bottom: 5px;")
+        logo_label.setStyleSheet("font-size: 20px; font-weight: 800; color: #0078D4; padding-bottom: 5px;")
         sub_logo = QLabel("MJC ONE Operations Console")
-        sub_logo.setStyleSheet("font-size: 11px; color: #9CA3AF; padding-bottom: 20px;")
+        sub_logo.setStyleSheet("font-size: 11px; color: #666666; padding-bottom: 20px;")
         sidebar_layout.addWidget(logo_label)
         sidebar_layout.addWidget(sub_logo)
 
@@ -600,10 +644,10 @@ class MainWindow(QMainWindow):
         self.fb_status_label = QLabel()
         if FIREBASE_AVAILABLE:
             self.fb_status_label.setText(self.tr("🟢 Firebase Admin Ready"))
-            self.fb_status_label.setStyleSheet("color: #4CAF50; font-size: 12px; font-weight: bold;")
+            self.fb_status_label.setStyleSheet("color: #107C10; font-size: 12px; font-weight: bold;")
         else:
             self.fb_status_label.setText(self.tr("⚠️ Firebase SDK Missing"))
-            self.fb_status_label.setStyleSheet("color: #FF6B7A; font-size: 12px; font-weight: bold;")
+            self.fb_status_label.setStyleSheet("color: #D13438; font-size: 12px; font-weight: bold;")
         sidebar_layout.addWidget(self.fb_status_label)
 
         main_layout.addWidget(sidebar)
@@ -671,8 +715,8 @@ class MainWindow(QMainWindow):
 
         splitter.addWidget(console_widget)
         
-        # Initial splitter sizes: 55% Stacked Content, 45% Console Log
-        splitter.setSizes([400, 300])
+        # Initial splitter sizes: 65% Stacked Content, 35% Console Log
+        splitter.setSizes([550, 200])
 
         right_layout.addWidget(splitter)
 
@@ -681,16 +725,16 @@ class MainWindow(QMainWindow):
         status_bar.setContentsMargins(0, 0, 0, 0)
         
         self.status_indicator = QLabel("●")
-        self.status_indicator.setStyleSheet("color: #7f849c; font-size: 16px; margin-right: 5px;")
+        self.status_indicator.setStyleSheet("color: #AAAAAA; font-size: 16px; margin-right: 5px;")
         self.status_text = QLabel(self.tr("Status: Idle"))
-        self.status_text.setStyleSheet("color: #9CA3AF; font-size: 12px;")
+        self.status_text.setStyleSheet("color: #666666; font-size: 12px;")
         status_bar.addWidget(self.status_indicator)
         status_bar.addWidget(self.status_text)
         
         status_bar.addStretch()
         
         ref_stats_btn = QPushButton(self.tr("🔄 Refresh Firestore Stats"))
-        ref_stats_btn.setStyleSheet("font-size: 11px; padding: 4px 10px; background-color: #16181C;")
+        ref_stats_btn.setStyleSheet("font-size: 12px; padding: 6px 12px; background-color: transparent; border: 1px solid #CCCCCC; border-radius: 6px;")
         ref_stats_btn.clicked.connect(self.refresh_stats)
         status_bar.addWidget(ref_stats_btn)
 
@@ -705,15 +749,28 @@ class MainWindow(QMainWindow):
 
     # ------------------ TAB CONSTRUCTORS ------------------
     
+    def create_card(self, title_text, layout=None):
+        card = QFrame()
+        card.setObjectName("Card")
+        vbox = QVBoxLayout(card)
+        vbox.setContentsMargins(20, 20, 20, 20)
+        vbox.setSpacing(15)
+        if title_text:
+            lbl = QLabel(title_text)
+            lbl.setStyleSheet("font-size: 16px; font-weight: bold; color: #0078D4; margin-bottom: 5px;")
+            vbox.addWidget(lbl)
+        if layout:
+            vbox.addLayout(layout)
+        return card
+
     def create_crawlers_tab(self):
         widget = QScrollArea()
         widget.setWidgetResizable(True)
         widget.setFrameShape(QFrame.Shape.NoFrame)
-        
         content = QWidget()
         layout = QVBoxLayout(content)
-        layout.setContentsMargins(0, 0, 10, 0)
-        layout.setSpacing(15)
+        layout.setContentsMargins(25, 25, 25, 25)
+        layout.setSpacing(25)
 
         title = QLabel(self.tr("📡 Crawlers & Presets"))
         title.setObjectName("Title")
@@ -722,66 +779,57 @@ class MainWindow(QMainWindow):
         layout.addWidget(title)
         layout.addWidget(sub)
 
-        # Presets Group
-        presets_group = QGroupBox(self.tr("Operations Presets"))
-        presets_layout = QHBoxLayout(presets_group)
-        presets_layout.setContentsMargins(15, 15, 15, 15)
-        presets_layout.setSpacing(15)
+        # Top row: Presets and Crawlers side by side
+        top_row = QHBoxLayout()
+        top_row.setSpacing(20)
 
+        # Presets Card
+        presets_layout = QVBoxLayout()
+        presets_layout.setSpacing(10)
         daily_crawl_btn = QPushButton(self.tr("🌅 Daily Incremental Crawl"))
         daily_crawl_btn.setObjectName("Primary")
         daily_crawl_btn.clicked.connect(self.run_daily_crawl_preset)
         presets_layout.addWidget(daily_crawl_btn)
-
         all_crawl_full_btn = QPushButton(self.tr("🔄 Run All Crawlers (Full)"))
         all_crawl_full_btn.clicked.connect(self.run_all_crawlers_full_preset)
         presets_layout.addWidget(all_crawl_full_btn)
+        presets_layout.addStretch()
+        top_row.addWidget(self.create_card(self.tr("Operations Presets"), presets_layout), 1)
 
-        layout.addWidget(presets_group)
-
-        # Individual Crawlers Group
-        crawlers_group = QGroupBox(self.tr("Individual Crawlers"))
-        crawlers_grid = QFormLayout(crawlers_group)
-        crawlers_grid.setContentsMargins(15, 15, 15, 15)
-        crawlers_grid.setSpacing(15)
-
-        # Incremental vs Full Mode toggle for individual crawlers
+        # Individual Crawlers Card
+        crawlers_grid = QGridLayout()
+        crawlers_grid.setSpacing(10)
+        
+        crawlers_grid.addWidget(QLabel(self.tr("MJC Mode:")), 0, 0)
         self.crawl_mode_combo = QComboBox()
         self.crawl_mode_combo.addItems(["incremental", "full"])
-        crawlers_grid.addRow(QLabel(self.tr("Execution Mode:")), self.crawl_mode_combo)
-
-        # Buttons grid
-        btn_layout = QHBoxLayout()
-        run_mjc = QPushButton(self.tr("MJC Crawler"))
-        run_mjc.clicked.connect(lambda: self.run_single_script(
-            os.path.join(TEST_DIR, "crawler_mjc.py"),
-            ["--firebase"]  # Pass arguments if any, CRAWL_MODE handled in env
-        ))
-        btn_layout.addWidget(run_mjc)
+        crawlers_grid.addWidget(self.crawl_mode_combo, 0, 1)
+        
+        run_mjc = QPushButton(self.tr("Run MJC Crawler"))
+        run_mjc.setObjectName("Primary")
+        run_mjc.clicked.connect(lambda: self.run_single_script(os.path.join(TEST_DIR, "crawler_mjc.py"), ["--firebase"]))
+        crawlers_grid.addWidget(run_mjc, 0, 2)
 
         run_mpu = QPushButton(self.tr("MPU Crawler"))
         run_mpu.clicked.connect(lambda: self.run_single_script(os.path.join(TEST_DIR, "crawler_mpu.py")))
-        btn_layout.addWidget(run_mpu)
+        crawlers_grid.addWidget(run_mpu, 1, 0)
 
         run_ctl = QPushButton(self.tr("CTL Crawler"))
         run_ctl.clicked.connect(lambda: self.run_single_script(os.path.join(TEST_DIR, "crawler_ctl.py")))
-        btn_layout.addWidget(run_ctl)
+        crawlers_grid.addWidget(run_ctl, 1, 1)
 
         run_sched = QPushButton(self.tr("Schedule Crawler"))
         run_sched.clicked.connect(lambda: self.run_single_script(os.path.join(TEST_DIR, "crawler_schedule.py")))
-        btn_layout.addWidget(run_sched)
+        crawlers_grid.addWidget(run_sched, 1, 2)
+        
+        top_row.addWidget(self.create_card(self.tr("Individual Crawlers"), crawlers_grid), 2)
+        layout.addLayout(top_row)
 
-        crawlers_grid.addRow(QLabel(self.tr("Execute Crawler:")), btn_layout)
-        layout.addWidget(crawlers_group)
-
-        # Firestore Live Stats Display Panel
-        stats_group = QGroupBox(self.tr("Firestore Live Status Panel"))
-        self.stats_layout = QVBoxLayout(stats_group)
-        self.stats_layout.setContentsMargins(15, 15, 15, 15)
-        self.stats_layout.setSpacing(8)
+        # Firestore Live Stats Dashboard
+        stats_layout = QGridLayout()
+        stats_layout.setSpacing(15)
         
         self.stats_labels = {}
-        # Create placeholders for stats
         boards = [
             ("main_notice", "MJC 공지사항"),
             ("main_academic", "MJC 학사공지"),
@@ -791,13 +839,31 @@ class MainWindow(QMainWindow):
             ("ctl_notices", "CTL 공지사항"),
         ]
         
-        for board_id, name in boards:
-            lbl = QLabel(f"• {name}: Counting... | Latest Crawled: ...")
-            lbl.setStyleSheet("font-size: 12px; color: #9CA3AF;")
-            self.stats_layout.addWidget(lbl)
-            self.stats_labels[board_id] = lbl
+        for i, (board_id, name) in enumerate(boards):
+            row, col = divmod(i, 3)
+            stat_box = QVBoxLayout()
+            stat_box.setSpacing(2)
             
-        layout.addWidget(stats_group)
+            name_lbl = QLabel(name)
+            name_lbl.setStyleSheet("font-size: 13px; color: #666666; font-weight: bold;")
+            
+            val_lbl = QLabel("-")
+            val_lbl.setStyleSheet("font-size: 26px; color: #0078D4; font-weight: bold;")
+            
+            date_lbl = QLabel("Updated: -")
+            date_lbl.setStyleSheet("font-size: 11px; color: #AAAAAA;")
+            
+            stat_box.addWidget(name_lbl)
+            stat_box.addWidget(val_lbl)
+            stat_box.addWidget(date_lbl)
+            
+            w = QWidget()
+            w.setLayout(stat_box)
+            w.setStyleSheet("background-color: #FAFAFA; border: 1px solid #E5E5E5; border-radius: 6px; padding: 10px;")
+            stats_layout.addWidget(w, row, col)
+            self.stats_labels[board_id] = (val_lbl, date_lbl, name_lbl)
+            
+        layout.addWidget(self.create_card(self.tr("Firestore Data Overview"), stats_layout))
         layout.addStretch()
 
         widget.setWidget(content)
@@ -807,11 +873,10 @@ class MainWindow(QMainWindow):
         widget = QScrollArea()
         widget.setWidgetResizable(True)
         widget.setFrameShape(QFrame.Shape.NoFrame)
-        
         content = QWidget()
         layout = QVBoxLayout(content)
-        layout.setContentsMargins(0, 0, 10, 0)
-        layout.setSpacing(15)
+        layout.setContentsMargins(25, 25, 25, 25)
+        layout.setSpacing(25)
 
         title = QLabel(self.tr("🔄 Backfills & Summarizers"))
         title.setObjectName("Title")
@@ -820,76 +885,79 @@ class MainWindow(QMainWindow):
         layout.addWidget(title)
         layout.addWidget(sub)
 
-        # 1. AI Tags Backfill Group
-        tag_group = QGroupBox(self.tr("AI Tagging Backfill (backfill_ai_tags.py)"))
-        tag_form = QFormLayout(tag_group)
-        tag_form.setContentsMargins(15, 15, 15, 15)
-        tag_form.setSpacing(12)
+        # Side by side panels
+        panels_row = QHBoxLayout()
+        panels_row.setSpacing(20)
 
-        self.tag_dry_run = QCheckBox(self.tr("Dry Run (Preview changes only, does not modify Firestore)"))
+        # 1. AI Tags Backfill
+        tag_layout = QFormLayout()
+        tag_layout.setSpacing(12)
+
+        self.tag_dry_run = QCheckBox(self.tr("Dry Run Mode"))
         self.tag_dry_run.setChecked(True)
-        tag_form.addRow(self.tag_dry_run)
+        tag_layout.addRow(self.tag_dry_run)
 
-        self.tag_force = QCheckBox(self.tr("Force Overwrite (Overwrite existing tags even if they exist)"))
-        tag_form.addRow(self.tag_force)
+        self.tag_force = QCheckBox(self.tr("Force Overwrite Existing Tags"))
+        tag_layout.addRow(self.tag_force)
+        
+        self.tag_use_lm = QCheckBox(self.tr("Use LM Studio for refinement"))
+        tag_layout.addRow(self.tag_use_lm)
 
         self.tag_source = QComboBox()
         self.tag_source.addItems(["all", "mjc", "ctl", "mpu"])
-        tag_form.addRow(QLabel(self.tr("Source Filters:")), self.tag_source)
+        tag_layout.addRow(QLabel(self.tr("Source Filter:")), self.tag_source)
 
         self.tag_limit = QLineEdit("50")
-        self.tag_limit.setPlaceholderText("Number of posts to process (empty for all)")
-        tag_form.addRow(QLabel(self.tr("Limit (Limit count):")), self.tag_limit)
-
-        self.tag_use_lm = QCheckBox(self.tr("Use LM Studio (Refines tags using LM Studio when rules assign '기타')"))
-        tag_form.addRow(self.tag_use_lm)
+        tag_layout.addRow(QLabel(self.tr("Process Limit:")), self.tag_limit)
 
         run_tag_btn = QPushButton(self.tr("🚀 Run AI Tag Backfill"))
+        run_tag_btn.setObjectName("Primary")
         run_tag_btn.clicked.connect(self.run_tag_backfill)
-        tag_form.addRow(run_tag_btn)
+        tag_layout.addRow(run_tag_btn)
         
-        layout.addWidget(tag_group)
+        panels_row.addWidget(self.create_card(self.tr("AI Tagging (backfill_ai_tags)"), tag_layout))
 
-        # 2. Notice Body Backfill Group
-        body_group = QGroupBox(self.tr("Notice Body & Summary Backfill (backfill_notice_body.py)"))
-        body_form = QFormLayout(body_group)
-        body_form.setContentsMargins(15, 15, 15, 15)
-        body_form.setSpacing(12)
+        # 2. Notice Body Backfill
+        body_layout = QFormLayout()
+        body_layout.setSpacing(12)
 
-        self.body_dry_run = QCheckBox(self.tr("Dry Run (Preview changes only)"))
+        self.body_dry_run = QCheckBox(self.tr("Dry Run Mode"))
         self.body_dry_run.setChecked(True)
-        body_form.addRow(self.body_dry_run)
+        body_layout.addRow(self.body_dry_run)
 
-        self.body_force = QCheckBox(self.tr("Force Fetch (Refetch body and regenerate summary even if present)"))
-        body_form.addRow(self.body_force)
+        self.body_force = QCheckBox(self.tr("Force Refetch & Resummarize"))
+        body_layout.addRow(self.body_force)
 
-        self.body_use_gemini = QCheckBox(self.tr("Use Gemini Flash (Generates summarization via Gemini, API key required)"))
+        self.body_use_gemini = QCheckBox(self.tr("Use Gemini Flash AI"))
         self.body_use_gemini.setChecked(True)
-        body_form.addRow(self.body_use_gemini)
+        body_layout.addRow(self.body_use_gemini)
 
-        self.body_resummary_flagged = QCheckBox(self.tr("Resummary Flagged Only (Process documents marked 'needs_resummary=true')"))
-        body_form.addRow(self.body_resummary_flagged)
-
-        self.body_reported = QCheckBox(self.tr("Reported Only (Process flagged reports that are open)"))
-        body_form.addRow(self.body_reported)
+        flags_row = QHBoxLayout()
+        self.body_resummary_flagged = QCheckBox(self.tr("Flagged Only"))
+        self.body_reported = QCheckBox(self.tr("Reported Only"))
+        flags_row.addWidget(self.body_resummary_flagged)
+        flags_row.addWidget(self.body_reported)
+        body_layout.addRow(flags_row)
 
         self.body_mode = QComboBox()
         self.body_mode.addItems(["Both (Fetch body & summary)", "Body Only", "Summary Only"])
-        body_form.addRow(QLabel(self.tr("Backfill Target Mode:")), self.body_mode)
+        body_layout.addRow(QLabel(self.tr("Target Mode:")), self.body_mode)
 
         self.body_board = QComboBox()
         self.body_board.addItems(["all", "main_notice", "main_academic", "main_scholarship"])
-        body_form.addRow(QLabel(self.tr("MJC Board Filter:")), self.body_board)
+        body_layout.addRow(QLabel(self.tr("Board Filter:")), self.body_board)
 
         self.body_limit = QLineEdit("10")
-        self.body_limit.setPlaceholderText("Number of posts to process")
-        body_form.addRow(QLabel(self.tr("Limit (Limit count):")), self.body_limit)
+        body_layout.addRow(QLabel(self.tr("Process Limit:")), self.body_limit)
 
         run_body_btn = QPushButton(self.tr("🚀 Run Body/Summary Backfill"))
+        run_body_btn.setObjectName("Primary")
         run_body_btn.clicked.connect(self.run_body_backfill)
-        body_form.addRow(run_body_btn)
+        body_layout.addRow(run_body_btn)
 
-        layout.addWidget(body_group)
+        panels_row.addWidget(self.create_card(self.tr("Body Encrichment (backfill_notice_body)"), body_layout))
+
+        layout.addLayout(panels_row)
         layout.addStretch()
 
         widget.setWidget(content)
@@ -902,8 +970,8 @@ class MainWindow(QMainWindow):
         
         content = QWidget()
         layout = QVBoxLayout(content)
-        layout.setContentsMargins(0, 0, 10, 0)
-        layout.setSpacing(15)
+        layout.setContentsMargins(25, 25, 25, 25)
+        layout.setSpacing(20)
 
         title = QLabel(self.tr("🔔 Push Notifications Console"))
         title.setObjectName("Title")
@@ -951,12 +1019,12 @@ class MainWindow(QMainWindow):
         note_layout.setContentsMargins(15, 15, 15, 15)
         
         note_title = QLabel(self.tr("⚠️ Important Operating Rules"))
-        note_title.setStyleSheet("font-weight: bold; color: #FF6B7A; font-size: 13px; margin-bottom: 5px;")
+        note_title.setStyleSheet("font-weight: bold; color: #D13438; font-size: 13px; margin-bottom: 5px;")
         note_body = QLabel(
             "This action sends live broadcast alerts directly to all active app installations matching the designated topic subscription. "
             "Please verify the contents and title formatting prior to dispatch."
         )
-        note_body.setStyleSheet("font-size: 12px; color: #9CA3AF;")
+        note_body.setStyleSheet("font-size: 12px; color: #666666;")
         note_body.setWordWrap(True)
         note_layout.addWidget(note_title)
         note_layout.addWidget(note_body)
@@ -979,8 +1047,8 @@ class MainWindow(QMainWindow):
         
         content = QWidget()
         layout = QVBoxLayout(content)
-        layout.setContentsMargins(0, 0, 10, 0)
-        layout.setSpacing(15)
+        layout.setContentsMargins(25, 25, 25, 25)
+        layout.setSpacing(20)
 
         title = QLabel("🧪 Diagnostics & Local Tests")
         title.setObjectName("Title")
@@ -1031,8 +1099,8 @@ class MainWindow(QMainWindow):
         
         content = QWidget()
         layout = QVBoxLayout(content)
-        layout.setContentsMargins(0, 0, 10, 0)
-        layout.setSpacing(15)
+        layout.setContentsMargins(25, 25, 25, 25)
+        layout.setSpacing(20)
 
         title = QLabel("⚙️ Operations Configuration")
         title.setObjectName("Title")
@@ -1047,6 +1115,18 @@ class MainWindow(QMainWindow):
         form = QFormLayout(card)
         form.setContentsMargins(20, 20, 20, 20)
         form.setSpacing(15)
+
+        # Environment File (.env) Picker
+        env_layout = QHBoxLayout()
+        self.set_env_path = QLineEdit(self.config.get("env_file", "../.env"))
+        self.set_env_path.setPlaceholderText("Path to .env file (optional)")
+        env_layout.addWidget(self.set_env_path)
+        
+        env_browse = QPushButton("Browse")
+        env_browse.setFixedWidth(80)
+        env_browse.clicked.connect(self.browse_env_file)
+        env_layout.addWidget(env_browse)
+        form.addRow(QLabel("Environment File (.env):"), env_layout)
 
         # Service Account Path Picker
         sa_layout = QHBoxLayout()
@@ -1092,6 +1172,22 @@ class MainWindow(QMainWindow):
         self.gemini_form_row_label = QLabel("Gemini API Key:")
         form.addRow(self.gemini_form_row_label, key_layout)
         
+        # Gemini Model Selection
+        self.set_gemini_model = QComboBox()
+        self.set_gemini_model.addItems([
+            "gemini-2.5-flash",
+            "gemini-2.0-flash",
+            "gemini-1.5-flash",
+            "gemini-1.5-pro",
+            "gemini-1.0-pro",
+            "gemma-4-31b-it",
+            "gemma-2-27b-it"
+        ])
+        saved_model = self.config.get("gemini_model", "gemini-2.5-flash")
+        self.set_gemini_model.setCurrentText(saved_model)
+        self.gemini_model_label = QLabel("Gemini Model:")
+        form.addRow(self.gemini_model_label, self.set_gemini_model)
+        
         # Enable/Disable initial state
         self.toggle_gemini_key_field(self.set_gemini_enabled.isChecked())
 
@@ -1119,6 +1215,16 @@ class MainWindow(QMainWindow):
         self.set_gemini_key.setEnabled(checked)
         self.show_key_btn.setEnabled(checked)
         self.gemini_form_row_label.setEnabled(checked)
+        self.set_gemini_model.setEnabled(checked)
+        self.gemini_model_label.setEnabled(checked)
+
+    def browse_env_file(self):
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, "Select Environment File", TEST_DIR, "All Files (*)"
+        )
+        if file_path:
+            relative_path = os.path.relpath(file_path, APP_DIR)
+            self.set_env_path.setText(relative_path.replace("\\", "/"))
 
     def browse_service_account(self):
         file_path, _ = QFileDialog.getOpenFileName(
@@ -1131,11 +1237,13 @@ class MainWindow(QMainWindow):
             self.set_sa_path.setText(relative_path.replace("\\", "/"))
 
     def save_settings_from_form(self):
+        self.config["env_file"] = self.set_env_path.text().strip()
         self.config["service_account"] = self.set_sa_path.text().strip()
         self.config["firebase_project"] = self.set_fb_project.text().strip()
         self.config["min_post_date"] = self.set_min_date.text().strip()
         self.config["gemini_enabled"] = self.set_gemini_enabled.isChecked()
         self.config["gemini_api_key"] = self.set_gemini_key.text().strip()
+        self.config["gemini_model"] = self.set_gemini_model.currentText()
 
         self.save_config()
         QMessageBox.information(self, "Success", "Settings saved and config.json updated successfully!")
@@ -1153,13 +1261,13 @@ class MainWindow(QMainWindow):
 
     def set_app_running_state(self, running, task_name="Task"):
         if running:
-            self.status_indicator.setStyleSheet("color: #4CAF50; font-size: 16px; margin-right: 5px;")
+            self.status_indicator.setStyleSheet("color: #107C10; font-size: 16px; margin-right: 5px;")
             self.status_text.setText(f"Status: Running {task_name}...")
             self.stop_btn.setEnabled(True)
             # Disable script buttons while running
             self.stacked_widget.setEnabled(False)
         else:
-            self.status_indicator.setStyleSheet("color: #7f849c; font-size: 16px; margin-right: 5px;")
+            self.status_indicator.setStyleSheet("color: #AAAAAA; font-size: 16px; margin-right: 5px;")
             self.status_text.setText(self.tr("Status: Idle"))
             self.stop_btn.setEnabled(False)
             self.stacked_widget.setEnabled(True)
@@ -1354,14 +1462,16 @@ class MainWindow(QMainWindow):
 
     def refresh_stats(self):
         if not FIREBASE_AVAILABLE:
-            for board_id, lbl in self.stats_labels.items():
-                lbl.setText(f"• {board_id}: Module unavailable (firebase-admin is missing)")
+            for board_id, labels in self.stats_labels.items():
+                labels[0].setText("ERR")
+                labels[1].setText("Module unavailable (firebase-admin missing)")
             return
 
         sa_path = self.get_resolved_service_account()
         if not os.path.exists(sa_path):
-            for board_id, lbl in self.stats_labels.items():
-                lbl.setText(f"• {board_id}: Credentials missing (Configure key under Settings)")
+            for board_id, labels in self.stats_labels.items():
+                labels[0].setText("ERR")
+                labels[1].setText("Credentials missing (Configure key)")
             return
 
         self.status_text.setText("Loading live stats from Firestore...")
@@ -1375,17 +1485,17 @@ class MainWindow(QMainWindow):
         self.status_text.setText(self.tr("Status: Idle"))
         for board_id, data in stats.items():
             if board_id in self.stats_labels:
-                lbl = self.stats_labels[board_id]
-                lbl.setText(f"• {data['label']}: {data['count']} posts | Latest Crawled: {data['updated_at']}")
-                lbl.setStyleSheet("font-size: 12px; color: #E6FFFFFF;")
+                val_lbl, date_lbl, name_lbl = self.stats_labels[board_id]
+                val_lbl.setText(f"{data['count']}")
+                date_lbl.setText(f"Updated: {data['updated_at']}")
 
     @Slot(str)
     def on_stats_error(self, error_msg):
         self.status_text.setText(self.tr("Status: Idle"))
         print(f"Stats error: {error_msg}")
-        # Muted update display
-        for board_id, lbl in self.stats_labels.items():
-            lbl.setText(f"• {board_id}: Connection failed or DB is empty.")
+        for board_id, labels in self.stats_labels.items():
+            labels[0].setText("ERR")
+            labels[1].setText("Connection failed")
 
 
 def main():

@@ -73,12 +73,9 @@ final class LectureReminderNotificationService {
 
     if (!await LectureReminderNotificationPrefs.isEnabled()) return;
 
-    // 2. 오늘의 남은 수업들 가져오기
+    // 2. 전체 시간표 가져오기
     final List<ParsedCourseOffering> enrolled =
         await TimetableStorageService.loadEnrolled();
-    final List<TimetableSlot> upcoming =
-        TimetableNextLecture.upcomingSlotsToday(enrolled);
-    if (upcoming.isEmpty) return;
 
     // 3. 설정값 확인
     final bool exactEnabled =
@@ -92,81 +89,77 @@ final class LectureReminderNotificationService {
     final bool firstOnly =
         await LectureReminderNotificationPrefs.isFirstClassOnlyEnabled();
 
-    // 4. 알림 스케줄링
-    final DateTime now = DateTime.now();
-    debugPrint("[알림] 스케줄링 시작 — 남은 수업 ${upcoming.length}개, exactEnabled=$exactEnabled, m10=$m10Enabled, m30=$m30Enabled, m60=$m60Enabled, firstOnly=$firstOnly");
-    for (int i = 0; i < upcoming.length; i++) {
-      final TimetableSlot slot = upcoming[i];
-      if (firstOnly && i > 0) {
-        // 첫 수업만 알림인데, 두 번째 이후 수업이면 건너뜀
-        break;
-      }
+    // 4. 주간 스케줄링 (요일과 시간 기준 반복 알림)
+    final tz.TZDateTime now = tz.TZDateTime.now(tz.local);
+    debugPrint("[알림] 주간 반복 스케줄링 시작 (전체 요일 대상)");
 
-      final DateTime classStart = DateTime(
-        now.year,
-        now.month,
-        now.day,
-        slot.startMinute ~/ 60,
-        slot.startMinute % 60,
-      );
-      final String roomText =
-          slot.room.trim().isEmpty ? "" : " · ${slot.room.trim()}";
+    for (int wd = 1; wd <= 7; wd++) {
+      final List<TimetableSlot> daySlots = TimetableNextLecture.allSlotsForWeekday(enrolled, wd);
+      if (daySlots.isEmpty) continue;
 
-      final int baseId = 91000 + slot.startMinute * 10;
-      debugPrint("[알림] '${slot.courseName}' classStart=$classStart now=$now");
+      for (int i = 0; i < daySlots.length; i++) {
+        final TimetableSlot slot = daySlots[i];
+        if (firstOnly && i > 0) break;
 
-      if (exactEnabled && classStart.isAfter(now)) {
-        debugPrint("[알림] 정각 알림 예약 시도: $classStart");
-        await _schedule(
-          id: baseId,
-          time: classStart,
-          title: "수업 시작",
-          body: "${slot.courseName} 수업이 시작되었습니다.$roomText",
+        final int baseId = 91000 + (wd * 1000) + slot.startMinute;
+        final String roomText =
+            slot.room.trim().isEmpty ? "" : " · ${slot.room.trim()}";
+
+        // 해당 요일/시간의 가장 가까운 미래의 시간표 시작 시간을 구합니다.
+        tz.TZDateTime classStart = tz.TZDateTime(
+          tz.local, now.year, now.month, now.day,
+          slot.startMinute ~/ 60, slot.startMinute % 60,
         );
-      }
-      if (m10Enabled) {
-        final DateTime t = classStart.subtract(const Duration(minutes: 10));
-        if (t.isAfter(now)) {
-          debugPrint("[알림] 10분 전 알림 예약 시도: $t");
-          await _schedule(
+        while (classStart.weekday != wd || classStart.isBefore(now)) {
+          classStart = classStart.add(const Duration(days: 1));
+        }
+
+        if (exactEnabled) {
+          await _scheduleWeekly(
+            id: baseId,
+            alarmTime: classStart,
+            title: "수업 시작",
+            body: "${slot.courseName} 수업이 시작되었습니다.$roomText",
+          );
+        }
+        if (m10Enabled) {
+          tz.TZDateTime t = classStart.subtract(const Duration(minutes: 10));
+          if (t.isBefore(now)) t = t.add(const Duration(days: 7));
+          await _scheduleWeekly(
             id: baseId + 1,
-            time: t,
+            alarmTime: t,
             title: "수업 시작 10분 전",
             body: "${slot.courseName} 수업이 10분 뒤 시작됩니다.$roomText",
           );
         }
-      }
-      if (m30Enabled) {
-        final DateTime t = classStart.subtract(const Duration(minutes: 30));
-        if (t.isAfter(now)) {
-          debugPrint("[알림] 30분 전 알림 예약 시도: $t");
-          await _schedule(
+        if (m30Enabled) {
+          tz.TZDateTime t = classStart.subtract(const Duration(minutes: 30));
+          if (t.isBefore(now)) t = t.add(const Duration(days: 7));
+          await _scheduleWeekly(
             id: baseId + 2,
-            time: t,
+            alarmTime: t,
             title: "수업 시작 30분 전",
             body: "${slot.courseName} 수업이 30분 뒤 시작됩니다.$roomText",
           );
         }
-      }
-      if (m60Enabled) {
-        final DateTime t = classStart.subtract(const Duration(minutes: 60));
-        if (t.isAfter(now)) {
-          debugPrint("[알림] 60분 전 알림 예약 시도: $t");
-          await _schedule(
+        if (m60Enabled) {
+          tz.TZDateTime t = classStart.subtract(const Duration(minutes: 60));
+          if (t.isBefore(now)) t = t.add(const Duration(days: 7));
+          await _scheduleWeekly(
             id: baseId + 3,
-            time: t,
+            alarmTime: t,
             title: "수업 시작 1시간 전",
             body: "${slot.courseName} 수업이 1시간 뒤 시작됩니다.$roomText",
           );
         }
       }
     }
-    debugPrint("[알림] refreshNow 완료");
+    debugPrint("[알림] refreshNow 완료 (주간 반복 알람)");
   }
 
-  Future<void> _schedule({
+  Future<void> _scheduleWeekly({
     required int id,
-    required DateTime time,
+    required tz.TZDateTime alarmTime,
     required String title,
     required String body,
   }) async {
@@ -175,27 +168,29 @@ final class LectureReminderNotificationService {
         id,
         title,
         body,
-        tz.TZDateTime.from(time, tz.local),
+        alarmTime,
         scheduledLectureReminderNotificationDetails(),
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
+        matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
       );
-      debugPrint("[알림] ✅ 예약 성공 id=$id '$title' at $time");
+      debugPrint("[알림] ✅ 예약 성공 id=$id '$title' at $alarmTime");
     } catch (e) {
-      debugPrint("[알림] ⚠️ 정확한 알람 실패, 일반 알람으로 대체: $e");
+      debugPrint("[알림] ⚠️ 정확한 알람 예약 실패, 일반 알람으로 대체: $e");
       try {
         await _flnp.zonedSchedule(
           id,
           title,
           body,
-          tz.TZDateTime.from(time, tz.local),
+          alarmTime,
           scheduledLectureReminderNotificationDetails(),
           androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
           uiLocalNotificationDateInterpretation:
               UILocalNotificationDateInterpretation.absoluteTime,
+          matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
         );
-        debugPrint("[알림] ✅ 일반 알람 예약 성공 id=$id '$title' at $time");
+        debugPrint("[알림] ✅ 일반 알람 예약 성공 id=$id '$title' at $alarmTime");
       } catch (e2) {
         debugPrint("[알림] ❌ 알람 스케줄링 최종 실패: $e2");
       }

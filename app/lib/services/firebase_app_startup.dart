@@ -8,7 +8,7 @@ Future<void>? _firebaseStartupFuture;
 /// [main]에서 [runApp] 직전에 한 번 호출해 Firebase 초기화를 시작한다.
 /// UI는 즉시 뜨고, [waitForFirebaseStartup]으로 완료를 기다린 뒤 Firestore 등을 쓰면 된다.
 Future<void> startFirebaseAppServices({
-  required void Function(RemoteMessage message) onForegroundMessage,
+  required void Function(RemoteMessage message, {bool isBackground}) onForegroundMessage,
 }) {
   return _firebaseStartupFuture ??=
       _bootstrapFirebase(onForegroundMessage: onForegroundMessage);
@@ -21,7 +21,7 @@ Future<void> waitForFirebaseStartup() async {
 }
 
 Future<void> _bootstrapFirebase({
-  required void Function(RemoteMessage message) onForegroundMessage,
+  required void Function(RemoteMessage message, {bool isBackground}) onForegroundMessage,
 }) async {
   try {
     await Firebase.initializeApp(
@@ -31,7 +31,7 @@ Future<void> _bootstrapFirebase({
     final FirebaseMessaging messaging = FirebaseMessaging.instance;
     await messaging.requestPermission();
 
-    FirebaseMessaging.onMessage.listen(onForegroundMessage);
+    FirebaseMessaging.onMessage.listen((msg) => onForegroundMessage(msg, isBackground: false));
 
     // 토픽 구독은 네트워크 의존적이므로 완료를 기다리지 않는다.
     // FCM SDK가 연결 복구 시 자동 재시도한다.

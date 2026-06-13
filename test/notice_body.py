@@ -45,7 +45,7 @@ SUMMARY_LMSTUDIO_VERSION = "lmstudio-v1"
 SUMMARY_MANUAL_VERSION = "manual"
 
 GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta"
-DEFAULT_GEMINI_MODEL = "gemini-2.0-flash"
+DEFAULT_GEMINI_MODEL = "gemma-4-31b-it"
 
 
 def _gemini_debug_enabled() -> bool:
@@ -536,7 +536,7 @@ def gemini_summarize(
         API 키·본문이 비어 있으면 ``(None, "")``.
         HTTP 이후 실패 시 ``fail_reason`` (``timeout``, ``http_429``, ``json_decode`` 등).
 
-    환경변수: ``GEMINI_API_KEY``, ``GEMINI_MODEL`` (기본 ``gemini-2.0-flash``).
+    환경변수: ``GEMINI_API_KEY``, ``GEMINI_MODEL`` (기본 ``gemma-4-31b-it``).
     디버그: ``GEMINI_DEBUG=1``.
     """
     key = (api_key or os.environ.get("GEMINI_API_KEY") or "").strip()

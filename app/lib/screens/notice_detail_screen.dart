@@ -323,6 +323,7 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
           NotificationListener<ScrollNotification>(
             onNotification: _handleScrollNotification,
             child: ListView(
+              physics: const BouncingScrollPhysics(),
               padding: EdgeInsets.fromLTRB(
                 20,
                 16,
@@ -454,20 +455,58 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
     );
   }
 
-  /// 라이트 모드 연한 파란 그라데이션을 어두운 배경 위에서도 동일하게 보이게 합성.
-  LinearGradient _summaryCardGradient(Color primary, {required bool isDark}) {
-    final Color base =
-        isDark ? const Color(0xFFc4c5c9) : AppColors.scaffoldMuted;
-    final double topAlpha = isDark ? 0.10 : 0.12;
-    final double bottomAlpha = isDark ? 0.028 : 0.03;
-    return LinearGradient(
-      colors: <Color>[
-        Color.alphaBlend(primary.withValues(alpha: topAlpha), base),
-        Color.alphaBlend(primary.withValues(alpha: bottomAlpha), base),
-      ],
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-    );
+  BoxDecoration _summaryCardDecoration(ThemeData theme, ColorScheme scheme) {
+    final bool isDark = theme.brightness == Brightness.dark;
+    
+    if (isDark) {
+      final Color base = scheme.surface;
+      return BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Color.alphaBlend(scheme.primary.withValues(alpha: 0.25), base),
+            Color.alphaBlend(const Color(0xFFCE93D8).withValues(alpha: 0.18), base),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: scheme.primary.withValues(alpha: 0.45),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.3),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      );
+    } else {
+      final Color base = AppColors.scaffoldMuted;
+      return BoxDecoration(
+        gradient: LinearGradient(
+          colors: <Color>[
+            Color.alphaBlend(scheme.primary.withValues(alpha: 0.12), base),
+            Color.alphaBlend(scheme.primary.withValues(alpha: 0.03), base),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: scheme.primary.withValues(alpha: 0.3),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: scheme.primary.withValues(alpha: 0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      );
+    }
   }
 
   /// 밝은 요약 박스 위 텍스트 — 다크 테마 [TextStyle.foreground]가 color를 덮어쓰지 않게 분리.
@@ -485,47 +524,36 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
   Widget _buildSummaryCard(ThemeData theme, ColorScheme scheme) {
     final bool hasSummary = _summary.trim().isNotEmpty;
     final bool isDark = theme.brightness == Brightness.dark;
-    // 다크 모드: 연한 파란 카드 위에 라이트 모드와 같은 진한 글자색.
-    final Color summaryOnSurface =
-        isDark ? const Color(0xDE000000) : scheme.onSurface;
-    final Color summaryOnSurfaceVariant =
-        isDark ? AppColors.mutedForeground : scheme.onSurfaceVariant;
-    final Color reportAccent =
-        isDark ? const Color(0xFFD4183D) : scheme.error;
+    
+    // 다크 모드에서도 올바른 텍스트 색상 사용
+    final Color summaryOnSurface = scheme.onSurface;
+    final Color summaryOnSurfaceVariant = scheme.onSurfaceVariant;
+    final Color reportAccent = isDark ? const Color(0xFFFF8A80) : scheme.error;
 
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: _summaryCardGradient(scheme.primary, isDark: isDark),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: scheme.primary.withValues(alpha: 0.3),
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: scheme.primary.withValues(alpha: 0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+      decoration: _summaryCardDecoration(theme, scheme),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(Icons.auto_awesome, size: 18, color: scheme.primary)
+              Icon(Icons.auto_awesome, size: 18, color: isDark ? const Color(0xFF82B1FF) : scheme.primary)
                   .animate(onPlay: (controller) => controller.repeat(reverse: true))
                   .scale(begin: const Offset(0.9, 0.9), end: const Offset(1.1, 1.1), duration: 1.seconds)
                   .shimmer(duration: 2.seconds, color: Colors.white.withValues(alpha: 0.5)),
               const SizedBox(width: 6),
               ShaderMask(
                 shaderCallback: (bounds) => LinearGradient(
-                  colors: [
-                    scheme.primary,
-                    const Color(0xFF9C27B0),
-                  ],
+                  colors: isDark
+                      ? [
+                          const Color(0xFF82B1FF), // 밝은 하늘색
+                          const Color(0xFFEA80FC), // 밝은 보라색
+                        ]
+                      : [
+                          scheme.primary,
+                          const Color(0xFF9C27B0),
+                        ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ).createShader(bounds),

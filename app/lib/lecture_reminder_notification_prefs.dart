@@ -11,8 +11,10 @@ const String kLectureReminderFirstOnlyPrefKey = "lecture_reminder_first_only";
 /// 시간표 기준 강의 알림 설정 저장소.
 abstract final class LectureReminderNotificationPrefs {
   static Future<bool> isEnabled() async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(kLectureReminderNotificationEnabledPrefKey) ?? false;
+    return (await isExactEnabled()) ||
+        (await is10mEnabled()) ||
+        (await is30mEnabled()) ||
+        (await is60mEnabled());
   }
 
   static Future<void> setEnabled(bool enabled) async {

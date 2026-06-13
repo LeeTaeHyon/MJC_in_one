@@ -1,5 +1,6 @@
 import "package:flutter/material.dart";
 import "package:mjc_in_one/services/app_permission_checker.dart";
+import "package:mjc_in_one/theme/app_colors.dart";
 
 const Color _pageBackground = Color(0xFFF5F7F9);
 const Color _cardBorder = Color(0xFFEDEDED);
@@ -102,7 +103,9 @@ class _PhonePermissionsScreenState extends State<PhonePermissionsScreen>
 
   Color _statusColor(BuildContext context, MjcPermissionInfo item) {
     final ColorScheme scheme = Theme.of(context).colorScheme;
-    if (item.isGranted) return scheme.primary;
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color primaryColor = isDark ? AppColors.switchActiveDark : scheme.primary;
+    if (item.isGranted) return primaryColor;
     if (item.state == MjcPermissionState.notSupported) {
       return scheme.onSurfaceVariant;
     }
@@ -112,6 +115,10 @@ class _PhonePermissionsScreenState extends State<PhonePermissionsScreen>
   Widget _permissionCard(MjcPermissionInfo item) {
     final bool busy = _requestingId == item.id;
     final Color statusColor = _statusColor(context, item);
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color primaryColor = isDark
+        ? AppColors.switchActiveDark
+        : Theme.of(context).colorScheme.primary;
 
     return Material(
       color: Theme.of(context).colorScheme.surface,
@@ -171,6 +178,9 @@ class _PhonePermissionsScreenState extends State<PhonePermissionsScreen>
                 if (item.state != MjcPermissionState.notSupported)
                   TextButton(
                     onPressed: busy ? null : () => _onRequest(item),
+                    style: TextButton.styleFrom(
+                      foregroundColor: primaryColor,
+                    ),
                     child: busy
                         ? const SizedBox(
                             width: 18,
@@ -232,7 +242,9 @@ class _PhonePermissionsScreenState extends State<PhonePermissionsScreen>
                         children: <Widget>[
                           Icon(
                             Icons.verified_user_outlined,
-                            color: Theme.of(context).colorScheme.primary,
+                            color: Theme.of(context).brightness == Brightness.dark
+                                ? AppColors.switchActiveDark
+                                : Theme.of(context).colorScheme.primary,
                           ),
                           const SizedBox(width: 12),
                           Expanded(

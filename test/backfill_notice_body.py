@@ -120,10 +120,10 @@ def _should_process(
         if not data.get("needs_resummary"):
             return False
 
-    # AI 요약이 이미 되어 있으면 스킵
+    # AI 요약이 이미 되어 있으면 스킵 (heuristic-v1이 아닌 값이 있으면 스킵)
     if missing_ai_only:
         sv = str(data.get("summary_version") or "").strip()
-        if sv.startswith("gemini"):
+        if sv and sv != "heuristic-v1":
             return False
         
         # AI 요약이 없는데 summary_only 라면 기존 본문이 있어야 함
@@ -372,11 +372,6 @@ def backfill_one_board(
                 str(post.get("body") or "").strip()
                 or str(post.get("body_html") or "").strip()
             ):
-                print(
-                    f"[스킵] {board_id}/{doc.id} 본문·body_html 없음 "
-                    f"(--body-only 로 먼저 채우거나 --force 전체 모드 사용)",
-                    file=sys.stderr,
-                )
                 continue
             _enrich_post(
                 post,
@@ -606,7 +601,7 @@ def main() -> None:
     )
     ap.add_argument(
         "--gemini-model",
-        default=os.environ.get("GEMINI_MODEL", "gemini-2.0-flash"),
+        default=os.environ.get("GEMINI_MODEL", "gemma-4-31b-it"),
     )
     ap.add_argument(
         "--gemini-debug",
