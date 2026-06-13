@@ -216,11 +216,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   left: 0,
                   right: 0,
                   height: headerHeight + _kLoginSheetOverlap,
-                  child: ClipRRect(
-                    borderRadius: const BorderRadius.vertical(
-                      bottom: Radius.circular(_kLoginSheetTopRadius),
-                    ),
-                    child: Stack(
+                  child: Stack(
                       fit: StackFit.expand,
                       children: <Widget>[
                         DecoratedBox(
@@ -297,7 +293,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       ],
                     ),
                   ),
-                ),
                 AnimatedPositioned(
                   duration: const Duration(milliseconds: 220),
                   curve: Curves.easeOutCubic,

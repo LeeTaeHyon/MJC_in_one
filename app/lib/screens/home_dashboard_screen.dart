@@ -1783,6 +1783,7 @@ class _FoodcourtDiceButtonState extends State<_FoodcourtDiceButton>
 
   @override
   Widget build(BuildContext context) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -1809,9 +1810,9 @@ class _FoodcourtDiceButtonState extends State<_FoodcourtDiceButton>
                 shape: BoxShape.circle,
                 color: widget.foodAccent,
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.casino_rounded,
-                color: Colors.white,
+                color: isDark ? const Color(0xFF3E2723) : Colors.white,
                 size: 22,
               ),
             ),

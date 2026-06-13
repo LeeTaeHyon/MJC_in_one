@@ -629,11 +629,12 @@ class _MjcFoodcourtRecommendDialogState
                     onPressed: _spinning ? null : _startSpin,
                     style: FilledButton.styleFrom(
                       backgroundColor: foodAccent,
-                      foregroundColor: Colors.white,
+                      foregroundColor: isDark ? const Color(0xFF3E2723) : Colors.white,
                       disabledBackgroundColor:
                           foodAccent.withValues(alpha: 0.45),
-                      disabledForegroundColor:
-                          Colors.white.withValues(alpha: 0.8),
+                      disabledForegroundColor: isDark
+                          ? const Color(0xFF3E2723).withValues(alpha: 0.6)
+                          : Colors.white.withValues(alpha: 0.8),
                       minimumSize: const Size(0, kMjcDialogButtonHeight),
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       shape: RoundedRectangleBorder(

@@ -187,11 +187,12 @@ class _TimetableMainScreenState extends State<TimetableMainScreen> {
   void _showOfferingDetailSheet(ParsedCourseOffering o) {
     showModalBottomSheet<void>(
       context: context,
-      showDragHandle: true,
+      showDragHandle: false,
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainerHigh,
       builder: (BuildContext ctx) {
         return SafeArea(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+            padding: const EdgeInsets.fromLTRB(20, 4, 16, 16),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -199,15 +200,23 @@ class _TimetableMainScreenState extends State<TimetableMainScreen> {
                 Row(
                   children: <Widget>[
                     Expanded(
-                      child: Text(
-                        o.courseName,
-                        style: TextStyle(
-                          fontFamily: kPretendardFontFamily,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                          color: Theme.of(ctx).colorScheme.onSurface,
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 12),
+                        child: Text(
+                          o.courseName,
+                          style: TextStyle(
+                            fontFamily: kPretendardFontFamily,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: Theme.of(ctx).colorScheme.onSurface,
+                          ),
                         ),
                       ),
+                    ),
+                    IconButton(
+                      tooltip: "닫기",
+                      onPressed: () => Navigator.of(ctx).pop(),
+                      icon: const Icon(Icons.close_rounded),
                     ),
                   ],
                 ),
